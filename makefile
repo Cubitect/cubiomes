@@ -1,6 +1,6 @@
-CC      = gcc
+CC      = g++
 CFLAGS  = -O3 -Wall -fwrapv
-LDFLAGS = -lm -lX11 -pthread
+LDFLAGS = -lm -pthread
 
 .PHONY : all clean
 

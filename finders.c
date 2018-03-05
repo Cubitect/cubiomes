@@ -589,10 +589,6 @@ const int majorBiomes[] = {
 long filterAllMajorBiomes(long *seedsIn, long *seedsOut, long seedCnt,
         int pX, int pZ, uint sX, uint sZ)
 {
-    /* We want to determine if
-     *
-     */
-
     Generator gFilterMushroom = setupGenerator();
     gFilterMushroom.topLayerIndex = 17;
     Generator gFilterBiomes = setupGenerator();
