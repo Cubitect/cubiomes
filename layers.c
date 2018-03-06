@@ -886,7 +886,7 @@ inline static int replaceOcean(int *out, int idx, int v10, int v21, int v01, int
 
 inline static int isBiomeJFTO(int id)
 {
-    return biomeExists(id) && getBiomeType(id) == Jungle ? 1 : id == forest || id == taiga || isOceanic(id);
+    return biomeExists(id) && (getBiomeType(id) == Jungle || id == forest || id == taiga || isOceanic(id));
 }
 
 void mapShore(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
