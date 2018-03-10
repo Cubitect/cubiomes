@@ -70,6 +70,19 @@ void initBiomes()
     initAddBiome(mesaPlateau_F, Warm, Mesa, 2.0, hHighPlateaus);
     initAddBiome(mesaPlateau, Warm, Mesa, 2.0, hHighPlateaus);
 
+    // TODO: determine the 1.13 biome properties
+    initAddBiome(skyIslandLow, Lush, Sky, 0, 0);
+    initAddBiome(skyIslandMedium, Lush, Sky, 0, 0);
+    initAddBiome(skyIslandHigh, Lush, Sky, 0, 0);
+    initAddBiome(skyIslandBarren, Lush, Sky, 0, 0);
+    initAddBiome(warmOcean, Oceanic, Ocean, 0, 0);
+    initAddBiome(lukewarmOcean, Oceanic, Ocean, 0, 0);
+    initAddBiome(coldOcean, Oceanic, Ocean, 0, 0);
+    initAddBiome(warmDeepOcean, Oceanic, Ocean, 0, 0);
+    initAddBiome(lukewarmDeepOcean, Oceanic, Ocean, 0, 0);
+    initAddBiome(coldDeepOcean, Oceanic, Ocean, 0, 0);
+    initAddBiome(frozenDeepOcean, Oceanic, Ocean, 0, 0);
+
     createMutation(plains);
     createMutation(desert);
     createMutation(extremeHills);
@@ -96,9 +109,11 @@ void initBiomes()
 
 void setWorldSeed(Layer *layer, long seed)
 {
-    if(layer->getMap == mapRiverMix) setWorldSeed(layer->p2, seed);
+    if(layer->p2 != NULL && layer->getMap != mapHills)
+        setWorldSeed(layer->p2, seed);
 
-    if(layer->p != NULL) setWorldSeed(layer->p, seed);
+    if(layer->p != NULL)
+        setWorldSeed(layer->p, seed);
 
     layer->worldSeed = seed;
     layer->worldSeed *= layer->worldSeed * 6364136223846793005L + 1442695040888963407L;
@@ -291,15 +306,15 @@ void mapAddSnow(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWi
         {
             int v11 = out[x+1 + (z+1)*pWidth];
 
-            if(v11 == 0)
+            if(isShallowOcean(v11))
             {
-                out[x + z*areaWidth] = 0;
+                out[x + z*areaWidth] = v11;
             }
             else
             {
                 setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
                 int r = mcNextInt(l, 6);
-                char v;
+                int v;
 
                 if(r == 0)      v = 4;
                 else if(r <= 1) v = 3;
@@ -310,6 +325,8 @@ void mapAddSnow(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWi
         }
     }
 }
+
+
 
 
 void mapCoolWarm(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
@@ -454,18 +471,34 @@ void mapDeepOcean(Layer *l, int * __restrict out, int areaX, int areaZ, int area
         for(x = 0; x < areaWidth; x++)
         {
             int v11 = out[(x+1) + (z+1)*pWidth];
-            int oceans = 0;
 
-            // count adjacent oceans
-            if(out[(x+1) + (z+0)*pWidth] == 0) oceans++;
-            if(out[(x+2) + (z+1)*pWidth] == 0) oceans++;
-            if(out[(x+0) + (z+1)*pWidth] == 0) oceans++;
-            if(out[(x+1) + (z+2)*pWidth] == 0) oceans++;
+            if(isShallowOcean(v11))
+            {
+                // count adjacent oceans
+                int oceans = 0;
+                if(isShallowOcean(out[(x+1) + (z+0)*pWidth])) oceans++;
+                if(isShallowOcean(out[(x+2) + (z+1)*pWidth])) oceans++;
+                if(isShallowOcean(out[(x+0) + (z+1)*pWidth])) oceans++;
+                if(isShallowOcean(out[(x+1) + (z+2)*pWidth])) oceans++;
 
-            if(v11 == 0 && oceans > 3)
-                out[x + z*areaWidth] = deepOcean;
-            else
-                out[x + z*areaWidth] = v11;
+                if(oceans > 3)
+                {
+                    if(v11 == warmOcean)
+                        v11 = warmDeepOcean;
+                    else if(v11 == lukewarmOcean)
+                        v11 = lukewarmDeepOcean;
+                    else if(v11 == ocean)
+                        v11 = deepOcean;
+                    else if(v11 == coldOcean)
+                        v11 = coldDeepOcean;
+                    else if(v11 == frozenOcean)
+                        v11 = frozenDeepOcean;
+                    else
+                        v11 = deepOcean;
+                }
+            }
+
+            out[x + z*areaWidth] = v11;
         }
     }
 }
@@ -855,13 +888,10 @@ void mapRareBiome(Layer *l, int * __restrict out, int areaX, int areaZ, int area
             setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
             int v11 = out[x+1 + (z+1)*pWidth];
 
-            if(mcNextInt(l, 57) == 0)
+            if(mcNextInt(l, 57) == 0 && v11 == plains)
             {
                 // Flower Forest
-                if(v11 == plains)
-                    out[x + z*areaWidth] = plains + 128;
-                else
-                    out[x + z*areaWidth] = v11;
+                out[x + z*areaWidth] = plains + 128;
             }
             else
             {
@@ -987,6 +1017,139 @@ void mapRiverMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
         exit(1);
     }
 
+    l->p->getMap(l->p, out, areaX, areaZ, areaWidth, areaHeight); // biome chain
+    memcpy(buf, out, areaWidth*areaHeight*sizeof(int));
+
+    l->p2->getMap(l->p2, out, areaX, areaZ, areaWidth, areaHeight); // rivers
+
+    for(idx = 0; idx < areaHeight*areaWidth; idx++)
+    {
+        if(isOceanic(buf[idx]))
+        {
+            out[idx] = buf[idx];
+        }
+        else
+        {
+            if(out[idx] == river)
+            {
+                if(buf[idx] == icePlains)
+                    out[idx] = frozenRiver;
+                else if(buf[idx] == mushroomIsland || buf[idx] == mushroomIslandShore)
+                    out[idx] = mushroomIslandShore;
+                else
+                    out[idx] = out[idx] & 255;
+            }
+            else
+            {
+                out[idx] = buf[idx];
+            }
+        }
+    }
+
+    free(buf);
+}
+
+
+
+void mapOceanTemp(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
+{
+    // The new ocean branch doesn't actually depend on previous layers.
+
+    //int pX = areaX - 1;
+    //int pZ = areaZ - 1;
+    //int pWidth = areaWidth + 2;
+    //int pHeight = areaHeight + 2;
+    int x, z;
+
+    //l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
+
+    for(z = 0; z < areaHeight; z++)
+    {
+        for(x = 0; x < areaWidth; x++)
+        {
+            setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
+
+            int v11;
+
+            float tmp = (float)mcNextInt(l, 100) / 100.0f;
+
+            if(tmp < 0.05f)
+                v11 = warmOcean;
+            else if(tmp < 0.4f)
+                v11 = lukewarmOcean;
+            else if(tmp < 0.675f)
+                v11 = ocean;
+            else if(tmp < 0.95f)
+                v11 = coldOcean;
+            else if(tmp < 1.0f)
+                v11 = frozenOcean;
+            else
+                v11 = ocean;
+
+            out[x + z*areaWidth] = v11;
+        }
+    }
+}
+
+void mapEdgeOcean(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
+{
+    int pX = areaX - 1;
+    int pZ = areaZ - 1;
+    int pWidth = areaWidth + 2;
+    int pHeight = areaHeight + 2;
+    int x, z;
+
+    l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
+
+    for(z = 0; z < areaHeight; z++)
+    {
+        for(x = 0; x < areaWidth; x++)
+        {
+            int v11 = out[x+1 + (z+1)*pWidth];
+
+            if(v11 == warmOcean)
+            {
+                int v10 = out[x+1 + (z+0)*pWidth];
+                int v21 = out[x+2 + (z+1)*pWidth];
+                int v01 = out[x+0 + (z+1)*pWidth];
+                int v12 = out[x+1 + (z+2)*pWidth];
+
+                if(v10 == frozenOcean || v21 == frozenOcean || v01 == frozenOcean || v12 == frozenOcean)
+                {
+                    v11 = ocean;
+                }
+            }
+
+            if(v11 == frozenOcean)
+            {
+                int v10 = out[x+1 + (z+0)*pWidth];
+                int v21 = out[x+2 + (z+1)*pWidth];
+                int v01 = out[x+0 + (z+1)*pWidth];
+                int v12 = out[x+1 + (z+2)*pWidth];
+
+                if(v10 == warmOcean || v21 == warmOcean || v01 == warmOcean || v12 == warmOcean)
+                {
+                    v11 = ocean;
+                }
+            }
+
+            out[x + z*areaWidth] = v11;
+        }
+    }
+}
+
+
+void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
+{
+    int idx;
+    int *buf = (int*)malloc(areaWidth*areaHeight*sizeof(int));
+
+    if(l->p2 == NULL)
+    {
+        printf("mapOceanMix() requires two parents! Use setupMultiLayer()\n");
+        exit(1);
+    }
+
     l->p->getMap(l->p, out, areaX, areaZ, areaWidth, areaHeight);
     memcpy(buf, out, areaWidth*areaHeight*sizeof(int));
 
@@ -994,30 +1157,28 @@ void mapRiverMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
 
     for(idx = 0; idx < areaHeight*areaWidth; idx++)
     {
-        if(buf[idx] != ocean && buf[idx] != deepOcean)
-        {
-            if (out[idx] == river)
-            {
-                if(buf[idx] == icePlains)
-                    out[idx] = frozenRiver;
-                else if(buf[idx] != mushroomIsland && buf[idx] != mushroomIslandShore)
-                    out[idx] = out[idx] & 255;
-                else
-                    out[idx] = mushroomIslandShore;
-            }
-            else
-            {
-                out[idx] = buf[idx];
-            }
-        }
-        else
+        if(!isOceanic(buf[idx]) || !isOceanic(out[idx]))
         {
             out[idx] = buf[idx];
+        }
+        else if(buf[idx] == deepOcean)
+        {
+            if(out[idx] == lukewarmOcean)
+                out[idx] = lukewarmDeepOcean;
+            else if(out[idx] == ocean)
+                out[idx] = deepOcean;
+            else if(out[idx] == coldOcean)
+                out[idx] = coldDeepOcean;
+            else if(out[idx] == frozenOcean)
+                out[idx] = frozenDeepOcean;
         }
     }
 
     free(buf);
 }
+
+
+
 
 
 void mapVoronoiZoom(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)

@@ -63,6 +63,14 @@ void initBiomeColours(unsigned char biomeColours[256][3])
     setBiomeColour(biomeColours, mesaPlateau_F, 176, 151, 101);
     setBiomeColour(biomeColours, mesaPlateau, 202, 140, 101);
 
+    setBiomeColour(biomeColours, warmOcean, 0, 50, 92);
+    setBiomeColour(biomeColours, lukewarmOcean, 0, 30, 100);
+    setBiomeColour(biomeColours, coldOcean, 20, 20, 80);
+    setBiomeColour(biomeColours, warmDeepOcean, 0, 24, 38);
+    setBiomeColour(biomeColours, lukewarmDeepOcean, 0, 16, 42);
+    setBiomeColour(biomeColours, coldDeepOcean, 16, 16, 40);
+    setBiomeColour(biomeColours, frozenDeepOcean, 100, 100, 112);
+
 
     setBiomeColour(biomeColours, ocean+128, 0, 0, 112);
     setBiomeColour(biomeColours, plains+128, 141, 179, 96);

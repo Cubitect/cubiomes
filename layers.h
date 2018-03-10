@@ -7,12 +7,16 @@
 
 #define OPT_O2 __attribute__((optimize("O2")))
 
+
 enum BiomeID {
     none = -1,
     ocean = 0, plains, desert, extremeHills, forest, taiga, swampland, river, hell, sky, // 0-9
     frozenOcean, frozenRiver, icePlains, iceMountains, mushroomIsland, mushroomIslandShore, beach, desertHills, forestHills, taigaHills,  // 10-19
     extremeHillsEdge, jungle, jungleHills, jungleEdge, deepOcean, stoneBeach, coldBeach, birchForest, birchForestHills, roofedForest, // 20-29
     coldTaiga, coldTaigaHills, megaTaiga, megaTaigaHills, extremeHillsPlus, savanna, savannaPlateau, mesa, mesaPlateau_F, mesaPlateau, // 30-39
+    // 1.13
+    skyIslandLow, skyIslandMedium, skyIslandHigh, skyIslandBarren, warmOcean, lukewarmOcean, coldOcean, warmDeepOcean, lukewarmDeepOcean, coldDeepOcean, // 40-49
+    frozenDeepOcean,
     BIOME_NUM
 };
 
@@ -91,10 +95,32 @@ static inline int canBeNeighbors(int id1, int id2)
     return tempCat1 == tempCat2;
 }
 
+static inline int isShallowOcean(int id)
+{
+    return id == ocean || id == frozenOcean ||
+           id == warmOcean || id == lukewarmOcean || id == coldOcean;
+}
+
 static inline int isOceanic(int id)
 {
-    return id == ocean || id == deepOcean || id == frozenOcean;
+    switch(id)
+    {
+    case ocean:
+    case deepOcean:
+    case warmOcean:
+    case warmDeepOcean:
+    case lukewarmOcean:
+    case lukewarmDeepOcean:
+    case coldOcean:
+    case coldDeepOcean:
+    case frozenOcean:
+    case frozenDeepOcean:
+        return 1;
+    default:
+        return 0;
+    }
 }
+
 
 static inline int isBiomeSnowy(int id)
 {
@@ -195,7 +221,11 @@ void mapSmooth(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapRareBiome(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapShore(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapRiverMix(Layer *l, int * __restrict out, int x, int z, int w, int h);
-void mapVoronoiZoom(Layer *l, int * __restrict out, int x, int z, int w, int h);
 
+void mapOceanTemp(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight);
+void mapEdgeOcean(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight);
+void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight);
+
+void mapVoronoiZoom(Layer *l, int * __restrict out, int x, int z, int w, int h);
 
 #endif /* LAYER_H_ */

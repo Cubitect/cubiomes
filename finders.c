@@ -426,6 +426,120 @@ Pos getTempleChunkInRegion(long seed, int regionX, int regionZ)
 }
 
 
+/* findBiomePosition
+ * -----------------
+ * Finds a suitable pseudo-random location in the specified area.
+ * Used to determine the positions of spawn and stongholds.
+ * The return value is non-zero if a valid location was found.
+ * Warning: accurate, but slow!
+ *
+ * TODO: Spawn finding not working in 1.10
+ */
+int findBiomePosition(Generator *g, Pos *out, int centerX, int centerZ, int range, const int *biomeList, long *seed)
+{
+    int x1 = (centerX-range) >> 2;
+    int z1 = (centerZ-range) >> 2;
+    int x2 = (centerX+range) >> 2;
+    int z2 = (centerZ+range) >> 2;
+    int width  = x2 - x1 + 1;
+    int height = z2 - z1 + 1;
+    int *map = allocCache(g, width, height);
+
+    genArea(g, map, x1, z1, width, height);
+    int i, found = 0;
+
+    out->x = 0;
+    out->z = 0;
+
+    for(i = 0; i < width*height; i++)
+    {
+        int biome = map[i];
+
+        if(biomeList[biome & 0xff] && (found == 0 || nextInt(seed, found + 1) == 0))
+        {
+            out->x = (x1 + i%width) << 2;
+            out->z = (z1 + i/width) << 2;
+            ++found;
+        }
+    }
+
+    free(map);
+    return found;
+}
+
+
+/*s
+Pos getSpawn(long seed)
+{
+    Generator g = setupGenerator();
+    g.topLayerIndex = 43;
+    applySeed(g, seed);
+
+    Pos spawn;
+
+    setSeed(&seed);
+
+    int found = findBiomePosition(&g, &spawn, 0, 0, 256, biomesToSpawnIn, &seed);
+
+    if(!found)
+    {
+        //printf("Unable to find spawn biome");
+    }
+
+    int var9 = 0;
+
+    while (!this.provider.canCoordinateBeSpawn(var6, var8))
+    {
+        var6 += var4.nextInt(64) - var4.nextInt(64);
+        var8 += var4.nextInt(64) - var4.nextInt(64);
+        ++var9;
+
+        if (var9 == 1000)
+        {
+            break;
+        }
+    }
+}
+*/
+
+
+
+/* areBiomesViable
+ * ---------------
+ * Determines if the given area contains only biomes specified by 'biomeList'.
+ * Used to determine the positions of ocean monuments and villages.
+ * Warning: accurate, but slow!
+ */
+int areBiomesViable(Generator *g, int posX, int posZ, int radius, const int *biomeList, const int listLen)
+{
+    int x1 = (posX - radius) >> 2;
+    int z1 = (posZ - radius) >> 2;
+    int x2 = (posX + radius) >> 2;
+    int z2 = (posZ + radius) >> 2;
+    int width = x2 - x1 + 1;
+    int height = z2 - z1 + 1;
+    int i, j;
+
+    int *map = allocCache(g, width, height);
+    genArea(g, map, x1, z1, width, height);
+
+    for(i = 0; i < width*height; i++)
+    {
+        for(j = 0; j < listLen; j++)
+        {
+            if(map[i] == biomeList[j]) break;
+        }
+        if(j >= listLen)
+        {
+            free(map);
+            return 0;
+        }
+    }
+
+    free(map);
+    return 1;
+}
+
 
 /* filterAllTempCats
  * -----------------
@@ -672,6 +786,59 @@ long filterAllMajorBiomes(long *seedsIn, long *seedsOut, long seedCnt,
 
     return hits;
 }
+
+
+
+
+
+// very slow!
+int getAllBiomeRadius(long seed, const int startRadius)
+{
+    Generator g = setupGenerator();
+    int x, z, r, i, bnum;
+    int *map;
+    int blist[BIOME_NUM];
+    map = allocCache(&g, startRadius*2+1, startRadius*2+1);
+
+    applySeed(&g, seed);
+    genArea(&g, map, -startRadius, -startRadius, startRadius*2, startRadius*2);
+
+    for(r = startRadius; r > 0; r--)
+    {
+        memset(blist, 0, sizeof(int)*BIOME_NUM);
+        for(z = startRadius-r; z < startRadius+r; z++)
+        {
+            for(x = startRadius-r; x < startRadius+r; x++)
+            {
+                blist[map[x + z*2*startRadius] & 0x7f] = 1;
+            }
+        }
+
+        for(i = 0, bnum = 0; i < BIOME_NUM; i++) if(blist[i]) bnum++;
+        if(bnum < 36) break;
+    }
+
+
+    free(map);
+    freeGenerator(&g);
+
+    return r+1;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

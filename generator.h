@@ -3,48 +3,37 @@
 
 #include "layers.h"
 
-/* If speed is more important than accuracy, here are some magnification modes for the generator.
- * The map generation is done in stages (layers), some of which zoom into the map, magnifying it.
- * These magnification modes control at which stage/magnification the map generation is aborted.
- *
- * Notes on magnification modes:
- *     MAG1    -  1 to 1 scale, exact map of the biomes
- *     MAG4    -  1 to 4 scale, used by some vanilla mc-generation as a faster alternative to the full scale map
- *     MAG16   -  1 to 16 scale, contains all biomes, except rivers
- *     MAG64   -  1 to 64 scale, misses oceanic features like beaches, small islands and rare biomes (Sunflower Plains).
- *     MAG256  -  1 to 256 scale, contains all the basic biomes, no variations (e.g. no hills and no mutations).
- *     MAGSHROOM, 1 to 256 scale, exploits that Mushroom Islands are determined before most other biomes.
- *     MAG1024 -  1 to 1024 scale, extreme scale that only contains basic information where biome types generate.
- */
-enum Magnification { MAG1, MAG4, MAG16, MAG64, MAG256, MAGSHROOM, MAG1024 };
-extern const int magscale[];
 
 STRUCT(Generator) {
 	Layer *layers;
 	int topLayerIndex;
 	int layerMax;
-	int mag;
 	long rawSeed;
 };
 
 // Initialise an instance of a generator
 Generator setupGenerator();
+Generator setupGeneratorMC18();
+Generator setupGeneratorMC113();
 
-// Sets the magnification mode of the generator
-void setGenScale(Generator *g, int magnification);
+
+// Sets the top level layer of a generator.
+void setTopLevel(Generator *g, int topLevel);
 
 // Cleans up and frees the generator layers
 void freeGenerator(Generator *g);
 
-// Allocates an amount of memory required to generate an area of dimensions 'sizeX' by 'sizeZ'
-int *allocCache(Generator *g, int sizeX, int sizeZ);
+// Allocates an amount of memory required to generate an area of dimensions
+// 'sizeX' by 'sizeZ' for the magnification of the current top layer.
+int *allocCache(Generator *layer, int sizeX, int sizeZ);
 
 // Set up custom layers
 void setupLayer(Layer *l, Layer *p, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h));
 void setupMultiLayer(Layer *l, Layer *p1, Layer *p2, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h));
 
-// Calculates the minimum size of the buffers required to generate an area of dimensions 'sizeX' by 'sizeZ'
-int calcRequiredBuf(Generator *g, int sizeX, int sizeZ);
+// Calculates the minimum size of the buffers required to generate an area of dimensions
+// 'sizeX' by 'sizeZ' at the scale of the layer.
+int calcRequiredBuf(Layer *layer, int sizeX, int sizeZ);
 
 // Sets the world seed for the generator
 void applySeed(Generator *g, long seed);
