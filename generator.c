@@ -36,12 +36,12 @@ void setupMultiLayer(int scale, Layer *l, Layer *p1, Layer *p2, int s, void (*ge
 
 LayerStack setupGenerator()
 {
-    return setupGeneratorMC18();
+    return setupGeneratorMC17();
 }
 
 
 
-LayerStack setupGeneratorMC18()
+LayerStack setupGeneratorMC17()
 {
     if(biomes[plains].id == 0)
     {

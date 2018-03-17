@@ -84,7 +84,7 @@ STRUCT(LayerStack)
 
 // Initialise an instance of a generator
 LayerStack setupGenerator();
-LayerStack setupGeneratorMC18();
+LayerStack setupGeneratorMC17();
 LayerStack setupGeneratorMC113();
 
 

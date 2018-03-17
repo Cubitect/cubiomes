@@ -179,8 +179,6 @@ Pos getMansionPos(long seed, const long area80X, const long area80Z);
  * seed             : seed used for the RNG
  *                    (initialise RNG using setSeed(&seed))
  * passes           : number of valid biomes passed, set to NULL to ignore this
- *
- * TODO: Spawn finding not working in 1.10
  */
 Pos findBiomePosition(
         const LayerStack g,
