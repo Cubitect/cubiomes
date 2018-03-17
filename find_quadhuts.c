@@ -19,6 +19,26 @@ int main(int argc, char *argv[])
     // biome generator.
     initBiomes();
 
+    // Translate the positions to the desired regions.
+    int regPosX;
+    int regPosZ;
+
+    if(argc > 2)
+    {
+        if(sscanf(argv[1], "%d", &regPosX) != 1) regPosX = 0;
+        if(sscanf(argv[2], "%d", &regPosZ) != 1) regPosZ = 0;
+    }
+    else
+    {
+        printf("Usage:\n"
+               "find_quadhuts [regionX] [regionZ]\n"
+               "Defaulting to origin.\n\n");
+    }
+
+    regPosX -= 1;
+    regPosZ -= 1;
+
+
     const char *seedFileName = "quadbases_Q1.txt";
 
     if(access(seedFileName, F_OK))
@@ -34,34 +54,20 @@ int main(int argc, char *argv[])
     long base, seed;
     long *qhcandidates = loadSavedSeeds(seedFileName, &qhcnt);
 
-    Generator g = setupGenerator();
-    Generator gFilterBiome = setupGenerator();
+    LayerStack g = setupGenerator();
 
-    gFilterBiome.topLayerIndex = 19; // Biome Layer with scale 1:256
-    int *biomeCache = allocCache(&gFilterBiome, 3, 3);
+
+    Layer *lFilterBiome = &g.layers[L_BIOME_256];
+    int *biomeCache = allocCache(lFilterBiome, 3, 3);
 
 
     // Load the positions of the four structures that make up the quad-structure
     // so we can test the biome at these positions.
     Pos qhpos[4];
 
-
-    // Translate the positions to the desired regions.
-    int regPosX;
-    int regPosZ;
-
-    if(argc > 2)
-    {
-        if(sscanf(argv[1], "%d", &regPosX) != 1) regPosX = 0;
-        if(sscanf(argv[2], "%d", &regPosZ) != 1) regPosZ = 0;
-    }
-
-    regPosX -= 1;
-    regPosZ -= 1;
-
     // Setup a dummy layer for Layer 19: Biome.
-    Layer layerBiome;
-    setupLayer(&layerBiome, NULL, 200, NULL);
+    Layer layerBiomeDummy;
+    setupLayer(256, &layerBiomeDummy, NULL, 200, NULL);
 
 
     int areaX = (regPosX << 1) + 1;
@@ -100,9 +106,9 @@ int main(int argc, char *argv[])
         for(j = 0; j < 5; j++)
         {
             seed = base + ((j+0x53) << 48);
-            setWorldSeed(&layerBiome, seed);
-            setChunkSeed(&layerBiome, areaX+1, areaZ+1);
-            if(mcNextInt(&layerBiome, 6) == 5)
+            setWorldSeed(&layerBiomeDummy, seed);
+            setChunkSeed(&layerBiomeDummy, areaX+1, areaZ+1);
+            if(mcNextInt(&layerBiomeDummy, 6) == 5)
                 break;
         }
         if(j >= 5) continue;
@@ -117,10 +123,10 @@ int main(int argc, char *argv[])
             /** Pre-Generation Checks **/
             // We can check that at least one swamp could generate in this area
             // before doing the biome generator checks.
-            setWorldSeed(&layerBiome, seed);
+            setWorldSeed(&layerBiomeDummy, seed);
 
-            setChunkSeed(&layerBiome, areaX+1, areaZ+1);
-            if(mcNextInt(&layerBiome, 6) != 5)
+            setChunkSeed(&layerBiomeDummy, areaX+1, areaZ+1);
+            if(mcNextInt(&layerBiomeDummy, 6) != 5)
                 continue;
 
             // This seed base does not seem to contain many quad huts, so make
@@ -129,28 +135,28 @@ int main(int argc, char *argv[])
             if(hits == 0 && (j & 0xfff) == 0xfff)
             {
                 swpc = 0;
-                setChunkSeed(&layerBiome, areaX, areaZ+1);
-                swpc += mcNextInt(&layerBiome, 6) == 5;
-                setChunkSeed(&layerBiome, areaX+1, areaZ);
-                swpc += mcNextInt(&layerBiome, 6) == 5;
-                setChunkSeed(&layerBiome, areaX, areaZ);
-                swpc += mcNextInt(&layerBiome, 6) == 5;
+                setChunkSeed(&layerBiomeDummy, areaX, areaZ+1);
+                swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
+                setChunkSeed(&layerBiomeDummy, areaX+1, areaZ);
+                swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
+                setChunkSeed(&layerBiomeDummy, areaX, areaZ);
+                swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
 
                 if(swpc < (j > 0x1000 ? 2 : 1)) break;
             }
 
             // Dismiss seeds that don't have a swamp near the quad temple.
-            applySeed(&gFilterBiome, seed);
-            genArea(&gFilterBiome, biomeCache, (regPosX<<1)+2, (regPosZ<<1)+2, 1, 1);
+            setWorldSeed(lFilterBiome, seed);
+            genArea(lFilterBiome, biomeCache, (regPosX<<1)+2, (regPosZ<<1)+2, 1, 1);
 
             if(biomeCache[0] != swampland)
                 continue;
 
             applySeed(&g, seed);
-            if(getBiomeAtPos(&g, qhpos[0]) != swampland) continue;
-            if(getBiomeAtPos(&g, qhpos[1]) != swampland) continue;
-            if(getBiomeAtPos(&g, qhpos[2]) != swampland) continue;
-            if(getBiomeAtPos(&g, qhpos[3]) != swampland) continue;
+            if(getBiomeAtPos(g, qhpos[0]) != swampland) continue;
+            if(getBiomeAtPos(g, qhpos[1]) != swampland) continue;
+            if(getBiomeAtPos(g, qhpos[2]) != swampland) continue;
+            if(getBiomeAtPos(g, qhpos[3]) != swampland) continue;
 
             printf("%ld\n", seed);
             hits++;
@@ -158,8 +164,7 @@ int main(int argc, char *argv[])
     }
 
     free(biomeCache);
-    freeGenerator(&g);
-    freeGenerator(&gFilterBiome);
+    freeGenerator(g);
 
     return 0;
 }

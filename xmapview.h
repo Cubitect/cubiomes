@@ -28,7 +28,7 @@ void initBiomeTypeColours(unsigned char biomeColours[256][3]);
 xwin_t init_x(uint sx, uint sy, const char *titel);
 void close_x(xwin_t w);
 
-void viewmap(Generator *g, unsigned char biomeColour[256][3],
+void viewmap(Layer *layer, unsigned char biomeColour[256][3],
         int areaX, int areaZ, uint areaWidth, uint areaHeight, uint pixscale);
 
 

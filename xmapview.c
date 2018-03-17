@@ -214,12 +214,12 @@ void getBiomeColourMap(uint *colbuf, const unsigned char biomeColour[256][3],
 }
 
 
-void viewmap(Generator *g, unsigned char biomeColour[256][3], int areaX, int areaZ, uint areaWidth, uint areaHeight, uint pixscale)
+void viewmap(Layer *layer, unsigned char biomeColour[256][3], int areaX, int areaZ, uint areaWidth, uint areaHeight, uint pixscale)
 {
-    int *ints = allocCache(g, areaWidth+10, areaHeight+1);
+    int *ints = allocCache(layer, areaWidth+10, areaHeight+1);
 
     // generate the biome ints
-    genArea(g, ints, areaX, areaZ, areaWidth, areaHeight);
+    genArea(layer, ints, areaX, areaZ, areaWidth, areaHeight);
 
     // Calculate a hash for the area (useful to verify the accuracy of the map)
     uint i, hash = 0;

@@ -939,7 +939,7 @@ void mapShore(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
             int v01 = out[x+0 + (z+1)*pWidth];
             int v12 = out[x+1 + (z+2)*pWidth];
 
-            int var10 = biomeExists(v11) ? v11 : 0;
+            int biome = biomeExists(v11) ? v11 : 0;
 
             if(v11 == mushroomIsland)
             {
@@ -948,9 +948,9 @@ void mapShore(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
                 else
                     out[x + z*areaWidth] = mushroomIslandShore;
             }
-            else if(var10 < 128 && getBiomeType(var10) == Jungle)
+            else if(/*biome < 128 &&*/ getBiomeType(biome) == Jungle)
             {
-                if (isBiomeJFTO(v10) && isBiomeJFTO(v21) && isBiomeJFTO(v01) && isBiomeJFTO(v12))
+                if(isBiomeJFTO(v10) && isBiomeJFTO(v21) && isBiomeJFTO(v01) && isBiomeJFTO(v12))
                 {
                     if (!isOceanic(v10) && !isOceanic(v21) && !isOceanic(v01) && !isOceanic(v12))
                         out[x + z*areaWidth] = v11;
@@ -964,7 +964,7 @@ void mapShore(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
             }
             else if (v11 != extremeHills && v11 != extremeHillsPlus && v11 != extremeHillsEdge)
             {
-                if(isBiomeSnowy(var10))
+                if(isBiomeSnowy(biome))
                 {
                     replaceOcean(out, x + z*areaWidth, v10, v21, v01, v12, v11, coldBeach);
                 }

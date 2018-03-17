@@ -23,6 +23,9 @@ void *searchCompactBiomesThread(void *data)
     long *seeds = (long *) malloc(sizeof(*seeds)*SEED_BUF_LEN);
     long i, s, scnt;
 
+    LayerStack g = setupGenerator();
+    int *cache = allocCache(&g.layers[L_BIOME_256], 8, 8);
+
     for(s = info.seedStart; s < info.seedEnd; s += SEED_BUF_LEN)
     {
         if(s + SEED_BUF_LEN > info.seedEnd)
@@ -36,10 +39,10 @@ void *searchCompactBiomesThread(void *data)
             seeds[i] = s + i;
         }
 
-        scnt = filterAllTempCats(seeds, seeds, scnt, 0, 0);
+        scnt = filterAllTempCats(&g, cache, seeds, seeds, scnt, 0, 0);
 
         // The biomes really shouldn't be further out than 1024 blocks.
-        scnt = filterAllMajorBiomes(seeds, seeds, scnt, -4, -4, 8, 8);
+        scnt = filterAllMajorBiomes(&g, cache, seeds, seeds, scnt, -4, -4, 8, 8);
 
         for(i = 0; i < scnt; i++)
         {
@@ -61,12 +64,11 @@ int main(int argc, char *argv[])
     long seedStart, seedEnd;
     uint threads, t;
 
-    if(argc > 3)
-    {
-        if(sscanf(argv[1], "%ld", &seedStart) != 1) seedStart = 0;
-        if(sscanf(argv[2], "%ld", &seedEnd) != 1) seedEnd = 1000000000L;
-        if(sscanf(argv[3], "%u", &threads) != 1) threads = 1;
-    }
+    if(argc < 1 || sscanf(argv[1], "%ld", &seedStart) != 1) seedStart = 0;
+    if(argc < 2 || sscanf(argv[2], "%ld", &seedEnd) != 1) seedEnd = 1000000000L;
+    if(argc < 3 || sscanf(argv[3], "%u", &threads) != 1) threads = 1;
+
+    printf("Starting search through seeds %ld to %ld, using %u threads.\n", seedStart, seedEnd, threads);
 
     pthread_t threadID[threads];
     struct compactinfo_t info[threads];

@@ -42,12 +42,15 @@ STRUCT(Layer) {
 
     long chunkSeed; // randomiser seed
 
+    int scale;      // map scale of this layer (map entry = scale x scale blocks)
+
     void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h);
 
     Layer *p, *p2;
 };
 
 extern Biome biomes[256];
+
 
 /* initBiomes() has to be called before any of the generators can be used */
 void initBiomes();

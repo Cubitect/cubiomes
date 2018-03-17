@@ -4,32 +4,12 @@
 #include <string.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <math.h>
 
 /* Globals */
 
 
 Biome biomes[256];
-
-const int achievementBiomes[256] = {
-    //  0 1 2 3 4 5 6 7 8 9
-        1,1,1,1,1,1,1,1,0,0, // 0
-        0,1,1,1,1,1,1,1,1,1,
-        0,1,1,1,1,1,1,1,1,1,
-        1,1,1,1,1,1,1,1,1,1,
-        0,0,0,0,0,0,0,0,0,0,
-        0,0,0,0,0,0,
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-};
-
 
 
 
@@ -175,7 +155,7 @@ long *loadSavedSeeds(const char *fnam, long *scnt)
 
     if(fp == NULL)
     {
-        perror("Could not open file: ");
+        perror("ERR loadSavedSeeds: ");
         return NULL;
     }
 
@@ -184,6 +164,7 @@ long *loadSavedSeeds(const char *fnam, long *scnt)
     while(!feof(fp))
     {
         if(fscanf(fp, "%ld", &seed) == 1) (*scnt)++;
+        else while(!feof(fp) && fgetc(fp) != '\n');
     }
 
     baseSeeds = (long*) calloc(*scnt, sizeof(*baseSeeds));
@@ -193,6 +174,7 @@ long *loadSavedSeeds(const char *fnam, long *scnt)
     for(long i = 0; i < *scnt && !feof(fp);)
     {
         if(fscanf(fp, "%ld", &baseSeeds[i]) == 1) i++;
+        else while(!feof(fp) && fgetc(fp) != '\n');
     }
 
     fclose(fp);
@@ -201,7 +183,7 @@ long *loadSavedSeeds(const char *fnam, long *scnt)
 }
 
 
-void *baseQuadTempleSearchThread(void *data)
+static void *baseQuadTempleSearchThread(void *data)
 {
     quad_threadinfo_t info = *(quad_threadinfo_t*)data;
 
@@ -228,7 +210,9 @@ void *baseQuadTempleSearchThread(void *data)
     }
     else
     {
-        printf("Warning: Lower bits for quality %d have not been defined: will try all combinations.\n", info.quality);
+        printf("WARN baseQuadTempleSearchThread: "
+               "Lower bits for quality %d have not been defined => "
+               "will try all combinations.\n", info.quality);
 
         static long lowerBaseBitsAll[65536];
         lowerBits = &lowerBaseBitsAll[0];
@@ -298,7 +282,7 @@ void *baseQuadTempleSearchThread(void *data)
 }
 
 
-void baseQuadTempleSearch(const char *fnam, int threads, int quality)
+void baseQuadTempleSearch(const char *fnam, const int threads, const int quality)
 {
     pthread_t threadID[threads];
     quad_threadinfo_t info[threads];
@@ -339,7 +323,7 @@ void baseQuadTempleSearch(const char *fnam, int threads, int quality)
 
         if(fpart == NULL)
         {
-            perror("Could't merge file: ");
+            perror("ERR baseQuadTempleSearch: ");
             break;
         }
 
@@ -347,7 +331,7 @@ void baseQuadTempleSearch(const char *fnam, int threads, int quality)
         {
             if(!fwrite(buffer, sizeof(char), n, fp))
             {
-                perror("Could't merge file: ");
+                perror("ERR baseQuadTempleSearch: ");
                 fclose(fp);
                 fclose(fpart);
                 return;
@@ -364,28 +348,26 @@ void baseQuadTempleSearch(const char *fnam, int threads, int quality)
 
 
 
-/**************************** General Biome Checks *****************************
- *
- *
+/*************************** General Purpose Checks ****************************
  */
 
 
 /* getBiomeAtPos
  * ----------------
- * Returns the biome for the position specified.
+ * Returns the biome for the specified block position.
  */
-int getBiomeAtPos(Generator *g, Pos pos)
+int getBiomeAtPos(const LayerStack g, const Pos pos)
 {
     static int ints[0x1000];
 
-    genArea(g, &ints[0], pos.x, pos.z, 1, 1);
+    genArea(&g.layers[g.layerNum-1], &ints[0], pos.x, pos.z, 1, 1);
 
     return ints[0];
 }
 
 /* getTemplePos
  * ------------
- * Faster implementation for finding the block position at which the temple
+ * Fast implementation for finding the block position at which the temple
  * generation attempt will occur in the specified region.
  */
 Pos getTemplePos(long seed, const long regionX, const long regionZ)
@@ -407,21 +389,120 @@ Pos getTemplePos(long seed, const long regionX, const long regionZ)
     return pos;
 }
 
-/* getTemplePosInRegion
- * --------------------
+
+/* getTempleChunkInRegion
+ * ----------------------
  * Finds the chunk position within the specified region (32x32 chunks) where
  * the temple generation attempt will occur.
- * [ Closer to vanilla implementation than getTemplePos() ]
  */
-Pos getTempleChunkInRegion(long seed, int regionX, int regionZ)
+Pos getTempleChunkInRegion(long seed, const int regionX, const int regionZ)
 {
+    /*
+    // Vanilla like implementation.
     seed = regionX*341873128712 + regionZ*132897987541 + seed + 14357617;
     setSeed(&(seed));
 
     Pos pos;
     pos.x = nextInt(&seed, 24);
     pos.z = nextInt(&seed, 24);
+    */
+    Pos pos;
 
+    // set seed
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + 14357617;
+    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
+
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.x = (seed >> 17) % 24;
+
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.z = (seed >> 17) % 24;
+
+    return pos;
+}
+
+
+/* getVillagePos
+ * -------------
+ * Fast implementation for finding the block position at which the village
+ * generation attempt will occur in the specified region.
+ */
+Pos getVillagePos(long seed, const long regionX, const long regionZ)
+{
+    Pos pos;
+
+    // set seed
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + 10387312;
+    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
+
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.x = (seed >> 17) % 24;
+
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.z = (seed >> 17) % 24;
+
+    pos.x = regionX*512 + (pos.x << 4) + 8;
+    pos.z = regionZ*512 + (pos.z << 4) + 8;
+    return pos;
+}
+
+
+/* getOceanMonumentPos
+ * -------------------
+ * Fast implementation for finding the block position at which the ocean
+ * monument generation attempt will occur in the specified region.
+ */
+Pos getOceanMonumentPos(long seed, const long regionX, const long regionZ)
+{
+    Pos pos;
+
+    // set seed
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + 10387313;
+    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
+
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.x = (seed >> 17) % 27;
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.x += (seed >> 17) % 27;
+
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.z = (seed >> 17) % 27;
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.z += (seed >> 17) % 27;
+
+    pos.x = regionX*512 + (pos.x << 3) + 8;
+    pos.z = regionZ*512 + (pos.z << 3) + 8;
+    return pos;
+}
+
+
+/* getMansionPos
+ * -------------
+ * Fast implementation for finding the block position at which the woodland
+ * mansions generation attempt will occur in the specified 80x80 chunk area.
+ *
+ * area80X, area80Z: area coordinates in units 1280 blocks (= 80 chunks)
+ */
+Pos getMansionPos(long seed, const long area80X, const long area80Z)
+{
+    Pos pos;
+
+    // set seed
+    seed = area80X*341873128712 + area80Z*132897987541 + seed + 10387319;
+    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
+
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.x = (seed >> 17) % 60;
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.x += (seed >> 17) % 60;
+
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.z = (seed >> 17) % 60;
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.z += (seed >> 17) % 60;
+
+    pos.x = area80X*1280 + (pos.x << 3) + 8;
+    pos.z = area80Z*1280 + (pos.z << 3) + 8;
     return pos;
 }
 
@@ -430,12 +511,27 @@ Pos getTempleChunkInRegion(long seed, int regionX, int regionZ)
  * -----------------
  * Finds a suitable pseudo-random location in the specified area.
  * Used to determine the positions of spawn and stongholds.
- * The return value is non-zero if a valid location was found.
  * Warning: accurate, but slow!
  *
- * TODO: Spawn finding not working in 1.10
+ * g                : generator layer stack
+ * cache            : biome buffer, set to NULL for temporary allocation
+ * centreX, centreZ : origin for the search
+ * range            : 'radius' of the search
+ * isValid          : boolean array of valid biome ids (size = 256)
+ * seed             : seed used for the RNG
+ *                    (usually you want to initialise this with the world seed)
+ * passes           : number of valid biomes passed, set to NULL to ignore this
  */
-int findBiomePosition(Generator *g, Pos *out, int centerX, int centerZ, int range, const int *biomeList, long *seed)
+Pos findBiomePosition(
+        const LayerStack g,
+        int *cache,
+        const int centerX,
+        const int centerZ,
+        const int range,
+        const int *isValid,
+        long *seed,
+        int *passes
+        )
 {
     int x1 = (centerX-range) >> 2;
     int z1 = (centerZ-range) >> 2;
@@ -443,64 +539,146 @@ int findBiomePosition(Generator *g, Pos *out, int centerX, int centerZ, int rang
     int z2 = (centerZ+range) >> 2;
     int width  = x2 - x1 + 1;
     int height = z2 - z1 + 1;
-    int *map = allocCache(g, width, height);
+    int *map;
+    int i, found;
 
-    genArea(g, map, x1, z1, width, height);
-    int i, found = 0;
+    Layer *layer = &g.layers[L_RIVER_MIX_4];
+    Pos out;
 
-    out->x = 0;
-    out->z = 0;
+    if(layer->scale != 4)
+    {
+        printf("WARN findBiomePosition: The generator has unexpected scale %d at layer %d.\n",
+                layer->scale, L_RIVER_MIX_4);
+    }
+
+    map = cache ? cache : allocCache(layer, width, height);
+
+    genArea(layer, map, x1, z1, width, height);
+
+    out.x = 0;
+    out.z = 0;
+    found = 0;
 
     for(i = 0; i < width*height; i++)
     {
-        int biome = map[i];
-
-        if(biomeList[biome & 0xff] && (found == 0 || nextInt(seed, found + 1) == 0))
+        if(isValid[map[i] & 0xff] && (found == 0 || nextInt(seed, found + 1) == 0))
         {
-            out->x = (x1 + i%width) << 2;
-            out->z = (z1 + i/width) << 2;
+            out.x = (x1 + i%width) << 2;
+            out.z = (z1 + i/width) << 2;
             ++found;
         }
     }
 
-    free(map);
-    return found;
+    if(cache == NULL)
+    {
+        free(map);
+    }
+
+    if(passes != NULL)
+    {
+        *passes = found;
+    }
+
+    return out;
 }
 
 
-/*s
-Pos getSpawn(long seed)
+/* findStrongholds_pre19
+ * ---------------------
+ * Finds the 3 stronghold positions for the specified world seed up to MC 1.9.
+ * Warning: Slow!
+ *
+ * g         : generator layer stack [world seed will be updated]
+ * cache     : biome buffer, set to NULL for temporary allocation
+ * locations : output block positions for the 3 strongholds
+ * worldSeed : world seed used for the generator
+ */
+void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, long worldSeed)
 {
-    Generator g = setupGenerator();
-    g.topLayerIndex = 43;
-    applySeed(g, seed);
+    static int validStrongholdBiomes[256];
+    const int SHNUM = 3;
+    int i;
 
+    if(!validStrongholdBiomes[plains])
+    {
+        int id;
+        for(id = 0; id < 256; id++)
+        {
+            if(biomeExists(id) && biomes[id].height > 0.0) validStrongholdBiomes[id] = 1;
+        }
+    }
+
+    setWorldSeed(&g->layers[L_RIVER_MIX_4], worldSeed);
+
+    setSeed(&worldSeed);
+    double angle = nextDouble(&worldSeed) * 3.141592653589793 * 2.0;
+
+
+    for(i = 0; i < SHNUM; i++)
+    {
+        double distance = (1.25 + nextDouble(&worldSeed)) * 32.0;
+        int x = (int)round(cos(angle) * distance);
+        int z = (int)round(sin(angle) * distance);
+
+        locations[i] = findBiomePosition(*g, cache, (x << 4) + 8, (z << 4) + 8, 112,
+                validStrongholdBiomes, &worldSeed, NULL);
+
+        angle += 6.283185307179586 / (double)SHNUM;
+    }
+}
+
+
+/* TODO: Estimate whether the given positions could be spawn based on biomes.
+ */
+static int canCoordinateBeSpawn(LayerStack *g, int *cache, Pos pos)
+{
+    return 1;
+}
+
+/* getSpawn
+ * --------
+ * Finds the spawn point in the world.
+ * Warning: Slow, and may be inaccurate because the world spawn depends on
+ * grass blocks!
+ *
+ * g         : generator layer stack [world seed will be updated]
+ * cache     : biome buffer, set to NULL for temporary allocation
+ * worldSeed : world seed used for the generator
+ */
+Pos getSpawn(LayerStack *g, int *cache, long worldSeed)
+{
+    static int isSpawnBiome[0x100];
     Pos spawn;
+    int found;
+    uint i;
 
-    setSeed(&seed);
+    if(!isSpawnBiome[biomesToSpawnIn[0]])
+    {
+        for(i = 0; i < sizeof(biomesToSpawnIn) / sizeof(int); i++)
+        {
+            isSpawnBiome[ biomesToSpawnIn[i] ] = 1;
+        }
+    }
 
-    int found = findBiomePosition(&g, &spawn, 0, 0, 256, biomesToSpawnIn, &seed);
+    applySeed(g, worldSeed);
+    setSeed(&worldSeed);
+
+    spawn = findBiomePosition(*g, cache, 0, 0, 256, isSpawnBiome, &worldSeed, &found);
 
     if(!found)
     {
-        //printf("Unable to find spawn biome");
+        printf("Unable to find spawn biome.\n");
+        spawn.x = spawn.z = 8;
     }
 
-    int var9 = 0;
-
-    while (!this.provider.canCoordinateBeSpawn(var6, var8))
+    for(i = 0; i < 1000 && !canCoordinateBeSpawn(g, cache, spawn); i++)
     {
-        var6 += var4.nextInt(64) - var4.nextInt(64);
-        var8 += var4.nextInt(64) - var4.nextInt(64);
-        ++var9;
-
-        if (var9 == 1000)
-        {
-            break;
-        }
+        spawn.x += nextInt(&worldSeed, 64) - nextInt(&worldSeed, 64);
+        spawn.z += nextInt(&worldSeed, 64) - nextInt(&worldSeed, 64);
     }
+
+    return spawn;
 }
-*/
 
 
 
@@ -509,8 +687,21 @@ Pos getSpawn(long seed)
  * Determines if the given area contains only biomes specified by 'biomeList'.
  * Used to determine the positions of ocean monuments and villages.
  * Warning: accurate, but slow!
+ *
+ * g          : generator layer stack
+ * cache      : biome buffer, set to NULL for temporary allocation
+ * posX, posZ : centre for the check
+ * radius     : 'radius' of the check area
+ * isValid    : boolean array of valid biome ids (size = 256)
  */
-int areBiomesViable(Generator *g, int posX, int posZ, int radius, const int *biomeList, const int listLen)
+int areBiomesViable(
+        const LayerStack g,
+        int *cache,
+        const int posX,
+        const int posZ,
+        const int radius,
+        const int *isValid
+        )
 {
     int x1 = (posX - radius) >> 2;
     int z1 = (posZ - radius) >> 2;
@@ -518,26 +709,155 @@ int areBiomesViable(Generator *g, int posX, int posZ, int radius, const int *bio
     int z2 = (posZ + radius) >> 2;
     int width = x2 - x1 + 1;
     int height = z2 - z1 + 1;
-    int i, j;
+    int i;
+    int *map;
 
-    int *map = allocCache(g, width, height);
-    genArea(g, map, x1, z1, width, height);
+    Layer *layer = &g.layers[L_RIVER_MIX_4];
+
+    if(layer->scale != 4)
+    {
+        printf("WARN areBiomesViable: The generator has unexpected scale %d at layer %d.\n",
+                layer->scale, L_RIVER_MIX_4);
+    }
+
+    map = cache ? cache : allocCache(layer, width, height);
+
+    genArea(layer, map, x1, z1, width, height);
 
     for(i = 0; i < width*height; i++)
     {
-        for(j = 0; j < listLen; j++)
+        if(!isValid[ map[i] & 0xff ])
         {
-            if(map[i] == biomeList[j]) break;
-        }
-        if(j >= listLen)
-        {
-            free(map);
+            if(cache == NULL) free(map);
             return 0;
         }
     }
 
-    free(map);
+    if(cache == NULL) free(map);
     return 1;
+}
+
+
+
+int isViableTemplePos(const LayerStack g, int *cache, const long blockX, const long blockZ)
+{
+    static int map[0x100];
+    genArea(&g.layers[L_VORONOI_ZOOM_1], map, blockX, blockZ, 1, 1);
+
+    if(map[0] == jungle || map[0] == jungleHills) return JUNGLE_TEMPLE;
+    if(map[0] == swampland) return SWAMP_HUT;
+    if(map[0] == icePlains || map[0] == coldTaiga) return IGLOO;
+    if(map[0] == desert || map[0] == desertHills) return DESERT_TEMPLE;
+
+    return 0;
+}
+
+int isViableVillagePos(const LayerStack g, int *cache, const long blockX, const long blockZ)
+{
+    static int isVillageBiome[0x100];
+
+    if(!isVillageBiome[villageBiomeList[0]])
+    {
+        uint i;
+        for(i = 0; i < sizeof(villageBiomeList) / sizeof(int); i++)
+        {
+            isVillageBiome[ villageBiomeList[i] ] = 1;
+        }
+    }
+
+    return areBiomesViable(g, cache, blockX, blockZ, 0, isVillageBiome);
+}
+
+int isViableOceanMonumentPos(const LayerStack g, int *cache, const long blockX, const long blockZ)
+{
+    static int isWaterBiome[0x100];
+    static int isDeepOcean[0x100];
+
+    if(!isWaterBiome[oceanMonumentBiomeList[0]])
+    {
+        uint i;
+        for(i = 0; i < sizeof(oceanMonumentBiomeList) / sizeof(int); i++)
+        {
+            isWaterBiome[ oceanMonumentBiomeList[i] ] = 1;
+        }
+
+        isDeepOcean[deepOcean] = 1;
+    }
+
+    return areBiomesViable(g, cache, blockX, blockZ, 16, isDeepOcean) &&
+            areBiomesViable(g, cache, blockX, blockZ, 29, isWaterBiome);
+}
+
+int isViableMansionPos(const LayerStack g, int *cache, const long blockX, const long blockZ)
+{
+    static int isMansionBiome[0x100];
+
+    if(!isMansionBiome[mansionBiomeList[0]])
+    {
+        uint i;
+        for(i = 0; i < sizeof(mansionBiomeList) / sizeof(int); i++)
+        {
+            isMansionBiome[ mansionBiomeList[i] ] = 1;
+        }
+    }
+
+    return areBiomesViable(g, cache, blockX, blockZ, 32, isMansionBiome);
+}
+
+
+
+/* getBiomeRadius
+ * --------------
+ * Finds the smallest radius (by square around the origin) at which all the
+ * specified biomes are present. The input map is assumed to be a square of
+ * side length 'sideLen'.
+ *
+ * map             : square biome map to be tested
+ * sideLen         : side length of the square map (should be 2*radius+1)
+ * biomes          : list of biomes to check for
+ * bnum            : length of 'biomes'
+ * ignoreMutations : flag to count mutated biomes as their original form
+ *
+ * Return the radius on the square map that covers all biomes in the list.
+ * If the map does not contain all the specified biomes, -1 is returned.
+ */
+int getBiomeRadius(
+        const int *map,
+        const int mapSide,
+        const int *biomes,
+        const int bnum,
+        const int ignoreMutations)
+{
+    int r, i, b;
+    int blist[0x100];
+    int mask = ignoreMutations ? 0x7f : 0xff;
+    int radiusMax = mapSide / 2;
+
+    if((mapSide & 1) == 0)
+    {
+        printf("WARN getBiomeRadius: Side length of the square map should be an odd integer.\n");
+    }
+
+    memset(blist, 0, sizeof(blist));
+
+    for(r = 1; r < radiusMax; r++)
+    {
+        for(i = radiusMax-r; i <= radiusMax+r; i++)
+        {
+            blist[ map[(radiusMax-r) * mapSide+ i]    & mask ] = 1;
+            blist[ map[(radiusMax+r-1) * mapSide + i] & mask ] = 1;
+            blist[ map[mapSide*i + (radiusMax-r)]     & mask ] = 1;
+            blist[ map[mapSide*i + (radiusMax+r-1)]   & mask ] = 1;
+        }
+
+        for(b = 0; b < bnum && blist[biomes[b] & mask]; b++);
+        if(b >= bnum)
+        {
+            break;
+        }
+    }
+
+    return r != radiusMax ? r : -1;
 }
 
 
@@ -547,14 +867,23 @@ int areBiomesViable(Generator *g, int posX, int posZ, int radius, const int *bio
  * temperature categories are present in the 3x3 area centred on the specified
  * coordinates into 'seedsOut'. The map scale at this layer is 1:1024.
  *
- * seedsIn:      list of seeds to check
- * seedsOut:     output buffer for the candidate seeds
- * seedCnt:      number of seeds in 'seedsIn'
- * centX, centZ: search centre origin (in 1024 block units)
+ * g           : generator layer stack, (NOTE: seed will be modified)
+ * cache       : biome buffer, set to NULL for temporary allocation
+ * seedsIn     : list of seeds to check
+ * seedsOut    : output buffer for the candidate seeds
+ * seedCnt     : number of seeds in 'seedsIn'
+ * centX, centZ: search origin centre (in 1024 block units)
  *
  * Returns the number of found candidates.
  */
-long filterAllTempCats(long *seedsIn, long *seedsOut, long seedCnt, int centX, int centZ)
+long filterAllTempCats(
+        LayerStack *g,
+        int *cache,
+        const long *seedsIn,
+        long *seedsOut,
+        const long seedCnt,
+        const int centX,
+        const int centZ)
 {
     /* We require all temperature categories, including the special variations
      * in order to get all main biomes. This gives 8 required values:
@@ -578,17 +907,16 @@ long filterAllTempCats(long *seedsIn, long *seedsOut, long seedCnt, int centX, i
 
     const int pX = centX-1, pZ = centZ-1;
     const int sX = 3, sZ = 3;
+    int *map;
 
-    Generator gFilterSnow = setupGenerator();
-    gFilterSnow.topLayerIndex = 10;
-    Generator gFilterSpecial = setupGenerator();
-    gFilterSpecial.topLayerIndex = 13;
+    Layer *lFilterSnow = &g->layers[L_ADD_SNOW_1024];
+    Layer *lFilterSpecial = &g->layers[L_SPECIAL_1024];
 
-    int *cache = allocCache(&gFilterSpecial, sX, sZ);
+    map = cache ? cache : allocCache(lFilterSpecial, sX, sZ);
 
     // Construct a dummy Edge,Special layer.
     Layer layerSpecial;
-    setupLayer(&layerSpecial, NULL, 3, NULL);
+    setupLayer(1024, &layerSpecial, NULL, 3, NULL);
 
     long sidx, hits, seed;
     int types[9];
@@ -626,13 +954,13 @@ long filterAllTempCats(long *seedsIn, long *seedsOut, long seedCnt, int centX, i
 
         /***  Cold/Warm Check  ***/
 
-        // Continue by checking if enough cold and warm categories are present.
-        applySeed(&gFilterSnow, seed);
-        genArea(&gFilterSnow, cache, pX,pZ, sX,sZ);
+        // Continue by checking if enough cold and warm categories are present.#
+        setWorldSeed(lFilterSnow, seed);
+        genArea(lFilterSnow, map, pX,pZ, sX,sZ);
 
         memset(types, 0, sizeof(types));
         for(i = 0; i < sX*sZ; i++)
-            types[cache[i]]++;
+            types[map[i]]++;
 
         // 1xOcean needs to be present
         // 4xWarm need to turn into Warm, Lush, Special Warm and Special Lush
@@ -647,12 +975,12 @@ long filterAllTempCats(long *seedsIn, long *seedsOut, long seedCnt, int centX, i
         /***  Complete Temperature Category Check  ***/
 
         // Check that all temperature variants are present.
-        applySeed(&gFilterSpecial, seed);
-        genArea(&gFilterSpecial, cache, pX,pZ, sX,sZ);
+        setWorldSeed(lFilterSpecial, seed);
+        genArea(lFilterSpecial, map, pX,pZ, sX,sZ);
 
         memset(types, 0, sizeof(types));
         for(i = 0; i < sX*sZ; i++)
-            types[ cache[i] > 4 ? (cache[i]&0xf) + 4 : cache[i] ]++;
+            types[ map[i] > 4 ? (map[i]&0xf) + 4 : map[i] ]++;
 
         if( types[Ocean] < 1  || types[Warm] < 1     || types[Lush] < 1 ||
             /*types[Cold] < 1   ||*/ types[Freezing] < 1 ||
@@ -674,10 +1002,7 @@ long filterAllTempCats(long *seedsIn, long *seedsOut, long seedCnt, int centX, i
         hits++;
     }
 
-    freeGenerator(&gFilterSnow);
-    freeGenerator(&gFilterSpecial);
-    free(cache);
-
+    if(cache == NULL) free(map);
     return hits;
 }
 
@@ -698,21 +1023,37 @@ const int majorBiomes[] = {
  * major overworld biomes in the specified area into 'seedsOut'. These checks
  * are done at a scale of 1:256.
  *
+ * g           : generator layer stack, (NOTE: seed will be modified)
+ * cache       : biome buffer, set to NULL for temporary allocation
+ * seedsIn     : list of seeds to check
+ * seedsOut    : output buffer for the candidate seeds
+ * seedCnt     : number of seeds in 'seedsIn'
+ * pX, pZ      : search starting coordinates (in 256 block units)
+ * sX, sZ      : size of the searching area (in 256 block units)
+ *
  * Returns the number of seeds found.
  */
-long filterAllMajorBiomes(long *seedsIn, long *seedsOut, long seedCnt,
-        int pX, int pZ, uint sX, uint sZ)
+long filterAllMajorBiomes(
+        LayerStack *g,
+        int *cache,
+        const long *seedsIn,
+        long *seedsOut,
+        const long seedCnt,
+        const int pX,
+        const int pZ,
+        const uint sX,
+        const uint sZ)
 {
-    Generator gFilterMushroom = setupGenerator();
-    gFilterMushroom.topLayerIndex = 17;
-    Generator gFilterBiomes = setupGenerator();
-    gFilterBiomes.topLayerIndex = 19;
+    Layer *lFilterMushroom = &g->layers[L_ADD_MUSHROOM_ISLAND_256];
+    Layer *lFilterBiomes = &g->layers[L_BIOME_256];
 
-    int *cache = allocCache(&gFilterBiomes, sZ, sZ);
+    int *map;
     long sidx, seed, hits;
     uint i, id, hasAll;
 
     int types[BIOME_NUM];
+
+    map = cache ? cache : allocCache(lFilterBiomes, sX, sZ);
 
     hits = 0;
 
@@ -722,13 +1063,13 @@ long filterAllMajorBiomes(long *seedsIn, long *seedsOut, long seedCnt,
          * and to make sure all temperature categories are present in the area.
          */
         seed = seedsIn[sidx];
-        applySeed(&gFilterMushroom, seed);
-        genArea(&gFilterMushroom, cache, pX,pZ, sX,sZ);
+        setWorldSeed(lFilterMushroom, seed);
+        genArea(lFilterMushroom, map, pX,pZ, sX,sZ);
 
         memset(types, 0, sizeof(types));
         for(i = 0; i < sX*sZ; i++)
         {
-            id = cache[i];
+            id = map[i];
             if(id >= BIOME_NUM) id = (id & 0xf) + 4;
             types[id]++;
         }
@@ -743,13 +1084,13 @@ long filterAllMajorBiomes(long *seedsIn, long *seedsOut, long seedCnt,
 
         /***  Find all major biomes  ***/
 
-        applySeed(&gFilterBiomes, seed);
-        genArea(&gFilterBiomes, cache, pX,pZ, sX,sZ);
+        setWorldSeed(lFilterBiomes, seed);
+        genArea(lFilterBiomes, map, pX,pZ, sX,sZ);
 
         memset(types, 0, sizeof(types));
         for(i = 0; i < sX*sZ; i++)
         {
-            types[cache[i]]++;
+            types[map[i]]++;
         }
 
         hasAll = 1;
@@ -780,55 +1121,9 @@ long filterAllMajorBiomes(long *seedsIn, long *seedsOut, long seedCnt,
         hits++;
     }
 
-    freeGenerator(&gFilterMushroom);
-    freeGenerator(&gFilterBiomes);
-    free(cache);
-
+    if(cache == NULL) free(map);
     return hits;
 }
-
-
-
-
-
-// very slow!
-int getAllBiomeRadius(long seed, const int startRadius)
-{
-    Generator g = setupGenerator();
-    int x, z, r, i, bnum;
-    int *map;
-    int blist[BIOME_NUM];
-    map = allocCache(&g, startRadius*2+1, startRadius*2+1);
-
-    applySeed(&g, seed);
-    genArea(&g, map, -startRadius, -startRadius, startRadius*2, startRadius*2);
-
-    for(r = startRadius; r > 0; r--)
-    {
-        memset(blist, 0, sizeof(int)*BIOME_NUM);
-        for(z = startRadius-r; z < startRadius+r; z++)
-        {
-            for(x = startRadius-r; x < startRadius+r; x++)
-            {
-                blist[map[x + z*2*startRadius] & 0x7f] = 1;
-            }
-        }
-
-        for(i = 0, bnum = 0; i < BIOME_NUM; i++) if(blist[i]) bnum++;
-        if(bnum < 36) break;
-    }
-
-
-    free(map);
-    freeGenerator(&g);
-
-    return r+1;
-}
-
-
-
-
-
 
 
 
