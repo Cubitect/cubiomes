@@ -15,7 +15,7 @@ A POSIX environment is required to compile the finders library and examples, but
 There is a reference document for the generator layers which contains a summary for most generator layers and their function within the generation process.
 
 
-### Example
+### Examples
 
 There are two example programs in this repository which can be compiled using the makefile provided.
 
@@ -38,9 +38,9 @@ This finder searches for seeds that contain all major biome types within 1024 bl
 `./find_compactbiomes [starting_seed] [end_seed] [threads]`
 
 
-### Cool Seeds
+# Cool Seeds
 
-#### All Biomes near Origin
+## All Biomes Near the Origin
 
 Below is a list of some very rare seeds that have all the interesing biomes in very close proximity to the origin, offering some unique scenery. TIP: If you are creating a new world you can use the Custom World Generation setting to reduce the biome size by a factor of up to 4, which puts all the biomes even closer together.
 
@@ -100,11 +100,11 @@ Below is a list of some very rare seeds that have all the interesing biomes in v
 
 
 
-#### Lots of Witch Huts
+## Lots of Witch Huts
 
-Four is the maximum number of huts that can generate close enough together to be operated by a single player. However, if you have a server, or you just want multiple witch farms in your world, then you can consider seeds with more than one multi-huts. Unfortunately, seeds that have two quad-huts are extremely rare, and it turns out that the closest distance between any two perfect quad-huts is around 269000 blocks. Instead we can look for seeds with less constraints, such as having triple witch huts in proximity to the origin. 
+No more than four huts can generate close enough together to be operated by a single player. However, if you have a server, or you just want multiple witch farms in your world, then you can consider seeds with more than one multi-hut. Unfortunately, seeds that have two quad-huts are extremely rare, and it turns out that the closest distance between any two perfect quad-huts is over 270000 blocks. Instead we can look for seeds with less constraints, such as having triple witch huts in proximity to the origin. 
 
-For seeds that have a quad-hut with 2 additional tri-huts, I present to you all seeds that have the multi-huts in the closest proximity to spawn. In fact there are only 6 seeds that have all of them within 40000 blocks. Luckily all of the hut coordinates are inside a swamp, giving a total of 630×3 spawning spaces for each of the seeds.
+For seeds that have a quad-hut with 2 additional tri-huts, I present to you all seeds that have the multi-huts in the closest proximity to spawn. In fact there are only 6 seeds that have all of them within 40000 blocks. Luckily for each of the seeds, all of the hut coordinates are inside a swamp, giving a total of 630×3 spawning spaces.
 
 | Seed                 | Quad Hut      | Tri Hut #1     | Tri Hut #2     |
 |----------------------|---------------|----------------|----------------|
@@ -115,11 +115,11 @@ For seeds that have a quad-hut with 2 additional tri-huts, I present to you all 
 | -8386696804585992813 | (28008, -648) | (33144,-13976) | ( -1160,22888) |
 |  4027541812768105332 | (-5784,-7304) | ( -648,-20632) | (-34952,16232) |
 
-Also there exist a hand full of seeds with two imperfect quad huts that are relatively close to spawn. These huts can be up to 2 chunks further appart. Unfortunately this means that they always have some parts that are just outside the 128 block despawn radius, meaning that they will only have the efficency of about 3 huts. However, they have a much larger operation area, so you can move around while the farm in running. A list of these seeds can be found in `./seeds/imperfect_doublequadhut.md`.
+Furthermore, there exist a hand full of seeds with two imperfect quad huts that are relatively close to spawn. These huts can be up to 2 chunks further appart. Unfortunately this means that they always have some parts that are just outside the 128 block despawn radius, meaning that they will only have the efficency of about 3 huts. However, they have a much larger operation area, so you can move around while the farm in running. A list of these seeds can be found in `./seeds/imperfect_doublequadhut.md`.
 
 
 
-#### Advancement Related
+## Advancement Related
 
 If you are looking to get the "Adventuring Time" achievment you might consider one of the following seeds. All of these seeds have all 36 required biomes within less than 650 blocks from the origin: 
 
