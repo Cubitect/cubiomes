@@ -44,31 +44,59 @@ This finder searches for seeds that contain all major biome types within 1024 bl
 
 Below is a list of some very rare seeds that have all the interesing biomes in very close proximity to the origin, offering some unique scenery. TIP: If you are creating a new world you can use the Custom World Generation setting to reduce the biome size by a factor of up to 4, which puts all the biomes even closer together.
 
-+---------------+-------------------------------------------+-----------------------------------+
-| Seed          | Notable biomes within 250 blocks of spawn | Remarks                           |
-+===============+===========================================+===================================+
-| 2458028242930 | Ocean, Plains, Forest, Taiga, Swampland,  | * Decently sized Mushroom Island  |
-|               | Ice Plains, Roofed Forest, Cold Taiga,    |                                   |
-|               | Mega Taiga, Sunflower Plains, Ice Spikes  |                                   |
-+---------------+-------------------------------------------+-----------------------------------+
-| 3659308845421 | Ocean, Plains, Extreme Hills, Forest,     |                                   | 
-|               | Taiga, Swampland, Deep Ocean, Mega Taiga, |                                   |
-|               | Sunflower Plains                          |                                   |
-+---------------+-------------------------------------------+-----------------------------------+
-| 3055141959546 | Ocean, Plains, Extreme Hills, Forest,     | * All biomes are arranged in a    |
-|               | Taiga, Deep Ocean, Flower Forest          |   ring around a central ocean     |
-|               |                                           | * Well suited for custom worlds   |
-+---------------+-------------------------------------------+-----------------------------------+
-| 1618761219563 | Ocean, Plains, Extreme Hills, Forest,     | * Village at spawn                | 
-|               | Swampland, Ice Plains, Mushroom Island,   |                                   |
-|               | Deep Ocean, Birch Forest, Roofed Forest,  |                                   |
-|               | Savanna                                   |                                   |
-+---------------+-------------------------------------------+-----------------------------------+
-| 1661454332289 | Ocean, Plains, Desert, Mushroom Island,   | * All biomes are arranged in a    |
-|               | Deep Ocean, Roofed Forest, Savanna        |   ring around a central ocean     |
-|               |                                           | * Mushroom Island at (0,0)        |
-|               |                                           | * Extremely Small Ice Spike Biome |
-+---------------+-------------------------------------------+-----------------------------------+
+<table>
+<tr>
+  <th>Seed</th>
+  <th>Notable biomes within 250 blocks of spawn</th>
+  <th>Remarks</th>
+</tr>
+<tr>
+  <td>2458028242930</td>
+  <td>Ocean, Plains, Forest, Taiga, Swampland,<br>Ice Plains, Roofed Forest, Cold Taiga,<br>Mega Taiga, Sunflower Plains, Ice Spikes</td>
+  <td>
+   <ul>
+    <li>Decently sized Mushroom Island </li>
+   </ul>
+  </td>
+</tr>
+<tr>
+  <td>3659308845421</td>
+  <td>Ocean, Plains, Extreme Hills, Forest, Taiga,<br>Swampland, Deep Ocean, Mega Taiga,<br>Sunflower Plains</td>
+  <td>
+  </td>
+</tr>
+<tr>
+  <td>3055141959546</td>
+  <td>Ocean, Plains, Extreme Hills, Forest, Taiga,<br>Deep Ocean, Flower Forest</td>
+  <td>
+   <ul>
+    <li>All biomes are arranged in a<br>ring around a central ocean</li>
+    <li>Well suited for custom worlds</li>
+   </ul>
+  </td>
+</tr>
+<tr>
+  <td>1618761219563</td>
+  <td>Ocean, Plains, Extreme Hills, Forest, Swampland,<br>Ice Plains, Mushroom Island, Deep Ocean,<br>Birch Forest, Roofed Forest, Savanna</td>
+  <td>
+   <ul>
+    <li>Village at spawn</li>
+   </ul>
+  </td>
+</tr>
+<tr>
+  <td>1661454332289</td>
+  <td>Ocean, Plains, Desert, Mushroom Island,<br>Deep Ocean, Roofed Forest, Savanna</td>
+  <td>
+   <ul>
+    <li>All biomes are arranged in a<br>ring around a central ocean</li>
+    <li>Mushroom Island at (0,0)</li>
+    <li>Extremely Small Ice Spike Biome</li>
+   </ul>
+  </td>
+</tr>
+
+</table>
 
 
 
