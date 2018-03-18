@@ -87,6 +87,10 @@ extern Biome biomes[256];
  *  (with degrees of freedom for region-transposition, and the top 16-bit bits).
  */
 
+// helper functions
+int isQuadTempleBase(const long seed, const long lower, const long upper);
+int isTriTempleBase(const long seed, const long lower, const long upper);
+
 /* moveTemple
  * ----------
  * Transposes a base seed such that structures are moved by the specified region

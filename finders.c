@@ -139,6 +139,54 @@ int isQuadTempleBase(const long seed, const long lower, const long upper)
     return 1;
 }
 
+int isTriTempleBase(const long seed, const long lower, const long upper)
+{
+    // seed offsets for the regions (0,0) to (1,1)
+    const long reg00base = 14357617;
+    const long reg01base = 341873128712 + 14357617;
+    const long reg10base = 132897987541 + 14357617;
+    const long reg11base = 341873128712 + 132897987541 + 14357617;
+
+    long s;
+    int missing = 0;
+
+    s = (reg00base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    if((s >> 17) % 24 < upper ||
+      (((s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff) >> 17) % 24 < upper)
+    {
+        missing++;
+    }
+
+    s = (reg01base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    if((s >> 17) % 24 > lower ||
+      (((s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff) >> 17) % 24 < upper)
+    {
+        if(missing) return 0;
+        missing++;
+    }
+
+    s = (reg10base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    if((s >> 17) % 24 < upper ||
+      (((s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff) >> 17) % 24 > lower)
+    {
+        if(missing) return 0;
+        missing++;
+    }
+
+    s = (reg11base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    if((s >> 17) % 24 > lower ||
+      (((s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff) >> 17) % 24 > lower)
+    {
+        if(missing) return 0;
+    }
+
+    return 1;
+}
+
 
 long moveTemple(const long baseSeed, const int regionX, const int regionZ)
 {

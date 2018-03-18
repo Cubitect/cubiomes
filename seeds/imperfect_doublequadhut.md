@@ -2,9 +2,9 @@
 
 This is (probably) the entire list of double quad witch hut seeds that exist for Minecraft 1.7+. This list contains only those seeds that have both quad-huts in reasonable proximity to the origin (10000 blocks). 
 
-Note that all quad-huts in this list have the same position relative to one another. I.e. to go from quad-hut #1 to quad-hut #2 add (-2560, 9200). This is because the PRNG that determines the position of temples is not very good, and these major constraints caused by 8 huts allow only for very few relative positions. Also these quad huts are imperfect, meaning that the huts can be up to 2 chunks further appart than in perfect quad-huts. The closeset any two perfect quad-huts are relative to one another is a spacing of over 250000 blocks.
+Note that all quad-huts in this list have the same position relative to one another. I.e. to go from quad-hut #1 to quad-hut #2 add (-2560, 9200). This is because the PRNG that determines the position of temples is not very good, and the major constraints caused by 8 huts allow only for very few relative positions. Also these quad huts are imperfect, meaning that the huts can be up to 2 chunks further appart than in perfect quad-huts. The closest any two perfect quad-huts are relative to one another is a spacing of over 250000 blocks.
 
-The column "In Swamp" indicated the number of coordinates enclosed by the 8 huts that have a swampland biome. The number of spawning spaces is therefore 2 times this number.
+The column "In Swamp" indicates the number of coordinates enclosed by the 8 huts that have a swampland biome. The number of spawning spaces is therefore 2 times this number.
 
 
 | Seed                 | Quad Hut #1   | Quad Hut #2   | In Swamp | 
@@ -97,7 +97,7 @@ The column "In Swamp" indicated the number of coordinates enclosed by the 8 huts
 | -1676768422877678114 | ( 4624,-5088) | ( 2064, 4112) | 504      |
 |  6154478497277107322 | ( 5648,-3040) | ( 3088, 6160) | 504      |
 |  2065977460381146234 | ( 5648,-3040) | ( 3088, 6160) | 504      |
-|----------------------|---------------|---------------|----------|
++----------------------+---------------+---------------+----------+
 |  1550015567964991486 | (-3056,-9184) | (-5616,   16) | 477      |
 | -7802272008223264770 | (-3056,-9184) | (-5616,   16) | 477      |
 | -4590872665482268674 | (-3056,-9184) | (-5616,   16) | 499      |
@@ -340,4 +340,5 @@ The column "In Swamp" indicated the number of coordinates enclosed by the 8 huts
 | -8006092964705379206 | ( 5648,-3040) | ( 3088, 6160) | 502      |
 | -1984498787934315398 | ( 5648,-3040) | ( 3088, 6160) | 502      |
 | -7910007330748801926 | ( 5648,-3040) | ( 3088, 6160) | 502      |
+
 

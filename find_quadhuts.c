@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
     regPosZ -= 1;
 
 
-    const char *seedFileName = "quadbases_Q1.txt";
+    const char *seedFileName = "./seeds/quadbases_Q1.txt";
 
     if(access(seedFileName, F_OK))
     {

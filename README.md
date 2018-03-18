@@ -40,15 +40,77 @@ This finder searches for seeds that contain all major biome types within 1024 bl
 
 ### Cool Seeds
 
-If you are looking to get the "Adventuring Time" achievment you might consider one of the following seeds. All of these seeds have all 36 required biomes within less than 700 blocks from the origin (rarity: less than 1 in 100 billion): 
+#### All Biomes near Origin
+
+Below is a list of some very rare seeds that have all the interesing biomes in very close proximity to the origin, offering some unique scenery. TIP: If you are creating a new world you can use the Custom World Generation setting to reduce the biome size by a factor of up to 4, which puts all the biomes even closer together.
+
++---------------+-------------------------------------------+-----------------------------------+
+| Seed          | Notable biomes within 250 blocks of spawn | Remarks                           |
++===============+===========================================+===================================+
+| 2458028242930 | Ocean, Plains, Forest, Taiga, Swampland,  | * Decently sized Mushroom Island  |
+|               | Ice Plains, Roofed Forest, Cold Taiga,    |                                   |
+|               | Mega Taiga, Sunflower Plains, Ice Spikes  |                                   |
++---------------+-------------------------------------------+-----------------------------------+
+| 3659308845421 | Ocean, Plains, Extreme Hills, Forest,     |                                   | 
+|               | Taiga, Swampland, Deep Ocean, Mega Taiga, |                                   |
+|               | Sunflower Plains                          |                                   |
++---------------+-------------------------------------------+-----------------------------------+
+| 3055141959546 | Ocean, Plains, Extreme Hills, Forest,     | * All biomes are arranged in a    |
+|               | Taiga, Deep Ocean, Flower Forest          |   ring around a central ocean     |
+|               |                                           | * Well suited for custom worlds   |
++---------------+-------------------------------------------+-----------------------------------+
+| 1618761219563 | Ocean, Plains, Extreme Hills, Forest,     | * Village at spawn                | 
+|               | Swampland, Ice Plains, Mushroom Island,   |                                   |
+|               | Deep Ocean, Birch Forest, Roofed Forest,  |                                   |
+|               | Savanna                                   |                                   |
++---------------+-------------------------------------------+-----------------------------------+
+| 1661454332289 | Ocean, Plains, Desert, Mushroom Island,   | * All biomes are arranged in a    |
+|               | Deep Ocean, Roofed Forest, Savanna        |   ring around a central ocean     |
+|               |                                           | * Mushroom Island at (0,0)        |
+|               |                                           | * Extremely Small Ice Spike Biome |
++---------------+-------------------------------------------+-----------------------------------+
+
+
+
+#### Lots of Witch Huts
+
+Four is the maximum number of huts that can generate close enough together to be operated by a single player. However, if you have a server, or you just want multiple witch farms in your world, then you can consider seeds with more than one multi-huts. Unfortunately, seeds that have two quad-huts are extremely rare, and it turns out that the closest distance between any two perfect quad-huts is around 269000 blocks. Instead we can look for seeds with less constraints, such as having triple witch huts in proximity to the origin. 
+
+For seeds that have a quad-hut with 2 additional tri-huts, I present to you all seeds that have the multi-huts in the closest proximity to spawn. In fact there are only 6 seeds that have all of them within 40000 blocks. Luckily all of the hut coordinates are inside a swamp, giving a total of 630×3 spawning spaces for each of the seeds.
+
+| Seed                 | Quad Hut      | Tri Hut #1     | Tri Hut #2     |
+|----------------------|---------------|----------------|----------------|
+|   181201211981019340 | ( 5480, 4984) | (10616, -8344) | (-23688,28520) |
+|  2178171917826985089 | (-3736,-3720) | ( 1400,-17048) | (-32904,19816) |
+| -2263221739690455935 | (-3736,-3720) | ( 1400,-17048) | (-32904,19816) |
+|  3382334921639955859 | (28008, -648) | (33144,-13976) | ( -1160,22888) |
+| -8386696804585992813 | (28008, -648) | (33144,-13976) | ( -1160,22888) |
+|  4027541812768105332 | (-5784,-7304) | ( -648,-20632) | (-34952,16232) |
+
+Also there exist a hand full of seeds with two imperfect quad huts that are relatively close to spawn. These huts can be up to 2 chunks further appart. Unfortunately this means that they always have some parts that are just outside the 128 block despawn radius, meaning that they will only have the efficency of about 3 huts. However, they have a much larger operation area, so you can move around while the farm in running. A list of these seeds can be found in `./seeds/imperfect_doublequadhut.md`.
+
+
+
+#### Advancement Related
+
+If you are looking to get the "Adventuring Time" achievment you might consider one of the following seeds. All of these seeds have all 36 required biomes within less than 650 blocks from the origin: 
 
 | Seed          | All biome radius |
 |---------------|------------------|
-| 1065757415811 | 612              | 
 | -880424771806 | 644              | 
-| -9896963610   | 664              | 
-| -78538250832  | 686              | 
-| 1251759844332 | 692              | 
+| 48382691805   | 633              | 
+| 480800992945  | 649              | 
+| 1065757415811 | 612              | 
+| 1509124018794 | 645              | 
+| 1550633690354 | 616              | 
+| 1571479851306 | 631              | 
+| 1925837979058 | 621              | 
+| 2082386353360 | 649              | 
+| 2087339213306 | 632              | 
+| 2810140768300 | 637              | 
+| 3053313529066 | 648              | 
+| 3457626356584 | 649              | 
+| 3548624619264 | 646              | 
 
 
 
