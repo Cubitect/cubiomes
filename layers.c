@@ -159,12 +159,13 @@ void mapZoom(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
 
-    int (*selectRand)(Layer *l, int a1, int a2, int a3, int a4) = (l->p->getMap == mapIsland) ? selectRandom4 : selectModeOrRandom;
-
     int newWidth = (pWidth-1) << 1;
     int newHeight = (pHeight-1) << 1;
     int idx, a, b;
     int *buf = (int *)malloc((newWidth+1)*(newHeight+1)*sizeof(*buf));
+
+    const int ws = (int)l->worldSeed;
+    const int ss = ws * (ws * 1284865837 + 4150755663);
 
     for(z = 0; z < pHeight - 1; z++)
     {
@@ -174,14 +175,60 @@ void mapZoom(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth
 
         for(x = 0; x < pWidth - 1; x++)
         {
-            setChunkSeed(l, (long)((x + pX) << 1), (long)((z + pZ) << 1));
             int a1 = out[x+1 + (z+0)*pWidth];
             int b1 = out[x+1 + (z+1)*pWidth];
+
+            const int chunkX = (x + pX) << 1;
+            const int chunkZ = (z + pZ) << 1;
+
+            register int cs = ss;
+            cs += chunkX;
+            cs *= cs * 1284865837 + 4150755663;
+            cs += chunkZ;
+            cs *= cs * 1284865837 + 4150755663;
+            cs += chunkX;
+            cs *= cs * 1284865837 + 4150755663;
+            cs += chunkZ;
+
             buf[idx] = a;
-            buf[idx + newWidth] = selectRandom2(l, a, b);
+            buf[idx + newWidth] = (cs >> 24) & 1 ? b : a;
             idx++;
-            buf[idx] = selectRandom2(l, a, a1);
-            buf[idx + newWidth] = selectRand(l, a, a1, b, b1);
+
+            cs *= cs * 1284865837 + 4150755663;
+            cs += ws;
+            buf[idx] = (cs >> 24) & 1 ? a1 : a;
+
+
+            if(l->p->getMap == mapIsland)
+            {
+                //selectRandom4
+                cs *= cs * 1284865837 + 4150755663;
+                cs += ws;
+                const int i = (cs >> 24) & 3;
+                buf[idx + newWidth] = i==0 ? a : i==1 ? a1 : i==2 ? b : b1;
+            }
+            else
+            {
+                //selectModeOrRandom
+                if     (a1 == b  && b  == b1) buf[idx + newWidth] = a1;
+                else if(a  == a1 && a  == b ) buf[idx + newWidth] = a;
+                else if(a  == a1 && a  == b1) buf[idx + newWidth] = a;
+                else if(a  == b  && a  == b1) buf[idx + newWidth] = a;
+                else if(a  == a1 && b  != b1) buf[idx + newWidth] = a;
+                else if(a  == b  && a1 != b1) buf[idx + newWidth] = a;
+                else if(a  == b1 && a1 != b ) buf[idx + newWidth] = a;
+                else if(a1 == b  && a  != b1) buf[idx + newWidth] = a1;
+                else if(a1 == b1 && a  != b ) buf[idx + newWidth] = a1;
+                else if(b  == b1 && a  != a1) buf[idx + newWidth] = b;
+                else
+                {
+                    cs *= cs * 1284865837 + 4150755663;
+                    cs += ws;
+                    const int i = (cs >> 24) & 3;
+                    buf[idx + newWidth] = i==0 ? a : i==1 ? a1 : i==2 ? b : b1;
+                }
+            }
+
             idx++;
             a = a1;
             b = b1;
@@ -206,6 +253,9 @@ void mapAddIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int area
     int x, z;
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
+
+    const long ws = l->worldSeed;
+    const long ss = ws * (ws * 6364136223846793005L + 1442695040888963407L);
 
     for(z = 0; z < areaHeight; z++)
     {
@@ -238,9 +288,22 @@ void mapAddIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int area
             }
             else if(v11 > 0 && (v00 == 0 || v20 == 0 || v02 == 0 || v22 == 0))
             {
-                setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
+                //setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
+                //if(mcNextInt(l, 5) == 0)...
 
-                if(mcNextInt(l, 5) == 0)
+                const long chunkX = (long)(x + areaX);
+                const long chunkZ = (long)(z + areaZ);
+
+                register long cs = ss;
+                cs += chunkX;
+                cs *= cs * 6364136223846793005L + 1442695040888963407L;
+                cs += chunkZ;
+                cs *= cs * 6364136223846793005L + 1442695040888963407L;
+                cs += chunkX;
+                cs *= cs * 6364136223846793005L + 1442695040888963407L;
+                cs += chunkZ;
+
+                if((cs >> 24) % 5 == 0)
                     out[x + z*areaWidth] = (v11 == 4) ? 4 : 0;
                 else
                     out[x + z*areaWidth] = v11;

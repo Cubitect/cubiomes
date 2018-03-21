@@ -64,9 +64,9 @@ int main(int argc, char *argv[])
     long seedStart, seedEnd;
     uint threads, t;
 
-    if(argc < 1 || sscanf(argv[1], "%ld", &seedStart) != 1) seedStart = 0;
-    if(argc < 2 || sscanf(argv[2], "%ld", &seedEnd) != 1) seedEnd = 1000000000L;
-    if(argc < 3 || sscanf(argv[3], "%u", &threads) != 1) threads = 1;
+    if(argc <= 1 || sscanf(argv[1], "%ld", &seedStart) != 1) seedStart = 0;
+    if(argc <= 2 || sscanf(argv[2], "%ld", &seedEnd) != 1) seedEnd = 100000000L;
+    if(argc <= 3 || sscanf(argv[3], "%u", &threads) != 1) threads = 1;
 
     printf("Starting search through seeds %ld to %ld, using %u threads.\n", seedStart, seedEnd, threads);
 
