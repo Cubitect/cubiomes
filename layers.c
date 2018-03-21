@@ -133,12 +133,26 @@ void mapNull(Layer *l, int * __restrict out, int x, int z, int w, int h)
 void mapIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {
     register int x, z;
+
+    const long ws = l->worldSeed;
+    const long ss = ws * (ws * 6364136223846793005L + 1442695040888963407L);
+
     for(z = 0; z < areaHeight; z++)
     {
         for(x = 0; x < areaWidth; x++)
         {
-            setChunkSeed(l, (long)(areaX + x), (long)(areaZ + z));
-            out[x + z*areaWidth] = mcNextInt(l, 10) == 0 ? 1 : 0;
+            const long chunkX = (long)(x + areaX);
+            const long chunkZ = (long)(z + areaZ);
+            register long cs = ss;
+            cs += chunkX;
+            cs *= cs * 6364136223846793005L + 1442695040888963407L;
+            cs += chunkZ;
+            cs *= cs * 6364136223846793005L + 1442695040888963407L;
+            cs += chunkX;
+            cs *= cs * 6364136223846793005L + 1442695040888963407L;
+            cs += chunkZ;
+
+            out[x + z*areaWidth] = (cs >> 24) % 10 == 0;
         }
     }
 
@@ -210,16 +224,16 @@ void mapZoom(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth
             else
             {
                 //selectModeOrRandom
-                if     (a1 == b  && b  == b1) buf[idx + newWidth] = a1;
-                else if(a  == a1 && a  == b ) buf[idx + newWidth] = a;
-                else if(a  == a1 && a  == b1) buf[idx + newWidth] = a;
-                else if(a  == b  && a  == b1) buf[idx + newWidth] = a;
-                else if(a  == a1 && b  != b1) buf[idx + newWidth] = a;
-                else if(a  == b  && a1 != b1) buf[idx + newWidth] = a;
-                else if(a  == b1 && a1 != b ) buf[idx + newWidth] = a;
-                else if(a1 == b  && a  != b1) buf[idx + newWidth] = a1;
-                else if(a1 == b1 && a  != b ) buf[idx + newWidth] = a1;
-                else if(b  == b1 && a  != a1) buf[idx + newWidth] = b;
+                if      (a1 == b  && b  == b1) buf[idx + newWidth] = a1;
+                else if (a  == a1 && a  == b ) buf[idx + newWidth] = a;
+                else if (a  == a1 && a  == b1) buf[idx + newWidth] = a;
+                else if (a  == b  && a  == b1) buf[idx + newWidth] = a;
+                else if (a  == a1 && b  != b1) buf[idx + newWidth] = a;
+                else if (a  == b  && a1 != b1) buf[idx + newWidth] = a;
+                else if (a  == b1 && a1 != b ) buf[idx + newWidth] = a;
+                else if (a1 == b  && a  != b1) buf[idx + newWidth] = a1;
+                else if (a1 == b1 && a  != b ) buf[idx + newWidth] = a1;
+                else if (b  == b1 && a  != a1) buf[idx + newWidth] = b;
                 else
                 {
                     cs *= cs * 1284865837 + 4150755663;
