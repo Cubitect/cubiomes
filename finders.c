@@ -139,6 +139,7 @@ int isQuadTempleBase(const long seed, const long lower, const long upper)
     return 1;
 }
 
+
 int isTriTempleBase(const long seed, const long lower, const long upper)
 {
     // seed offsets for the regions (0,0) to (1,1)
@@ -187,11 +188,267 @@ int isTriTempleBase(const long seed, const long lower, const long upper)
     return 1;
 }
 
-
 long moveTemple(const long baseSeed, const int regionX, const int regionZ)
 {
     return (baseSeed - regionX*341873128712 - regionZ*132897987541) & 0xffffffffffff;
 }
+
+
+int isQuadMonumentBase(const long seed, const int qual)
+{
+    // seed offsets for the regions (0,0) to (1,1)
+    const long reg00base = 10387313;
+    const long reg01base = 341873128712 + 10387313;
+    const long reg10base = 132897987541 + 10387313;
+    const long reg11base = 341873128712 + 132897987541 + 10387313;
+
+    long s, p;
+
+    /*
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + 10387313;
+    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
+
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.x = (seed >> 17) % 27;
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.x += (seed >> 17) % 27;
+
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.z = (seed >> 17) % 27;
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.z += (seed >> 17) % 27;
+    */
+
+    s = (reg00base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p = (s >> 17) % 27;
+    if(p < 26-qual) return 0;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p += (s >> 17) % 27;
+    if(p < 2*26-qual) return 0;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p = (s >> 17) % 27;
+    if(p < 26-qual) return 0;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p += (s >> 17) % 27;
+    if(p < 2*26-qual) return 0;
+
+    s = (reg01base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p = (s >> 17) % 27;
+    if(p > qual) return 0;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p += (s >> 17) % 27;
+    if(p > qual) return 0;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p = (s >> 17) % 27;
+    if(p < 26-qual) return 0;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p += (s >> 17) % 27;
+    if(p < 2*26-qual) return 0;
+
+    s = (reg10base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p = (s >> 17) % 27;
+    if(p < 26-qual) return 0;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p += (s >> 17) % 27;
+    if(p < 2*26-qual) return 0;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p = (s >> 17) % 27;
+    if(p > qual) return 0;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p += (s >> 17) % 27;
+    if(p > qual) return 0;
+
+    s = (reg11base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p = (s >> 17) % 27;
+    if(p > qual) return 0;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p += (s >> 17) % 27;
+    if(p > qual) return 0;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p = (s >> 17) % 27;
+    if(p > qual) return 0;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p += (s >> 17) % 27;
+    if(p > qual) return 0;
+
+    return 1;
+}
+
+
+int isTriMonumentBase(const long seed, const int qual)
+{
+    // seed offsets for the regions (0,0) to (1,1)
+    const long reg00base = 10387313;
+    const long reg01base = 341873128712 + 10387313;
+    const long reg10base = 132897987541 + 10387313;
+    const long reg11base = 341873128712 + 132897987541 + 10387313;
+
+    long s, p;
+    int incomplete = 0;
+
+    /*
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + 10387313;
+    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
+
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.x = (seed >> 17) % 27;
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.x += (seed >> 17) % 27;
+
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.z = (seed >> 17) % 27;
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.z += (seed >> 17) % 27;
+    */
+
+    s = (reg00base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p = (s >> 17) % 27;
+    if(p < 26-qual) goto incomp11;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p += (s >> 17) % 27;
+    if(p < 2*26-qual) goto incomp11;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p = (s >> 17) % 27;
+    if(p < 26-qual) goto incomp11;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p += (s >> 17) % 27;
+    if(p < 2*26-qual) goto incomp11;
+
+    if(0)
+    {
+        incomp11:
+        incomplete = 1;
+    }
+
+    s = (reg01base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p = (s >> 17) % 27;
+    if(p > qual) goto incomp01;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p += (s >> 17) % 27;
+    if(p > qual) goto incomp01;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p = (s >> 17) % 27;
+    if(p < 26-qual) goto incomp01;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p += (s >> 17) % 27;
+    if(p < 2*26-qual) goto incomp01;
+
+    if(0)
+    {
+        incomp01:
+        if(incomplete) return 0;
+        incomplete = 2;
+    }
+
+    s = (reg10base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p = (s >> 17) % 27;
+    if(p < 26-qual) goto incomp10;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p += (s >> 17) % 27;
+    if(p < 2*26-qual) goto incomp10;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p = (s >> 17) % 27;
+    if(p > qual) goto incomp10;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p += (s >> 17) % 27;
+    if(p > qual) goto incomp10;
+
+    if(0)
+    {
+        incomp10:
+        if(incomplete) return 0;
+        incomplete = 3;
+    }
+
+    s = (reg11base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p = (s >> 17) % 27;
+    if(p > qual) goto incomp00;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p += (s >> 17) % 27;
+    if(p > qual) goto incomp00;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p = (s >> 17) % 27;
+    if(p > qual) goto incomp00;
+    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    p += (s >> 17) % 27;
+    if(p > qual) goto incomp00;
+
+    if(0)
+    {
+        incomp00:
+        if(incomplete) return 0;
+        incomplete = 4;
+    }
+
+    return incomplete ? incomplete : -1;
+}
+
+// Searches for the optimal AFK position given four structures at positions 'p',
+// each of volume (ax,ay,az). 
+// Returned is the number of spawning spaces in reach.
+int countBlocksInSpawnRange(Pos p[4], const int ax, const int ay, const int az)
+{
+    int minX = 3e7, minZ = 3e7, maxX = -3e7, maxZ = -3e7;
+    int best;
+
+
+    // Find corners
+    for(int i = 0; i < 4; i++)
+    {
+        if(p[i].x < minX) minX = p[i].x;
+        if(p[i].z < minZ) minZ = p[i].z;
+        if(p[i].x > maxX) maxX = p[i].x;
+        if(p[i].z > maxZ) maxZ = p[i].z;
+    }
+
+
+    // assume that the search area is bound by the inner corners
+    maxX += ax;
+    maxZ += az;
+    best = 0;
+
+    double thsq = 128.0*128.0 - az*az/4.0;
+
+    for(int x = minX; x < maxX; x++)
+    {
+        for(int z = minZ; z < maxZ; z++)
+        {
+            int inrange = 0;
+
+            for(int i = 0; i < 4; i++)
+            {
+                double dx = p[i].x - (x+0.5);
+                double dz = p[i].z - (z+0.5);
+
+                for(int px = 0; px < ax; px++)
+                {
+                    for(int pz = 0; pz < az; pz++)
+                    {
+                        double ddx = px + dx;
+                        double ddz = pz + dz;
+                        inrange += (ddx*ddx + ddz*ddz <= thsq);
+                    }
+                }
+            }
+
+            if(inrange > best)
+            {
+                best = inrange;
+            }
+        }
+    }
+
+    return best;
+}
+
 
 
 long *loadSavedSeeds(const char *fnam, long *scnt)
@@ -506,7 +763,7 @@ Pos getOceanMonumentPos(long seed, const long regionX, const long regionZ)
 
     // set seed
     seed = regionX*341873128712 + regionZ*132897987541 + seed + 10387313;
-    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
+    seed = (seed ^ 0x5DEECE66DL) & ((1L << 48) - 1);
 
     seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
     pos.x = (seed >> 17) % 27;
@@ -518,8 +775,10 @@ Pos getOceanMonumentPos(long seed, const long regionX, const long regionZ)
     seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
     pos.z += (seed >> 17) % 27;
 
-    pos.x = regionX*512 + (pos.x << 3) + 8;
-    pos.z = regionZ*512 + (pos.z << 3) + 8;
+    pos.x = regionX*32 + (pos.x >> 1);
+    pos.z = regionZ*32 + (pos.z >> 1);
+    pos.x = pos.x*16 + 8;
+    pos.z = pos.z*16 + 8;
     return pos;
 }
 
@@ -549,8 +808,10 @@ Pos getMansionPos(long seed, const long area80X, const long area80Z)
     seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
     pos.z += (seed >> 17) % 60;
 
-    pos.x = area80X*1280 + (pos.x << 3) + 8;
-    pos.z = area80Z*1280 + (pos.z << 3) + 8;
+    pos.x = area80X*80 + (pos.x >> 1);
+    pos.z = area80X*80 + (pos.z >> 1);
+    pos.x = pos.x*16 + 8;
+    pos.z = pos.z*16 + 8;
     return pos;
 }
 
@@ -769,7 +1030,6 @@ int areBiomesViable(
     }
 
     map = cache ? cache : allocCache(layer, width, height);
-
     genArea(layer, map, x1, z1, width, height);
 
     for(i = 0; i < width*height; i++)
