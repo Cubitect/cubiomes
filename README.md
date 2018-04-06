@@ -102,9 +102,9 @@ Below is a list of some very rare seeds that have all the interesing biomes in v
 
 ## Lots of Witch Huts
 
-No more than four huts can generate close enough together to be operated by a single player. However, if you have a server, or you just want multiple witch farms in your world, then you can consider seeds with more than one multi-hut. Unfortunately, seeds that have two quad-huts are extremely rare, and it turns out that the closest distance between any two perfect quad-huts is over 270000 blocks. Instead we can look for seeds with less constraints, such as having triple witch huts in proximity to the origin. 
+No more than four huts can generate close enough together to be operated by a single player. However, if you have a server, or you just want multiple witch farms in your world, then you can consider seeds with more than one multi-hut. 
 
-For seeds that have a quad-hut with 2 additional tri-huts, I present to you all seeds that have the multi-huts in the closest proximity to spawn. In fact there are only 6 seeds that have all of them within 40000 blocks. Luckily for each of the seeds, all of the hut coordinates are inside a swamp, giving a total of 630×3 spawning spaces.
+For seeds that have a quad-hut with 2 additional tri-huts, I present to you (possibly all) seeds that have the multi-huts in the closest proximity to spawn. These seeds have one quad-hut and 2 tri-huts within 40000 blocks.
 
 | Seed                 | Quad Hut      | Tri Hut #1     | Tri Hut #2     |
 |----------------------|---------------|----------------|----------------|
@@ -115,7 +115,7 @@ For seeds that have a quad-hut with 2 additional tri-huts, I present to you all 
 | -8386696804585992813 | (28008, -648) | (33144,-13976) | ( -1160,22888) |
 |  4027541812768105332 | (-5784,-7304) | ( -648,-20632) | (-34952,16232) |
 
-Furthermore, there exist a hand full of seeds with two imperfect quad huts that are relatively close to spawn. These huts can be up to 2 chunks further appart. Unfortunately this means that they always have some parts that are just outside the 128 block despawn radius, meaning that they will only have the efficency of about 3 huts. However, they have a much larger operation area, so you can move around while the farm in running. A list of these seeds can be found in `./seeds/imperfect_doublequadhut.md`.
+For a mostly complete list of double-quad-huts within 32000 blocks see: `./seeds/alldoublequadhuts32k.txt`.
 
 
 
