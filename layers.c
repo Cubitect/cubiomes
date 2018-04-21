@@ -162,7 +162,116 @@ void mapIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWid
     }
 }
 
+#ifdef __AVX2__
+void mapZoom(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight) {
+    int pWidth = (areaWidth>>1)+2, pHeight = (areaHeight>>1)+1;
+    __m256i (*selectRand)(__m256i* cs, int ws, __m256i a1, __m256i a2, __m256i a3, __m256i a4) = (l->p->getMap == mapIsland) ? select8Random4 : select8ModeOrRandom;
+    int newWidth = areaWidth+10&0xFFFFFFFE;//modified to ignore ends
+    int x, z;
+    __m256i cs, a, b, a1, b1, toBuf1, toBuf2, aSuf;
+    __m256i mask1 = _mm256_setr_epi32(0xFFFFFFFF, 0x0, 0xFFFFFFFF, 0x0, 0xFFFFFFFF, 0x0, 0xFFFFFFFF, 0x0), mask2 = _mm256_setr_epi32(0x0, 0xFFFFFFFF, 0x0, 0xFFFFFFFF, 0x0, 0xFFFFFFFF, 0x0, 0xFFFFFFFF);
+    __m256i shuffle = _mm256_setr_epi32(0, 4, 1, 5, 2, 6, 3, 7);
+    int pX = areaX&0xFFFFFFFE;
+    __m256i xs = _mm256_set_epi32(pX+14, pX+12, pX+10, pX+8, pX+6, pX+4, pX+2, pX), zs;
+    __m256i v2 = _mm256_set1_epi32(2), v16 = _mm256_set1_epi32(16);
+    int* buf = malloc((newWidth+1)*(areaHeight+2|1)*sizeof(*buf));
+    int* idx = buf;
+    int* outIdx = out;    
+    //z first!
+    for (x = 0; x < pWidth-1; x += 8) {
+        a = _mm256_loadu_si256((__m256i*)(outIdx));//0, 0
+        b = _mm256_loadu_si256((__m256i*)(outIdx+1));//1, 0
+        zs = _mm256_set1_epi32(areaZ&0xFFFFFFFE);
+        for (z = 0; z < pHeight; z++) {
+            cs = set8ChunkSeeds(l->worldSeed, xs, zs);
+            outIdx += pWidth;
+            a1 = _mm256_loadu_si256((__m256i*)(outIdx));//0, 1
+            b1 = _mm256_loadu_si256((__m256i*)(outIdx+1));//1, 1
+            toBuf1 = _mm256_permutevar8x32_epi32(select8Random2(&cs, l->worldSeed, a, a1), shuffle);
+            toBuf2 = _mm256_permutevar8x32_epi32(select8Random2(&cs, l->worldSeed, a, b), shuffle);
+            aSuf = _mm256_permutevar8x32_epi32(a, shuffle);
+            _mm256_maskstore_epi32(idx, mask1, aSuf);
+            _mm256_maskstore_epi32(idx+1, mask1, toBuf2);
+            _mm256_maskstore_epi32(idx+7, mask2, aSuf);
+            _mm256_maskstore_epi32(idx+8, mask2, toBuf2);
+            idx += newWidth;
+            toBuf2 = _mm256_permutevar8x32_epi32(selectRand(&cs, l->worldSeed, a, b, a1, b1), shuffle);
+            _mm256_maskstore_epi32(idx, mask1, toBuf1);
+            _mm256_maskstore_epi32(idx+1, mask1, toBuf2);
+            _mm256_maskstore_epi32(idx+7, mask2, toBuf1);
+            _mm256_maskstore_epi32(idx+8, mask2, toBuf2);
+            idx += newWidth;
+            a = a1;
+            b = b1;
+            zs = _mm256_add_epi32(zs, v2);
+        }
+        outIdx += 8-pHeight*pWidth;        
+        idx += 16-pHeight*2*newWidth;    
+        xs = _mm256_add_epi32(xs, v16);
+    }
 
+    for(z = 0; z < areaHeight; z++)
+    {
+        memcpy(&out[z*areaWidth], &buf[(z + (areaZ & 1))*newWidth + (areaX & 1)], areaWidth*sizeof(int));
+    }
+
+    free(buf);
+}
+#elif defined __SSE4_2__
+void mapZoom(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight) {
+    int pWidth = (areaWidth>>1)+2, pHeight = (areaHeight>>1)+1;
+    __m128i (*selectRand)(__m128i* cs, int ws, __m128i a1, __m128i a2, __m128i a3, __m128i a4) = (l->p->getMap == mapIsland) ? select4Random4 : select4ModeOrRandom;
+    int newWidth = areaWidth+6&0xFFFFFFFE;//modified to ignore ends
+    int x, z;
+    __m128i cs, a, b, a1, b1, toBuf1, toBuf2, aSuf;
+    __m128i mask1 = _mm_setr_epi32(0xFFFFFFFF, 0x0, 0xFFFFFFFF, 0x0), mask2 = _mm_setr_epi32(0x0, 0xFFFFFFFF, 0x0, 0xFFFFFFFF);
+    int pX = areaX&0xFFFFFFFE;
+    __m128i xs = _mm_set_epi32(pX+6, pX+4, pX+2, pX), zs;
+    __m128i v2 = _mm_set1_epi32(2), v8 = _mm_set1_epi32(8);
+    int* buf = malloc((newWidth+1)*(areaHeight+2|1)*sizeof(*buf));
+    int* idx = buf;
+    int* outIdx = out;
+    //z first!
+    for (x = 0; x < pWidth-1; x += 4) {
+        a = _mm_loadu_si128((__m128i_u*)(outIdx));//0, 0
+        b = _mm_loadu_si128((__m128i_u*)(outIdx+1));//1, 0
+        zs = _mm_set1_epi32(areaZ&0xFFFFFFFE);
+        for (z = 0; z < pHeight; z++) {
+            cs = set4ChunkSeeds(l->worldSeed, xs, zs);
+            outIdx += pWidth;
+            a1 = _mm_loadu_si128((__m128i_u*)(outIdx));//0, 1
+            b1 = _mm_loadu_si128((__m128i_u*)(outIdx+1));//1, 1
+            toBuf1 = _mm_shuffle_epi32(select4Random2(&cs, l->worldSeed, a, a1), 0xD8);//11011000->3120->1324
+            toBuf2 = _mm_shuffle_epi32(select4Random2(&cs, l->worldSeed, a, b), 0xD8);
+            aSuf = _mm_shuffle_epi32(a, 0xD8);
+            _mm_maskmoveu_si128(aSuf, mask1, (char*)(idx));
+            _mm_maskmoveu_si128(toBuf2, mask1, (char*)(idx+1));
+            _mm_maskmoveu_si128(aSuf, mask2, (char*)(idx+3));
+            _mm_maskmoveu_si128(toBuf2, mask2, (char*)(idx+4));
+            idx += newWidth;
+            toBuf2 = _mm_shuffle_epi32(selectRand(&cs, l->worldSeed, a, b, a1, b1), 0xD8);
+            _mm_maskmoveu_si128(toBuf1, mask1, (char*)(idx));
+            _mm_maskmoveu_si128(toBuf2, mask1, (char*)(idx+1));
+            _mm_maskmoveu_si128(toBuf1, mask2, (char*)(idx+3));
+            _mm_maskmoveu_si128(toBuf2, mask2, (char*)(idx+4));
+            idx += newWidth;            
+            a = a1;
+            b = b1;
+            zs = _mm_add_epi32(zs, v2);
+        }
+        outIdx += 4-pHeight*pWidth;
+        idx += 8-pHeight*2*newWidth;
+        xs = _mm_add_epi32(xs, v8);
+    }
+
+    for(z = 0; z < areaHeight; z++)
+    {
+        memcpy(&out[z*areaWidth], &buf[(z + (areaZ & 1))*newWidth + (areaX & 1)], areaWidth*sizeof(int));
+    }
+
+    free(buf);
+}
+#else
 void mapZoom(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {
     int pX = areaX >> 1;
@@ -256,7 +365,7 @@ void mapZoom(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth
 
     free(buf);
 }
-
+#endif
 
 void mapAddIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {

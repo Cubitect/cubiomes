@@ -3,6 +3,19 @@
 
 #include <stdlib.h>
 
+#ifdef __AVX2__
+#include <emmintrin.h>
+#include <smmintrin.h>
+#include <immintrin.h>
+#warning "Using AVX2 extensions."
+#elif defined __SSE4_2__
+#include <emmintrin.h>
+#include <smmintrin.h>
+#warning "Using SSE4.2 extensions."
+#else
+#warning "Using no SIMD extensions."
+#endif
+
 #define STRUCT(S) typedef struct S S; struct S
 
 #define OPT_O2 __attribute__((optimize("O2")))
@@ -172,6 +185,150 @@ static inline void setBaseSeed(Layer *layer, long seed)
     layer->chunkSeed = 0;
 }
 
+#ifdef __AVX2__
+static inline __m256i set8ChunkSeeds(int ws, __m256i xs, __m256i zs) {
+    __m256i out = _mm256_set1_epi32(ws);
+    __m256i mul = _mm256_set1_epi32(1284865837);
+    __m256i add = _mm256_set1_epi32(4150755663);
+    out = _mm256_add_epi32(xs, _mm256_mullo_epi32(out, _mm256_add_epi32(add, _mm256_mullo_epi32(out, mul))));
+    out = _mm256_add_epi32(zs, _mm256_mullo_epi32(out, _mm256_add_epi32(add, _mm256_mullo_epi32(out, mul))));
+    out = _mm256_add_epi32(xs, _mm256_mullo_epi32(out, _mm256_add_epi32(add, _mm256_mullo_epi32(out, mul))));
+    return _mm256_add_epi32(zs, _mm256_mullo_epi32(out, _mm256_add_epi32(add, _mm256_mullo_epi32(out, mul))));
+}
+
+static inline __m256i mc8NextInt(__m256i* cs, int ws, int mask) {
+    __m256i and = _mm256_set1_epi32(mask);
+    __m256i ret = _mm256_and_si256(and, _mm256_srli_epi32(*cs, 24));
+    *cs = _mm256_add_epi32(_mm256_set1_epi32(ws), _mm256_mullo_epi32(*cs, _mm256_add_epi32(_mm256_set1_epi32(4150755663), _mm256_mullo_epi32(*cs, _mm256_set1_epi32(1284865837)))));
+    return _mm256_add_epi32(ret, _mm256_and_si256(and, _mm256_cmpgt_epi32(_mm256_set1_epi32(0), ret)));;
+}
+
+static inline __m256i select8Random2(__m256i* cs, int ws, __m256i a1, __m256i a2) {
+    __m256i cmp = _mm256_cmpeq_epi32(_mm256_set1_epi32(0), mc8NextInt(cs, ws, 0x1));
+    return _mm256_or_si256(_mm256_and_si256(cmp, a1), _mm256_andnot_si256(cmp, a2));
+}
+
+static inline __m256i select8Random4(__m256i* cs, int ws, __m256i a1, __m256i a2, __m256i a3, __m256i a4) {
+    __m256i val = mc8NextInt(cs, ws, 0x3);
+    __m256i v2 = _mm256_set1_epi32(2);
+    __m256i cmp1 = _mm256_cmpeq_epi32(val, _mm256_set1_epi32(0));
+    __m256i cmp2 = _mm256_cmpeq_epi32(v2, val);
+    __m256i cmp3 = _mm256_cmpgt_epi32(v2, val);
+    return _mm256_or_si256(
+        _mm256_and_si256(cmp3, _mm256_or_si256(_mm256_and_si256(cmp1, a1), _mm256_andnot_si256(cmp1, a2))),
+        _mm256_andnot_si256(cmp3, _mm256_or_si256(_mm256_and_si256(cmp2, a3), _mm256_andnot_si256(cmp2, a4)))
+    );
+}
+
+static inline __m256i select8ModeOrRandom(__m256i* cs, int ws, __m256i a1, __m256i a2, __m256i a3, __m256i a4) {
+    __m256i cmp1 = _mm256_cmpeq_epi32(a1, a2);
+    __m256i cmp2 = _mm256_cmpeq_epi32(a1, a3);
+    __m256i cmp3 = _mm256_cmpeq_epi32(a1, a4);
+    __m256i cmp4 = _mm256_cmpeq_epi32(a2, a3);
+    __m256i cmp5 = _mm256_cmpeq_epi32(a2, a4);
+    __m256i cmp6 = _mm256_cmpeq_epi32(a3, a4);
+    __m256i isa1 = _mm256_or_si256(
+                       _mm256_andnot_si256(cmp6, cmp1),
+                       _mm256_or_si256 (
+                           _mm256_andnot_si256(cmp5, cmp2),
+                           _mm256_andnot_si256(cmp4, cmp3)
+                       )
+                   );
+    __m256i isa2 = _mm256_or_si256(
+                       _mm256_andnot_si256(cmp3, cmp4),
+                       _mm256_andnot_si256(cmp2, cmp5)
+                   );
+    __m256i isa3 = _mm256_andnot_si256(cmp1, cmp6);
+    return _mm256_or_si256(
+        _mm256_andnot_si256(
+            _mm256_or_si256(
+                isa1,
+                _mm256_or_si256(isa2, isa3)
+            ),
+            select8Random4(cs, ws, a1, a2, a3, a4)
+        ),
+        _mm256_or_si256(
+            _mm256_and_si256(isa1, a1),
+            _mm256_or_si256(
+                _mm256_and_si256(isa2, a2),
+                _mm256_and_si256(isa3, a3)
+            )
+        )
+    );
+}
+#elif defined __SSE4_2__
+static inline __m128i set4ChunkSeeds(int ws, __m128i xs, __m128i zs) {
+    __m128i out = _mm_set1_epi32(ws);
+    __m128i mul = _mm_set1_epi32(1284865837);
+    __m128i add = _mm_set1_epi32(4150755663);
+    out = _mm_add_epi32(xs, _mm_mullo_epi32(out, _mm_add_epi32(add, _mm_mullo_epi32(out, mul))));
+    out = _mm_add_epi32(zs, _mm_mullo_epi32(out, _mm_add_epi32(add, _mm_mullo_epi32(out, mul))));
+    out = _mm_add_epi32(xs, _mm_mullo_epi32(out, _mm_add_epi32(add, _mm_mullo_epi32(out, mul))));
+    return _mm_add_epi32(zs, _mm_mullo_epi32(out, _mm_add_epi32(add, _mm_mullo_epi32(out, mul))));
+}
+
+static inline __m128i mc4NextInt(__m128i* cs, int ws, int mask) {
+    __m128i and = _mm_set1_epi32(mask);
+    __m128i ret = _mm_and_si128(and, _mm_srli_epi32(*cs, 24));
+    *cs = _mm_add_epi32( _mm_set1_epi32(ws), _mm_mullo_epi32(*cs, _mm_add_epi32(_mm_set1_epi32(4150755663), _mm_mullo_epi32(*cs, _mm_set1_epi32(1284865837)))));
+    return _mm_add_epi32(ret, _mm_and_si128(and, _mm_cmplt_epi32(ret, _mm_set1_epi32(0))));;
+}
+
+static inline __m128i select4Random2(__m128i* cs, int ws, __m128i a1, __m128i a2) {
+    __m128i cmp = _mm_cmpeq_epi32(_mm_set1_epi32(0), mc4NextInt(cs, ws, 0x1));
+    return _mm_or_si128(_mm_and_si128(cmp, a1), _mm_andnot_si128(cmp, a2));
+}
+
+static inline __m128i select4Random4(__m128i* cs, int ws, __m128i a1, __m128i a2, __m128i a3, __m128i a4) {
+    __m128i val = mc4NextInt(cs, ws, 0x3);
+    __m128i v2 = _mm_set1_epi32(2);
+    __m128i cmp1 = _mm_cmpeq_epi32(val, _mm_set1_epi32(0));
+    __m128i cmp2 = _mm_cmpeq_epi32(val, v2);
+    __m128i cmp3 = _mm_cmplt_epi32(val, v2);
+    return _mm_or_si128(
+        _mm_and_si128(cmp3, _mm_or_si128(_mm_and_si128(cmp1, a1), _mm_andnot_si128(cmp1, a2))),
+        _mm_andnot_si128(cmp3, _mm_or_si128(_mm_and_si128(cmp2, a3), _mm_andnot_si128(cmp2, a4)))
+    );
+}
+
+static inline __m128i select4ModeOrRandom(__m128i* cs, int ws, __m128i a1, __m128i a2, __m128i a3, __m128i a4) {
+    //((a == b)&(c != d) | (a == c)&(b != d) | (a == d)&(b != c))&a | ((b == c)&(a != d) | (b == d)&(a != c))&b | ((c == d)&(a != b))&c
+    __m128i cmp1 = _mm_cmpeq_epi32(a1, a2);
+    __m128i cmp2 = _mm_cmpeq_epi32(a1, a3);
+    __m128i cmp3 = _mm_cmpeq_epi32(a1, a4);
+    __m128i cmp4 = _mm_cmpeq_epi32(a2, a3);
+    __m128i cmp5 = _mm_cmpeq_epi32(a2, a4);
+    __m128i cmp6 = _mm_cmpeq_epi32(a3, a4);
+    __m128i isa1 = _mm_or_si128(
+                       _mm_andnot_si128(cmp6, cmp1),
+                       _mm_or_si128 (
+                           _mm_andnot_si128(cmp5, cmp2),
+                           _mm_andnot_si128(cmp4, cmp3)
+                       )
+                   );
+    __m128i isa2 = _mm_or_si128(
+                       _mm_andnot_si128(cmp3, cmp4),
+                       _mm_andnot_si128(cmp2, cmp5)
+                   );
+    __m128i isa3 = _mm_andnot_si128(cmp1, cmp6);
+    return _mm_or_si128(
+        _mm_andnot_si128(
+            _mm_or_si128(
+                isa1,
+                _mm_or_si128(isa2, isa3)
+            ),
+            select4Random4(cs, ws, a1, a2, a3, a4)
+        ),
+        _mm_or_si128(
+            _mm_and_si128(isa1, a1),
+            _mm_or_si128(
+                _mm_and_si128(isa2, a2),
+                _mm_and_si128(isa3, a3)
+            )
+        )
+    );
+}
+#else
 static inline int selectRandom2(Layer *l, int a1, int a2)
 {
     int i = mcNextInt(l, 2);
@@ -201,6 +358,7 @@ static inline int selectModeOrRandom(Layer *l, int a1, int a2, int a3, int a4)
 
     return rndarg;
 }
+#endif
 
 // A null layer does nothing, and can be used to apply a layer to existing data.
 void mapNull(Layer *l, int * __restrict out, int x, int z, int w, int h);
