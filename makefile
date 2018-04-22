@@ -1,5 +1,5 @@
-CC      = g++
-CFLAGS  = -O3 -Wall -fwrapv
+CC      = gcc
+CFLAGS  = -O3 -Wall -fwrapv -march=native
 LDFLAGS = -lm -pthread
 
 .PHONY : all clean
