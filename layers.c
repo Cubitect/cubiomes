@@ -162,11 +162,14 @@ void mapIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWid
     }
 }
 
-#ifdef __AVX2__
+#if defined USE_SIMD && defined __AVX2__
 void mapZoom(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight) {
     int pWidth = (areaWidth>>1)+2, pHeight = (areaHeight>>1)+1;
+    
+    l->p->getMap(l->p, out, areaX>>1, areaZ>>1, pWidth, pHeight+1);
+    
     __m256i (*selectRand)(__m256i* cs, int ws, __m256i a1, __m256i a2, __m256i a3, __m256i a4) = (l->p->getMap == mapIsland) ? select8Random4 : select8ModeOrRandom;
-    int newWidth = areaWidth+10&0xFFFFFFFE;//modified to ignore ends
+    int newWidth = (areaWidth+10)&0xFFFFFFFE;//modified to ignore ends
     int x, z;
     __m256i cs, a, b, a1, b1, toBuf1, toBuf2, aSuf;
     __m256i mask1 = _mm256_setr_epi32(0xFFFFFFFF, 0x0, 0xFFFFFFFF, 0x0, 0xFFFFFFFF, 0x0, 0xFFFFFFFF, 0x0), mask2 = _mm256_setr_epi32(0x0, 0xFFFFFFFF, 0x0, 0xFFFFFFFF, 0x0, 0xFFFFFFFF, 0x0, 0xFFFFFFFF);
@@ -174,7 +177,7 @@ void mapZoom(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth,
     int pX = areaX&0xFFFFFFFE;
     __m256i xs = _mm256_set_epi32(pX+14, pX+12, pX+10, pX+8, pX+6, pX+4, pX+2, pX), zs;
     __m256i v2 = _mm256_set1_epi32(2), v16 = _mm256_set1_epi32(16);
-    int* buf = malloc((newWidth+1)*(areaHeight+2|1)*sizeof(*buf));
+    int* buf = malloc((newWidth+1)*((areaHeight+2)|1)*sizeof(*buf));
     int* idx = buf;
     int* outIdx = out;    
     //z first!
@@ -217,9 +220,12 @@ void mapZoom(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth,
 
     free(buf);
 }
-#elif defined __SSE4_2__
+#elif defined USE_SIMD && defined __SSE4_2__
 void mapZoom(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight) {
     int pWidth = (areaWidth>>1)+2, pHeight = (areaHeight>>1)+1;
+    
+    l->p->getMap(l->p, out, areaX>>1, areaZ>>1, pWidth, pHeight+1);
+    
     __m128i (*selectRand)(__m128i* cs, int ws, __m128i a1, __m128i a2, __m128i a3, __m128i a4) = (l->p->getMap == mapIsland) ? select4Random4 : select4ModeOrRandom;
     int newWidth = areaWidth+6&0xFFFFFFFE;//modified to ignore ends
     int x, z;

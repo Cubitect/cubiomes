@@ -3,17 +3,17 @@
 
 #include <stdlib.h>
 
-#ifdef __AVX2__
+#if defined USE_SIMD && __AVX2__
 #include <emmintrin.h>
 #include <smmintrin.h>
 #include <immintrin.h>
 #warning "Using AVX2 extensions."
-#elif defined __SSE4_2__
+#elif defined USE_SIMD && defined __SSE4_2__
 #include <emmintrin.h>
 #include <smmintrin.h>
 #warning "Using SSE4.2 extensions."
 #else
-#warning "Using no SIMD extensions."
+//#warning "Using no SIMD extensions."
 #endif
 
 #define STRUCT(S) typedef struct S S; struct S
@@ -185,7 +185,7 @@ static inline void setBaseSeed(Layer *layer, long seed)
     layer->chunkSeed = 0;
 }
 
-#ifdef __AVX2__
+#if defined USE_SIMD && __AVX2__
 static inline __m256i set8ChunkSeeds(int ws, __m256i xs, __m256i zs) {
     __m256i out = _mm256_set1_epi32(ws);
     __m256i mul = _mm256_set1_epi32(1284865837);
@@ -256,7 +256,7 @@ static inline __m256i select8ModeOrRandom(__m256i* cs, int ws, __m256i a1, __m25
         )
     );
 }
-#elif defined __SSE4_2__
+#elif defined USE_SIMD && defined __SSE4_2__
 static inline __m128i set4ChunkSeeds(int ws, __m128i xs, __m128i zs) {
     __m128i out = _mm_set1_epi32(ws);
     __m128i mul = _mm_set1_epi32(1284865837);

@@ -1,6 +1,6 @@
 CC      = gcc
-CFLAGS  = -O3 -Wall -fwrapv -march=native
 LDFLAGS = -lm -pthread
+override CFLAGS += -O3 -Wall -fwrapv -march=native
 
 .PHONY : all clean
 
@@ -8,13 +8,13 @@ all: find_quadhuts find_compactbiomes clean
 
 find_compactbiomes: find_compactbiomes.o layers.o generator.o finders.o
 	$(CC) -o $@ $^ $(LDFLAGS)
-	
+
 find_compactbiomes.o: find_compactbiomes.c
 	$(CC) -c $(CFLAGS) $<
 
 find_quadhuts: find_quadhuts.o layers.o generator.o finders.o 
 	$(CC) -o $@ $^ $(LDFLAGS)
-	
+
 find_quadhuts.o: find_quadhuts.c
 	$(CC) -c $(CFLAGS) $<
 
