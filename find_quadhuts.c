@@ -20,8 +20,8 @@ int main(int argc, char *argv[])
     initBiomes();
 
     // Translate the positions to the desired regions.
-    int regPosX;
-    int regPosZ;
+    int regPosX = 0;
+    int regPosZ = 0;
 
     if(argc > 2)
     {
