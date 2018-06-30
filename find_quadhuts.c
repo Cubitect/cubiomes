@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
                "This may take a few minutes...\n");
         int threads = 6;
         int quality = 1;
-        baseQuadTempleSearch(seedFileName, threads, quality);
+        baseQuadWitchHutSearch(seedFileName, threads, quality);
     }
 
     long i, j, qhcnt;
@@ -79,10 +79,10 @@ int main(int argc, char *argv[])
     {
         base = moveTemple(qhcandidates[i], regPosX, regPosZ);
 
-        qhpos[0] = getTemplePos(base, 0+regPosX, 0+regPosZ);
-        qhpos[1] = getTemplePos(base, 0+regPosX, 1+regPosZ);
-        qhpos[2] = getTemplePos(base, 1+regPosX, 0+regPosZ);
-        qhpos[3] = getTemplePos(base, 1+regPosX, 1+regPosZ);
+        qhpos[0] = getWitchHutPos(base, 0+regPosX, 0+regPosZ);
+        qhpos[1] = getWitchHutPos(base, 0+regPosX, 1+regPosZ);
+        qhpos[2] = getWitchHutPos(base, 1+regPosX, 0+regPosZ);
+        qhpos[3] = getWitchHutPos(base, 1+regPosX, 1+regPosZ);
 
         /*
         for(j = 0; j < 4; j++)
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
             printf("(%d,%d) ", qhpos[j].x, qhpos[j].z);
         }
         printf("\n");
-        //*/
+        */
 
         // This little magic code checks if there is a meaningful chance for
         // this seed base to generate swamps in the area.

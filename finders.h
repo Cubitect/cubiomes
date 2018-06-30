@@ -53,7 +53,7 @@ extern Biome biomes[256];
 
 
 
-/***************************** Quad-Temple Checks ******************************
+/*************************** Quad-Structure Checks *****************************
  *
  *  Several tricks can be applied to determine candidate seeds for quad
  *  temples (inc. witch huts).
@@ -64,14 +64,17 @@ extern Biome biomes[256];
  *  world can be translated by applying the following transformation to the
  *  seed:
  *
- *  seed2 = seed1 - 14357617 - dregX * 341873128712 - dregZ * 132897987541;
+ *  seed2 = seed1 - structureSeed - dregX * 341873128712 - dregZ * 132897987541;
  *
- *  Here seed1 and seed2 have the same temple positioning, but moved by a
- *  region offset of (dregX,dregZ). [a region is 32x32 chunks]
+ *  Here seed1 and seed2 have the same structure positioning, but moved by a
+ *  region offset of (dregX,dregZ). [a region is 32x32 chunks]. The value of
+ *  structureSeed depends on the type of structure, 14357617 for desert temples,
+ *  14357618 for igloos, 14357619 for jungle temples and 14357620 for witch
+ *  huts.
  *
- *  For a quad-temple, we mainly care about relative positioning, so we can get
- *  away with just checking the regions near the origin: (0,0),(0,1),(1,0),(1,1)
- *  and then move the temples to the desired position.
+ *  For a quad-structure, we mainly care about relative positioning, so we can
+ *  get away with just checking the regions near the origin: (0,0),(0,1),(1,0)
+ *  and (1,1) and then move the structures to the desired position.
  *
  *  Lastly we can recognise a that the transformation of relative region-
  *  coordinates imposes some restrictions in the PRNG, such that
@@ -83,13 +86,13 @@ extern Biome biomes[256];
  *
  *  These conditions only leave 32 free bits which can comfortably be brute-
  *  forced to get the entire set of quad-structure candidates. Each of the seeds
- *  found this way describes an entire set of possible quad-witch-huts
- *  (with degrees of freedom for region-transposition, and the top 16-bit bits).
+ *  found this way describes an entire set of possible quad-witch-huts (with
+ *  degrees of freedom for region-transposition, and the top 16-bit bits).
  */
 
 // helper functions
-int isQuadTempleBase(const long seed, const long lower, const long upper);
-int isTriTempleBase(const long seed, const long lower, const long upper);
+int isQuadWitchHutBase(const long seed, const long lower, const long upper);
+int isTriWitchHutBase(const long seed, const long lower, const long upper);
 
 /* moveTemple
  * ----------
@@ -110,12 +113,12 @@ long moveTemple(const long baseSeed, const int regX, const int regZ);
  */
 long *loadSavedSeeds(const char *fnam, long *scnt);
 
-/* baseQuadTempleSearch
+/* baseQuadWitchHutSearch
  * --------------------
  * Starts a multi-threaded search for quad-temple base seeds of the specified
  * quality (chunk tolerance). The result is saved in a file of path 'fnam'.
  */
-void baseQuadTempleSearch(const char *fnam, int threads, int quality);
+void baseQuadWitchHutSearch(const char *fnam, int threads, int quality);
 
 
 
@@ -130,20 +133,20 @@ void baseQuadTempleSearch(const char *fnam, int threads, int quality);
 int getBiomeAtPos(const LayerStack g, const Pos pos);
 
 
-/* getTempleChunkInRegion
+/* getWitchHutChunkInRegion
  * ----------------------
  * Finds the chunk position within the specified region (32x32 chunks) where
  * the temple generation attempt will occur.
  */
-Pos getTempleChunkInRegion(long seed, const int regionX, const int regionZ);
+Pos getWitchHutChunkInRegion(long seed, const int regionX, const int regionZ);
 
 
-/* getTemplePos
+/* getWitchHutPos
  * ------------
  * Fast implementation for finding the block position at which the temple
  * generation attempt will occur in the specified region.
  */
-Pos getTemplePos(long seed, const long regionX, const long regionZ);
+Pos getWitchHutPos(long seed, const long regionX, const long regionZ);
 
 /* getVillagePos
  * -------------
@@ -245,7 +248,7 @@ int areBiomesViable(
 
 
 
-/* isViableTemplePos
+/* isViableWitchHutPos
  * isViableVillagePos
  * isViableOceanMonumentPos
  * isViableMansionPos
@@ -259,9 +262,9 @@ int areBiomesViable(
  * blockX, blockZ : block coordinates
  *
  * The return value is non-zero if the position is valid, and in the case of
- * isViableTemplePos() the return value is an enum of the temple type.
+ * isViableWitchHutPos() the return value is an enum of the temple type.
  */
-int isViableTemplePos(const LayerStack g, int *cache, const long blockX, const long blockZ);
+int isViableWitchHutPos(const LayerStack g, int *cache, const long blockX, const long blockZ);
 int isViableVillagePos(const LayerStack g, int *cache, const long blockX, const long blockZ);
 int isViableOceanMonumentPos(const LayerStack g, int *cache, const long blockX, const long blockZ);
 int isViableMansionPos(const LayerStack g, int *cache, const long blockX, const long blockZ);

@@ -29,7 +29,7 @@ Biome biomes[256];
 /*************************** Quad-Structure Checks *****************************
  *
  *  Several tricks can be applied to determine candidate seeds for quad
- *  structures.
+ *  temples (inc. witch huts).
  *
  *  Minecraft uses a 48-bit pseudo random number generator (PRNG) to determine
  *  the position of it's structures. The remaining top 16 bits do not influence
@@ -37,10 +37,13 @@ Biome biomes[256];
  *  world can be translated by applying the following transformation to the
  *  seed:
  *
- *  seed2 = seed1 - 14357617 - dregX * 341873128712 - dregZ * 132897987541;
+ *  seed2 = seed1 - structureSeed - dregX * 341873128712 - dregZ * 132897987541;
  *
  *  Here seed1 and seed2 have the same structure positioning, but moved by a
- *  region offset of (dregX,dregZ). [a region is 32x32 chunks]
+ *  region offset of (dregX,dregZ). [a region is 32x32 chunks]. The value of
+ *  structureSeed depends on the type of structure, 14357617 for desert temples,
+ *  14357618 for igloos, 14357619 for jungle temples and 14357620 for witch
+ *  huts.
  *
  *  For a quad-structure, we mainly care about relative positioning, so we can
  *  get away with just checking the regions near the origin: (0,0),(0,1),(1,0)
@@ -52,12 +55,12 @@ Biome biomes[256];
  *  lower 16-bits in their seeds.
  *
  *
- ** Set of all Quad-Witch-Huts
+ ** The Set of all Quad-Witch-Huts
  *
  *  These conditions only leave 32 free bits which can comfortably be brute-
  *  forced to get the entire set of quad-structure candidates. Each of the seeds
- *  found this way describes an entire set of possible quad-witch-huts
- *  (with degrees of freedom for region-transposition, and the top 16-bit bits).
+ *  found this way describes an entire set of possible quad-witch-huts (with
+ *  degrees of freedom for region-transposition, and the top 16-bit bits).
  */
 
 
@@ -76,39 +79,39 @@ typedef struct quad_threadinfo_t
 
 const long lowerBaseBitsQ1[] = // for quad-structure with quality 1
         {
-                0x2aa7,0x3d99,0x60a9,0x8599
+                0x2aa4,0x3d96,0x60a6,0x8596
         };
 
 const long lowerBaseBitsQ2[] = // for quad-structure with quality 2
         {
-                0x0825,0x0bd7,0x0c77,0x0dd7,0x0dd9,0x0e57,0x111c,0x12bc,0x12c1,
-                0x12c8,0x12e7,0x12ec,0x1357,0x1358,0x1638,0x17c9,0x1849,0x1a47,
-                0x1c1b,0x1d95,0x22a9,0x241f,0x2899,0x2aa7,0x2bf7,0x2c59,0x2c77,
-                0x2d19,0x2dd7,0x2df9,0x2e79,0x32c1,0x32c7,0x32c8,0x32f4,0x32f7,
-                0x32f9,0x333f,0x3344,0x3363,0x3368,0x3377,0x37e7,0x39c7,0x3a47,
-                0x3a69,0x3ca7,0x3d99,0x41a7,0x44a7,0x44ac,0x4597,0x49a7,0x4aab,
-                0x4c59,0x52c8,0x52d7,0x52d8,0x52e7,0x5305,0x5343,0x5348,0x5358,
-                0x5367,0x536c,0x537b,0x57c9,0x57e7,0x5849,0x5929,0x59e9,0x5a67,
-                0x5a69,0x5c97,0x5d09,0x60a9,0x61a7,0x64ab,0x6bf7,0x6d15,0x6dd7,
-                0x6dd9,0x6e57,0x6e79,0x72bf,0x72c8,0x72d7,0x72f7,0x7348,0x7358,
-                0x735d,0x7368,0x751c,0x77c9,0x7869,0x79c7,0x7a47,0x80ad,0x82a7,
-                0x8599,0x8bd9,0x8bf7,0x8c59,0x8c77,0x8d19,0x8df9,0x8e77,0x8e79,
-                0x8fcc,0x9070,0x9118,0x92fc,0x933b,0x9340,0x937c,0x93ec,0x93fc,
-                0x95bc,0x9d87,0x9da6,0xa587,0xa598,0xa5a6,0xa69e,0xb0db,0xb288,
-                0xb4e3,0xb55d,0xc29a,0xc2a8,0xc7e4,0xca9a,0xcd53,0xd0e5,0xd118,
-                0xd5ec,0xf2ff,0xf304,0xf33c,0xf341,0xf7c9,0xf7e7,0xf849,0xf867,
-                0xf9c7,0xf9e9,0xfa67,0xfa69,0xfcab
+                0x0822,0x0bd4,0x0c74,0x0dd4,0x0dd6,0x0e54,0x1119,0x12b9,0x12be,
+                0x12c5,0x12e4,0x12e9,0x1354,0x1355,0x1635,0x17c6,0x1846,0x1a44,
+                0x1c18,0x1d92,0x22a6,0x241c,0x2896,0x2aa4,0x2bf4,0x2c56,0x2c74,
+                0x2d16,0x2dd4,0x2df6,0x2e76,0x32be,0x32c4,0x32c5,0x32f1,0x32f4,
+                0x32f6,0x333c,0x3341,0x3360,0x3365,0x3374,0x37e4,0x39c4,0x3a44,
+                0x3a66,0x3ca4,0x3d96,0x41a4,0x44a4,0x44a9,0x4594,0x49a4,0x4aa8,
+                0x4c56,0x52c5,0x52d4,0x52d5,0x52e4,0x5302,0x5340,0x5345,0x5355,
+                0x5364,0x5369,0x5378,0x57c6,0x57e4,0x5846,0x5926,0x59e6,0x5a64,
+                0x5a66,0x5c94,0x5d06,0x60a6,0x61a4,0x64a8,0x6bf4,0x6d12,0x6dd4,
+                0x6dd6,0x6e54,0x6e76,0x72bc,0x72c5,0x72d4,0x72f4,0x7345,0x7355,
+                0x735a,0x7365,0x7519,0x77c6,0x7866,0x79c4,0x7a44,0x80aa,0x82a4,
+                0x8596,0x8bd6,0x8bf4,0x8c56,0x8c74,0x8d16,0x8df6,0x8e74,0x8e76,
+                0x8fc9,0x906d,0x9115,0x92f9,0x9338,0x933d,0x9379,0x93e9,0x93f9,
+                0x95b9,0x9d84,0x9da3,0xa584,0xa595,0xa5a3,0xa69b,0xb0d8,0xb285,
+                0xb4e0,0xb55a,0xc297,0xc2a5,0xc7e1,0xca97,0xcd50,0xd0e2,0xd115,
+                0xd5e9,0xf2fc,0xf301,0xf339,0xf33e,0xf7c6,0xf7e4,0xf846,0xf864,
+                0xf9c4,0xf9e6,0xfa64,0xfa66,0xfca8
         };
 
 
 
-int isQuadTempleBase(const long seed, const long lower, const long upper)
+int isQuadWitchHutBase(const long seed, const long lower, const long upper)
 {
     // seed offsets for the regions (0,0) to (1,1)
-    const long reg00base = 14357617;
-    const long reg01base = 341873128712 + 14357617;
-    const long reg10base = 132897987541 + 14357617;
-    const long reg11base = 341873128712 + 132897987541 + 14357617;
+    const long reg00base = 14357620;
+    const long reg01base = 341873128712 + 14357620;
+    const long reg10base = 132897987541 + 14357620;
+    const long reg11base = 341873128712 + 132897987541 + 14357620;
 
     long s;
 
@@ -140,13 +143,13 @@ int isQuadTempleBase(const long seed, const long lower, const long upper)
 }
 
 
-int isTriTempleBase(const long seed, const long lower, const long upper)
+int isTriWitchHutBase(const long seed, const long lower, const long upper)
 {
     // seed offsets for the regions (0,0) to (1,1)
-    const long reg00base = 14357617;
-    const long reg01base = 341873128712 + 14357617;
-    const long reg10base = 132897987541 + 14357617;
-    const long reg11base = 341873128712 + 132897987541 + 14357617;
+    const long reg00base = 14357620;
+    const long reg01base = 341873128712 + 14357620;
+    const long reg10base = 132897987541 + 14357620;
+    const long reg11base = 341873128712 + 132897987541 + 14357620;
 
     long s;
     int missing = 0;
@@ -488,7 +491,7 @@ long *loadSavedSeeds(const char *fnam, long *scnt)
 }
 
 
-static void *baseQuadTempleSearchThread(void *data)
+static void *baseQuadWitchHutSearchThread(void *data)
 {
     quad_threadinfo_t info = *(quad_threadinfo_t*)data;
 
@@ -515,7 +518,7 @@ static void *baseQuadTempleSearchThread(void *data)
     }
     else
     {
-        printf("WARN baseQuadTempleSearchThread: "
+        printf("WARN baseQuadWitchHutSearchThread: "
                "Lower bits for quality %d have not been defined => "
                "will try all combinations.\n", info.quality);
 
@@ -565,7 +568,7 @@ static void *baseQuadTempleSearchThread(void *data)
 
     while(seed < end)
     {
-        if(isQuadTempleBase(seed, lower, upper))
+        if(isQuadWitchHutBase(seed, lower, upper))
         {
             fprintf(fp, "%ld\n", seed);
             fflush(fp);
@@ -587,7 +590,7 @@ static void *baseQuadTempleSearchThread(void *data)
 }
 
 
-void baseQuadTempleSearch(const char *fnam, const int threads, const int quality)
+void baseQuadWitchHutSearch(const char *fnam, const int threads, const int quality)
 {
     pthread_t threadID[threads];
     quad_threadinfo_t info[threads];
@@ -604,7 +607,7 @@ void baseQuadTempleSearch(const char *fnam, const int threads, const int quality
 
     for(t = 0; t < threads; t++)
     {
-        pthread_create(&threadID[t], NULL, baseQuadTempleSearchThread, (void*)&info[t]);
+        pthread_create(&threadID[t], NULL, baseQuadWitchHutSearchThread, (void*)&info[t]);
     }
 
     for(t = 0; t < threads; t++)
@@ -628,7 +631,7 @@ void baseQuadTempleSearch(const char *fnam, const int threads, const int quality
 
         if(fpart == NULL)
         {
-            perror("ERR baseQuadTempleSearch: ");
+            perror("ERR baseQuadWitchHutSearch: ");
             break;
         }
 
@@ -636,7 +639,7 @@ void baseQuadTempleSearch(const char *fnam, const int threads, const int quality
         {
             if(!fwrite(buffer, sizeof(char), n, fp))
             {
-                perror("ERR baseQuadTempleSearch: ");
+                perror("ERR baseQuadWitchHutSearch: ");
                 fclose(fp);
                 fclose(fpart);
                 return;
@@ -670,17 +673,17 @@ int getBiomeAtPos(const LayerStack g, const Pos pos)
     return ints[0];
 }
 
-/* getTemplePos
+/* getWitchHutPos
  * ------------
- * Fast implementation for finding the block position at which the temple
+ * Fast implementation for finding the block position at which the witch hut
  * generation attempt will occur in the specified region.
  */
-Pos getTemplePos(long seed, const long regionX, const long regionZ)
+Pos getWitchHutPos(long seed, const long regionX, const long regionZ)
 {
     Pos pos;
 
     // set seed
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + 14357617;
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + 14357620;
     seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
 
     seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
@@ -695,16 +698,16 @@ Pos getTemplePos(long seed, const long regionX, const long regionZ)
 }
 
 
-/* getTempleChunkInRegion
+/* getWitchHutChunkInRegion
  * ----------------------
  * Finds the chunk position within the specified region (32x32 chunks) where
- * the temple generation attempt will occur.
+ * the witch hut generation attempt will occur.
  */
-Pos getTempleChunkInRegion(long seed, const int regionX, const int regionZ)
+Pos getWitchHutChunkInRegion(long seed, const int regionX, const int regionZ)
 {
     /*
     // Vanilla like implementation.
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + 14357617;
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + 14357620;
     setSeed(&(seed));
 
     Pos pos;
@@ -714,7 +717,7 @@ Pos getTempleChunkInRegion(long seed, const int regionX, const int regionZ)
     Pos pos;
 
     // set seed
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + 14357617;
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + 14357620;
     seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
 
     seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
@@ -1432,19 +1435,3 @@ long filterAllMajorBiomes(
     if(cache == NULL) free(map);
     return hits;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
