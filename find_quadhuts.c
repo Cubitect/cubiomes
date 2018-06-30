@@ -20,8 +20,8 @@ int main(int argc, char *argv[])
     initBiomes();
 
     // Translate the positions to the desired regions.
-    int regPosX;
-    int regPosZ;
+    int regPosX = 0;
+    int regPosZ = 0;
 
     if(argc > 2)
     {
@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
             printf("(%d,%d) ", qhpos[j].x, qhpos[j].z);
         }
         printf("\n");
-        //*/
+        */
 
         // This little magic code checks if there is a meaningful chance for
         // this seed base to generate swamps in the area.
