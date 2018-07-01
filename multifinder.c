@@ -17,16 +17,30 @@ typedef struct {
     int hutRadius;
     long startSeed;
     long endSeed;
+    int threads;
+    char outputDir[256];
 } SearchOptions;
 
+typedef struct {
+    int thread;
+    int startIndex;
+    const long *qhcandidates;
+    long qhcount;
+    const SearchOptions *opts;
+    char filename[256];
+} ThreadInfo;
+
+const char* INT_ERROR = "An integer argument is required with --%s\n";
 
 void usage() {
-    printf("Usage:\n");
-    printf("  multifinder [options]\n");
-    printf("    --help\n");
-    printf("    --radius=<integer>\n");
-    printf("    --start_seed=<integer>\n");
-    printf("    --end_seed=<integer>\n");
+    fprintf(stderr, "Usage:\n");
+    fprintf(stderr, "  multifinder [options]\n");
+    fprintf(stderr, "    --help\n");
+    fprintf(stderr, "    --radius=<integer>\n");
+    fprintf(stderr, "    --start_seed=<integer>\n");
+    fprintf(stderr, "    --end_seed=<integer>\n");
+    fprintf(stderr, "    --threads=<integer>\n");
+    fprintf(stderr, "    --output_dir=<string>\n");
 }
 
 
@@ -35,7 +49,7 @@ long parseHumanArgument(const char *flagName) {
 
     int len = strlen(optarg);
     if (len < 1) {
-        printf("An integer argument is required wit --%s", flagName);
+        fprintf(stderr, INT_ERROR, flagName);
         exit(-1);
     }
 
@@ -52,7 +66,7 @@ long parseHumanArgument(const char *flagName) {
         optarg[len-1] = 0;
     long val = strtol(optarg, &endptr, 10);
     if (errno != 0) {
-        printf("An integer argument is required with --%s.", flagName);
+        fprintf(stderr, INT_ERROR, flagName);
         exit(-1);
     }
 
@@ -65,7 +79,7 @@ int parseIntArgument(const char *flagName) {
 
     int val = strtol(optarg, &endptr, 10);
     if (errno != 0) {
-        printf("An integer argument is required with --%s.", flagName);
+        fprintf(stderr, INT_ERROR, flagName);
         exit(-1);
     }
 
@@ -75,17 +89,26 @@ int parseIntArgument(const char *flagName) {
 
 SearchOptions parseOptions(int argc, char *argv[]) {
     int c;
-    SearchOptions opts = {2048, 4, 0, 1L<<48};
+    SearchOptions opts = {
+        2048,    // Search radius, in blocks.
+        4,       // Witch Hut region search radius.
+        0,       // Start base seed.
+        1L<<48,  // End base seed.
+        1,       // Number of search threads.
+        "",
+    };
 
     while (1) {
         static struct option longOptions[] = {
             {"radius",     required_argument, NULL, 'r'},
             {"start_seed", required_argument, NULL, 's'},
             {"end_seed",   required_argument, NULL, 'e'},
+            {"threads",    required_argument, NULL, 't'},
+            {"output_dir", required_argument, NULL, 'o'},
             {"help",       no_argument,       NULL, 'h'},
         };
         int index = 0;
-        c = getopt_long(argc, argv, "r:s:e:h", longOptions, &index);
+        c = getopt_long(argc, argv, "r:s:e:t:o:h", longOptions, &index);
 
         if (c == -1)
             break;
@@ -101,6 +124,19 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             case 'e':
                 opts.endSeed = parseHumanArgument(longOptions[index].name);
                 break;
+            case 't':
+                opts.threads = parseIntArgument(longOptions[index].name);
+                break;
+            case 'o':
+                if (strlen(optarg) > 255-13) {
+                    fprintf(stderr, "Output path too long.");
+                    exit(-1);
+                }
+                strncpy(opts.outputDir, optarg, 256);
+                int len = strlen(opts.outputDir);
+                if (opts.outputDir[len-1] == '/')
+                    opts.outputDir[len-1] = 0;
+                break;
             case 'h':
                 usage();
                 exit(0);
@@ -113,39 +149,35 @@ SearchOptions parseOptions(int argc, char *argv[]) {
 }
 
 
-long* getBaseSeeds(long *qhcnt) {
+long* getBaseSeeds(long *qhcount, int threads) {
     const char *seedFileName = "./seeds/quadbases_Q1.txt";
 
     if (access(seedFileName, F_OK)) {
-        printf("Seed base file does not exist: Creating new one.\n"
-               "This may take a few minutes...\n");
-        int threads = 6;
+        fprintf(stderr, "Seed base file does not exist: Creating new one.\n"
+                "This may take a few minutes...\n");
         int quality = 1;
         baseQuadWitchHutSearch(seedFileName, threads, quality);
     }
 
-    return loadSavedSeeds(seedFileName, qhcnt);
+    return loadSavedSeeds(seedFileName, qhcount);
 }
 
 
-int main(int argc, char *argv[])
-{
-    SearchOptions opts = parseOptions(argc, argv);
+int getBiomeAt(const LayerStack g, const Pos pos, int *buf) {
+    genArea(&g.layers[g.layerNum-1], buf, pos.x, pos.z, 1, 1);
+    return buf[0];
+}
 
-    printf("Searching base seeds %ld-%ld, radius %d...\n",
-            opts.startSeed, opts.endSeed, opts.radius);
 
-    // Always initialize the biome list before starting any seed finder or
-    // biome generator.
-    initBiomes();
+void *searchQuadHutsThread(void *data) {
+    const ThreadInfo info = *(const ThreadInfo *)data;
+    const SearchOptions opts = *info.opts;
 
     LayerStack g = setupGenerator();
-
     Layer *lFilterBiome = &g.layers[L_BIOME_256];
     int *biomeCache = allocCache(lFilterBiome, 3, 3);
-    long j, qhcnt, base, seed;
-    const long const *qhcandidates = getBaseSeeds(&qhcnt);
-
+    int *lastLayerCache = allocCache(&g.layers[g.layerNum-1], 3, 3);
+    long j, base, seed;
 
     // Load the positions of the four structures that make up the quad-structure
     // so we can test the biome at these positions.
@@ -155,12 +187,22 @@ int main(int argc, char *argv[])
     Layer layerBiomeDummy;
     setupLayer(256, &layerBiomeDummy, NULL, 200, NULL);
 
-    // Search for a swamp at the structure positions
-    int startIndex = 0;
-    while (qhcandidates[startIndex] < opts.startSeed && startIndex < qhcnt) {
-        startIndex++;
+    FILE *fh;
+    if (strlen(info.filename)) {
+        fh = fopen(info.filename, "w");
+        if (fh == NULL) {
+            fprintf(stderr, "Could not open file %s.", info.filename);
+            return NULL;
+        }
+    } else {
+        fh = stdout;
     }
-    for(int i=startIndex; i < qhcnt && qhcandidates[i] < opts.endSeed; i++) {
+
+    // Search for a swamp at the structure positions
+    for(int i=info.startIndex;
+            i < info.qhcount && info.qhcandidates[i] < opts.endSeed;
+            i+=opts.threads) {
+        int basehits = 0;
         for (int rZ = -opts.hutRadius-1; rZ < opts.hutRadius; rZ++) {
             for (int rX = -opts.hutRadius-1; rX < opts.hutRadius; rX++) {
 
@@ -172,7 +214,7 @@ int main(int argc, char *argv[])
                 int areaX = (rX << 1) + 1;
                 int areaZ = (rZ << 1) + 1;
 
-                base = moveTemple(qhcandidates[i], rX, rZ);
+                base = moveTemple(info.qhcandidates[i], rX, rZ);
 
                 // This little magic code checks if there is a meaningful chance
                 // for this seed base to generate swamps in the area.
@@ -194,13 +236,13 @@ int main(int argc, char *argv[])
                     if(mcNextInt(&layerBiomeDummy, 6) == 5)
                         break;
                 }
-                if (j >= 5) continue;
+                if (j >= 5)
+                    continue;
 
                 qhpos[0] = getWitchHutPos(base, 0+rX, 0+rZ);
                 qhpos[1] = getWitchHutPos(base, 0+rX, 1+rZ);
                 qhpos[2] = getWitchHutPos(base, 1+rX, 0+rZ);
                 qhpos[3] = getWitchHutPos(base, 1+rX, 1+rZ);
-
 
                 long hits = 0, swpc;
 
@@ -212,7 +254,6 @@ int main(int argc, char *argv[])
                     // We can check that at least one swamp could generate in
                     // this area before doing the biome generator checks.
                     setWorldSeed(&layerBiomeDummy, seed);
-
                     setChunkSeed(&layerBiomeDummy, areaX+1, areaZ+1);
                     if(mcNextInt(&layerBiomeDummy, 6) != 5)
                         continue;
@@ -231,7 +272,8 @@ int main(int argc, char *argv[])
                         setChunkSeed(&layerBiomeDummy, areaX, areaZ);
                         swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
 
-                        if(swpc < (j > 0x1000 ? 2 : 1)) break;
+                        if(swpc < (j > 0x1000 ? 2 : 1))
+                            break;
                     }
 
                     // Dismiss seeds that don't have a swamp near the quad
@@ -243,20 +285,98 @@ int main(int argc, char *argv[])
                         continue;
 
                     applySeed(&g, seed);
-                    if(getBiomeAtPos(g, qhpos[0]) != swampland) continue;
-                    if(getBiomeAtPos(g, qhpos[1]) != swampland) continue;
-                    if(getBiomeAtPos(g, qhpos[2]) != swampland) continue;
-                    if(getBiomeAtPos(g, qhpos[3]) != swampland) continue;
+                    if (getBiomeAt(g, qhpos[0], lastLayerCache) != swampland)
+                        continue;
+                    if (getBiomeAt(g, qhpos[1], lastLayerCache) != swampland)
+                        continue;
+                    if (getBiomeAt(g, qhpos[2], lastLayerCache) != swampland)
+                        continue;
+                    if (getBiomeAt(g, qhpos[3], lastLayerCache) != swampland)
+                        continue;
 
-                    printf("%ld\n", seed);
+                    fprintf(fh, "%ld\n", seed);
                     hits++;
+                    basehits++;
                 }
+                fflush(fh);
             }
+        }
+        fprintf(stderr, "Base seed %ld (thread %d): %d hits\n",
+                info.qhcandidates[i], info.thread, basehits);
+    }
+
+    if (strlen(info.filename)) {
+        fclose(fh);
+    }
+    fprintf(stderr, "%s written.\n", info.filename);
+    free(biomeCache);
+    free(lastLayerCache);
+    freeGenerator(g);
+
+    return NULL;
+}
+
+
+int main(int argc, char *argv[])
+{
+    SearchOptions opts = parseOptions(argc, argv);
+
+    if (opts.threads > 1 && strlen(opts.outputDir) < 1) {
+        fprintf(stderr,
+                "Must specify --output_dir if using more than one thread.");
+        exit(-1);
+    }
+
+    fprintf(stderr,
+            "Searching base seeds %ld-%ld, radius %d using %d threads...\n",
+            opts.startSeed, opts.endSeed, opts.radius, opts.threads);
+
+    // Always initialize the biome list before starting any seed finder or
+    // biome generator.
+    initBiomes();
+
+    long qhcount;
+    const long *qhcandidates = getBaseSeeds(&qhcount, opts.threads);
+    int startIndex = 0;
+    while (qhcandidates[startIndex] < opts.startSeed && startIndex < qhcount) {
+        startIndex++;
+    }
+
+    pthread_t threadID[opts.threads];
+    ThreadInfo info[opts.threads];
+
+    for (int t=0; t<opts.threads; t++) {
+        info[t].thread = t;
+        info[t].startIndex = startIndex + t;
+        info[t].qhcandidates = qhcandidates;
+        info[t].qhcount = qhcount;
+        info[t].opts = &opts;
+
+        if (opts.threads == 1 && !strlen(opts.outputDir)) {
+            info[t].filename[0] = 0;
+        } else {
+            snprintf(info[t].filename, 256,
+                    "%s/seeds-%02d.txt", opts.outputDir, t);
         }
     }
 
-    free(biomeCache);
-    freeGenerator(g);
+    for (int t=0; t<opts.threads; t++) {
+        pthread_create(
+                &threadID[t], NULL, searchQuadHutsThread, (void*)&info[t]);
+    }
+
+    for (int t=0; t<opts.threads; t++) {
+        pthread_join(threadID[t], NULL);
+    }
+
+    if (strlen(opts.outputDir)) {
+        char filename[256];
+        snprintf(filename, 256, "%s/COMPLETE", opts.outputDir);
+        FILE *fh = fopen(filename, "w");
+        fprintf(fh, "Done.\n");
+        fclose(fh);
+    }
+    fprintf(stderr, "Done.\n");
 
     return 0;
 }
