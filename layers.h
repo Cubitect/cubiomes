@@ -60,6 +60,10 @@ STRUCT(Layer) {
     void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h);
 
     Layer *p, *p2;
+
+    // Maybe there's a better way to make the mapHills layer threadsafe...
+    int bufsize;
+    int *buf;
 };
 
 extern Biome biomes[256];

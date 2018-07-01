@@ -868,8 +868,6 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
     int pWidth = areaWidth + 2;
     int pHeight = areaHeight + 2;
     int x, z;
-    static int bufsize = 0;
-    static int *buf = NULL;
 
     if(l->p2 == NULL)
     {
@@ -877,16 +875,16 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
         exit(1);
     }
 
-    if(bufsize < pWidth*pHeight)
+    if(l->bufsize < pWidth*pHeight)
     {
-        if(buf != NULL) free(buf);
+        if(l->buf != NULL) free(l->buf);
 
-        bufsize = pWidth*pHeight;
-        buf = (int*)malloc(bufsize*sizeof(int));
+        l->bufsize = pWidth*pHeight;
+        l->buf = (int*)malloc(l->bufsize*sizeof(int));
     }
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
-    memcpy(buf, out, pWidth*pHeight*sizeof(int));
+    memcpy(l->buf, out, pWidth*pHeight*sizeof(int));
 
     l->p2->getMap(l->p2, out, pX, pZ, pWidth, pHeight);
 
@@ -895,7 +893,7 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
         for(x = 0; x < areaWidth; x++)
         {
             setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
-            int a11 = buf[x+1 + (z+1)*pWidth]; // biome branch
+            int a11 = l->buf[x+1 + (z+1)*pWidth]; // biome branch
             int b11 = out[x+1 + (z+1)*pWidth]; // river branch
             int idx = x + z*areaWidth;
 
@@ -962,10 +960,10 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
                 }
                 else
                 {
-                    int a10 = buf[x+1 + (z+0)*pWidth];
-                    int a21 = buf[x+2 + (z+1)*pWidth];
-                    int a01 = buf[x+0 + (z+1)*pWidth];
-                    int a12 = buf[x+1 + (z+2)*pWidth];
+                    int a10 = l->buf[x+1 + (z+0)*pWidth];
+                    int a21 = l->buf[x+2 + (z+1)*pWidth];
+                    int a01 = l->buf[x+0 + (z+1)*pWidth];
+                    int a12 = l->buf[x+1 + (z+2)*pWidth];
                     int equals = 0;
 
                     if(equalOrPlateau(a10, a11)) equals++;

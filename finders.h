@@ -127,7 +127,8 @@ void baseQuadWitchHutSearch(const char *fnam, int threads, int quality);
 
 /* getBiomeAtPos
  * ----------------
- * Returns the biome for the specified block position.
+ * Returns the biome for the specified block position. This function is not
+ * threadsafe.
  * (Alternatives should be considered in performance critical code.)
  */
 int getBiomeAtPos(const LayerStack g, const Pos pos);
