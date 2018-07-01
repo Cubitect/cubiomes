@@ -4,7 +4,13 @@ override CFLAGS += -O3 -Wall -fwrapv -march=native
 
 .PHONY : all clean
 
-all: find_quadhuts find_compactbiomes clean
+all: find_quadhuts find_compactbiomes multifinder clean
+
+multifinder: multifinder.o layers.o generator.o finders.o
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+multifinder.o: multifinder.c
+	$(CC) -c $(CFLAGS) $<
 
 find_compactbiomes: find_compactbiomes.o layers.o generator.o finders.o
 	$(CC) -o $@ $^ $(LDFLAGS)
