@@ -229,14 +229,16 @@ void *searchQuadHutsThread(void *data) {
                 // exploit that the minecraft random number generator is quite
                 // bad, such that for the "mcNextRand() mod 6" check it has a
                 // period pattern of ~3 on the high seed-bits.
-                for (j = 0; j < 5; j++) {
-                    seed = base + ((j+0x53) << 48);
+
+                // Misses 8-9% of seeds for a 2x speedup.
+                for (j = 0x53; j < 0x58; j++) {
+                    seed = base + (j << 48);
                     setWorldSeed(&layerBiomeDummy, seed);
                     setChunkSeed(&layerBiomeDummy, areaX+1, areaZ+1);
                     if(mcNextInt(&layerBiomeDummy, 6) == 5)
                         break;
                 }
-                if (j >= 5)
+                if (j >= 0x58)
                     continue;
 
                 qhpos[0] = getWitchHutPos(base, 0+rX, 0+rZ);
@@ -244,27 +246,19 @@ void *searchQuadHutsThread(void *data) {
                 qhpos[2] = getWitchHutPos(base, 1+rX, 0+rZ);
                 qhpos[3] = getWitchHutPos(base, 1+rX, 1+rZ);
 
-                long hits = 0, swpc;
+                long hits = 0;
 
-                for(j = 0; j < 0x10000; j++)
-                {
+                for (j = 0; j < 0x10000; j++) {
                     seed = base + (j << 48);
-
-                    /** Pre-Generation Checks **/
-                    // We can check that at least one swamp could generate in
-                    // this area before doing the biome generator checks.
                     setWorldSeed(&layerBiomeDummy, seed);
-                    setChunkSeed(&layerBiomeDummy, areaX+1, areaZ+1);
-                    if(mcNextInt(&layerBiomeDummy, 6) != 5)
-                        continue;
 
                     // This seed base does not seem to contain many quad huts,
                     // so make a more detailed analysis of the surroundings and
                     // see if there is enough potential for more swamps to
-                    // justify searching fruther.
-                    if(hits == 0 && (j & 0xfff) == 0xfff)
-                    {
-                        swpc = 0;
+                    // justify searching further. Misses and additional 1% of
+                    // seeds for a 1.4:1 speedup.
+                    if(hits == 0 && (j & 0xfff) == 0xfff) {
+                        int swpc = 0;
                         setChunkSeed(&layerBiomeDummy, areaX, areaZ+1);
                         swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
                         setChunkSeed(&layerBiomeDummy, areaX+1, areaZ);
@@ -272,16 +266,23 @@ void *searchQuadHutsThread(void *data) {
                         setChunkSeed(&layerBiomeDummy, areaX, areaZ);
                         swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
 
-                        if(swpc < (j > 0x1000 ? 2 : 1))
+                        if (swpc < (j > 0x1000 ? 2 : 1))
                             break;
                     }
 
+                    // We can check that at least one swamp could generate in
+                    // this area before doing the biome generator checks.
+                    // Misses an additional 0.2% of seeds for a 2.75:1 speedup.
+                    setChunkSeed(&layerBiomeDummy, areaX+1, areaZ+1);
+                    if (mcNextInt(&layerBiomeDummy, 6) != 5)
+                        continue;
+
                     // Dismiss seeds that don't have a swamp near the quad
-                    // temple.
+                    // temple. Misses an additional 0.03% of seeds for a 1.7:1
+                    // speedup.
                     setWorldSeed(lFilterBiome, seed);
                     genArea(lFilterBiome, biomeCache, areaX+1, areaZ+1, 1, 1);
-
-                    if(biomeCache[0] != swampland)
+                    if (biomeCache[0] != swampland)
                         continue;
 
                     applySeed(&g, seed);
