@@ -6,11 +6,37 @@
 #include "generator.h"
 #include "layers.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <getopt.h>
 #include <math.h>
+#include <string.h>
 #include <unistd.h>
 
+
+typedef struct {
+    int numMonuments;
+    Pos monuments[4];
+} Monuments;
+
+enum BiomeConfigs {
+    noneCfg = -1,
+    oceanCfg = 0,
+    flowerForestCfg,
+    iceSpikesCfg,
+    jungleCfg,
+    megaTaigaCfg,
+    mesaCfg,
+    mushroomIslandCfg,
+};
+#define NUM_BIOME_SEARCH_CONFIGS 10
+
+typedef struct {
+    char name[20];
+    float fraction;
+    int lookup[256];
+} BiomeSearchConfig;
+BiomeSearchConfig biomeSearchConfigs[NUM_BIOME_SEARCH_CONFIGS];
 
 typedef struct {
     int radius;  /* Search radius in blocks. */
@@ -19,6 +45,7 @@ typedef struct {
     long endSeed;
     int threads;
     char outputDir[256];
+    BiomeSearchConfig *spawnBiomes;
     int monumentDistance;
 } SearchOptions;
 
@@ -31,12 +58,75 @@ typedef struct {
     char filename[256];
 } ThreadInfo;
 
-typedef struct {
-    int numMonuments;
-    Pos monuments[4];
-} Monuments;
+#define INT_ERROR "An integer argument is required with --%s\n"
 
-const char* INT_ERROR = "An integer argument is required with --%s\n";
+
+void initSearchConfig(
+        char *name, BiomeSearchConfig *config, float fraction,
+        int includedCount, int *includedBiomes,
+        int ignoredCount, int *ignoredBiomes) {
+    snprintf(config->name, 20, "%s", name);
+    config->fraction = fraction;
+
+    memset(config->lookup, 0, 256*sizeof(int));
+    for (int i=0; i<includedCount; i++) {
+        assert(includedBiomes[i] < 256);
+        config->lookup[includedBiomes[i]] = 1;
+    }
+    for (int i=0; i<ignoredCount; i++) {
+        assert(ignoredBiomes[i] < 256);
+        config->lookup[ignoredBiomes[i]] = -1;
+    }
+}
+
+
+void initSearchConfigs() {
+    initSearchConfig(
+            "ocean",
+            &biomeSearchConfigs[oceanCfg], 0.85f,
+            3, (int[]){ocean, frozenOcean, deepOcean},
+            0, (int[]){});
+
+    initSearchConfig(
+            "flower forest",
+            &biomeSearchConfigs[flowerForestCfg], 0.65f,
+            1, (int[]){forest+128},
+            3, (int[]){river, ocean, deepOcean});
+
+    initSearchConfig(
+            "ice spikes",
+            &biomeSearchConfigs[iceSpikesCfg], 0.75f,
+            1, (int[]){icePlains+128},
+            7, (int[]){icePlains, iceMountains, frozenRiver,
+                       river, frozenOcean, ocean, deepOcean});
+
+    initSearchConfig(
+            "jungle",
+            &biomeSearchConfigs[jungleCfg], 0.95f,
+            5, (int[]){jungle, jungleHills, jungleEdge, jungle+128, jungleEdge+128},
+            3, (int[]){river, ocean, deepOcean});
+
+    initSearchConfig(
+            "mega taiga",
+            &biomeSearchConfigs[megaTaigaCfg], 0.90f,
+            4, (int[]){megaTaiga, megaTaigaHills,
+                       megaTaiga+128, megaTaigaHills+128},
+            3, (int[]){river, ocean, deepOcean});
+
+    initSearchConfig(
+            "mesa",
+            &biomeSearchConfigs[mesaCfg], 0.90f,
+            6, (int[]){mesa, mesaPlateau_F, mesaPlateau,
+                       mesa+128, mesaPlateau_F+128, mesaPlateau+128},
+            3, (int[]){river, ocean, deepOcean});
+
+    initSearchConfig(
+            "mushroom island",
+            &biomeSearchConfigs[mushroomIslandCfg], 0.50f,
+            2, (int[]){mushroomIsland, mushroomIslandShore},
+            3, (int[]){river, ocean, deepOcean});
+}
+
 
 void usage() {
     fprintf(stderr, "Usage:\n");
@@ -49,23 +139,26 @@ void usage() {
     fprintf(stderr, "    --end_seed=<integer>\n");
     fprintf(stderr, "    --threads=<integer>\n");
     fprintf(stderr, "    --output_dir=<string>\n");
+    fprintf(stderr, "    --spawn_biomes=<string>\n");
+    fprintf(stderr, "      ocean, flower_forest, ice_spikes, jungle,\n");
+    fprintf(stderr, "      mega_taiga, mesa or mushroom_island.\n");
     fprintf(stderr, "    --monument_distance=<integer>\n");
     fprintf(stderr, "      Search for an ocean monument within a number of\n");
     fprintf(stderr, "      chunks of the quad hut perimeter.\n");
 }
 
 
-long parseHumanArgument(const char *flagName) {
+long parseHumanArgument(char *arg, const char *flagName) {
     char *endptr;
 
-    int len = strlen(optarg);
+    int len = strlen(arg);
     if (len < 1) {
         fprintf(stderr, INT_ERROR, flagName);
         exit(-1);
     }
 
     long mult = 1;
-    switch (optarg[len-1]) {
+    switch (arg[len-1]) {
         case 'K': mult = 1024L; break;
         case 'M': mult = 1024L*1024L; break;
         case 'B': mult = 1024L*1024L*1024L; break;
@@ -74,8 +167,8 @@ long parseHumanArgument(const char *flagName) {
     }
 
     if (mult != 1)
-        optarg[len-1] = 0;
-    long val = strtol(optarg, &endptr, 10);
+        arg[len-1] = 0;
+    long val = strtol(arg, &endptr, 10);
     if (errno != 0) {
         fprintf(stderr, INT_ERROR, flagName);
         exit(-1);
@@ -85,16 +178,49 @@ long parseHumanArgument(const char *flagName) {
 }
 
 
-int parseIntArgument(const char *flagName) {
+int parseIntArgument(const char *arg, const char *flagName) {
     char *endptr;
 
-    int val = strtol(optarg, &endptr, 10);
+    int val = strtol(arg, &endptr, 10);
     if (errno != 0) {
         fprintf(stderr, INT_ERROR, flagName);
         exit(-1);
     }
 
     return val;
+}
+
+
+BiomeSearchConfig* parseSpawnBiome(const char *arg) {
+    if (strcmp(arg, "ocean")              == 0)
+        return &biomeSearchConfigs[oceanCfg];
+
+    if (strcmp(arg, "flower_forest")      == 0 ||
+            strcmp(arg, "flower")         == 0 ||
+            strcmp(arg, "flowerForest")   == 0)
+        return &biomeSearchConfigs[flowerForestCfg];
+
+    if (strcmp(arg, "ice_spikes")         == 0 ||
+            strcmp(arg, "iceSpikes")      == 0)
+        return &biomeSearchConfigs[iceSpikesCfg];
+
+    if (strcmp(arg, "jungle")             == 0)
+        return &biomeSearchConfigs[jungleCfg];
+
+    if (strcmp(arg, "mega_taiga")         == 0 ||
+            strcmp(arg, "megaTaiga")      == 0)
+        return &biomeSearchConfigs[megaTaigaCfg];
+
+    if (strcmp(arg, "mesa")               == 0)
+        return &biomeSearchConfigs[mesaCfg];
+
+    if (strcmp(arg, "mushroom_island")    == 0 ||
+            strcmp(arg, "mushroom")       == 0 ||
+            strcmp(arg, "mushroomIsland") == 0)
+        return &biomeSearchConfigs[mushroomIslandCfg];
+
+    fprintf(stderr, "Unknown biome group \"%s\".\n", arg);
+    exit(-1);
 }
 
 
@@ -107,6 +233,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         .endSeed          = 1L<<48,
         .threads          = 1,
         .outputDir        = "",
+        .spawnBiomes      = NULL,
         .monumentDistance = 0,
     };
 
@@ -117,28 +244,33 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             {"end_seed",          required_argument, NULL, 'e'},
             {"threads",           required_argument, NULL, 't'},
             {"output_dir",        required_argument, NULL, 'o'},
+            {"spawn_biomes",      required_argument, NULL, 'b'},
             {"monument_distance", required_argument, NULL, 'm'},
             {"help",              no_argument,       NULL, 'h'},
         };
         int index = 0;
-        c = getopt_long(argc, argv, "r:s:e:t:o:m:h", longOptions, &index);
+        c = getopt_long(argc, argv, "r:s:e:t:o:b:m:h", longOptions, &index);
 
         if (c == -1)
             break;
 
         switch (c) {
             case 'r':
-                opts.radius = parseIntArgument(longOptions[index].name);
+                opts.radius = parseIntArgument(
+                        optarg, longOptions[index].name);
                 opts.hutRadius = (int)ceil((double)opts.radius / 512.0);
                 break;
             case 's':
-                opts.startSeed = parseHumanArgument(longOptions[index].name);
+                opts.startSeed = parseHumanArgument(
+                        optarg, longOptions[index].name);
                 break;
             case 'e':
-                opts.endSeed = parseHumanArgument(longOptions[index].name);
+                opts.endSeed = parseHumanArgument(
+                        optarg, longOptions[index].name);
                 break;
             case 't':
-                opts.threads = parseIntArgument(longOptions[index].name);
+                opts.threads = parseIntArgument(
+                        optarg, longOptions[index].name);
                 break;
             case 'o':
                 if (strlen(optarg) > 255-13) {
@@ -150,9 +282,12 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 if (opts.outputDir[len-1] == '/')
                     opts.outputDir[len-1] = 0;
                 break;
+            case 'b':
+                opts.spawnBiomes = parseSpawnBiome(optarg);
+                break;
             case 'm':
                 opts.monumentDistance = parseIntArgument(
-                        longOptions[index].name);
+                        optarg, longOptions[index].name);
                 break;
             case 'h':
                 usage();
@@ -236,6 +371,41 @@ int verifyMonuments(LayerStack *g, Monuments *mon, int rX, int rZ) {
         }
     }
     return 0;
+}
+
+
+int hasSpawnBiome(LayerStack *g, Pos spawn, BiomeSearchConfig *config) {
+    Layer *lShoreBiome = &g->layers[L_SHORE_16];
+
+    // Shore biome is 16:1, and spawn is 256x256, and we want to include
+    // the neighboring areas which blend into it -> 18.
+    // TODO: Might be a bit better to allocate this once.
+    int *spawnCache = allocCache(lShoreBiome, 18, 18);
+    int areaX = spawn.x >> 4;
+    int areaZ = spawn.z >> 4;
+    float ignoreFraction = 0;
+    float includeFraction = 0;
+
+    genArea(lShoreBiome, spawnCache, areaX-9, areaZ-9, 18, 18);
+
+    for (int i=0; i<18*18; i++) {
+        switch (config->lookup[spawnCache[i]]) {
+            case 1:
+                includeFraction += 1;
+                break;
+            case -1:
+                ignoreFraction += 1;
+                break;
+        }
+    }
+
+    free(spawnCache);
+
+    includeFraction /= (18*18);
+    ignoreFraction /= (18*18);
+    if (ignoreFraction > 0.80f) { ignoreFraction = 0.80f; }
+
+    return includeFraction / (1.0 - ignoreFraction) >= config->fraction;
 }
 
 
@@ -385,6 +555,13 @@ void *searchQuadHutsThread(void *data) {
                             !verifyMonuments(&g, &mon, rX, rZ))
                         continue;
 
+                    if (opts.spawnBiomes) {
+                        // TODO: Preallocate cache?
+                        Pos spawn = getSpawn(&g, NULL, seed);
+                        if (!hasSpawnBiome(&g, spawn, opts.spawnBiomes))
+                            continue;
+                    }
+
                     fprintf(fh, "%ld\n", seed);
                     hits++;
                     basehits++;
@@ -410,6 +587,11 @@ void *searchQuadHutsThread(void *data) {
 
 int main(int argc, char *argv[])
 {
+    // Always initialize the biome list before starting any seed finder or
+    // biome generator.
+    initBiomes();
+    initSearchConfigs();
+
     SearchOptions opts = parseOptions(argc, argv);
 
     if (opts.threads > 1 && strlen(opts.outputDir) < 1) {
@@ -418,13 +600,17 @@ int main(int argc, char *argv[])
         exit(-1);
     }
 
+    fprintf(stderr, "===========================================================================\n");
     fprintf(stderr,
             "Searching base seeds %ld-%ld, radius %d using %d threads...\n",
             opts.startSeed, opts.endSeed, opts.radius, opts.threads);
-
-    // Always initialize the biome list before starting any seed finder or
-    // biome generator.
-    initBiomes();
+    if (opts.monumentDistance) {
+        fprintf(stderr, "Want an ocean monument within %d chunks of quad hut perimeter.", opts.monumentDistance);
+    }
+    if (opts.spawnBiomes) {
+        fprintf(stderr, "Looking for world spawn in %s biomes.\n", opts.spawnBiomes->name);
+    }
+    fprintf(stderr, "===========================================================================\n");
 
     long qhcount;
     const long *qhcandidates = getBaseSeeds(&qhcount, opts.threads);

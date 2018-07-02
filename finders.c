@@ -1011,7 +1011,7 @@ Pos getSpawn(LayerStack *g, int *cache, long worldSeed)
 
     if(!found)
     {
-        printf("Unable to find spawn biome.\n");
+        // Unable to find spawn biome.
         spawn.x = spawn.z = 8;
     }
 
