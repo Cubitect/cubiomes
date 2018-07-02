@@ -45,6 +45,7 @@ typedef struct {
     long endSeed;
     int threads;
     char outputDir[256];
+    char baseSeedsFile[256];
     BiomeSearchConfig *spawnBiomes;
     int monumentDistance;
 } SearchOptions;
@@ -233,6 +234,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         .endSeed          = 1L<<48,
         .threads          = 1,
         .outputDir        = "",
+        .baseSeedsFile    = "./seeds/quadbases_Q1.txt",
         .spawnBiomes      = NULL,
         .monumentDistance = 0,
     };
@@ -244,12 +246,13 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             {"end_seed",          required_argument, NULL, 'e'},
             {"threads",           required_argument, NULL, 't'},
             {"output_dir",        required_argument, NULL, 'o'},
+            {"base_seeds_file",   required_argument, NULL, 'S'},
             {"spawn_biomes",      required_argument, NULL, 'b'},
             {"monument_distance", required_argument, NULL, 'm'},
             {"help",              no_argument,       NULL, 'h'},
         };
         int index = 0;
-        c = getopt_long(argc, argv, "r:s:e:t:o:b:m:h", longOptions, &index);
+        c = getopt_long(argc, argv, "r:s:e:t:o:S:b:m:h", longOptions, &index);
 
         if (c == -1)
             break;
@@ -282,6 +285,13 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 if (opts.outputDir[len-1] == '/')
                     opts.outputDir[len-1] = 0;
                 break;
+            case 'S':
+                if (strlen(optarg) > 255) {
+                    fprintf(stderr, "Base seeds filename too long.");
+                    exit(-1);
+                }
+                strncpy(opts.baseSeedsFile, optarg, 256);
+                break;
             case 'b':
                 opts.spawnBiomes = parseSpawnBiome(optarg);
                 break;
@@ -301,9 +311,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
 }
 
 
-long* getBaseSeeds(long *qhcount, int threads) {
-    const char *seedFileName = "./seeds/quadbases_Q1.txt";
-
+long* getBaseSeeds(long *qhcount, int threads, const char *seedFileName) {
     if (access(seedFileName, F_OK)) {
         fprintf(stderr, "Seed base file does not exist: Creating new one.\n"
                 "This may take a few minutes...\n");
@@ -605,7 +613,7 @@ int main(int argc, char *argv[])
             "Searching base seeds %ld-%ld, radius %d using %d threads...\n",
             opts.startSeed, opts.endSeed, opts.radius, opts.threads);
     if (opts.monumentDistance) {
-        fprintf(stderr, "Want an ocean monument within %d chunks of quad hut perimeter.", opts.monumentDistance);
+        fprintf(stderr, "Want an ocean monument within %d chunks of quad hut perimeter.\n", opts.monumentDistance);
     }
     if (opts.spawnBiomes) {
         fprintf(stderr, "Looking for world spawn in %s biomes.\n", opts.spawnBiomes->name);
@@ -613,7 +621,7 @@ int main(int argc, char *argv[])
     fprintf(stderr, "===========================================================================\n");
 
     long qhcount;
-    const long *qhcandidates = getBaseSeeds(&qhcount, opts.threads);
+    const long *qhcandidates = getBaseSeeds(&qhcount, opts.threads, opts.baseSeedsFile);
     int startIndex = 0;
     while (qhcandidates[startIndex] < opts.startSeed && startIndex < qhcount) {
         startIndex++;
