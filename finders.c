@@ -809,7 +809,7 @@ Pos getMansionPos(long seed, const long area80X, const long area80Z)
     pos.z += (seed >> 17) % 60;
 
     pos.x = area80X*80 + (pos.x >> 1);
-    pos.z = area80X*80 + (pos.z >> 1);
+    pos.z = area80Z*80 + (pos.z >> 1);
     pos.x = pos.x*16 + 8;
     pos.z = pos.z*16 + 8;
     return pos;
