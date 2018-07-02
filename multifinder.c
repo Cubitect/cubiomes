@@ -262,7 +262,7 @@ void *searchQuadHutsThread(void *data) {
     if (strlen(info.filename)) {
         fh = fopen(info.filename, "w");
         if (fh == NULL) {
-            fprintf(stderr, "Could not open file %s.", info.filename);
+            fprintf(stderr, "Could not open file %s.\n", info.filename);
             return NULL;
         }
     } else {
@@ -464,8 +464,10 @@ int main(int argc, char *argv[])
         char filename[256];
         snprintf(filename, 256, "%s/COMPLETE", opts.outputDir);
         FILE *fh = fopen(filename, "w");
-        fprintf(fh, "Done.\n");
-        fclose(fh);
+        if (fh != NULL) {
+            fprintf(fh, "Done.\n");
+            fclose(fh);
+        }
     }
     fprintf(stderr, "Done.\n");
 
