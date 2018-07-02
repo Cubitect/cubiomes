@@ -534,6 +534,10 @@ static void *baseQuadWitchHutSearchThread(void *data)
     sprintf(fnam, "%s.part%d", info.fnam, info.threadID);
 
     FILE *fp = fopen(fnam, "a+");
+    if (fp == NULL) {
+        fprintf(stderr, "Could not open \"%s\" for writing.\n", fnam);
+        exit(-1);
+    }
 
     seed = start;
 
@@ -620,6 +624,10 @@ void baseQuadWitchHutSearch(const char *fnam, const int threads, const int quali
     char fnamThread[256];
     char buffer[4097];
     FILE *fp = fopen(fnam, "w");
+    if (fp == NULL) {
+        fprintf(stderr, "Could not open \"%s\" for writing.\n", fnam);
+        exit(-1);
+    }
     FILE *fpart;
     int n;
 
@@ -663,6 +671,8 @@ void baseQuadWitchHutSearch(const char *fnam, const int threads, const int quali
 /* getBiomeAtPos
  * ----------------
  * Returns the biome for the specified block position.
+ * (Alternatives should be considered in performance critical code.)
+ * This function is not threadsafe.
  */
 int getBiomeAtPos(const LayerStack g, const Pos pos)
 {
@@ -812,7 +822,7 @@ Pos getMansionPos(long seed, const long area80X, const long area80Z)
     pos.z += (seed >> 17) % 60;
 
     pos.x = area80X*80 + (pos.x >> 1);
-    pos.z = area80X*80 + (pos.z >> 1);
+    pos.z = area80Z*80 + (pos.z >> 1);
     pos.x = pos.x*16 + 8;
     pos.z = pos.z*16 + 8;
     return pos;

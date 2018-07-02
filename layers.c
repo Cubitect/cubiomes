@@ -861,6 +861,7 @@ void mapBiomeEdge(Layer *l, int * __restrict out, int areaX, int areaZ, int area
 }
 
 
+/* This function is not threadsafe. */
 void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {
     int pX = areaX - 1;
