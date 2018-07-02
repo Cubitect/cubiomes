@@ -41,6 +41,7 @@ BiomeSearchConfig biomeSearchConfigs[NUM_BIOME_SEARCH_CONFIGS];
 typedef struct {
     int radius;  /* Search radius in blocks. */
     int hutRadius;
+    int mansionRadius;
     long startSeed;
     long endSeed;
     int threads;
@@ -48,6 +49,7 @@ typedef struct {
     char baseSeedsFile[256];
     BiomeSearchConfig *spawnBiomes;
     int monumentDistance;
+    int woodlandMansions;
 } SearchOptions;
 
 typedef struct {
@@ -230,6 +232,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
     SearchOptions opts = {
         .radius           = 2048,
         .hutRadius        = 4,
+        .mansionRadius    = 2,
         .startSeed        = 0,
         .endSeed          = 1L<<48,
         .threads          = 1,
@@ -237,6 +240,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         .baseSeedsFile    = "./seeds/quadbases_Q1.txt",
         .spawnBiomes      = NULL,
         .monumentDistance = 0,
+        .woodlandMansions = 0,
     };
 
     while (1) {
@@ -249,10 +253,11 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             {"base_seeds_file",   required_argument, NULL, 'S'},
             {"spawn_biomes",      required_argument, NULL, 'b'},
             {"monument_distance", required_argument, NULL, 'm'},
+            {"woodland_mansions", required_argument, NULL, 'w'},
             {"help",              no_argument,       NULL, 'h'},
         };
         int index = 0;
-        c = getopt_long(argc, argv, "r:s:e:t:o:S:b:m:h", longOptions, &index);
+        c = getopt_long(argc, argv, "r:s:e:t:o:S:b:m:w:h", longOptions, &index);
 
         if (c == -1)
             break;
@@ -261,7 +266,8 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             case 'r':
                 opts.radius = parseIntArgument(
                         optarg, longOptions[index].name);
-                opts.hutRadius = (int)ceil((double)opts.radius / 512.0);
+                opts.hutRadius = (int)ceil((double)opts.radius / (32*16));
+                opts.mansionRadius = (int)ceil((double)opts.radius / (80*16));
                 break;
             case 's':
                 opts.startSeed = parseHumanArgument(
@@ -297,6 +303,10 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 break;
             case 'm':
                 opts.monumentDistance = parseIntArgument(
+                        optarg, longOptions[index].name);
+                break;
+            case 'w':
+                opts.woodlandMansions = parseIntArgument(
                         optarg, longOptions[index].name);
                 break;
             case 'h':
@@ -382,6 +392,24 @@ int verifyMonuments(LayerStack *g, Monuments *mon, int rX, int rZ) {
 }
 
 
+int hasMansions(const LayerStack *g, long seed, int radius, int minCount) {
+    int count = 0;
+    for (int rZ=-radius; rZ<radius; rZ++) {
+        for (int rX=-radius; rX<radius; rX++) {
+            Pos mansion = getMansionPos(seed, rX, rZ);
+            // TODO: Preallocate the cache?
+            if (isViableMansionPos(*g, NULL, mansion.x, mansion.z)) {
+                count++;
+                if (count >= minCount) {
+                    return 1;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+
 int hasSpawnBiome(LayerStack *g, Pos spawn, BiomeSearchConfig *config) {
     Layer *lShoreBiome = &g->layers[L_SHORE_16];
 
@@ -426,7 +454,8 @@ void *searchQuadHutsThread(void *data) {
     int *biomeCache = allocCache(lFilterBiome, 3, 3);
     int *lastLayerCache = allocCache(&g.layers[g.layerNum-1], 3, 3);
     long j, base, seed;
-    Monuments mon;
+
+    Monuments monuments;
 
     // Load the positions of the four structures that make up the quad-structure
     // so we can test the biome at these positions.
@@ -456,9 +485,9 @@ void *searchQuadHutsThread(void *data) {
         // The ocean monument check is quick and has a high probability
         // of eliminating the seed, so perform that first.
         if (opts.monumentDistance) {
-            mon = potentialMonuments(
+            monuments = potentialMonuments(
                     info.qhcandidates[i], opts.monumentDistance);
-            if (mon.numMonuments == 0)
+            if (monuments.numMonuments == 0)
                 continue;
         }
 
@@ -560,7 +589,11 @@ void *searchQuadHutsThread(void *data) {
                     // is relatively slow. It might be a bit faster if we
                     // preallocate a cache and stuff, but it might be marginal.
                     if (opts.monumentDistance &&
-                            !verifyMonuments(&g, &mon, rX, rZ))
+                            !verifyMonuments(&g, &monuments, rX, rZ))
+                        continue;
+
+                    if (opts.woodlandMansions &&
+                            !hasMansions(&g, seed, opts.mansionRadius, opts.woodlandMansions))
                         continue;
 
                     if (opts.spawnBiomes) {
@@ -614,6 +647,9 @@ int main(int argc, char *argv[])
             opts.startSeed, opts.endSeed, opts.radius, opts.threads);
     if (opts.monumentDistance) {
         fprintf(stderr, "Want an ocean monument within %d chunks of quad hut perimeter.\n", opts.monumentDistance);
+    }
+    if (opts.woodlandMansions) {
+        fprintf(stderr, "Want %d woodland mansions within the search radius.\n", opts.woodlandMansions);
     }
     if (opts.spawnBiomes) {
         fprintf(stderr, "Looking for world spawn in %s biomes.\n", opts.spawnBiomes->name);
