@@ -757,6 +757,36 @@ Pos getVillagePos(long seed, const long regionX, const long regionZ)
 }
 
 
+/* getOceanMonumentChunk
+ * ---------------------
+ * Fast implementation for finding the chunk relative to the region at which the
+ * ocean monument generation attempt will occur.
+ */
+
+Pos getOceanMonumentChunk(long seed, const long regionX, const long regionZ)
+{
+    Pos pos;
+
+    // set seed
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + 10387313;
+    seed = (seed ^ 0x5DEECE66DL) & ((1L << 48) - 1);
+
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.x = (seed >> 17) % 27;
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.x += (seed >> 17) % 27;
+
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.z = (seed >> 17) % 27;
+    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    pos.z += (seed >> 17) % 27;
+
+    pos.x >>= 1;
+    pos.z >>= 1;
+    return pos;
+}
+
+
 /* getOceanMonumentPos
  * -------------------
  * Fast implementation for finding the block position at which the ocean

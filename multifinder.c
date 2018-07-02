@@ -19,6 +19,7 @@ typedef struct {
     long endSeed;
     int threads;
     char outputDir[256];
+    int monumentDistance;
 } SearchOptions;
 
 typedef struct {
@@ -30,6 +31,11 @@ typedef struct {
     char filename[256];
 } ThreadInfo;
 
+typedef struct {
+    int numMonuments;
+    Pos monuments[4];
+} Monuments;
+
 const char* INT_ERROR = "An integer argument is required with --%s\n";
 
 void usage() {
@@ -37,10 +43,15 @@ void usage() {
     fprintf(stderr, "  multifinder [options]\n");
     fprintf(stderr, "    --help\n");
     fprintf(stderr, "    --radius=<integer>\n");
+    fprintf(stderr, "      Search radius, in blocks (rounded to nearest\n");
+    fprintf(stderr, "      structure region).\n");
     fprintf(stderr, "    --start_seed=<integer>\n");
     fprintf(stderr, "    --end_seed=<integer>\n");
     fprintf(stderr, "    --threads=<integer>\n");
     fprintf(stderr, "    --output_dir=<string>\n");
+    fprintf(stderr, "    --monument_distance=<integer>\n");
+    fprintf(stderr, "      Search for an ocean monument within a number of\n");
+    fprintf(stderr, "      chunks of the quad hut perimeter.\n");
 }
 
 
@@ -90,25 +101,27 @@ int parseIntArgument(const char *flagName) {
 SearchOptions parseOptions(int argc, char *argv[]) {
     int c;
     SearchOptions opts = {
-        2048,    // Search radius, in blocks.
-        4,       // Witch Hut region search radius.
-        0,       // Start base seed.
-        1L<<48,  // End base seed.
-        1,       // Number of search threads.
-        "",
+        .radius           = 2048,
+        .hutRadius        = 4,
+        .startSeed        = 0,
+        .endSeed          = 1L<<48,
+        .threads          = 1,
+        .outputDir        = "",
+        .monumentDistance = 0,
     };
 
     while (1) {
         static struct option longOptions[] = {
-            {"radius",     required_argument, NULL, 'r'},
-            {"start_seed", required_argument, NULL, 's'},
-            {"end_seed",   required_argument, NULL, 'e'},
-            {"threads",    required_argument, NULL, 't'},
-            {"output_dir", required_argument, NULL, 'o'},
-            {"help",       no_argument,       NULL, 'h'},
+            {"radius",            required_argument, NULL, 'r'},
+            {"start_seed",        required_argument, NULL, 's'},
+            {"end_seed",          required_argument, NULL, 'e'},
+            {"threads",           required_argument, NULL, 't'},
+            {"output_dir",        required_argument, NULL, 'o'},
+            {"monument_distance", required_argument, NULL, 'm'},
+            {"help",              no_argument,       NULL, 'h'},
         };
         int index = 0;
-        c = getopt_long(argc, argv, "r:s:e:t:o:h", longOptions, &index);
+        c = getopt_long(argc, argv, "r:s:e:t:o:m:h", longOptions, &index);
 
         if (c == -1)
             break;
@@ -136,6 +149,10 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 int len = strlen(opts.outputDir);
                 if (opts.outputDir[len-1] == '/')
                     opts.outputDir[len-1] = 0;
+                break;
+            case 'm':
+                opts.monumentDistance = parseIntArgument(
+                        longOptions[index].name);
                 break;
             case 'h':
                 usage();
@@ -169,6 +186,59 @@ int getBiomeAt(const LayerStack g, const Pos pos, int *buf) {
 }
 
 
+Monuments potentialMonuments(long baseSeed, int distance) {
+    const int upper = 23 - distance;
+    const int lower = distance;
+    Monuments potential;
+    potential.numMonuments = 0;
+    Pos pos;
+
+    pos = getOceanMonumentChunk(baseSeed, 0, 0);
+    if (pos.x >= upper && pos.z >= upper) {
+        pos.x = (pos.x +  0) * 16 + 8;
+        pos.z = (pos.z +  0) * 16 + 8;
+        potential.monuments[potential.numMonuments++] = pos;
+    }
+
+    pos = getOceanMonumentChunk(baseSeed, 1, 0);
+    if (pos.x <= lower && pos.z >= upper) {
+        pos.x = (pos.x + 32) * 16 + 8;
+        pos.z = (pos.z +  0) * 16 + 8;
+        potential.monuments[potential.numMonuments++] = pos;
+    }
+
+    pos = getOceanMonumentChunk(baseSeed, 0, 1);
+    if (pos.x >= upper && pos.z <= lower) {
+        pos.x = (pos.x +  0) * 16 + 8;
+        pos.z = (pos.z + 32) * 16 + 8;
+        potential.monuments[potential.numMonuments++] = pos;
+    }
+
+    pos = getOceanMonumentChunk(baseSeed, 1, 1);
+    if (pos.x <= lower && pos.z <= lower) {
+        pos.x = (pos.x + 32) * 16 + 8;
+        pos.z = (pos.z + 32) * 16 + 8;
+        potential.monuments[potential.numMonuments++] = pos;
+    }
+
+    return potential;
+}
+
+
+int verifyMonuments(LayerStack *g, Monuments *mon, int rX, int rZ) {
+    for (int m = 0; m < mon->numMonuments; m++) {
+        // Translate monument coordintes from the origin-relative coordinates
+        // from the base seed family.
+        int monX = mon->monuments[m].x + rX*32*16;
+        int monZ = mon->monuments[m].z + rZ*32*16;
+        if (isViableOceanMonumentPos(*g, NULL, monX, monZ)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+
 void *searchQuadHutsThread(void *data) {
     const ThreadInfo info = *(const ThreadInfo *)data;
     const SearchOptions opts = *info.opts;
@@ -178,6 +248,7 @@ void *searchQuadHutsThread(void *data) {
     int *biomeCache = allocCache(lFilterBiome, 3, 3);
     int *lastLayerCache = allocCache(&g.layers[g.layerNum-1], 3, 3);
     long j, base, seed;
+    Monuments mon;
 
     // Load the positions of the four structures that make up the quad-structure
     // so we can test the biome at these positions.
@@ -198,13 +269,27 @@ void *searchQuadHutsThread(void *data) {
         fh = stdout;
     }
 
-    // Search for a swamp at the structure positions
+    // Every nth + m base seed is assigned to thread m;
     for(int i=info.startIndex;
             i < info.qhcount && info.qhcandidates[i] < opts.endSeed;
             i+=opts.threads) {
         int basehits = 0;
+
+        // The ocean monument check is quick and has a high probability
+        // of eliminating the seed, so perform that first.
+        if (opts.monumentDistance) {
+            mon = potentialMonuments(
+                    info.qhcandidates[i], opts.monumentDistance);
+            if (mon.numMonuments == 0)
+                continue;
+        }
+
         for (int rZ = -opts.hutRadius-1; rZ < opts.hutRadius; rZ++) {
             for (int rX = -opts.hutRadius-1; rX < opts.hutRadius; rX++) {
+                // The base seed has potential monuments around the origin;
+                // if we translate it to rX, rZ, it will always have potential
+                // huts around that region.
+                base = moveTemple(info.qhcandidates[i], rX, rZ);
 
                 // rZ, rX is the hut region in the upper left of the potential
                 // quad hut. Hut regions are 32 chunks/512 blocks. The biome
@@ -213,8 +298,6 @@ void *searchQuadHutsThread(void *data) {
                 // at the center of the quad-hut regions, so +1.
                 int areaX = (rX << 1) + 1;
                 int areaZ = (rZ << 1) + 1;
-
-                base = moveTemple(info.qhcandidates[i], rX, rZ);
 
                 // This little magic code checks if there is a meaningful chance
                 // for this seed base to generate swamps in the area.
@@ -295,6 +378,13 @@ void *searchQuadHutsThread(void *data) {
                     if (getBiomeAt(g, qhpos[3], lastLayerCache) != swampland)
                         continue;
 
+                    // This check has to get exact biomes for a whole area, so
+                    // is relatively slow. It might be a bit faster if we
+                    // preallocate a cache and stuff, but it might be marginal.
+                    if (opts.monumentDistance &&
+                            !verifyMonuments(&g, &mon, rX, rZ))
+                        continue;
+
                     fprintf(fh, "%ld\n", seed);
                     hits++;
                     basehits++;
@@ -306,10 +396,10 @@ void *searchQuadHutsThread(void *data) {
                 info.qhcandidates[i], info.thread, basehits);
     }
 
-    if (strlen(info.filename)) {
+    if (fh != stdout) {
         fclose(fh);
+        fprintf(stderr, "%s written.\n", info.filename);
     }
-    fprintf(stderr, "%s written.\n", info.filename);
     free(biomeCache);
     free(lastLayerCache);
     freeGenerator(g);

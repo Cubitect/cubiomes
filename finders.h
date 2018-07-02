@@ -156,6 +156,13 @@ Pos getWitchHutPos(long seed, const long regionX, const long regionZ);
  */
 Pos getVillagePos(long seed, const long regionX, const long regionZ);
 
+/* getOceanMonumentChunk
+ * ---------------------
+ * Fast implementation for finding the chunk relative to the region at which the
+ * ocean monument generation attempt will occur.
+ */
+Pos getOceanMonumentChunk(long seed, const long regionX, const long regionZ);
+
 /* getOceanMonumentPos
  * -------------------
  * Fast implementation for finding the block position at which the ocean
