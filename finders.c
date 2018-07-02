@@ -531,6 +531,10 @@ static void *baseQuadTempleSearchThread(void *data)
     sprintf(fnam, "%s.part%d", info.fnam, info.threadID);
 
     FILE *fp = fopen(fnam, "a+");
+    if (fp == NULL) {
+        fprintf(stderr, "Could not open \"%s\" for writing.\n", fnam);
+        exit(-1);
+    }
 
     seed = start;
 
@@ -617,6 +621,10 @@ void baseQuadTempleSearch(const char *fnam, const int threads, const int quality
     char fnamThread[256];
     char buffer[4097];
     FILE *fp = fopen(fnam, "w");
+    if (fp == NULL) {
+        fprintf(stderr, "Could not open \"%s\" for writing.\n", fnam);
+        exit(-1);
+    }
     FILE *fpart;
     int n;
 
