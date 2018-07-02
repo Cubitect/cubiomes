@@ -660,6 +660,8 @@ void baseQuadTempleSearch(const char *fnam, const int threads, const int quality
 /* getBiomeAtPos
  * ----------------
  * Returns the biome for the specified block position.
+ * (Alternatives should be considered in performance critical code.)
+ * This function is not threadsafe.
  */
 int getBiomeAtPos(const LayerStack g, const Pos pos)
 {
