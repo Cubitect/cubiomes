@@ -537,6 +537,7 @@ void *searchQuadHutsThread(void *data) {
                 qhpos[3] = getWitchHutPos(base, 1+rX, 1+rZ);
 
                 long hits = 0;
+                long hutHits = 0;
 
                 for (j = 0; j < 0x10000; j++) {
                     seed = base + (j << 48);
@@ -547,7 +548,11 @@ void *searchQuadHutsThread(void *data) {
                     // see if there is enough potential for more swamps to
                     // justify searching further. Misses and additional 1% of
                     // seeds for a 1.4:1 speedup.
-                    if(hits == 0 && (j & 0xfff) == 0xfff) {
+
+                    // This uses a separate counter for all seeds that pass the
+                    // quad hut checks, even if they fail the other checks, so
+                    // that the other checks don't cause this to fail too early.
+                    if(hutHits == 0 && (j & 0xfff) == 0xfff) {
                         int swpc = 0;
                         setChunkSeed(&layerBiomeDummy, areaX, areaZ+1);
                         swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
@@ -584,6 +589,7 @@ void *searchQuadHutsThread(void *data) {
                         continue;
                     if (getBiomeAt(g, qhpos[3], lastLayerCache) != swampland)
                         continue;
+                    hutHits++;
 
                     // This check has to get exact biomes for a whole area, so
                     // is relatively slow. It might be a bit faster if we
