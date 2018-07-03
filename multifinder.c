@@ -48,6 +48,7 @@ typedef struct {
     long endSeed;
     int threads;
     char outputDir[256];
+    int append;
     char baseSeedsFile[256];
 
     // Additional search critera
@@ -183,6 +184,8 @@ void usage() {
     fprintf(stderr, "    --end_seed=<integer>\n");
     fprintf(stderr, "    --threads=<integer>\n");
     fprintf(stderr, "    --output_dir=<string>\n");
+    fprintf(stderr, "    --append\n");
+    fprintf(stderr, "      append to output files instead of overwriting.\n");
     fprintf(stderr, "    --base_seeds_file=<string>\n");
     fprintf(stderr, "    --all_biomes\n");
     fprintf(stderr, "      Search for all biomes within search radius.\n");
@@ -304,6 +307,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         .endSeed              = 1L<<48,
         .threads              = 1,
         .outputDir            = "",
+        .append               = 0,
         .baseSeedsFile        = "./seeds/quadbases_Q1.txt",
         .allBiomes            = 0,
         .spawnBiomes          = NULL,
@@ -323,6 +327,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             {"end_seed",              required_argument, NULL, 'e'},
             {"threads",               required_argument, NULL, 't'},
             {"output_dir",            required_argument, NULL, 'o'},
+            {"append",                no_argument,       NULL, 'A'},
             {"base_seeds_file",       required_argument, NULL, 'S'},
             {"all_biomes",            no_argument,       NULL, 'a'},
             {"spawn_biomes",          required_argument, NULL, 'b'},
@@ -335,7 +340,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         };
         int index = 0;
         c = getopt_long(argc, argv,
-                "hXs:e:t:o:S:ab:m:w:r:B:H:M:", longOptions, &index);
+                "hXs:e:t:o:AS:ab:m:w:r:B:H:M:", longOptions, &index);
 
         if (c == -1)
             break;
@@ -375,6 +380,9 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 int len = strlen(opts.outputDir);
                 if (opts.outputDir[len-1] == '/')
                     opts.outputDir[len-1] = 0;
+                break;
+            case 'A':
+                opts.append = 1;
                 break;
             case 'S':
                 if (strlen(optarg) > 255) {
@@ -645,7 +653,7 @@ void *searchQuadHutsThread(void *data) {
 
     FILE *fh;
     if (strlen(info.filename)) {
-        fh = fopen(info.filename, "w");
+        fh = fopen(info.filename, opts.append ? "a" : "w");
         if (fh == NULL) {
             fprintf(stderr, "Could not open file %s.\n", info.filename);
             return NULL;
@@ -842,6 +850,12 @@ int main(int argc, char *argv[])
     fprintf(stderr,
             "Searching base seeds %ld-%ld, radius %d using %d threads...\n",
             opts.startSeed, opts.endSeed, opts.radius, opts.threads);
+    if (opts.outputDir) {
+        if (opts.append)
+            fprintf(stderr, "Appending to files in \"%s\"...\n", opts.outputDir);
+        else
+            fprintf(stderr, "Writing output to \"%s\"...\n", opts.outputDir);
+    }
     if (opts.monumentDistance) {
         fprintf(stderr, "Looking for an ocean monument within %d chunks of quad hut perimeter.\n",
                 opts.monumentDistance);
@@ -897,6 +911,7 @@ int main(int argc, char *argv[])
 
     if (strlen(opts.outputDir)) {
         char filename[256];
+        // TODO: Remove COMPLETE file if present at start of search.
         snprintf(filename, 256, "%s/COMPLETE", opts.outputDir);
         FILE *fh = fopen(filename, "w");
         if (fh != NULL) {
