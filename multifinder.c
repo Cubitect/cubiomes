@@ -50,6 +50,7 @@ typedef struct {
     BiomeSearchConfig *spawnBiomes;
     int monumentDistance;
     int woodlandMansions;
+    int disableOptimizations;
 } SearchOptions;
 
 typedef struct {
@@ -135,6 +136,11 @@ void usage() {
     fprintf(stderr, "Usage:\n");
     fprintf(stderr, "  multifinder [options]\n");
     fprintf(stderr, "    --help\n");
+    fprintf(stderr, "    --disable_optimizations\n");
+    fprintf(stderr, "      Disable speed optimizations which may cause\n");
+    fprintf(stderr, "      search to miss some quad hut seeds. Will find up\n");
+    fprintf(stderr, "      to 10%% more seeds, but will run about 13x\n");
+    fprintf(stderr, "      slower.\n");
     fprintf(stderr, "    --radius=<integer>\n");
     fprintf(stderr, "      Search radius, in blocks (rounded to nearest\n");
     fprintf(stderr, "      structure region).\n");
@@ -230,34 +236,36 @@ BiomeSearchConfig* parseSpawnBiome(const char *arg) {
 SearchOptions parseOptions(int argc, char *argv[]) {
     int c;
     SearchOptions opts = {
-        .radius           = 2048,
-        .hutRadius        = 4,
-        .mansionRadius    = 2,
-        .startSeed        = 0,
-        .endSeed          = 1L<<48,
-        .threads          = 1,
-        .outputDir        = "",
-        .baseSeedsFile    = "./seeds/quadbases_Q1.txt",
-        .spawnBiomes      = NULL,
-        .monumentDistance = 0,
-        .woodlandMansions = 0,
+        .radius               = 2048,
+        .hutRadius            = 4,
+        .mansionRadius        = 2,
+        .startSeed            = 0,
+        .endSeed              = 1L<<48,
+        .threads              = 1,
+        .outputDir            = "",
+        .baseSeedsFile        = "./seeds/quadbases_Q1.txt",
+        .spawnBiomes          = NULL,
+        .monumentDistance     = 0,
+        .woodlandMansions     = 0,
+        .disableOptimizations = 0,
     };
 
     while (1) {
         static struct option longOptions[] = {
-            {"radius",            required_argument, NULL, 'r'},
-            {"start_seed",        required_argument, NULL, 's'},
-            {"end_seed",          required_argument, NULL, 'e'},
-            {"threads",           required_argument, NULL, 't'},
-            {"output_dir",        required_argument, NULL, 'o'},
-            {"base_seeds_file",   required_argument, NULL, 'S'},
-            {"spawn_biomes",      required_argument, NULL, 'b'},
-            {"monument_distance", required_argument, NULL, 'm'},
-            {"woodland_mansions", required_argument, NULL, 'w'},
-            {"help",              no_argument,       NULL, 'h'},
+            {"radius",                required_argument, NULL, 'r'},
+            {"start_seed",            required_argument, NULL, 's'},
+            {"end_seed",              required_argument, NULL, 'e'},
+            {"threads",               required_argument, NULL, 't'},
+            {"output_dir",            required_argument, NULL, 'o'},
+            {"base_seeds_file",       required_argument, NULL, 'S'},
+            {"spawn_biomes",          required_argument, NULL, 'b'},
+            {"monument_distance",     required_argument, NULL, 'm'},
+            {"woodland_mansions",     required_argument, NULL, 'w'},
+            {"disable_optimizations", no_argument,       NULL, 'X'},
+            {"help",                  no_argument,       NULL, 'h'},
         };
         int index = 0;
-        c = getopt_long(argc, argv, "r:s:e:t:o:S:b:m:w:h", longOptions, &index);
+        c = getopt_long(argc, argv, "r:s:e:t:o:S:b:m:w:Xh", longOptions, &index);
 
         if (c == -1)
             break;
@@ -308,6 +316,9 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             case 'w':
                 opts.woodlandMansions = parseIntArgument(
                         optarg, longOptions[index].name);
+                break;
+            case 'X':
+                opts.disableOptimizations = 1;
                 break;
             case 'h':
                 usage();
@@ -455,7 +466,7 @@ void *searchQuadHutsThread(void *data) {
     int *lastLayerCache = allocCache(&g.layers[g.layerNum-1], 3, 3);
     long j, base, seed;
 
-    Monuments monuments;
+    Monuments monuments = {0};
 
     // Load the positions of the four structures that make up the quad-structure
     // so we can test the biome at these positions.
@@ -521,15 +532,17 @@ void *searchQuadHutsThread(void *data) {
                 // period pattern of ~3 on the high seed-bits.
 
                 // Misses 8-9% of seeds for a 2x speedup.
-                for (j = 0x53; j < 0x58; j++) {
-                    seed = base + (j << 48);
-                    setWorldSeed(&layerBiomeDummy, seed);
-                    setChunkSeed(&layerBiomeDummy, areaX+1, areaZ+1);
-                    if(mcNextInt(&layerBiomeDummy, 6) == 5)
-                        break;
+                if (!opts.disableOptimizations) {
+                    for (j = 0x53; j < 0x58; j++) {
+                        seed = base + (j << 48);
+                        setWorldSeed(&layerBiomeDummy, seed);
+                        setChunkSeed(&layerBiomeDummy, areaX+1, areaZ+1);
+                        if(mcNextInt(&layerBiomeDummy, 6) == 5)
+                            break;
+                    }
+                    if (j >= 0x58)
+                        continue;
                 }
-                if (j >= 0x58)
-                    continue;
 
                 qhpos[0] = getWitchHutPos(base, 0+rX, 0+rZ);
                 qhpos[1] = getWitchHutPos(base, 0+rX, 1+rZ);
@@ -552,33 +565,35 @@ void *searchQuadHutsThread(void *data) {
                     // This uses a separate counter for all seeds that pass the
                     // quad hut checks, even if they fail the other checks, so
                     // that the other checks don't cause this to fail too early.
-                    if(hutHits == 0 && (j & 0xfff) == 0xfff) {
-                        int swpc = 0;
-                        setChunkSeed(&layerBiomeDummy, areaX, areaZ+1);
-                        swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
-                        setChunkSeed(&layerBiomeDummy, areaX+1, areaZ);
-                        swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
-                        setChunkSeed(&layerBiomeDummy, areaX, areaZ);
-                        swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
+                    if (!opts.disableOptimizations) {
+                        if (hutHits == 0 && (j & 0xfff) == 0xfff) {
+                            int swpc = 0;
+                            setChunkSeed(&layerBiomeDummy, areaX, areaZ+1);
+                            swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
+                            setChunkSeed(&layerBiomeDummy, areaX+1, areaZ);
+                            swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
+                            setChunkSeed(&layerBiomeDummy, areaX, areaZ);
+                            swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
 
-                        if (swpc < (j > 0x1000 ? 2 : 1))
-                            break;
+                            if (swpc < (j > 0x1000 ? 2 : 1))
+                                break;
+                        }
+
+                        // We can check that at least one swamp could generate in
+                        // this area before doing the biome generator checks.
+                        // Misses an additional 0.2% of seeds for a 2.75:1 speedup.
+                        setChunkSeed(&layerBiomeDummy, areaX+1, areaZ+1);
+                        if (mcNextInt(&layerBiomeDummy, 6) != 5)
+                            continue;
+
+                        // Dismiss seeds that don't have a swamp near the quad
+                        // temple. Misses an additional 0.03% of seeds for a 1.7:1
+                        // speedup.
+                        setWorldSeed(lFilterBiome, seed);
+                        genArea(lFilterBiome, biomeCache, areaX+1, areaZ+1, 1, 1);
+                        if (biomeCache[0] != swampland)
+                            continue;
                     }
-
-                    // We can check that at least one swamp could generate in
-                    // this area before doing the biome generator checks.
-                    // Misses an additional 0.2% of seeds for a 2.75:1 speedup.
-                    setChunkSeed(&layerBiomeDummy, areaX+1, areaZ+1);
-                    if (mcNextInt(&layerBiomeDummy, 6) != 5)
-                        continue;
-
-                    // Dismiss seeds that don't have a swamp near the quad
-                    // temple. Misses an additional 0.03% of seeds for a 1.7:1
-                    // speedup.
-                    setWorldSeed(lFilterBiome, seed);
-                    genArea(lFilterBiome, biomeCache, areaX+1, areaZ+1, 1, 1);
-                    if (biomeCache[0] != swampland)
-                        continue;
 
                     applySeed(&g, seed);
                     if (getBiomeAt(g, qhpos[0], lastLayerCache) != swampland)
@@ -659,6 +674,9 @@ int main(int argc, char *argv[])
     }
     if (opts.spawnBiomes) {
         fprintf(stderr, "Looking for world spawn in %s biomes.\n", opts.spawnBiomes->name);
+    }
+    if (opts.disableOptimizations) {
+        fprintf(stderr, "WARNING: Optimizations disabled. Will be slow as snot.\n");
     }
     fprintf(stderr, "===========================================================================\n");
 
