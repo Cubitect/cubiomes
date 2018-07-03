@@ -10,7 +10,9 @@
 #include <errno.h>
 #include <getopt.h>
 #include <math.h>
+#include <time.h>
 #include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 
@@ -177,7 +179,7 @@ void usage() {
     fprintf(stderr, "      search to miss some quad hut seeds. Will find up\n");
     fprintf(stderr, "      to 10%% more seeds, but will run about 13x\n");
     fprintf(stderr, "      slower.\n");
-    fprintf(stderr, "    --start_seed=<integer>\n");
+    fprintf(stderr, "    --start_seed=<integer> or \"random\"\n");
     fprintf(stderr, "    --end_seed=<integer>\n");
     fprintf(stderr, "    --threads=<integer>\n");
     fprintf(stderr, "    --output_dir=<string>\n");
@@ -347,8 +349,14 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 opts.disableOptimizations = 1;
                 break;
             case 's':
-                opts.startSeed = parseHumanArgument(
-                        optarg, longOptions[index].name);
+                if (strcmp(optarg, "random") == 0) {
+                    long lower = rand() & 0xffffffff;
+                    long upper = rand() & 0xffff;
+                    opts.startSeed = (upper << 32) + lower;
+                } else {
+                    opts.startSeed = parseHumanArgument(
+                            optarg, longOptions[index].name);
+                }
                 break;
             case 'e':
                 opts.endSeed = parseHumanArgument(
@@ -607,8 +615,8 @@ int hasAllBiomes(LayerStack *g, Pos spawn, int radius) {
     }
 
     for (int i=0; i<NUM_ALL_BIOMES; i++) {
-        // Require a non-trivial amount of biome area (e.g. a 3x3 chunk area).
-        if (biomeCounts[i] < 9)
+        // Require a non-trivial amount of biome area (e.g. a 4x4 chunk area).
+        if (biomeCounts[i] < 16)
             return 0;
     }
     return 1;
@@ -818,6 +826,7 @@ int main(int argc, char *argv[])
 {
     // Always initialize the biome list before starting any seed finder or
     // biome generator.
+    srand(time(NULL));
     initBiomes();
     initSearchConfigs();
 
