@@ -28,8 +28,9 @@ enum BiomeConfigs {
     megaTaigaCfg,
     mesaCfg,
     mushroomIslandCfg,
+    sunflowerPlainsCfg,
 };
-#define NUM_BIOME_SEARCH_CONFIGS 10
+#define NUM_BIOME_SEARCH_CONFIGS 8
 
 typedef struct {
     char name[20];
@@ -48,6 +49,7 @@ typedef struct {
     char outputDir[256];
     char baseSeedsFile[256];
     BiomeSearchConfig *spawnBiomes;
+    int allBiomes;
     int monumentDistance;
     int woodlandMansions;
     int disableOptimizations;
@@ -63,6 +65,26 @@ typedef struct {
 } ThreadInfo;
 
 #define INT_ERROR "An integer argument is required with --%s\n"
+
+
+// Adventuring time 1.12
+// Beach, Birch Forest, Birch Forest Hills, Cold Beach, Cold Taiga, Cold Taiga
+// Hills, Deep Ocean, Desert, Desert Hills, Extreme Hills, Extreme Hills+,
+// Forest, Forest Hills, Frozen River, Ice Mountains, Ice Plains, Jungle, Jungle
+// Edge, Jungle Hills, Mega Taiga, Mega Taiga Hills, Mesa, Mesa Plateau, Mesa
+// Plateau F, Mushroom Island, Mushroom Island Shore, Ocean, Plains, River,
+// Roofed Forest, Savanna, Savanna Plateau, Stone Beach, Swampland, Taiga, Taiga
+// Hills
+
+// Adventuring time 1.13
+// Beach, Birch Forest, Birch Forest Hills, Cold Beach, Cold Taiga, Cold Taiga
+// Hills, Deep Ocean, Desert, Desert Hills, Extreme Hills, Extreme Hills+,
+// Forest, Forest Hills, Frozen River, Ice Mountains, Ice Plains, Jungle, Jungle
+// Edge, Jungle Hills, Mega Taiga, Mega Taiga Hills, Mesa, Mesa Plateau, Mesa
+// Plateau F, Mushroom Island, Mushroom Island Shore, Ocean, Plains, River,
+// Roofed Forest, Savanna, Savanna Plateau, Stone Beach, Swampland, Taiga, Taiga
+// Hills, Cold Ocean, Cold Deep Ocean, Frozen Deep Ocean, Lukewarm Ocean,
+// Lukewarm Deep Ocean, Warm Ocean
 
 
 void initSearchConfig(
@@ -129,6 +151,12 @@ void initSearchConfigs() {
             &biomeSearchConfigs[mushroomIslandCfg], 0.50f,
             2, (int[]){mushroomIsland, mushroomIslandShore},
             3, (int[]){river, ocean, deepOcean});
+
+    initSearchConfig(
+            "sunflower plains",
+            &biomeSearchConfigs[sunflowerPlainsCfg], 0.65f,
+            1, (int[]){plains+128},
+            7, (int[]){river, ocean, deepOcean});
 }
 
 
@@ -150,7 +178,10 @@ void usage() {
     fprintf(stderr, "    --output_dir=<string>\n");
     fprintf(stderr, "    --spawn_biomes=<string>\n");
     fprintf(stderr, "      ocean, flower_forest, ice_spikes, jungle,\n");
-    fprintf(stderr, "      mega_taiga, mesa or mushroom_island.\n");
+    fprintf(stderr, "      mega_taiga, mesa, mushroom_island or\n");
+    fprintf(stderr, "      sunflower_plains.\n");
+    fprintf(stderr, "    --all_biomes\n");
+    fprintf(stderr, "      Search for all biomes within search radius.\n");
     fprintf(stderr, "    --monument_distance=<integer>\n");
     fprintf(stderr, "      Search for an ocean monument within a number of\n");
     fprintf(stderr, "      chunks of the quad hut perimeter.\n");
@@ -201,32 +232,37 @@ int parseIntArgument(const char *arg, const char *flagName) {
 
 
 BiomeSearchConfig* parseSpawnBiome(const char *arg) {
-    if (strcmp(arg, "ocean")              == 0)
+    if (strcmp(arg, "ocean")                == 0)
         return &biomeSearchConfigs[oceanCfg];
 
-    if (strcmp(arg, "flower_forest")      == 0 ||
-            strcmp(arg, "flower")         == 0 ||
-            strcmp(arg, "flowerForest")   == 0)
+    if (strcmp(arg, "flower_forest")        == 0 ||
+            strcmp(arg, "flower")           == 0 ||
+            strcmp(arg, "flowerForest")     == 0)
         return &biomeSearchConfigs[flowerForestCfg];
 
-    if (strcmp(arg, "ice_spikes")         == 0 ||
-            strcmp(arg, "iceSpikes")      == 0)
+    if (strcmp(arg, "ice_spikes")           == 0 ||
+            strcmp(arg, "iceSpikes")        == 0)
         return &biomeSearchConfigs[iceSpikesCfg];
 
-    if (strcmp(arg, "jungle")             == 0)
+    if (strcmp(arg, "jungle")               == 0)
         return &biomeSearchConfigs[jungleCfg];
 
-    if (strcmp(arg, "mega_taiga")         == 0 ||
-            strcmp(arg, "megaTaiga")      == 0)
+    if (strcmp(arg, "mega_taiga")           == 0 ||
+            strcmp(arg, "megaTaiga")        == 0)
         return &biomeSearchConfigs[megaTaigaCfg];
 
-    if (strcmp(arg, "mesa")               == 0)
+    if (strcmp(arg, "mesa")                 == 0)
         return &biomeSearchConfigs[mesaCfg];
 
-    if (strcmp(arg, "mushroom_island")    == 0 ||
-            strcmp(arg, "mushroom")       == 0 ||
-            strcmp(arg, "mushroomIsland") == 0)
+    if (strcmp(arg, "mushroom_island")      == 0 ||
+            strcmp(arg, "mushroom")         == 0 ||
+            strcmp(arg, "mushroomIsland")   == 0)
         return &biomeSearchConfigs[mushroomIslandCfg];
+
+    if (strcmp(arg, "sunflower")            == 0 ||
+            strcmp(arg, "sunflower_plains") == 0 ||
+            strcmp(arg, "sunflowerPlains")  == 0)
+        return &biomeSearchConfigs[sunflowerPlainsCfg];
 
     fprintf(stderr, "Unknown biome group \"%s\".\n", arg);
     exit(-1);
@@ -245,6 +281,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         .outputDir            = "",
         .baseSeedsFile        = "./seeds/quadbases_Q1.txt",
         .spawnBiomes          = NULL,
+        .allBiomes            = 0,
         .monumentDistance     = 0,
         .woodlandMansions     = 0,
         .disableOptimizations = 0,
@@ -259,13 +296,14 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             {"output_dir",            required_argument, NULL, 'o'},
             {"base_seeds_file",       required_argument, NULL, 'S'},
             {"spawn_biomes",          required_argument, NULL, 'b'},
+            {"all_biomes",            no_argument,       NULL, 'a'},
             {"monument_distance",     required_argument, NULL, 'm'},
             {"woodland_mansions",     required_argument, NULL, 'w'},
             {"disable_optimizations", no_argument,       NULL, 'X'},
             {"help",                  no_argument,       NULL, 'h'},
         };
         int index = 0;
-        c = getopt_long(argc, argv, "r:s:e:t:o:S:b:m:w:Xh", longOptions, &index);
+        c = getopt_long(argc, argv, "r:s:e:t:o:S:b:m:w:aXh", longOptions, &index);
 
         if (c == -1)
             break;
@@ -308,6 +346,9 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 break;
             case 'b':
                 opts.spawnBiomes = parseSpawnBiome(optarg);
+                break;
+            case 'a':
+                opts.allBiomes = 1;
                 break;
             case 'm':
                 opts.monumentDistance = parseIntArgument(
@@ -424,7 +465,7 @@ int hasMansions(const LayerStack *g, long seed, int radius, int minCount) {
 int hasSpawnBiome(LayerStack *g, Pos spawn, BiomeSearchConfig *config) {
     Layer *lShoreBiome = &g->layers[L_SHORE_16];
 
-    // Shore biome is 16:1, and spawn is 256x256, and we want to include
+    // Shore layer is 16:1, and spawn is 256x256, and we want to include
     // the neighboring areas which blend into it -> 18.
     // TODO: Might be a bit better to allocate this once.
     int *spawnCache = allocCache(lShoreBiome, 18, 18);
@@ -453,6 +494,76 @@ int hasSpawnBiome(LayerStack *g, Pos spawn, BiomeSearchConfig *config) {
     if (ignoreFraction > 0.80f) { ignoreFraction = 0.80f; }
 
     return includeFraction / (1.0 - ignoreFraction) >= config->fraction;
+}
+
+
+int getBiomeGroup(int biome) {
+    // Most biomes are basically everywhere, so we only make an effort to
+    // count up the ones that have a good chance of being far away. The list
+    // also focuses on biomes with items that don't occur elsewhere (packed ice,
+    // teracotta, podzol, jungle saplings, cocoa beans, certain flowers, etc.)
+
+    // A list of bomes that completes the Adventuring Time advancement would
+    // also be a cool option.
+    switch(biome) {
+        case ocean:
+        case frozenOcean:
+        case deepOcean:
+            return 1;
+        case forest+128:            // Flower Forest
+            return 2;
+        case icePlains+128:         // Ice Spikes
+            return 3;
+        case jungle:
+        case jungleHills:
+        case jungleEdge:
+        case jungle+128:            // Jungle M
+        case jungleEdge+128:        // Jungel Edge M
+            return 4;
+        case megaTaiga:
+        case megaTaigaHills:
+        case megaTaiga+128:         // Mega Spruce Taiga
+        case megaTaigaHills+128:    // Mega Spruce Taiga Hills
+            return 5;
+        case mesa:
+        case mesaPlateau_F:
+        case mesaPlateau:
+        case mesa+128:              // Mesa Bryce
+        case mesaPlateau_F+128:     // Mesa Plateau F M
+        case mesaPlateau+128:       // Mesa Plateau M
+            return 6;
+        case mushroomIsland:
+        case mushroomIslandShore:
+            return 7;
+        case plains+128:            // Sunflower plains
+            return 8;
+    }
+    return 0;
+}
+
+
+#define NUM_ALL_BIOMES 9
+int hasAllBiomes(LayerStack *g, Pos spawn, int radius) {
+    Layer *lShoreBiome = &g->layers[L_SHORE_16];
+    int biomeCounts[NUM_ALL_BIOMES] = {0};
+
+    // Shore layer is 16:1.
+    int areaRadius = radius >> 4;
+    int *biomeCache = allocCache(lShoreBiome, areaRadius*2, areaRadius*2);
+    int left = (spawn.x >> 4) - areaRadius;
+    int top  = (spawn.z >> 4) - areaRadius;
+    genArea(lShoreBiome, biomeCache, left, top, areaRadius*2, areaRadius*2);
+
+    for (int i=0; i<areaRadius*areaRadius*4; i++) {
+        biomeCounts[getBiomeGroup(biomeCache[i])]++;
+    }
+
+    for (int i=0; i<NUM_ALL_BIOMES; i++) {
+        // Require a non-trivial amount of biome area (e.g. a 3x3 chunk area).
+        if (biomeCounts[i] < 9)
+            return 0;
+    }
+    return 1;
 }
 
 
@@ -617,10 +728,18 @@ void *searchQuadHutsThread(void *data) {
                             !hasMansions(&g, seed, opts.mansionRadius, opts.woodlandMansions))
                         continue;
 
-                    if (opts.spawnBiomes) {
+                    if (opts.spawnBiomes || opts.allBiomes) {
                         // TODO: Preallocate cache?
                         Pos spawn = getSpawn(&g, NULL, seed);
-                        if (!hasSpawnBiome(&g, spawn, opts.spawnBiomes))
+
+                        // This check is slow.
+                        if (opts.spawnBiomes
+                                && !hasSpawnBiome(&g, spawn, opts.spawnBiomes))
+                            continue;
+
+                        // This check is very slow.
+                        if (opts.allBiomes
+                                && !hasAllBiomes(&g, spawn, opts.radius))
                             continue;
                     }
 
@@ -674,6 +793,9 @@ int main(int argc, char *argv[])
     }
     if (opts.spawnBiomes) {
         fprintf(stderr, "Looking for world spawn in %s biomes.\n", opts.spawnBiomes->name);
+    }
+    if (opts.allBiomes) {
+        fprintf(stderr, "Looking for all biomes within search radius.\n");
     }
     if (opts.disableOptimizations) {
         fprintf(stderr, "WARNING: Optimizations disabled. Will be slow as snot.\n");
