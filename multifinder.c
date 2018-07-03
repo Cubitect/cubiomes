@@ -574,7 +574,7 @@ int getBiomeGroup(int biome) {
         case jungleHills:
         case jungleEdge:
         case jungle+128:            // Jungle M
-        case jungleEdge+128:        // Jungel Edge M
+        case jungleEdge+128:        // Jungle Edge M
             return 4;
         case megaTaiga:
         case megaTaigaHills:
@@ -795,7 +795,7 @@ void *searchQuadHutsThread(void *data) {
 
                         // This check is very slow.
                         if (opts.allBiomes
-                                && !hasAllBiomes(&g, spawn, opts.radius))
+                                && !hasAllBiomes(&g, spawn, opts.biomeRadius))
                             continue;
                     }
 
