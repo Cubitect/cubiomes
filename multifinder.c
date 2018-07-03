@@ -40,19 +40,27 @@ typedef struct {
 BiomeSearchConfig biomeSearchConfigs[NUM_BIOME_SEARCH_CONFIGS];
 
 typedef struct {
-    int radius;  /* Search radius in blocks. */
-    int hutRadius;
-    int mansionRadius;
+    // Configuration options
+    int disableOptimizations;
     long startSeed;
     long endSeed;
     int threads;
     char outputDir[256];
     char baseSeedsFile[256];
-    BiomeSearchConfig *spawnBiomes;
+
+    // Additional search critera
     int allBiomes;
+    BiomeSearchConfig *spawnBiomes;
     int monumentDistance;
     int woodlandMansions;
-    int disableOptimizations;
+    // TODO: Stronghold near witch huts.
+    // TODO: Lots of a single biome near spawn (e.g. mushroom island).
+
+    // Search radius options
+    int radius;
+    int biomeRadius;
+    int hutRadius;
+    int mansionRadius;
 } SearchOptions;
 
 typedef struct {
@@ -156,7 +164,7 @@ void initSearchConfigs() {
             "sunflower plains",
             &biomeSearchConfigs[sunflowerPlainsCfg], 0.65f,
             1, (int[]){plains+128},
-            7, (int[]){river, ocean, deepOcean});
+            3, (int[]){river, ocean, deepOcean});
 }
 
 
@@ -169,22 +177,34 @@ void usage() {
     fprintf(stderr, "      search to miss some quad hut seeds. Will find up\n");
     fprintf(stderr, "      to 10%% more seeds, but will run about 13x\n");
     fprintf(stderr, "      slower.\n");
-    fprintf(stderr, "    --radius=<integer>\n");
-    fprintf(stderr, "      Search radius, in blocks (rounded to nearest\n");
-    fprintf(stderr, "      structure region).\n");
     fprintf(stderr, "    --start_seed=<integer>\n");
     fprintf(stderr, "    --end_seed=<integer>\n");
     fprintf(stderr, "    --threads=<integer>\n");
     fprintf(stderr, "    --output_dir=<string>\n");
+    fprintf(stderr, "    --base_seeds_file=<string>\n");
+    fprintf(stderr, "    --all_biomes\n");
+    fprintf(stderr, "      Search for all biomes within search radius.\n");
     fprintf(stderr, "    --spawn_biomes=<string>\n");
     fprintf(stderr, "      ocean, flower_forest, ice_spikes, jungle,\n");
     fprintf(stderr, "      mega_taiga, mesa, mushroom_island or\n");
     fprintf(stderr, "      sunflower_plains.\n");
-    fprintf(stderr, "    --all_biomes\n");
-    fprintf(stderr, "      Search for all biomes within search radius.\n");
     fprintf(stderr, "    --monument_distance=<integer>\n");
     fprintf(stderr, "      Search for an ocean monument within a number of\n");
     fprintf(stderr, "      chunks of the quad hut perimeter.\n");
+    fprintf(stderr, "    --woodland_mansions=<integer>\n");
+    fprintf(stderr, "      Search for a number of nearby woodland mansions.\n");
+    fprintf(stderr, "    --radius=<integer>\n");
+    fprintf(stderr, "      Search radius, in blocks (rounded to nearest\n");
+    fprintf(stderr, "      structure region).\n");
+    fprintf(stderr, "    --biome_radius=<integer>\n");
+    fprintf(stderr, "      Search radius, in blocks, for --all_biomes\n");
+    fprintf(stderr, "      option. Defaults to --search_radius.\n");
+    fprintf(stderr, "    --hut_radius=<integer>\n");
+    fprintf(stderr, "      Search radius, in blocks, for quad witch huts.\n");
+    fprintf(stderr, "      Defaults to --search_radius.\n");
+    fprintf(stderr, "    --mansion_radius=<integer>\n");
+    fprintf(stderr, "      Search radius, in blocks, for --wodland_mansions\n");
+    fprintf(stderr, "      option. Defaults to --search_radius.\n");
 }
 
 
@@ -269,51 +289,62 @@ BiomeSearchConfig* parseSpawnBiome(const char *arg) {
 }
 
 
+int blockToRegion(int val, int regionSize) {
+    return (int)ceil((double)val / (regionSize*16));
+}
+
+
 SearchOptions parseOptions(int argc, char *argv[]) {
     int c;
     SearchOptions opts = {
-        .radius               = 2048,
-        .hutRadius            = 4,
-        .mansionRadius        = 2,
+        .disableOptimizations = 0,
         .startSeed            = 0,
         .endSeed              = 1L<<48,
         .threads              = 1,
         .outputDir            = "",
         .baseSeedsFile        = "./seeds/quadbases_Q1.txt",
-        .spawnBiomes          = NULL,
         .allBiomes            = 0,
+        .spawnBiomes          = NULL,
         .monumentDistance     = 0,
         .woodlandMansions     = 0,
-        .disableOptimizations = 0,
+        .radius               = 2048,
+        .biomeRadius          = 0,
+        .hutRadius            = 0,
+        .mansionRadius        = 0,
     };
 
     while (1) {
         static struct option longOptions[] = {
-            {"radius",                required_argument, NULL, 'r'},
+            {"help",                  no_argument,       NULL, 'h'},
+            {"disable_optimizations", no_argument,       NULL, 'X'},
             {"start_seed",            required_argument, NULL, 's'},
             {"end_seed",              required_argument, NULL, 'e'},
             {"threads",               required_argument, NULL, 't'},
             {"output_dir",            required_argument, NULL, 'o'},
             {"base_seeds_file",       required_argument, NULL, 'S'},
-            {"spawn_biomes",          required_argument, NULL, 'b'},
             {"all_biomes",            no_argument,       NULL, 'a'},
+            {"spawn_biomes",          required_argument, NULL, 'b'},
             {"monument_distance",     required_argument, NULL, 'm'},
             {"woodland_mansions",     required_argument, NULL, 'w'},
-            {"disable_optimizations", no_argument,       NULL, 'X'},
-            {"help",                  no_argument,       NULL, 'h'},
+            {"radius",                required_argument, NULL, 'r'},
+            {"biome_radius",          required_argument, NULL, 'B'},
+            {"hut_radius",            required_argument, NULL, 'H'},
+            {"mansion_radius",        required_argument, NULL, 'M'},
         };
         int index = 0;
-        c = getopt_long(argc, argv, "r:s:e:t:o:S:b:m:w:aXh", longOptions, &index);
+        c = getopt_long(argc, argv,
+                "hXs:e:t:o:S:ab:m:w:r:B:H:M:", longOptions, &index);
 
         if (c == -1)
             break;
 
         switch (c) {
-            case 'r':
-                opts.radius = parseIntArgument(
-                        optarg, longOptions[index].name);
-                opts.hutRadius = (int)ceil((double)opts.radius / (32*16));
-                opts.mansionRadius = (int)ceil((double)opts.radius / (80*16));
+            case 'h':
+                usage();
+                exit(0);
+                break;
+            case 'X':
+                opts.disableOptimizations = 1;
                 break;
             case 's':
                 opts.startSeed = parseHumanArgument(
@@ -344,11 +375,11 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 }
                 strncpy(opts.baseSeedsFile, optarg, 256);
                 break;
-            case 'b':
-                opts.spawnBiomes = parseSpawnBiome(optarg);
-                break;
             case 'a':
                 opts.allBiomes = 1;
+                break;
+            case 'b':
+                opts.spawnBiomes = parseSpawnBiome(optarg);
                 break;
             case 'm':
                 opts.monumentDistance = parseIntArgument(
@@ -358,16 +389,33 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 opts.woodlandMansions = parseIntArgument(
                         optarg, longOptions[index].name);
                 break;
-            case 'X':
-                opts.disableOptimizations = 1;
+            case 'r':
+                opts.radius = parseIntArgument(
+                        optarg, longOptions[index].name);
                 break;
-            case 'h':
-                usage();
-                exit(0);
+            case 'B':
+                opts.biomeRadius = parseIntArgument(
+                        optarg, longOptions[index].name);
+                break;
+            case 'H':
+                opts.hutRadius = blockToRegion(
+                        parseIntArgument(optarg, longOptions[index].name), 32);
+                break;
+            case 'M':
+                opts.mansionRadius = blockToRegion(
+                        parseIntArgument(optarg, longOptions[index].name), 80);
                 break;
             default:
                 exit(-1);
         }
+
+        if (!opts.biomeRadius)
+            opts.biomeRadius = opts.radius;
+        if (!opts.hutRadius)
+            opts.hutRadius = blockToRegion(opts.radius, 32);
+        if (!opts.mansionRadius)
+            opts.mansionRadius = blockToRegion(opts.radius, 80);
+
     }
     return opts;
 }
@@ -786,16 +834,18 @@ int main(int argc, char *argv[])
             "Searching base seeds %ld-%ld, radius %d using %d threads...\n",
             opts.startSeed, opts.endSeed, opts.radius, opts.threads);
     if (opts.monumentDistance) {
-        fprintf(stderr, "Want an ocean monument within %d chunks of quad hut perimeter.\n", opts.monumentDistance);
+        fprintf(stderr, "Looking for an ocean monument within %d chunks of quad hut perimeter.\n",
+                opts.monumentDistance);
     }
     if (opts.woodlandMansions) {
-        fprintf(stderr, "Want %d woodland mansions within the search radius.\n", opts.woodlandMansions);
+        fprintf(stderr, "Looking for %d woodland mansions within %d blocks.\n",
+                opts.woodlandMansions, opts.mansionRadius*80*16);
     }
     if (opts.spawnBiomes) {
         fprintf(stderr, "Looking for world spawn in %s biomes.\n", opts.spawnBiomes->name);
     }
     if (opts.allBiomes) {
-        fprintf(stderr, "Looking for all biomes within search radius.\n");
+        fprintf(stderr, "Looking for all biomes within %d blocks.\n", opts.biomeRadius);
     }
     if (opts.disableOptimizations) {
         fprintf(stderr, "WARNING: Optimizations disabled. Will be slow as snot.\n");
