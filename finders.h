@@ -11,7 +11,19 @@
 #define THREADS 6
 #define SEEDMAX (1L << 48)
 
-enum {SWAMP_HUT = 1, IGLOO, DESERT_TEMPLE, JUNGLE_TEMPLE};
+#define FEATURE_SEED        14357617
+#define VILLAGE_SEED        10387312
+#define MONUMENT_SEED       10387313
+#define MANSION_SEED        10387319
+
+/* 1.13 separated feature seeds by type */
+#define DESERT_PYRAMID_SEED 14357617
+#define IGLOO_SEED          14357618
+#define JUNGLE_PYRAMID_SEED 14357619
+#define SWAMP_HUT_SEED      14357620
+#define OCEAN_RUIN_SEED     14357621
+
+enum {Desert_Pyramid=1, Igloo, Jungle_Pyramid, Swamp_Hut, Ocean_Ruin};
 
 static const int templeBiomeList[] = {desert, desertHills, jungle, jungleHills, swampland, icePlains, coldTaiga};
 static const int biomesToSpawnIn[] = {forest, plains, taiga, taigaHills, forestHills, jungle, jungleHills};
@@ -26,7 +38,6 @@ static const int achievementBiomes[] =
         /*extremeHillsEdge,*/ jungle, jungleHills, jungleEdge, deepOcean, stoneBeach, coldBeach, birchForest, birchForestHills, roofedForest, // 20-29
         coldTaiga, coldTaigaHills, megaTaiga, megaTaigaHills, extremeHillsPlus, savanna, savannaPlateau, mesa, mesaPlateau_F, mesaPlateau // 30-39
 };
-
 
 
 
@@ -60,17 +71,14 @@ extern Biome biomes[256];
  *
  *  Minecraft uses a 48-bit pseudo random number generator (PRNG) to determine
  *  the position of it's structures. The remaining top 16 bits do not influence
- *  the structure positioning. Additionally the position of all temples in a
+ *  the structure positioning. Additionally the position of most structures in a
  *  world can be translated by applying the following transformation to the
  *  seed:
  *
- *  seed2 = seed1 - structureSeed - dregX * 341873128712 - dregZ * 132897987541;
+ *  seed2 = seed1 - dregX * 341873128712 - dregZ * 132897987541;
  *
  *  Here seed1 and seed2 have the same structure positioning, but moved by a
- *  region offset of (dregX,dregZ). [a region is 32x32 chunks]. The value of
- *  structureSeed depends on the type of structure, 14357617 for desert temples,
- *  14357618 for igloos, 14357619 for jungle temples and 14357620 for witch
- *  huts.
+ *  region offset of (dregX,dregZ). [a region is 32x32 chunks].
  *
  *  For a quad-structure, we mainly care about relative positioning, so we can
  *  get away with just checking the regions near the origin: (0,0),(0,1),(1,0)
@@ -90,16 +98,19 @@ extern Biome biomes[256];
  *  degrees of freedom for region-transposition, and the top 16-bit bits).
  */
 
-// helper functions
-int isQuadWitchHutBase(const long seed, const long lower, const long upper);
-int isTriWitchHutBase(const long seed, const long lower, const long upper);
 
-/* moveTemple
- * ----------
+// helper functions
+int isQuadFeatureBase(const long structureSeed, const long seed,
+        const long lower, const long upper);
+int isTriFeatureBase(const long structureSeed, const long seed,
+        const long lower, const long upper);
+
+/* moveStructure
+ * -------------
  * Transposes a base seed such that structures are moved by the specified region
  * vector, (regX, regZ).
  */
-long moveTemple(const long baseSeed, const int regX, const int regZ);
+long moveStructure(const long baseSeed, const int regX, const int regZ);
 
 /* loadSavedSeeds
  * --------------
@@ -113,12 +124,13 @@ long moveTemple(const long baseSeed, const int regX, const int regZ);
  */
 long *loadSavedSeeds(const char *fnam, long *scnt);
 
-/* baseQuadWitchHutSearch
- * --------------------
- * Starts a multi-threaded search for quad-temple base seeds of the specified
+/* search4QuadBases
+ * ----------------
+ * Starts a multi-threaded search for structure base seeds of the specified
  * quality (chunk tolerance). The result is saved in a file of path 'fnam'.
  */
-void baseQuadWitchHutSearch(const char *fnam, int threads, int quality);
+void search4QuadBases(const char *fnam, int threads, const long structureSeed,
+        int quality);
 
 
 
@@ -134,27 +146,25 @@ void baseQuadWitchHutSearch(const char *fnam, int threads, int quality);
 int getBiomeAtPos(const LayerStack g, const Pos pos);
 
 
-/* getWitchHutChunkInRegion
- * ----------------------
+/* getStructureChunkInRegion
+ * -------------------------
  * Finds the chunk position within the specified region (32x32 chunks) where
- * the temple generation attempt will occur.
+ * the structure generation attempt will occur.
+ * This function applies for scattered-feature structureSeeds and villages.
  */
-Pos getWitchHutChunkInRegion(long seed, const int regionX, const int regionZ);
+Pos getStructureChunkInRegion(const long structureSeed, long seed,
+        const int regionX, const int regionZ);
 
 
-/* getWitchHutPos
- * ------------
- * Fast implementation for finding the block position at which the temple
+/* getStructurePos
+ * ---------------
+ * Fast implementation for finding the block position at which the structure
  * generation attempt will occur in the specified region.
+ * This function applies for scattered-feature structureSeeds and villages.
  */
-Pos getWitchHutPos(long seed, const long regionX, const long regionZ);
+Pos getStructurePos(const long structureSeed, long seed, const long regionX,
+        const long regionZ);
 
-/* getVillagePos
- * -------------
- * Fast implementation for finding the block position at which the village
- * generation attempt will occur in the specified region.
- */
-Pos getVillagePos(long seed, const long regionX, const long regionZ);
 
 /* getOceanMonumentPos
  * -------------------

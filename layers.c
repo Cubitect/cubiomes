@@ -868,8 +868,7 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
     int pWidth = areaWidth + 2;
     int pHeight = areaHeight + 2;
     int x, z;
-    static int bufsize = 0;
-    static int *buf = NULL;
+    int *buf = NULL;
 
     if(l->p2 == NULL)
     {
