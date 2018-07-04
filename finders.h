@@ -100,17 +100,17 @@ extern Biome biomes[256];
 
 
 // helper functions
-int isQuadFeatureBase(const long structureSeed, const long seed,
-        const long lower, const long upper);
-int isTriFeatureBase(const long structureSeed, const long seed,
-        const long lower, const long upper);
+int isQuadFeatureBase(const int64_t structureSeed, const int64_t seed,
+        const int64_t lower, const int64_t upper);
+int isTriFeatureBase(const int64_t structureSeed, const int64_t seed,
+        const int64_t lower, const int64_t upper);
 
 /* moveStructure
  * -------------
  * Transposes a base seed such that structures are moved by the specified region
  * vector, (regX, regZ).
  */
-long moveStructure(const long baseSeed, const int regX, const int regZ);
+int64_t moveStructure(const int64_t baseSeed, const int regX, const int regZ);
 
 /* loadSavedSeeds
  * --------------
@@ -122,14 +122,14 @@ long moveStructure(const long baseSeed, const int regX, const int regZ);
  *
  * Return a pointer to dynamically allocated seed list.
  */
-long *loadSavedSeeds(const char *fnam, long *scnt);
+int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt);
 
 /* search4QuadBases
  * ----------------
  * Starts a multi-threaded search for structure base seeds of the specified
  * quality (chunk tolerance). The result is saved in a file of path 'fnam'.
  */
-void search4QuadBases(const char *fnam, int threads, const long structureSeed,
+void search4QuadBases(const char *fnam, int threads, const int64_t structureSeed,
         int quality);
 
 
@@ -152,7 +152,7 @@ int getBiomeAtPos(const LayerStack g, const Pos pos);
  * the structure generation attempt will occur.
  * This function applies for scattered-feature structureSeeds and villages.
  */
-Pos getStructureChunkInRegion(const long structureSeed, long seed,
+Pos getStructureChunkInRegion(const int64_t structureSeed, int64_t seed,
         const int regionX, const int regionZ);
 
 
@@ -162,8 +162,8 @@ Pos getStructureChunkInRegion(const long structureSeed, long seed,
  * generation attempt will occur in the specified region.
  * This function applies for scattered-feature structureSeeds and villages.
  */
-Pos getStructurePos(const long structureSeed, long seed, const long regionX,
-        const long regionZ);
+Pos getStructurePos(const int64_t structureSeed, int64_t seed, const int64_t regionX,
+        const int64_t regionZ);
 
 
 /* getOceanMonumentPos
@@ -171,7 +171,7 @@ Pos getStructurePos(const long structureSeed, long seed, const long regionX,
  * Fast implementation for finding the block position at which the ocean
  * monument generation attempt will occur in the specified region.
  */
-Pos getOceanMonumentPos(long seed, const long regionX, const long regionZ);
+Pos getOceanMonumentPos(int64_t seed, const int64_t regionX, const int64_t regionZ);
 
 /* getMansionPos
  * -------------
@@ -180,7 +180,7 @@ Pos getOceanMonumentPos(long seed, const long regionX, const long regionZ);
  *
  * area80X, area80Z: area coordinates in units 1280 blocks (= 80 chunks)
  */
-Pos getMansionPos(long seed, const long area80X, const long area80Z);
+Pos getMansionPos(int64_t seed, const int64_t area80X, const int64_t area80Z);
 
 
 /* findBiomePosition
@@ -205,7 +205,7 @@ Pos findBiomePosition(
         const int centerZ,
         const int range,
         const int *isValid,
-        long *seed,
+        int64_t *seed,
         int *passes
         );
 
@@ -220,7 +220,7 @@ Pos findBiomePosition(
  * locations : output block positions for the 3 strongholds
  * worldSeed : world seed used for the generator
  */
-void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, long worldSeed);
+void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, int64_t worldSeed);
 
 /* getSpawn
  * --------
@@ -232,7 +232,7 @@ void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, long world
  * cache     : biome buffer, set to NULL for temporary allocation
  * worldSeed : world seed used for the generator
  */
-Pos getSpawn(LayerStack *g, int *cache, long worldSeed);
+Pos getSpawn(LayerStack *g, int *cache, int64_t worldSeed);
 
 
 
@@ -275,10 +275,10 @@ int areBiomesViable(
  * The return value is non-zero if the position is valid, and in the case of
  * isViableWitchHutPos() the return value is an enum of the temple type.
  */
-int isViableWitchHutPos(const LayerStack g, int *cache, const long blockX, const long blockZ);
-int isViableVillagePos(const LayerStack g, int *cache, const long blockX, const long blockZ);
-int isViableOceanMonumentPos(const LayerStack g, int *cache, const long blockX, const long blockZ);
-int isViableMansionPos(const LayerStack g, int *cache, const long blockX, const long blockZ);
+int isViableWitchHutPos(const LayerStack g, int *cache, const int64_t blockX, const int64_t blockZ);
+int isViableVillagePos(const LayerStack g, int *cache, const int64_t blockX, const int64_t blockZ);
+int isViableOceanMonumentPos(const LayerStack g, int *cache, const int64_t blockX, const int64_t blockZ);
+int isViableMansionPos(const LayerStack g, int *cache, const int64_t blockX, const int64_t blockZ);
 
 
 
@@ -323,12 +323,12 @@ int getBiomeRadius(
  *
  * Returns the number of found candidates.
  */
-long filterAllTempCats(
+int64_t filterAllTempCats(
         LayerStack *g,
         int *cache,
-        const long *seedsIn,
-        long *seedsOut,
-        const long seedCnt,
+        const int64_t *seedsIn,
+        int64_t *seedsOut,
+        const int64_t seedCnt,
         const int centX,
         const int centZ);
 
@@ -349,12 +349,12 @@ long filterAllTempCats(
  *
  * Returns the number of seeds found.
  */
-long filterAllMajorBiomes(
+int64_t filterAllMajorBiomes(
         LayerStack *g,
         int *cache,
-        const long *seedsIn,
-        long *seedsOut,
-        const long seedCnt,
+        const int64_t *seedsIn,
+        int64_t *seedsOut,
+        const int64_t seedCnt,
         const int pX,
         const int pZ,
         const uint sX,
@@ -364,18 +364,18 @@ long filterAllMajorBiomes(
 /********************** C copy of the Java Random methods **********************
  */
 
-static inline void setSeed(long *seed)
+static inline void setSeed(int64_t *seed)
 {
     *seed = (*seed ^ 0x5DEECE66DL) & ((1L << 48) - 1);
 }
 
-static inline int next(long *seed, const int bits)
+static inline int next(int64_t *seed, const int bits)
 {
     *seed = (*seed * 0x5DEECE66DL + 0xBL) & ((1L << 48) - 1);
     return (int) (*seed >> (48 - bits));
 }
 
-static inline int nextInt(long *seed, const int n)
+static inline int nextInt(int64_t *seed, const int n)
 {
     int bits, val;
     do {
@@ -386,26 +386,26 @@ static inline int nextInt(long *seed, const int n)
     return val;
 }
 
-static inline long nextLong(long *seed)
+static inline int64_t nextint64_t(int64_t *seed)
 {
-    return ((long) next(seed, 32) << 32) + next(seed, 32);
+    return ((int64_t) next(seed, 32) << 32) + next(seed, 32);
 }
 
-static inline float nextFloat(long *seed)
+static inline float nextFloat(int64_t *seed)
 {
     return next(seed, 24) / (float) (1 << 24);
 }
 
-static inline double nextDouble(long *seed)
+static inline double nextDouble(int64_t *seed)
 {
-    return (((long) next(seed, 26) << 27) + next(seed, 27)) / (double) (1L << 53);
+    return (((int64_t) next(seed, 26) << 27) + next(seed, 27)) / (double) (1L << 53);
 }
 
 
 
 // Custom, faster alternative for the first and second call to nextInt(24)
 
-static inline int firstInt24(long seed)
+static inline int firstInt24(int64_t seed)
 {
     seed ^= 0x5deece66d;
     seed = (seed * 0x5deece66d) & 0xffffffffffff;
@@ -413,7 +413,7 @@ static inline int firstInt24(long seed)
     return seed % 24;
 }
 
-static inline int secondInt24(long seed)
+static inline int secondInt24(int64_t seed)
 {
     seed ^= 0x5deece66d;
     seed = (seed * 0x5deece66d + 0xB) & 0xffffffffffff;
@@ -428,25 +428,25 @@ static inline int secondInt24(long seed)
  * Returns the previous 48-bit seed which will generate 'nseed'.
  * The upper 16 bits are ignored, both here and in the generator.
  */
-static inline long invSeed48(long nseed)
+static inline int64_t invSeed48(int64_t nseed)
 {
-    const long x = 0x5deece66d;
-    const long xinv = 0xdfe05bcb1365L;
-    const long y = 0xbL;
-    const long m48 = 0xffffffffffffL;
+    const int64_t x = 0x5deece66d;
+    const int64_t xinv = 0xdfe05bcb1365L;
+    const int64_t y = 0xbL;
+    const int64_t m48 = 0xffffffffffffL;
 
-    long a = nseed >> 32;
-    long b = nseed & 0xffffffffL;
+    int64_t a = nseed >> 32;
+    int64_t b = nseed & 0xffffffffL;
     if(b & 0x80000000L) a++;
 
-    long q = ((b << 16) - y - (a << 16)*x) & m48;
-    for(long k = 0; k <= 5; k++)
+    int64_t q = ((b << 16) - y - (a << 16)*x) & m48;
+    for(int64_t k = 0; k <= 5; k++)
     {
-        long d = (x - (q + (k << 48))) % x;
+        int64_t d = (x - (q + (k << 48))) % x;
         d = (d + x) % x; // force the modulo and keep it positive
         if(d < 65536)
         {
-            long c = ((q + d) * xinv) & m48;
+            int64_t c = ((q + d) * xinv) & m48;
             if(c < 65536)
             {
                 return ((((a << 16) + c) - y) * xinv) & m48;

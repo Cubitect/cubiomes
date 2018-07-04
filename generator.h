@@ -107,7 +107,7 @@ void setupMultiLayer(int scale, Layer *l, Layer *p1, Layer *p2, int s, void (*ge
 int calcRequiredBuf(Layer *layer, int areaX, int areaZ);
 
 // Sets the world seed for the generator
-void applySeed(LayerStack *g, long seed);
+void applySeed(LayerStack *g, int64_t seed);
 
 /*
  * genArea

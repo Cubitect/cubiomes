@@ -246,7 +246,7 @@ void freeGenerator(LayerStack g)
     free(g.layers);
 }
 
-void applySeed(LayerStack *g, long seed)
+void applySeed(LayerStack *g, int64_t seed)
 {
     // the seed has to be applied recursively
     setWorldSeed(&g->layers[g->layerNum-1], seed);

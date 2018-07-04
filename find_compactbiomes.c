@@ -13,15 +13,15 @@
 
 struct compactinfo_t
 {
-    long seedStart, seedEnd;
+    int64_t seedStart, seedEnd;
 };
 
 void *searchCompactBiomesThread(void *data)
 {
     struct compactinfo_t info = *(struct compactinfo_t *)data;
 
-    long *seeds = (long *) malloc(sizeof(*seeds)*SEED_BUF_LEN);
-    long i, s, scnt;
+    int64_t *seeds = (int64_t *) malloc(sizeof(*seeds)*SEED_BUF_LEN);
+    int64_t i, s, scnt;
 
     LayerStack g = setupGenerator();
     int *cache = allocCache(&g.layers[L_BIOME_256], 8, 8);
@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 {
     initBiomes();
 
-    long seedStart, seedEnd;
+    int64_t seedStart, seedEnd;
     uint threads, t;
 
     if(argc <= 1 || sscanf(argv[1], "%ld", &seedStart) != 1) seedStart = 0;
@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 
     for(t = 0; t < threads; t++)
     {
-        long seedCnt = (seedEnd - seedStart) / threads;
+        int64_t seedCnt = (seedEnd - seedStart) / threads;
         info[t].seedStart = seedStart + seedCnt * t;
         info[t].seedEnd = seedStart + seedCnt * (t+1) + 1;
     }

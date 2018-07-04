@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
 
     int mcversion = 0;
     const char *seedFileName;
-    long featureSeed;
+    int64_t featureSeed;
 
     if(argc > 2)
     {
@@ -74,9 +74,9 @@ int main(int argc, char *argv[])
         search4QuadBases(seedFileName, threads, featureSeed, quality);
     }
 
-    long i, j, qhcnt;
-    long base, seed;
-    long *qhcandidates = loadSavedSeeds(seedFileName, &qhcnt);
+    int64_t i, j, qhcnt;
+    int64_t base, seed;
+    int64_t *qhcandidates = loadSavedSeeds(seedFileName, &qhcnt);
 
     LayerStack g = setupGenerator();
 
@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
         if(j >= 5) continue;
 
 
-        long hits = 0, swpc;
+        int64_t hits = 0, swpc;
 
         for(j = 0; j < 0x10000; j++)
         {

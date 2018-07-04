@@ -66,8 +66,8 @@ Biome biomes[256];
 
 typedef struct quad_threadinfo_t
 {
-    long start, end;
-    long structureSeed;
+    int64_t start, end;
+    int64_t structureSeed;
     int threadID;
     int quality;
     const char *fnam;
@@ -75,12 +75,12 @@ typedef struct quad_threadinfo_t
 
 
 
-const long lowerBaseBitsQ1[] = // for quad-structure with quality 1
+const int64_t lowerBaseBitsQ1[] = // for quad-structure with quality 1
         {
                 0x3f18,0x520a,0x751a,0x9a0a
         };
 
-const long lowerBaseBitsQ2[] = // for quad-structure with quality 2
+const int64_t lowerBaseBitsQ2[] = // for quad-structure with quality 2
         {
                 0x0770,0x0775,0x07ad,0x07b2,0x0c3a,0x0c58,0x0cba,0x0cd8,0x0e38,
                 0x0e5a,0x0ed8,0x0eda,0x111c,0x1c96,0x2048,0x20e8,0x2248,0x224a,
@@ -103,16 +103,16 @@ const long lowerBaseBitsQ2[] = // for quad-structure with quality 2
 
 
 
-int isQuadFeatureBase(const long structureSeed, const long seed,
-        const long lower, const long upper)
+int isQuadFeatureBase(const int64_t structureSeed, const int64_t seed,
+        const int64_t lower, const int64_t upper)
 {
     // seed offsets for the regions (0,0) to (1,1)
-    const long reg00base = structureSeed;
-    const long reg01base = 341873128712 + structureSeed;
-    const long reg10base = 132897987541 + structureSeed;
-    const long reg11base = 341873128712 + 132897987541 + structureSeed;
+    const int64_t reg00base = structureSeed;
+    const int64_t reg01base = 341873128712 + structureSeed;
+    const int64_t reg10base = 132897987541 + structureSeed;
+    const int64_t reg11base = 341873128712 + 132897987541 + structureSeed;
 
-    long s;
+    int64_t s;
 
     s = (reg00base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
     s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
@@ -142,16 +142,16 @@ int isQuadFeatureBase(const long structureSeed, const long seed,
 }
 
 
-int isTriFeatureBase(const long structureSeed, const long seed,
-        const long lower, const long upper)
+int isTriFeatureBase(const int64_t structureSeed, const int64_t seed,
+        const int64_t lower, const int64_t upper)
 {
     // seed offsets for the regions (0,0) to (1,1)
-    const long reg00base = structureSeed;
-    const long reg01base = 341873128712 + structureSeed;
-    const long reg10base = 132897987541 + structureSeed;
-    const long reg11base = 341873128712 + 132897987541 + structureSeed;
+    const int64_t reg00base = structureSeed;
+    const int64_t reg01base = 341873128712 + structureSeed;
+    const int64_t reg10base = 132897987541 + structureSeed;
+    const int64_t reg11base = 341873128712 + 132897987541 + structureSeed;
 
-    long s;
+    int64_t s;
     int missing = 0;
 
     s = (reg00base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
@@ -191,21 +191,21 @@ int isTriFeatureBase(const long structureSeed, const long seed,
     return 1;
 }
 
-long moveStructure(const long baseSeed, const int regionX, const int regionZ)
+int64_t moveStructure(const int64_t baseSeed, const int regionX, const int regionZ)
 {
     return (baseSeed - regionX*341873128712 - regionZ*132897987541) & 0xffffffffffff;
 }
 
 
-int isQuadMonumentBase(const long seed, const int qual)
+int isQuadMonumentBase(const int64_t seed, const int qual)
 {
     // seed offsets for the regions (0,0) to (1,1)
-    const long reg00base = MONUMENT_SEED;
-    const long reg01base = 341873128712 + MONUMENT_SEED;
-    const long reg10base = 132897987541 + MONUMENT_SEED;
-    const long reg11base = 341873128712 + 132897987541 + MONUMENT_SEED;
+    const int64_t reg00base = MONUMENT_SEED;
+    const int64_t reg01base = 341873128712 + MONUMENT_SEED;
+    const int64_t reg10base = 132897987541 + MONUMENT_SEED;
+    const int64_t reg11base = 341873128712 + 132897987541 + MONUMENT_SEED;
 
-    long s, p;
+    int64_t s, p;
 
     /*
     seed = regionX*341873128712 + regionZ*132897987541 + seed + 10387313;
@@ -282,15 +282,15 @@ int isQuadMonumentBase(const long seed, const int qual)
 }
 
 
-int isTriMonumentBase(const long seed, const int qual)
+int isTriMonumentBase(const int64_t seed, const int qual)
 {
     // seed offsets for the regions (0,0) to (1,1)
-    const long reg00base = MONUMENT_SEED;
-    const long reg01base = 341873128712 + MONUMENT_SEED;
-    const long reg10base = 132897987541 + MONUMENT_SEED;
-    const long reg11base = 341873128712 + 132897987541 + MONUMENT_SEED;
+    const int64_t reg00base = MONUMENT_SEED;
+    const int64_t reg01base = 341873128712 + MONUMENT_SEED;
+    const int64_t reg10base = 132897987541 + MONUMENT_SEED;
+    const int64_t reg11base = 341873128712 + 132897987541 + MONUMENT_SEED;
 
-    long s, p;
+    int64_t s, p;
     int incomplete = 0;
 
     /*
@@ -454,12 +454,12 @@ int countBlocksInSpawnRange(Pos p[4], const int ax, const int ay, const int az)
 
 
 
-long *loadSavedSeeds(const char *fnam, long *scnt)
+int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt)
 {
     FILE *fp = fopen(fnam, "r");
 
-    long seed;
-    long *baseSeeds;
+    int64_t seed;
+    int64_t *baseSeeds;
 
     if(fp == NULL)
     {
@@ -475,11 +475,11 @@ long *loadSavedSeeds(const char *fnam, long *scnt)
         else while(!feof(fp) && fgetc(fp) != '\n');
     }
 
-    baseSeeds = (long*) calloc(*scnt, sizeof(*baseSeeds));
+    baseSeeds = (int64_t*) calloc(*scnt, sizeof(*baseSeeds));
 
     rewind(fp);
 
-    for(long i = 0; i < *scnt && !feof(fp);)
+    for(int64_t i = 0; i < *scnt && !feof(fp);)
     {
         if(fscanf(fp, "%ld", &baseSeeds[i]) == 1) i++;
         else while(!feof(fp) && fgetc(fp) != '\n');
@@ -495,20 +495,20 @@ static void *search4QuadBasesThread(void *data)
 {
     quad_threadinfo_t info = *(quad_threadinfo_t*)data;
 
-    const long lower = info.quality;
-    const long upper = 23-info.quality;
-    const long start = info.start;
-    const long end   = info.end;
-    const long structureSeed = info.structureSeed;
+    const int64_t lower = info.quality;
+    const int64_t upper = 23-info.quality;
+    const int64_t start = info.start;
+    const int64_t end   = info.end;
+    const int64_t structureSeed = info.structureSeed;
 
-    long seed;
+    int64_t seed;
 
-    long *lowerBits;
+    int64_t *lowerBits;
     int lowerBitsCnt;
     int lowerBitsIdx = 0;
     int i;
 
-    lowerBits = (long *) malloc(0x10000 * sizeof(long));
+    lowerBits = (int64_t *) malloc(0x10000 * sizeof(int64_t));
 
     if(info.quality == 1)
     {
@@ -603,11 +603,11 @@ static void *search4QuadBasesThread(void *data)
 
 
 void search4QuadBases(const char *fnam, const int threads,
-        const long structureSeed, const int quality)
+        const int64_t structureSeed, const int quality)
 {
     pthread_t threadID[threads];
     quad_threadinfo_t info[threads];
-    long t;
+    int64_t t;
 
     for(t = 0; t < threads; t++)
     {
@@ -699,8 +699,8 @@ int getBiomeAtPos(const LayerStack g, const Pos pos)
  * generation attempt will occur in the specified region.
  * This function applies for scattered-feature structureSeeds and villages.
  */
-Pos getStructurePos(const long structureSeed, long seed, const long regionX,
-        const long regionZ)
+Pos getStructurePos(const int64_t structureSeed, int64_t seed,
+        const int64_t regionX, const int64_t regionZ)
 {
     Pos pos;
 
@@ -726,7 +726,7 @@ Pos getStructurePos(const long structureSeed, long seed, const long regionX,
  * the structure generation attempt will occur.
  * This function applies for scattered-feature structureSeeds and villages.
  */
-Pos getStructureChunkInRegion(const long structureSeed, long seed,
+Pos getStructureChunkInRegion(const int64_t structureSeed, int64_t seed,
         const int regionX, const int regionZ)
 {
     /*
@@ -760,7 +760,7 @@ Pos getStructureChunkInRegion(const long structureSeed, long seed,
  * Fast implementation for finding the block position at which the ocean
  * monument generation attempt will occur in the specified region.
  */
-Pos getOceanMonumentPos(long seed, const long regionX, const long regionZ)
+Pos getOceanMonumentPos(int64_t seed, const int64_t regionX, const int64_t regionZ)
 {
     Pos pos;
 
@@ -793,7 +793,7 @@ Pos getOceanMonumentPos(long seed, const long regionX, const long regionZ)
  *
  * area80X, area80Z: area coordinates in units 1280 blocks (= 80 chunks)
  */
-Pos getMansionPos(long seed, const long area80X, const long area80Z)
+Pos getMansionPos(int64_t seed, const int64_t area80X, const int64_t area80Z)
 {
     Pos pos;
 
@@ -841,7 +841,7 @@ Pos findBiomePosition(
         const int centerZ,
         const int range,
         const int *isValid,
-        long *seed,
+        int64_t *seed,
         int *passes
         )
 {
@@ -905,7 +905,7 @@ Pos findBiomePosition(
  * locations : output block positions for the 3 strongholds
  * worldSeed : world seed used for the generator
  */
-void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, long worldSeed)
+void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, int64_t worldSeed)
 {
     static int validStrongholdBiomes[256];
     const int SHNUM = 3;
@@ -957,12 +957,12 @@ static int canCoordinateBeSpawn(LayerStack *g, int *cache, Pos pos)
  * cache     : biome buffer, set to NULL for temporary allocation
  * worldSeed : world seed used for the generator
  */
-Pos getSpawn(LayerStack *g, int *cache, long worldSeed)
+Pos getSpawn(LayerStack *g, int *cache, int64_t worldSeed)
 {
     static int isSpawnBiome[0x100];
     Pos spawn;
     int found;
-    uint i;
+    unsigned int i;
 
     if(!isSpawnBiome[biomesToSpawnIn[0]])
     {
@@ -1050,7 +1050,8 @@ int areBiomesViable(
 
 
 
-int isViableFeaturePos(const LayerStack g, int *cache, const long blockX, const long blockZ)
+int isViableFeaturePos(const LayerStack g, int *cache,
+        const int64_t blockX, const int64_t blockZ)
 {
     static int map[0x100];
     genArea(&g.layers[L_VORONOI_ZOOM_1], map, blockX, blockZ, 1, 1);
@@ -1064,13 +1065,14 @@ int isViableFeaturePos(const LayerStack g, int *cache, const long blockX, const 
     return 0;
 }
 
-int isViableVillagePos(const LayerStack g, int *cache, const long blockX, const long blockZ)
+int isViableVillagePos(const LayerStack g, int *cache,
+        const int64_t blockX, const int64_t blockZ)
 {
     static int isVillageBiome[0x100];
 
     if(!isVillageBiome[villageBiomeList[0]])
     {
-        uint i;
+        unsigned int i;
         for(i = 0; i < sizeof(villageBiomeList) / sizeof(int); i++)
         {
             isVillageBiome[ villageBiomeList[i] ] = 1;
@@ -1080,14 +1082,15 @@ int isViableVillagePos(const LayerStack g, int *cache, const long blockX, const 
     return areBiomesViable(g, cache, blockX, blockZ, 0, isVillageBiome);
 }
 
-int isViableOceanMonumentPos(const LayerStack g, int *cache, const long blockX, const long blockZ)
+int isViableOceanMonumentPos(const LayerStack g, int *cache,
+        const int64_t blockX, const int64_t blockZ)
 {
     static int isWaterBiome[0x100];
     static int isDeepOcean[0x100];
 
     if(!isWaterBiome[oceanMonumentBiomeList[0]])
     {
-        uint i;
+        unsigned int i;
         for(i = 0; i < sizeof(oceanMonumentBiomeList) / sizeof(int); i++)
         {
             isWaterBiome[ oceanMonumentBiomeList[i] ] = 1;
@@ -1100,13 +1103,14 @@ int isViableOceanMonumentPos(const LayerStack g, int *cache, const long blockX, 
             areBiomesViable(g, cache, blockX, blockZ, 29, isWaterBiome);
 }
 
-int isViableMansionPos(const LayerStack g, int *cache, const long blockX, const long blockZ)
+int isViableMansionPos(const LayerStack g, int *cache,
+        const int64_t blockX, const int64_t blockZ)
 {
     static int isMansionBiome[0x100];
 
     if(!isMansionBiome[mansionBiomeList[0]])
     {
-        uint i;
+        unsigned int i;
         for(i = 0; i < sizeof(mansionBiomeList) / sizeof(int); i++)
         {
             isMansionBiome[ mansionBiomeList[i] ] = 1;
@@ -1188,12 +1192,12 @@ int getBiomeRadius(
  *
  * Returns the number of found candidates.
  */
-long filterAllTempCats(
+int64_t filterAllTempCats(
         LayerStack *g,
         int *cache,
-        const long *seedsIn,
-        long *seedsOut,
-        const long seedCnt,
+        const int64_t *seedsIn,
+        int64_t *seedsOut,
+        const int64_t seedCnt,
         const int centX,
         const int centZ)
 {
@@ -1230,7 +1234,7 @@ long filterAllTempCats(
     Layer layerSpecial;
     setupLayer(1024, &layerSpecial, NULL, 3, NULL);
 
-    long sidx, hits, seed;
+    int64_t sidx, hits, seed;
     int types[9];
     int specialCnt;
     int i, j;
@@ -1253,7 +1257,7 @@ long filterAllTempCats(
         {
             for(j = 0; j < sZ; j++)
             {
-                setChunkSeed(&layerSpecial, (long)(i+pX), (long)(j+pZ));
+                setChunkSeed(&layerSpecial, (int64_t)(i+pX), (int64_t)(j+pZ));
                 if(mcNextInt(&layerSpecial, 13) == 0)
                     specialCnt++;
             }
@@ -1266,7 +1270,7 @@ long filterAllTempCats(
 
         /***  Cold/Warm Check  ***/
 
-        // Continue by checking if enough cold and warm categories are present.#
+        // Continue by checking if enough cold and warm categories are present.
         setWorldSeed(lFilterSnow, seed);
         genArea(lFilterSnow, map, pX,pZ, sX,sZ);
 
@@ -1345,23 +1349,23 @@ const int majorBiomes[] = {
  *
  * Returns the number of seeds found.
  */
-long filterAllMajorBiomes(
+int64_t filterAllMajorBiomes(
         LayerStack *g,
         int *cache,
-        const long *seedsIn,
-        long *seedsOut,
-        const long seedCnt,
+        const int64_t *seedsIn,
+        int64_t *seedsOut,
+        const int64_t seedCnt,
         const int pX,
         const int pZ,
-        const uint sX,
-        const uint sZ)
+        const unsigned int sX,
+        const unsigned int sZ)
 {
     Layer *lFilterMushroom = &g->layers[L_ADD_MUSHROOM_ISLAND_256];
     Layer *lFilterBiomes = &g->layers[L_BIOME_256];
 
     int *map;
-    long sidx, seed, hits;
-    uint i, id, hasAll;
+    int64_t sidx, seed, hits;
+    unsigned int i, id, hasAll;
 
     int types[BIOME_NUM];
 
