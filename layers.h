@@ -383,6 +383,7 @@ void mapRareBiome(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapShore(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapRiverMix(Layer *l, int * __restrict out, int x, int z, int w, int h);
 
+// TODO: 1.13 updated again and these functions are outdated!
 void mapOceanTemp(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight);
 void mapEdgeOcean(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight);
 void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight);
