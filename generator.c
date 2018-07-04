@@ -23,8 +23,6 @@ void setupLayer(int scale, Layer *l, Layer *p, int s, void (*getMap)(Layer *laye
     l->p = p;
     l->p2 = NULL;
     l->getMap = getMap;
-    l->bufsize = 0;
-    l->buf = NULL;
 }
 
 void setupMultiLayer(int scale, Layer *l, Layer *p1, Layer *p2, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h))
@@ -248,7 +246,7 @@ void freeGenerator(LayerStack g)
     free(g.layers);
 }
 
-void applySeed(LayerStack *g, long seed)
+void applySeed(LayerStack *g, int64_t seed)
 {
     // the seed has to be applied recursively
     setWorldSeed(&g->layers[g->layerNum-1], seed);

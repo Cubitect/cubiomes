@@ -13,15 +13,15 @@
 
 struct compactinfo_t
 {
-    long seedStart, seedEnd;
+    int64_t seedStart, seedEnd;
 };
 
 void *searchCompactBiomesThread(void *data)
 {
     struct compactinfo_t info = *(struct compactinfo_t *)data;
 
-    long *seeds = (long *) malloc(sizeof(*seeds)*SEED_BUF_LEN);
-    long i, s, scnt;
+    int64_t *seeds = (int64_t *) malloc(sizeof(*seeds)*SEED_BUF_LEN);
+    int64_t i, s, scnt;
 
     LayerStack g = setupGenerator();
     int *cache = allocCache(&g.layers[L_BIOME_256], 8, 8);
@@ -46,7 +46,7 @@ void *searchCompactBiomesThread(void *data)
 
         for(i = 0; i < scnt; i++)
         {
-            printf("%ld\n", seeds[i]);
+            printf("%"PRId64"\n", seeds[i]);
         }
         fflush(stdout);
     }
@@ -61,21 +61,21 @@ int main(int argc, char *argv[])
 {
     initBiomes();
 
-    long seedStart, seedEnd;
-    uint threads, t;
+    int64_t seedStart, seedEnd;
+    unsigned int threads, t;
 
-    if(argc <= 1 || sscanf(argv[1], "%ld", &seedStart) != 1) seedStart = 0;
-    if(argc <= 2 || sscanf(argv[2], "%ld", &seedEnd) != 1) seedEnd = 100000000L;
+    if(argc <= 1 || sscanf(argv[1], "%"PRId64, &seedStart) != 1) seedStart = 0;
+    if(argc <= 2 || sscanf(argv[2], "%"PRId64, &seedEnd) != 1) seedEnd = 100000000LL;
     if(argc <= 3 || sscanf(argv[3], "%u", &threads) != 1) threads = 1;
 
-    printf("Starting search through seeds %ld to %ld, using %u threads.\n", seedStart, seedEnd, threads);
+    printf("Starting search through seeds %"PRId64 " to %"PRId64", using %u threads.\n", seedStart, seedEnd, threads);
 
     pthread_t threadID[threads];
     struct compactinfo_t info[threads];
 
     for(t = 0; t < threads; t++)
     {
-        long seedCnt = (seedEnd - seedStart) / threads;
+        int64_t seedCnt = (seedEnd - seedStart) / threads;
         info[t].seedStart = seedStart + seedCnt * t;
         info[t].seedEnd = seedStart + seedCnt * (t+1) + 1;
     }

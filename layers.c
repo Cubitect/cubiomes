@@ -107,7 +107,7 @@ void initBiomes()
 }
 
 
-void setWorldSeed(Layer *layer, long seed)
+void setWorldSeed(Layer *layer, int64_t seed)
 {
     if(layer->p2 != NULL && layer->getMap != mapHills)
         setWorldSeed(layer->p2, seed);
@@ -116,11 +116,11 @@ void setWorldSeed(Layer *layer, long seed)
         setWorldSeed(layer->p, seed);
 
     layer->worldSeed = seed;
-    layer->worldSeed *= layer->worldSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->worldSeed *= layer->worldSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->worldSeed += layer->baseSeed;
-    layer->worldSeed *= layer->worldSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->worldSeed *= layer->worldSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->worldSeed += layer->baseSeed;
-    layer->worldSeed *= layer->worldSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->worldSeed *= layer->worldSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->worldSeed += layer->baseSeed;
 }
 
@@ -134,22 +134,22 @@ void mapIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWid
 {
     register int x, z;
 
-    const long ws = l->worldSeed;
-    const long ss = ws * (ws * 6364136223846793005L + 1442695040888963407L);
+    const int64_t ws = l->worldSeed;
+    const int64_t ss = ws * (ws * 6364136223846793005LL + 1442695040888963407LL);
 
     for(z = 0; z < areaHeight; z++)
     {
         for(x = 0; x < areaWidth; x++)
         {
-            const long chunkX = (long)(x + areaX);
-            const long chunkZ = (long)(z + areaZ);
-            register long cs = ss;
+            const int64_t chunkX = (int64_t)(x + areaX);
+            const int64_t chunkZ = (int64_t)(z + areaZ);
+            register int64_t cs = ss;
             cs += chunkX;
-            cs *= cs * 6364136223846793005L + 1442695040888963407L;
+            cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
             cs += chunkZ;
-            cs *= cs * 6364136223846793005L + 1442695040888963407L;
+            cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
             cs += chunkX;
-            cs *= cs * 6364136223846793005L + 1442695040888963407L;
+            cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
             cs += chunkZ;
 
             out[x + z*areaWidth] = (cs >> 24) % 10 == 0;
@@ -383,8 +383,8 @@ void mapAddIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int area
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
 
-    const long ws = l->worldSeed;
-    const long ss = ws * (ws * 6364136223846793005L + 1442695040888963407L);
+    const int64_t ws = l->worldSeed;
+    const int64_t ss = ws * (ws * 6364136223846793005LL + 1442695040888963407LL);
 
     for(z = 0; z < areaHeight; z++)
     {
@@ -398,7 +398,7 @@ void mapAddIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int area
 
             if(v11 == 0 && (v00 != 0 || v20 != 0 || v02 != 0 || v22 != 0))
             {
-                setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
+                setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
 
                 int v = 1;
                 int inc = 1;
@@ -417,19 +417,19 @@ void mapAddIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int area
             }
             else if(v11 > 0 && (v00 == 0 || v20 == 0 || v02 == 0 || v22 == 0))
             {
-                //setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
+                //setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
                 //if(mcNextInt(l, 5) == 0)...
 
-                const long chunkX = (long)(x + areaX);
-                const long chunkZ = (long)(z + areaZ);
+                const int64_t chunkX = (int64_t)(x + areaX);
+                const int64_t chunkZ = (int64_t)(z + areaZ);
 
-                register long cs = ss;
+                register int64_t cs = ss;
                 cs += chunkX;
-                cs *= cs * 6364136223846793005L + 1442695040888963407L;
+                cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
                 cs += chunkZ;
-                cs *= cs * 6364136223846793005L + 1442695040888963407L;
+                cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
                 cs += chunkX;
-                cs *= cs * 6364136223846793005L + 1442695040888963407L;
+                cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
                 cs += chunkZ;
 
                 if((cs >> 24) % 5 == 0)
@@ -470,7 +470,7 @@ void mapRemoveTooMuchOcean(Layer *l, int * __restrict out, int areaX, int areaZ,
 
             if(v11 == 0)
             {
-                setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
+                setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
 
                 if(mcNextInt(l, 2) == 0)
                 {
@@ -504,7 +504,7 @@ void mapAddSnow(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWi
             }
             else
             {
-                setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
+                setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
                 int r = mcNextInt(l, 6);
                 int v;
 
@@ -603,7 +603,7 @@ void mapSpecial(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWi
             int v = out[x + z*areaWidth];
             if(v == 0) continue;
 
-            setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
+            setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
 
             if(mcNextInt(l, 13) == 0)
             {
@@ -635,7 +635,7 @@ void mapAddMushroomIsland(Layer *l, int * __restrict out, int areaX, int areaZ, 
             // surrounded by ocean?
             if(v11 == 0 && !out[x+0 + (z+0)*pWidth] && !out[x+2 + (z+0)*pWidth] && !out[x+0 + (z+2)*pWidth] && !out[x+2 + (z+2)*pWidth])
             {
-                setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
+                setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
                 if(mcNextInt(l, 100) == 0) {
                     out[x + z*areaWidth] = mushroomIsland;
                     continue;
@@ -721,7 +721,7 @@ void mapBiome(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
                 continue;
             }
 
-            setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
+            setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
 
             switch(id){
             case Warm:
@@ -758,7 +758,7 @@ void mapRiverInit(Layer *l, int * __restrict out, int areaX, int areaZ, int area
         {
             if(out[x + z*areaWidth] > 0)
             {
-                setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
+                setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
                 out[x + z*areaWidth] = mcNextInt(l, 299999)+2;
             }
             else
@@ -868,6 +868,7 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
     int pWidth = areaWidth + 2;
     int pHeight = areaHeight + 2;
     int x, z;
+    int *buf = NULL;
 
     if(l->p2 == NULL)
     {
@@ -875,16 +876,10 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
         exit(1);
     }
 
-    if(l->bufsize < pWidth*pHeight)
-    {
-        if(l->buf != NULL) free(l->buf);
-
-        l->bufsize = pWidth*pHeight;
-        l->buf = (int*)malloc(l->bufsize*sizeof(int));
-    }
+    buf = (int *) malloc(pWidth*pHeight*sizeof(int));
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
-    memcpy(l->buf, out, pWidth*pHeight*sizeof(int));
+    memcpy(buf, out, pWidth*pHeight*sizeof(int));
 
     l->p2->getMap(l->p2, out, pX, pZ, pWidth, pHeight);
 
@@ -892,8 +887,8 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
     {
         for(x = 0; x < areaWidth; x++)
         {
-            setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
-            int a11 = l->buf[x+1 + (z+1)*pWidth]; // biome branch
+            setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
+            int a11 = buf[x+1 + (z+1)*pWidth]; // biome branch
             int b11 = out[x+1 + (z+1)*pWidth]; // river branch
             int idx = x + z*areaWidth;
 
@@ -960,10 +955,10 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
                 }
                 else
                 {
-                    int a10 = l->buf[x+1 + (z+0)*pWidth];
-                    int a21 = l->buf[x+2 + (z+1)*pWidth];
-                    int a01 = l->buf[x+0 + (z+1)*pWidth];
-                    int a12 = l->buf[x+1 + (z+2)*pWidth];
+                    int a10 = buf[x+1 + (z+0)*pWidth];
+                    int a21 = buf[x+2 + (z+1)*pWidth];
+                    int a01 = buf[x+0 + (z+1)*pWidth];
+                    int a12 = buf[x+1 + (z+2)*pWidth];
                     int equals = 0;
 
                     if(equalOrPlateau(a10, a11)) equals++;
@@ -979,6 +974,8 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
             }
         }
     }
+
+    free(buf);
 }
 
 
@@ -1042,7 +1039,7 @@ void mapSmooth(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWid
 
             if(v01 == v21 && v10 == v12)
             {
-                setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
+                setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
 
                 if(mcNextInt(l, 2) == 0)
                     v11 = v01;
@@ -1075,7 +1072,7 @@ void mapRareBiome(Layer *l, int * __restrict out, int areaX, int areaZ, int area
     {
         for(x = 0; x < areaWidth; x++)
         {
-            setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
+            setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
             int v11 = out[x+1 + (z+1)*pWidth];
 
             if(mcNextInt(l, 57) == 0 && v11 == plains)
@@ -1199,7 +1196,8 @@ void mapShore(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
 void mapRiverMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {
     int idx;
-    int *buf = (int*)malloc(areaWidth*areaHeight*sizeof(int));
+    int len;
+    int *buf;
 
     if(l->p2 == NULL)
     {
@@ -1207,12 +1205,15 @@ void mapRiverMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
         exit(1);
     }
 
+    len = areaWidth*areaHeight;
+    buf = (int *) malloc(len*sizeof(int));
+
     l->p->getMap(l->p, out, areaX, areaZ, areaWidth, areaHeight); // biome chain
-    memcpy(buf, out, areaWidth*areaHeight*sizeof(int));
+    memcpy(buf, out, len*sizeof(int));
 
     l->p2->getMap(l->p2, out, areaX, areaZ, areaWidth, areaHeight); // rivers
 
-    for(idx = 0; idx < areaHeight*areaWidth; idx++)
+    for(idx = 0; idx < len; idx++)
     {
         if(isOceanic(buf[idx]))
         {
@@ -1257,7 +1258,7 @@ void mapOceanTemp(Layer *l, int * __restrict out, int areaX, int areaZ, int area
     {
         for(x = 0; x < areaWidth; x++)
         {
-            setChunkSeed(l, (long)(x + areaX), (long)(z + areaZ));
+            setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
 
             int v11;
 

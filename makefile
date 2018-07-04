@@ -1,9 +1,10 @@
 CC      = gcc
 LDFLAGS = -lm -pthread
-override CFLAGS += -O3 -Wall -fwrapv -march=native
+override CFLAGS += -Wall -fwrapv -march=native
 
-.PHONY : all clean
+.PHONY : all debug clean
 
+all: CFLAGS += -O3
 all: find_quadhuts find_compactbiomes multifinder clean
 
 multifinder: multifinder.o layers.o generator.o finders.o
@@ -11,6 +12,9 @@ multifinder: multifinder.o layers.o generator.o finders.o
 
 multifinder.o: multifinder.c
 	$(CC) -c $(CFLAGS) $<
+
+debug: CFLAGS += -DDEBUG -O0 -g
+debug: find_quadhuts find_compactbiomes clean
 
 find_compactbiomes: find_compactbiomes.o layers.o generator.o finders.o
 	$(CC) -o $@ $^ $(LDFLAGS)

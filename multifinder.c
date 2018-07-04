@@ -46,8 +46,8 @@ BiomeSearchConfig biomeSearchConfigs[NUM_BIOME_SEARCH_CONFIGS];
 typedef struct {
     // Configuration options
     int disableOptimizations;
-    long startSeed;
-    long endSeed;
+    int64_t startSeed;
+    int64_t endSeed;
     int threads;
     char outputDir[256];
     int append;
@@ -72,8 +72,8 @@ typedef struct {
 typedef struct {
     int thread;
     int startIndex;
-    const long *qhcandidates;
-    long qhcount;
+    const int64_t *qhcandidates;
+    int64_t qhcount;
     const SearchOptions *opts;
     char filename[256];
 } ThreadInfo;
@@ -244,7 +244,7 @@ void usage() {
 }
 
 
-long parseHumanArgument(char *arg, const char *flagName) {
+int64_t parseHumanArgument(char *arg, const char *flagName) {
     char *endptr;
 
     int len = strlen(arg);
@@ -253,18 +253,18 @@ long parseHumanArgument(char *arg, const char *flagName) {
         exit(-1);
     }
 
-    long mult = 1;
+    int64_t mult = 1;
     switch (arg[len-1]) {
-        case 'K': mult = 1024L; break;
-        case 'M': mult = 1024L*1024L; break;
-        case 'B': mult = 1024L*1024L*1024L; break;
-        case 'G': mult = 1024L*1024L*1024L; break;
-        case 'T': mult = 1024L*1024L*1024L*1024L; break;
+        case 'K': mult = 1024LL; break;
+        case 'M': mult = 1024LL*1024LL; break;
+        case 'B': mult = 1024LL*1024LL*1024LL; break;
+        case 'G': mult = 1024LL*1024LL*1024LL; break;
+        case 'T': mult = 1024LL*1024LL*1024LL*1024LL; break;
     }
 
     if (mult != 1)
         arg[len-1] = 0;
-    long val = strtol(arg, &endptr, 10);
+    int64_t val = strtol(arg, &endptr, 10);
     if (errno != 0) {
         fprintf(stderr, INT_ERROR, flagName);
         exit(-1);
@@ -340,11 +340,11 @@ SearchOptions parseOptions(int argc, char *argv[]) {
     SearchOptions opts = {
         .disableOptimizations = 0,
         .startSeed            = 0,
-        .endSeed              = 1L<<48,
+        .endSeed              = 1LL<<48,
         .threads              = 1,
         .outputDir            = "",
         .append               = 0,
-        .baseSeedsFile        = "./seeds/quadbases_Q1.txt",
+        .baseSeedsFile        = "./seeds/quadhutbases_1_13_Q1.txt",
         .allBiomes            = 0,
         .plentifulBiome       = NULL,
         .plentifulness        = 75,
@@ -397,8 +397,8 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 break;
             case 's':
                 if (strcmp(optarg, "random") == 0) {
-                    long lower = rand() & 0xffffffff;
-                    long upper = rand() & 0xffff;
+                    int64_t lower = rand() & 0xffffffff;
+                    int64_t upper = rand() & 0xffff;
                     opts.startSeed = (upper << 32) + lower;
                 } else {
                     opts.startSeed = parseHumanArgument(
@@ -490,12 +490,12 @@ SearchOptions parseOptions(int argc, char *argv[]) {
 }
 
 
-long* getBaseSeeds(long *qhcount, int threads, const char *seedFileName) {
+int64_t* getBaseSeeds(int64_t *qhcount, int threads, const char *seedFileName) {
     if (access(seedFileName, F_OK)) {
         fprintf(stderr, "Seed base file does not exist: Creating new one.\n"
                 "This may take a few minutes...\n");
         int quality = 1;
-        baseQuadWitchHutSearch(seedFileName, threads, quality);
+        search4QuadBases(seedFileName, threads, SWAMP_HUT_SEED, quality);
     }
 
     return loadSavedSeeds(seedFileName, qhcount);
@@ -508,7 +508,7 @@ int getBiomeAt(const LayerStack g, const Pos pos, int *buf) {
 }
 
 
-Monuments potentialMonuments(long baseSeed, int distance) {
+Monuments potentialMonuments(int64_t baseSeed, int distance) {
     const int upper = 23 - distance;
     const int lower = distance;
     Monuments potential;
@@ -561,7 +561,7 @@ int verifyMonuments(LayerStack *g, Monuments *mon, int rX, int rZ) {
 }
 
 
-int hasStronghold(LayerStack *g, long seed, int maxDistance, Pos qhpos[4]) {
+int hasStronghold(LayerStack *g, int64_t seed, int maxDistance, Pos qhpos[4]) {
     Pos strongholds[128];
     // Approximateish center of quad hut formation.
     int cx = (qhpos[0].x + qhpos[1].x + qhpos[2].x + qhpos[3].x) / 4;
@@ -584,7 +584,7 @@ int hasStronghold(LayerStack *g, long seed, int maxDistance, Pos qhpos[4]) {
 }
 
 
-int hasMansions(const LayerStack *g, long seed, int radius, int minCount) {
+int hasMansions(const LayerStack *g, int64_t seed, int radius, int minCount) {
     int count = 0;
     for (int rZ=-radius; rZ<radius; rZ++) {
         for (int rX=-radius; rX<radius; rX++) {
@@ -729,7 +729,7 @@ void *searchQuadHutsThread(void *data) {
     Layer *lFilterBiome = &g.layers[L_BIOME_256];
     int *filterCache = allocCache(lFilterBiome, 3, 3);
     int *lastLayerCache = allocCache(&g.layers[g.layerNum-1], 3, 3);
-    long j, base, seed;
+    int64_t j, base, seed;
 
     int biomeRadius = 0;
     int *shoreCache = NULL;
@@ -781,7 +781,7 @@ void *searchQuadHutsThread(void *data) {
                 // The base seed has potential monuments around the origin;
                 // if we translate it to rX, rZ, it will always have potential
                 // huts around that region.
-                base = moveTemple(info.qhcandidates[i], rX, rZ);
+                base = moveStructure(info.qhcandidates[i], rX, rZ);
 
                 // rZ, rX is the hut region in the upper left of the potential
                 // quad hut. Hut regions are 32 chunks/512 blocks. The biome
@@ -818,13 +818,13 @@ void *searchQuadHutsThread(void *data) {
                         continue;
                 }
 
-                qhpos[0] = getWitchHutPos(base, 0+rX, 0+rZ);
-                qhpos[1] = getWitchHutPos(base, 0+rX, 1+rZ);
-                qhpos[2] = getWitchHutPos(base, 1+rX, 0+rZ);
-                qhpos[3] = getWitchHutPos(base, 1+rX, 1+rZ);
+                qhpos[0] = getStructurePos(SWAMP_HUT_SEED, base, 0+rX, 0+rZ);
+                qhpos[1] = getStructurePos(SWAMP_HUT_SEED, base, 0+rX, 1+rZ);
+                qhpos[2] = getStructurePos(SWAMP_HUT_SEED, base, 1+rX, 0+rZ);
+                qhpos[3] = getStructurePos(SWAMP_HUT_SEED, base, 1+rX, 1+rZ);
 
-                long hits = 0;
-                long hutHits = 0;
+                int64_t hits = 0;
+                int64_t hutHits = 0;
 
                 for (j = 0; j < 0x10000; j++) {
                     seed = base + (j << 48);
@@ -995,8 +995,8 @@ int main(int argc, char *argv[])
     }
     fprintf(stderr, "===========================================================================\n");
 
-    long qhcount;
-    const long *qhcandidates = getBaseSeeds(&qhcount, opts.threads, opts.baseSeedsFile);
+    int64_t qhcount;
+    const int64_t *qhcandidates = getBaseSeeds(&qhcount, opts.threads, opts.baseSeedsFile);
     int startIndex = 0;
     while (qhcandidates[startIndex] < opts.startSeed && startIndex < qhcount) {
         startIndex++;

@@ -3,3 +3,5 @@ find_quadhuts
 multifinder
 output
 *.o
+.cproject
+.project

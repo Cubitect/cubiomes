@@ -23,23 +23,47 @@ int main(int argc, char *argv[])
     int regPosX = 0;
     int regPosZ = 0;
 
+    int mcversion = 0;
+    const char *seedFileName;
+    int64_t featureSeed;
+
     if(argc > 2)
     {
         if(sscanf(argv[1], "%d", &regPosX) != 1) regPosX = 0;
         if(sscanf(argv[2], "%d", &regPosZ) != 1) regPosZ = 0;
+
+        if(argc > 3)
+        {
+            if(sscanf(argv[3], "%d", &mcversion) != 1) mcversion = 0;
+        }
+        else
+        {
+            printf("MC version not specified. Set using 'mcversion' argument:\n"
+                   "17  for MC1.7 - MC1.12\n113 for MC1.13+\n"
+                   "Defaulting to MC 1.7.\n\n");
+            mcversion = 17;
+        }
     }
     else
     {
         printf("Usage:\n"
-               "find_quadhuts [regionX] [regionZ]\n"
+               "find_quadhuts [regionX] [regionZ] [mcversion]\n"
                "Defaulting to origin.\n\n");
     }
 
     regPosX -= 1;
     regPosZ -= 1;
 
-
-    const char *seedFileName = "./seeds/quadbases_Q1.txt";
+    if(mcversion == 113)
+    {
+        featureSeed = SWAMP_HUT_SEED;
+        seedFileName = "./seeds/quadhutbases_1_13_Q1.txt";
+    }
+    else
+    {
+        featureSeed = FEATURE_SEED;
+        seedFileName = "./seeds/quadhutbases_1_7_Q1.txt";
+    }
 
     if(access(seedFileName, F_OK))
     {
@@ -47,12 +71,12 @@ int main(int argc, char *argv[])
                "This may take a few minutes...\n");
         int threads = 6;
         int quality = 1;
-        baseQuadWitchHutSearch(seedFileName, threads, quality);
+        search4QuadBases(seedFileName, threads, featureSeed, quality);
     }
 
-    long i, j, qhcnt;
-    long base, seed;
-    long *qhcandidates = loadSavedSeeds(seedFileName, &qhcnt);
+    int64_t i, j, qhcnt;
+    int64_t base, seed;
+    int64_t *qhcandidates = loadSavedSeeds(seedFileName, &qhcnt);
 
     LayerStack g = setupGenerator();
 
@@ -77,12 +101,12 @@ int main(int argc, char *argv[])
     // Search for a swamp at the structure positions
     for(i = 0; i < qhcnt; i++)
     {
-        base = moveTemple(qhcandidates[i], regPosX, regPosZ);
+        base = moveStructure(qhcandidates[i], regPosX, regPosZ);
 
-        qhpos[0] = getWitchHutPos(base, 0+regPosX, 0+regPosZ);
-        qhpos[1] = getWitchHutPos(base, 0+regPosX, 1+regPosZ);
-        qhpos[2] = getWitchHutPos(base, 1+regPosX, 0+regPosZ);
-        qhpos[3] = getWitchHutPos(base, 1+regPosX, 1+regPosZ);
+        qhpos[0] = getStructurePos(featureSeed, base, 0+regPosX, 0+regPosZ);
+        qhpos[1] = getStructurePos(featureSeed, base, 0+regPosX, 1+regPosZ);
+        qhpos[2] = getStructurePos(featureSeed, base, 1+regPosX, 0+regPosZ);
+        qhpos[3] = getStructurePos(featureSeed, base, 1+regPosX, 1+regPosZ);
 
         /*
         for(j = 0; j < 4; j++)
@@ -114,7 +138,7 @@ int main(int argc, char *argv[])
         if(j >= 5) continue;
 
 
-        long hits = 0, swpc;
+        int64_t hits = 0, swpc;
 
         for(j = 0; j < 0x10000; j++)
         {
@@ -158,7 +182,7 @@ int main(int argc, char *argv[])
             if(getBiomeAtPos(g, qhpos[2]) != swampland) continue;
             if(getBiomeAtPos(g, qhpos[3]) != swampland) continue;
 
-            printf("%ld\n", seed);
+            printf("%"PRId64 "\n", seed);
             hits++;
         }
     }

@@ -33,17 +33,14 @@ Biome biomes[256];
  *
  *  Minecraft uses a 48-bit pseudo random number generator (PRNG) to determine
  *  the position of it's structures. The remaining top 16 bits do not influence
- *  the structure positioning. Additionally the position of all temples in a
+ *  the structure positioning. Additionally the position of most structures in a
  *  world can be translated by applying the following transformation to the
  *  seed:
  *
- *  seed2 = seed1 - structureSeed - dregX * 341873128712 - dregZ * 132897987541;
+ *  seed2 = seed1 - dregX * 341873128712 - dregZ * 132897987541;
  *
  *  Here seed1 and seed2 have the same structure positioning, but moved by a
- *  region offset of (dregX,dregZ). [a region is 32x32 chunks]. The value of
- *  structureSeed depends on the type of structure, 14357617 for desert temples,
- *  14357618 for igloos, 14357619 for jungle temples and 14357620 for witch
- *  huts.
+ *  region offset of (dregX,dregZ). [a region is 32x32 chunks].
  *
  *  For a quad-structure, we mainly care about relative positioning, so we can
  *  get away with just checking the regions near the origin: (0,0),(0,1),(1,0)
@@ -64,12 +61,11 @@ Biome biomes[256];
  */
 
 
-#define SEEDMAX (1L << 48)
-
 
 typedef struct quad_threadinfo_t
 {
-    long start, end;
+    int64_t start, end;
+    int64_t structureSeed;
     int threadID;
     int quality;
     const char *fnam;
@@ -77,113 +73,115 @@ typedef struct quad_threadinfo_t
 
 
 
-const long lowerBaseBitsQ1[] = // for quad-structure with quality 1
+const int64_t lowerBaseBitsQ1[] = // for quad-structure with quality 1
         {
-                0x2aa4,0x3d96,0x60a6,0x8596
+                0x3f18,0x520a,0x751a,0x9a0a
         };
 
-const long lowerBaseBitsQ2[] = // for quad-structure with quality 2
+const int64_t lowerBaseBitsQ2[] = // for quad-structure with quality 2
         {
-                0x0822,0x0bd4,0x0c74,0x0dd4,0x0dd6,0x0e54,0x1119,0x12b9,0x12be,
-                0x12c5,0x12e4,0x12e9,0x1354,0x1355,0x1635,0x17c6,0x1846,0x1a44,
-                0x1c18,0x1d92,0x22a6,0x241c,0x2896,0x2aa4,0x2bf4,0x2c56,0x2c74,
-                0x2d16,0x2dd4,0x2df6,0x2e76,0x32be,0x32c4,0x32c5,0x32f1,0x32f4,
-                0x32f6,0x333c,0x3341,0x3360,0x3365,0x3374,0x37e4,0x39c4,0x3a44,
-                0x3a66,0x3ca4,0x3d96,0x41a4,0x44a4,0x44a9,0x4594,0x49a4,0x4aa8,
-                0x4c56,0x52c5,0x52d4,0x52d5,0x52e4,0x5302,0x5340,0x5345,0x5355,
-                0x5364,0x5369,0x5378,0x57c6,0x57e4,0x5846,0x5926,0x59e6,0x5a64,
-                0x5a66,0x5c94,0x5d06,0x60a6,0x61a4,0x64a8,0x6bf4,0x6d12,0x6dd4,
-                0x6dd6,0x6e54,0x6e76,0x72bc,0x72c5,0x72d4,0x72f4,0x7345,0x7355,
-                0x735a,0x7365,0x7519,0x77c6,0x7866,0x79c4,0x7a44,0x80aa,0x82a4,
-                0x8596,0x8bd6,0x8bf4,0x8c56,0x8c74,0x8d16,0x8df6,0x8e74,0x8e76,
-                0x8fc9,0x906d,0x9115,0x92f9,0x9338,0x933d,0x9379,0x93e9,0x93f9,
-                0x95b9,0x9d84,0x9da3,0xa584,0xa595,0xa5a3,0xa69b,0xb0d8,0xb285,
-                0xb4e0,0xb55a,0xc297,0xc2a5,0xc7e1,0xca97,0xcd50,0xd0e2,0xd115,
-                0xd5e9,0xf2fc,0xf301,0xf339,0xf33e,0xf7c6,0xf7e4,0xf846,0xf864,
-                0xf9c4,0xf9e6,0xfa64,0xfa66,0xfca8
+                0x0770,0x0775,0x07ad,0x07b2,0x0c3a,0x0c58,0x0cba,0x0cd8,0x0e38,
+                0x0e5a,0x0ed8,0x0eda,0x111c,0x1c96,0x2048,0x20e8,0x2248,0x224a,
+                0x22c8,0x258d,0x272d,0x2732,0x2739,0x2758,0x275d,0x27c8,0x27c9,
+                0x2aa9,0x2c3a,0x2cba,0x2eb8,0x308c,0x3206,0x371a,0x3890,0x3d0a,
+                0x3f18,0x4068,0x40ca,0x40e8,0x418a,0x4248,0x426a,0x42ea,0x4732,
+                0x4738,0x4739,0x4765,0x4768,0x476a,0x47b0,0x47b5,0x47d4,0x47d9,
+                0x47e8,0x4c58,0x4e38,0x4eb8,0x4eda,0x5118,0x520a,0x5618,0x5918,
+                0x591d,0x5a08,0x5e18,0x5f1c,0x60ca,0x6739,0x6748,0x6749,0x6758,
+                0x6776,0x67b4,0x67b9,0x67c9,0x67d8,0x67dd,0x67ec,0x6c3a,0x6c58,
+                0x6cba,0x6d9a,0x6e5a,0x6ed8,0x6eda,0x7108,0x717a,0x751a,0x7618,
+                0x791c,0x8068,0x8186,0x8248,0x824a,0x82c8,0x82ea,0x8730,0x8739,
+                0x8748,0x8768,0x87b9,0x87c9,0x87ce,0x87d9,0x898d,0x8c3a,0x8cda,
+                0x8e38,0x8eb8,0x951e,0x9718,0x9a0a,0xa04a,0xa068,0xa0ca,0xa0e8,
+                0xa18a,0xa26a,0xa2e8,0xa2ea,0xa43d,0xa4e1,0xa589,0xa76d,0xa7ac,
+                0xa7b1,0xa7ed,0xa85d,0xa86d,0xaa2d,0xb1f8,0xb217,0xb9f8,0xba09,
+                0xba17,0xbb0f,0xc54c,0xc6f9,0xc954,0xc9ce,0xd70b,0xd719,0xdc55,
+                0xdf0b,0xe1c4,0xe556,0xe589,0xea5d
         };
 
 
 
-int isQuadWitchHutBase(const long seed, const long lower, const long upper)
+int isQuadFeatureBase(const int64_t structureSeed, const int64_t seed,
+        const int64_t lower, const int64_t upper)
 {
     // seed offsets for the regions (0,0) to (1,1)
-    const long reg00base = 14357620;
-    const long reg01base = 341873128712 + 14357620;
-    const long reg10base = 132897987541 + 14357620;
-    const long reg11base = 341873128712 + 132897987541 + 14357620;
+    const int64_t reg00base = structureSeed;
+    const int64_t reg01base = 341873128712 + structureSeed;
+    const int64_t reg10base = 132897987541 + structureSeed;
+    const int64_t reg11base = 341873128712 + 132897987541 + structureSeed;
 
-    long s;
+    int64_t s;
 
     s = (reg00base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 < upper) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 < upper) return 0;
 
     s = (reg01base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 > lower) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 < upper) return 0;
 
     s = (reg10base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 < upper) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 > lower) return 0;
 
     s = (reg11base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 > lower) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 > lower) return 0;
 
     return 1;
 }
 
 
-int isTriWitchHutBase(const long seed, const long lower, const long upper)
+int isTriFeatureBase(const int64_t structureSeed, const int64_t seed,
+        const int64_t lower, const int64_t upper)
 {
     // seed offsets for the regions (0,0) to (1,1)
-    const long reg00base = 14357620;
-    const long reg01base = 341873128712 + 14357620;
-    const long reg10base = 132897987541 + 14357620;
-    const long reg11base = 341873128712 + 132897987541 + 14357620;
+    const int64_t reg00base = structureSeed;
+    const int64_t reg01base = 341873128712 + structureSeed;
+    const int64_t reg10base = 132897987541 + structureSeed;
+    const int64_t reg11base = 341873128712 + 132897987541 + structureSeed;
 
-    long s;
+    int64_t s;
     int missing = 0;
 
     s = (reg00base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 < upper ||
-      (((s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff) >> 17) % 24 < upper)
+      (((s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff) >> 17) % 24 < upper)
     {
         missing++;
     }
 
     s = (reg01base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 > lower ||
-      (((s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff) >> 17) % 24 < upper)
+      (((s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff) >> 17) % 24 < upper)
     {
         if(missing) return 0;
         missing++;
     }
 
     s = (reg10base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 < upper ||
-      (((s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff) >> 17) % 24 > lower)
+      (((s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff) >> 17) % 24 > lower)
     {
         if(missing) return 0;
         missing++;
     }
 
     s = (reg11base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 > lower ||
-      (((s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff) >> 17) % 24 > lower)
+      (((s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff) >> 17) % 24 > lower)
     {
         if(missing) return 0;
     }
@@ -191,90 +189,90 @@ int isTriWitchHutBase(const long seed, const long lower, const long upper)
     return 1;
 }
 
-long moveTemple(const long baseSeed, const int regionX, const int regionZ)
+int64_t moveStructure(const int64_t baseSeed, const int regionX, const int regionZ)
 {
     return (baseSeed - regionX*341873128712 - regionZ*132897987541) & 0xffffffffffff;
 }
 
 
-int isQuadMonumentBase(const long seed, const int qual)
+int isQuadMonumentBase(const int64_t seed, const int qual)
 {
     // seed offsets for the regions (0,0) to (1,1)
-    const long reg00base = 10387313;
-    const long reg01base = 341873128712 + 10387313;
-    const long reg10base = 132897987541 + 10387313;
-    const long reg11base = 341873128712 + 132897987541 + 10387313;
+    const int64_t reg00base = MONUMENT_SEED;
+    const int64_t reg01base = 341873128712 + MONUMENT_SEED;
+    const int64_t reg10base = 132897987541 + MONUMENT_SEED;
+    const int64_t reg11base = 341873128712 + 132897987541 + MONUMENT_SEED;
 
-    long s, p;
+    int64_t s, p;
 
     /*
     seed = regionX*341873128712 + regionZ*132897987541 + seed + 10387313;
-    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
+    seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x = (seed >> 17) % 27;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x += (seed >> 17) % 27;
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z = (seed >> 17) % 27;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z += (seed >> 17) % 27;
     */
 
     s = (reg00base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p < 26-qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p < 2*26-qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p < 26-qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p < 2*26-qual) return 0;
 
     s = (reg01base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p > qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p > qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p < 26-qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p < 2*26-qual) return 0;
 
     s = (reg10base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p < 26-qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p < 2*26-qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p > qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p > qual) return 0;
 
     s = (reg11base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p > qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p > qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p > qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p > qual) return 0;
 
@@ -282,43 +280,43 @@ int isQuadMonumentBase(const long seed, const int qual)
 }
 
 
-int isTriMonumentBase(const long seed, const int qual)
+int isTriMonumentBase(const int64_t seed, const int qual)
 {
     // seed offsets for the regions (0,0) to (1,1)
-    const long reg00base = 10387313;
-    const long reg01base = 341873128712 + 10387313;
-    const long reg10base = 132897987541 + 10387313;
-    const long reg11base = 341873128712 + 132897987541 + 10387313;
+    const int64_t reg00base = MONUMENT_SEED;
+    const int64_t reg01base = 341873128712 + MONUMENT_SEED;
+    const int64_t reg10base = 132897987541 + MONUMENT_SEED;
+    const int64_t reg11base = 341873128712 + 132897987541 + MONUMENT_SEED;
 
-    long s, p;
+    int64_t s, p;
     int incomplete = 0;
 
     /*
     seed = regionX*341873128712 + regionZ*132897987541 + seed + 10387313;
-    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
+    seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x = (seed >> 17) % 27;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x += (seed >> 17) % 27;
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z = (seed >> 17) % 27;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z += (seed >> 17) % 27;
     */
 
     s = (reg00base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p < 26-qual) goto incomp11;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p < 2*26-qual) goto incomp11;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p < 26-qual) goto incomp11;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p < 2*26-qual) goto incomp11;
 
@@ -329,16 +327,16 @@ int isTriMonumentBase(const long seed, const int qual)
     }
 
     s = (reg01base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p > qual) goto incomp01;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p > qual) goto incomp01;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p < 26-qual) goto incomp01;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p < 2*26-qual) goto incomp01;
 
@@ -350,16 +348,16 @@ int isTriMonumentBase(const long seed, const int qual)
     }
 
     s = (reg10base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p < 26-qual) goto incomp10;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p < 2*26-qual) goto incomp10;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p > qual) goto incomp10;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p > qual) goto incomp10;
 
@@ -371,16 +369,16 @@ int isTriMonumentBase(const long seed, const int qual)
     }
 
     s = (reg11base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p > qual) goto incomp00;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p > qual) goto incomp00;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p > qual) goto incomp00;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p > qual) goto incomp00;
 
@@ -454,12 +452,12 @@ int countBlocksInSpawnRange(Pos p[4], const int ax, const int ay, const int az)
 
 
 
-long *loadSavedSeeds(const char *fnam, long *scnt)
+int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt)
 {
     FILE *fp = fopen(fnam, "r");
 
-    long seed;
-    long *baseSeeds;
+    int64_t seed;
+    int64_t *baseSeeds;
 
     if(fp == NULL)
     {
@@ -471,17 +469,17 @@ long *loadSavedSeeds(const char *fnam, long *scnt)
 
     while(!feof(fp))
     {
-        if(fscanf(fp, "%ld", &seed) == 1) (*scnt)++;
+        if(fscanf(fp, "%"PRId64, &seed) == 1) (*scnt)++;
         else while(!feof(fp) && fgetc(fp) != '\n');
     }
 
-    baseSeeds = (long*) calloc(*scnt, sizeof(*baseSeeds));
+    baseSeeds = (int64_t*) calloc(*scnt, sizeof(*baseSeeds));
 
     rewind(fp);
 
-    for(long i = 0; i < *scnt && !feof(fp);)
+    for(int64_t i = 0; i < *scnt && !feof(fp);)
     {
-        if(fscanf(fp, "%ld", &baseSeeds[i]) == 1) i++;
+        if(fscanf(fp, "%"PRId64, &baseSeeds[i]) == 1) i++;
         else while(!feof(fp) && fgetc(fp) != '\n');
     }
 
@@ -491,43 +489,49 @@ long *loadSavedSeeds(const char *fnam, long *scnt)
 }
 
 
-static void *baseQuadWitchHutSearchThread(void *data)
+static void *search4QuadBasesThread(void *data)
 {
     quad_threadinfo_t info = *(quad_threadinfo_t*)data;
 
-    const long lower = info.quality;
-    const long upper = 23-info.quality;
-    const long start = info.start;
-    const long end   = info.end;
+    const int64_t lower = info.quality;
+    const int64_t upper = 23-info.quality;
+    const int64_t start = info.start;
+    const int64_t end   = info.end;
+    const int64_t structureSeed = info.structureSeed;
 
-    long seed;
+    int64_t seed;
 
-    const long *lowerBits;
+    int64_t *lowerBits;
     int lowerBitsCnt;
     int lowerBitsIdx = 0;
+    int i;
+
+    lowerBits = (int64_t *) malloc(0x10000 * sizeof(int64_t));
 
     if(info.quality == 1)
     {
-        lowerBits = &lowerBaseBitsQ1[0];
         lowerBitsCnt = sizeof(lowerBaseBitsQ1) / sizeof(lowerBaseBitsQ1[0]);
+        for(i = 0; i < lowerBitsCnt; i++)
+        {
+            lowerBits[i] = (lowerBaseBitsQ1[i] - structureSeed) & 0xffff;
+        }
     }
     else if(info.quality == 2)
     {
-        lowerBits = &lowerBaseBitsQ2[0];
         lowerBitsCnt = sizeof(lowerBaseBitsQ2) / sizeof(lowerBaseBitsQ2[0]);
+        for(i = 0; i < lowerBitsCnt; i++)
+        {
+            lowerBits[i] = (lowerBaseBitsQ2[i] - structureSeed) & 0xffff;
+        }
     }
     else
     {
-        printf("WARN baseQuadWitchHutSearchThread: "
+        printf("WARN search4QuadBasesThread: "
                "Lower bits for quality %d have not been defined => "
                "will try all combinations.\n", info.quality);
 
-        static long lowerBaseBitsAll[65536];
-        lowerBits = &lowerBaseBitsAll[0];
-        lowerBitsCnt = sizeof(lowerBaseBitsAll) / sizeof(lowerBaseBitsAll[0]);
-
-        int i;
-        for(i = 0; i < 65536; i++) lowerBaseBitsAll[i] = i;
+        lowerBitsCnt = 0x10000;
+        for(i = 0; i < lowerBitsCnt; i++) lowerBits[i] = i;
     }
 
     char fnam[256];
@@ -536,6 +540,7 @@ static void *baseQuadWitchHutSearchThread(void *data)
     FILE *fp = fopen(fnam, "a+");
     if (fp == NULL) {
         fprintf(stderr, "Could not open \"%s\" for writing.\n", fnam);
+        free(lowerBits);
         exit(-1);
     }
 
@@ -550,14 +555,14 @@ static void *baseQuadWitchHutSearchThread(void *data)
         {
             char *last_newline = strrchr(buf, '\n');
 
-            if(sscanf(last_newline, "%ld", &seed) == 1)
+            if(sscanf(last_newline, "%"PRId64, &seed) == 1)
             {
                 while(lowerBits[lowerBitsIdx] <= (seed & 0xffff))
                     lowerBitsIdx++;
 
                 seed = (seed & 0x0000ffffffff0000) + lowerBits[lowerBitsIdx];
 
-                printf("Thread %d starting from: %ld\n", info.threadID, seed);
+                printf("Thread %d starting from: %"PRId64"\n", info.threadID, seed);
             }
             else
             {
@@ -572,11 +577,11 @@ static void *baseQuadWitchHutSearchThread(void *data)
 
     while(seed < end)
     {
-        if(isQuadWitchHutBase(seed, lower, upper))
+        if(isQuadFeatureBase(structureSeed, seed, lower, upper))
         {
-            fprintf(fp, "%ld\n", seed);
+            fprintf(fp, "%"PRId64"\n", seed);
             fflush(fp);
-            //printf("Thread %d: %ld\n", info.threadID, seed);
+            //printf("Thread %d: %"PRId64"\n", info.threadID, seed);
         }
 
         lowerBitsIdx++;
@@ -589,16 +594,18 @@ static void *baseQuadWitchHutSearchThread(void *data)
     }
 
     fclose(fp);
+    free(lowerBits);
 
     return NULL;
 }
 
 
-void baseQuadWitchHutSearch(const char *fnam, const int threads, const int quality)
+void search4QuadBases(const char *fnam, const int threads,
+        const int64_t structureSeed, const int quality)
 {
     pthread_t threadID[threads];
     quad_threadinfo_t info[threads];
-    long t;
+    int64_t t;
 
     for(t = 0; t < threads; t++)
     {
@@ -607,11 +614,12 @@ void baseQuadWitchHutSearch(const char *fnam, const int threads, const int quali
         info[t].end = ((info[t].start + (SEEDMAX-1) / threads) & 0x0000ffffffff0000) + 1;
         info[t].fnam = fnam;
         info[t].quality = quality;
+        info[t].structureSeed = structureSeed;
     }
 
     for(t = 0; t < threads; t++)
     {
-        pthread_create(&threadID[t], NULL, baseQuadWitchHutSearchThread, (void*)&info[t]);
+        pthread_create(&threadID[t], NULL, search4QuadBasesThread, (void*)&info[t]);
     }
 
     for(t = 0; t < threads; t++)
@@ -639,7 +647,7 @@ void baseQuadWitchHutSearch(const char *fnam, const int threads, const int quali
 
         if(fpart == NULL)
         {
-            perror("ERR baseQuadWitchHutSearch: ");
+            perror("ERR search4QuadBases: ");
             break;
         }
 
@@ -647,7 +655,7 @@ void baseQuadWitchHutSearch(const char *fnam, const int threads, const int quali
         {
             if(!fwrite(buffer, sizeof(char), n, fp))
             {
-                perror("ERR baseQuadWitchHutSearch: ");
+                perror("ERR search4QuadBases: ");
                 fclose(fp);
                 fclose(fpart);
                 return;
@@ -669,10 +677,10 @@ void baseQuadWitchHutSearch(const char *fnam, const int threads, const int quali
 
 
 /* getBiomeAtPos
- * ----------------
- * Returns the biome for the specified block position. This function is not
- * threadsafe.
+ * -------------
+ * Returns the biome for the specified block position.
  * (Alternatives should be considered in performance critical code.)
+ * This function is not threadsafe.
  */
 int getBiomeAtPos(const LayerStack g, const Pos pos)
 {
@@ -683,23 +691,25 @@ int getBiomeAtPos(const LayerStack g, const Pos pos)
     return ints[0];
 }
 
-/* getWitchHutPos
- * ------------
- * Fast implementation for finding the block position at which the witch hut
+/* getStructurePos
+ * ---------------
+ * Fast implementation for finding the block position at which the structure
  * generation attempt will occur in the specified region.
+ * This function applies for scattered-feature structureSeeds and villages.
  */
-Pos getWitchHutPos(long seed, const long regionX, const long regionZ)
+Pos getStructurePos(const int64_t structureSeed, int64_t seed,
+        const int64_t regionX, const int64_t regionZ)
 {
     Pos pos;
 
     // set seed
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + 14357620;
-    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + structureSeed;
+    seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x = (seed >> 17) % 24;
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z = (seed >> 17) % 24;
 
     pos.x = regionX*512 + (pos.x << 4) + 8;
@@ -708,16 +718,18 @@ Pos getWitchHutPos(long seed, const long regionX, const long regionZ)
 }
 
 
-/* getWitchHutChunkInRegion
- * ----------------------
+/* getStructureChunkInRegion
+ * -------------------------
  * Finds the chunk position within the specified region (32x32 chunks) where
- * the witch hut generation attempt will occur.
+ * the structure generation attempt will occur.
+ * This function applies for scattered-feature structureSeeds and villages.
  */
-Pos getWitchHutChunkInRegion(long seed, const int regionX, const int regionZ)
+Pos getStructureChunkInRegion(const int64_t structureSeed, int64_t seed,
+        const int regionX, const int regionZ)
 {
     /*
     // Vanilla like implementation.
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + 14357620;
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + structureSeed;
     setSeed(&(seed));
 
     Pos pos;
@@ -727,42 +739,18 @@ Pos getWitchHutChunkInRegion(long seed, const int regionX, const int regionZ)
     Pos pos;
 
     // set seed
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + 14357620;
-    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + structureSeed;
+    seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x = (seed >> 17) % 24;
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z = (seed >> 17) % 24;
 
     return pos;
 }
 
-
-/* getVillagePos
- * -------------
- * Fast implementation for finding the block position at which the village
- * generation attempt will occur in the specified region.
- */
-Pos getVillagePos(long seed, const long regionX, const long regionZ)
-{
-    Pos pos;
-
-    // set seed
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + 10387312;
-    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
-
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
-    pos.x = (seed >> 17) % 24;
-
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
-    pos.z = (seed >> 17) % 24;
-
-    pos.x = regionX*512 + (pos.x << 4) + 8;
-    pos.z = regionZ*512 + (pos.z << 4) + 8;
-    return pos;
-}
 
 
 /* getOceanMonumentChunk
@@ -771,7 +759,7 @@ Pos getVillagePos(long seed, const long regionX, const long regionZ)
  * ocean monument generation attempt will occur.
  */
 
-Pos getOceanMonumentChunk(long seed, const long regionX, const long regionZ)
+Pos getOceanMonumentChunk(int64_t seed, const int64_t regionX, const int64_t regionZ)
 {
     Pos pos;
 
@@ -800,22 +788,22 @@ Pos getOceanMonumentChunk(long seed, const long regionX, const long regionZ)
  * Fast implementation for finding the block position at which the ocean
  * monument generation attempt will occur in the specified region.
  */
-Pos getOceanMonumentPos(long seed, const long regionX, const long regionZ)
+Pos getOceanMonumentPos(int64_t seed, const int64_t regionX, const int64_t regionZ)
 {
     Pos pos;
 
     // set seed
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + 10387313;
-    seed = (seed ^ 0x5DEECE66DL) & ((1L << 48) - 1);
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + MONUMENT_SEED;
+    seed = (seed ^ 0x5DEECE66DLL) & ((1LL << 48) - 1);
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x = (seed >> 17) % 27;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x += (seed >> 17) % 27;
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z = (seed >> 17) % 27;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z += (seed >> 17) % 27;
 
     pos.x = regionX*32 + (pos.x >> 1);
@@ -833,22 +821,22 @@ Pos getOceanMonumentPos(long seed, const long regionX, const long regionZ)
  *
  * area80X, area80Z: area coordinates in units 1280 blocks (= 80 chunks)
  */
-Pos getMansionPos(long seed, const long area80X, const long area80Z)
+Pos getMansionPos(int64_t seed, const int64_t area80X, const int64_t area80Z)
 {
     Pos pos;
 
     // set seed
-    seed = area80X*341873128712 + area80Z*132897987541 + seed + 10387319;
-    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
+    seed = area80X*341873128712 + area80Z*132897987541 + seed + MANSION_SEED;
+    seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x = (seed >> 17) % 60;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x += (seed >> 17) % 60;
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z = (seed >> 17) % 60;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z += (seed >> 17) % 60;
 
     pos.x = area80X*80 + (pos.x >> 1);
@@ -881,7 +869,7 @@ Pos findBiomePosition(
         const int centerZ,
         const int range,
         const int *isValid,
-        long *seed,
+        int64_t *seed,
         int *passes
         )
 {
@@ -956,7 +944,7 @@ void populateValidStrongholdBiomes(int *validStrongholdBiomes) {
  * locations : output block positions for the 3 strongholds
  * worldSeed : world seed used for the generator
  */
-void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, long worldSeed)
+void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, int64_t worldSeed)
 {
     static int validStrongholdBiomes[256];
     const int SHNUM = 3;
@@ -984,7 +972,7 @@ void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, long world
 }
 
 
-int findStrongholds(LayerStack *g, int *cache, Pos *locations, long worldSeed, int maxRadius) {
+int findStrongholds(LayerStack *g, int *cache, Pos *locations, int64_t worldSeed, int maxRadius) {
     static int validStrongholdBiomes[256];
     const int SHNUM = 128;
     int i;
@@ -1044,12 +1032,12 @@ static int canCoordinateBeSpawn(LayerStack *g, int *cache, Pos pos)
  * cache     : biome buffer, set to NULL for temporary allocation
  * worldSeed : world seed used for the generator
  */
-Pos getSpawn(LayerStack *g, int *cache, long worldSeed)
+Pos getSpawn(LayerStack *g, int *cache, int64_t worldSeed)
 {
     static int isSpawnBiome[0x100];
     Pos spawn;
     int found;
-    uint i;
+    unsigned int i;
 
     if(!isSpawnBiome[biomesToSpawnIn[0]])
     {
@@ -1137,26 +1125,29 @@ int areBiomesViable(
 
 
 
-int isViableTemplePos(const LayerStack g, int *cache, const long blockX, const long blockZ)
+int isViableFeaturePos(const LayerStack g, int *cache,
+        const int64_t blockX, const int64_t blockZ)
 {
     static int map[0x100];
     genArea(&g.layers[L_VORONOI_ZOOM_1], map, blockX, blockZ, 1, 1);
 
-    if(map[0] == jungle || map[0] == jungleHills) return JUNGLE_TEMPLE;
-    if(map[0] == swampland) return SWAMP_HUT;
-    if(map[0] == icePlains || map[0] == coldTaiga) return IGLOO;
-    if(map[0] == desert || map[0] == desertHills) return DESERT_TEMPLE;
+    if(map[0] == jungle || map[0] == jungleHills) return Jungle_Pyramid;
+    if(map[0] == swampland) return Swamp_Hut;
+    if(map[0] == icePlains || map[0] == coldTaiga) return Igloo;
+    if(map[0] == desert || map[0] == desertHills) return Desert_Pyramid;
+    if(isOceanic(map[0])) return Ocean_Ruin;
 
     return 0;
 }
 
-int isViableVillagePos(const LayerStack g, int *cache, const long blockX, const long blockZ)
+int isViableVillagePos(const LayerStack g, int *cache,
+        const int64_t blockX, const int64_t blockZ)
 {
     static int isVillageBiome[0x100];
 
     if(!isVillageBiome[villageBiomeList[0]])
     {
-        uint i;
+        unsigned int i;
         for(i = 0; i < sizeof(villageBiomeList) / sizeof(int); i++)
         {
             isVillageBiome[ villageBiomeList[i] ] = 1;
@@ -1166,14 +1157,15 @@ int isViableVillagePos(const LayerStack g, int *cache, const long blockX, const 
     return areBiomesViable(g, cache, blockX, blockZ, 0, isVillageBiome);
 }
 
-int isViableOceanMonumentPos(const LayerStack g, int *cache, const long blockX, const long blockZ)
+int isViableOceanMonumentPos(const LayerStack g, int *cache,
+        const int64_t blockX, const int64_t blockZ)
 {
     static int isWaterBiome[0x100];
     static int isDeepOcean[0x100];
 
     if(!isWaterBiome[oceanMonumentBiomeList[0]])
     {
-        uint i;
+        unsigned int i;
         for(i = 0; i < sizeof(oceanMonumentBiomeList) / sizeof(int); i++)
         {
             isWaterBiome[ oceanMonumentBiomeList[i] ] = 1;
@@ -1186,13 +1178,14 @@ int isViableOceanMonumentPos(const LayerStack g, int *cache, const long blockX, 
             areBiomesViable(g, cache, blockX, blockZ, 29, isWaterBiome);
 }
 
-int isViableMansionPos(const LayerStack g, int *cache, const long blockX, const long blockZ)
+int isViableMansionPos(const LayerStack g, int *cache,
+        const int64_t blockX, const int64_t blockZ)
 {
     static int isMansionBiome[0x100];
 
     if(!isMansionBiome[mansionBiomeList[0]])
     {
-        uint i;
+        unsigned int i;
         for(i = 0; i < sizeof(mansionBiomeList) / sizeof(int); i++)
         {
             isMansionBiome[ mansionBiomeList[i] ] = 1;
@@ -1274,12 +1267,12 @@ int getBiomeRadius(
  *
  * Returns the number of found candidates.
  */
-long filterAllTempCats(
+int64_t filterAllTempCats(
         LayerStack *g,
         int *cache,
-        const long *seedsIn,
-        long *seedsOut,
-        const long seedCnt,
+        const int64_t *seedsIn,
+        int64_t *seedsOut,
+        const int64_t seedCnt,
         const int centX,
         const int centZ)
 {
@@ -1316,7 +1309,7 @@ long filterAllTempCats(
     Layer layerSpecial;
     setupLayer(1024, &layerSpecial, NULL, 3, NULL);
 
-    long sidx, hits, seed;
+    int64_t sidx, hits, seed;
     int types[9];
     int specialCnt;
     int i, j;
@@ -1339,7 +1332,7 @@ long filterAllTempCats(
         {
             for(j = 0; j < sZ; j++)
             {
-                setChunkSeed(&layerSpecial, (long)(i+pX), (long)(j+pZ));
+                setChunkSeed(&layerSpecial, (int64_t)(i+pX), (int64_t)(j+pZ));
                 if(mcNextInt(&layerSpecial, 13) == 0)
                     specialCnt++;
             }
@@ -1352,7 +1345,7 @@ long filterAllTempCats(
 
         /***  Cold/Warm Check  ***/
 
-        // Continue by checking if enough cold and warm categories are present.#
+        // Continue by checking if enough cold and warm categories are present.
         setWorldSeed(lFilterSnow, seed);
         genArea(lFilterSnow, map, pX,pZ, sX,sZ);
 
@@ -1431,23 +1424,23 @@ const int majorBiomes[] = {
  *
  * Returns the number of seeds found.
  */
-long filterAllMajorBiomes(
+int64_t filterAllMajorBiomes(
         LayerStack *g,
         int *cache,
-        const long *seedsIn,
-        long *seedsOut,
-        const long seedCnt,
+        const int64_t *seedsIn,
+        int64_t *seedsOut,
+        const int64_t seedCnt,
         const int pX,
         const int pZ,
-        const uint sX,
-        const uint sZ)
+        const unsigned int sX,
+        const unsigned int sZ)
 {
     Layer *lFilterMushroom = &g->layers[L_ADD_MUSHROOM_ISLAND_256];
     Layer *lFilterBiomes = &g->layers[L_BIOME_256];
 
     int *map;
-    long sidx, seed, hits;
-    uint i, id, hasAll;
+    int64_t sidx, seed, hits;
+    unsigned int i, id, hasAll;
 
     int types[BIOME_NUM];
 

@@ -2,6 +2,9 @@
 #define LAYER_H_
 
 #include <stdlib.h>
+#include <stdint.h>
+#include <inttypes.h>
+
 
 #if defined USE_SIMD && __AVX2__
 #include <emmintrin.h>
@@ -50,20 +53,16 @@ STRUCT(Biome) {
 };
 
 STRUCT(Layer) {
-    long baseSeed;  // Generator seed (depends only on hierarchy of generator)
-    long worldSeed; // based on the seed of the world
+    int64_t baseSeed;  // Generator seed (depends only on hierarchy of generator)
+    int64_t worldSeed; // based on the seed of the world
 
-    long chunkSeed; // randomiser seed
+    int64_t chunkSeed; // randomiser seed
 
     int scale;      // map scale of this layer (map entry = scale x scale blocks)
 
     void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h);
 
     Layer *p, *p2;
-
-    // Maybe there's a better way to make the mapHills layer threadsafe...
-    int bufsize;
-    int *buf;
 };
 
 extern Biome biomes[256];
@@ -73,7 +72,7 @@ extern Biome biomes[256];
 void initBiomes();
 
 
-void setWorldSeed(Layer *layer, long seed);
+void setWorldSeed(Layer *layer, int64_t seed);
 
 
 
@@ -149,39 +148,39 @@ static inline int isBiomeSnowy(int id)
 
 static inline int mcNextInt(Layer *layer, int mod)
 {
-    int ret = (int)((layer->chunkSeed >> 24) % (long)mod);
+    int ret = (int)((layer->chunkSeed >> 24) % (int64_t)mod);
 
     if (ret < 0)
     {
         ret += mod;
     }
 
-    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->chunkSeed += layer->worldSeed;
     return ret;
 }
 
-static inline void setChunkSeed(Layer *layer, long chunkX, long chunkZ)
+static inline void setChunkSeed(Layer *layer, int64_t chunkX, int64_t chunkZ)
 {
     layer->chunkSeed =  layer->worldSeed;
-    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->chunkSeed += chunkX;
-    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->chunkSeed += chunkZ;
-    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->chunkSeed += chunkX;
-    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->chunkSeed += chunkZ;
 }
 
-static inline void setBaseSeed(Layer *layer, long seed)
+static inline void setBaseSeed(Layer *layer, int64_t seed)
 {
     layer->baseSeed = seed;
-    layer->baseSeed *= layer->baseSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->baseSeed *= layer->baseSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->baseSeed += seed;
-    layer->baseSeed *= layer->baseSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->baseSeed *= layer->baseSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->baseSeed += seed;
-    layer->baseSeed *= layer->baseSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->baseSeed *= layer->baseSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->baseSeed += seed;
 
     layer->p = NULL;
@@ -387,6 +386,7 @@ void mapRareBiome(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapShore(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapRiverMix(Layer *l, int * __restrict out, int x, int z, int w, int h);
 
+// TODO: 1.13 updated again and these functions are outdated!
 void mapOceanTemp(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight);
 void mapEdgeOcean(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight);
 void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight);
