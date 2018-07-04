@@ -24,15 +24,16 @@ typedef struct {
 enum BiomeConfigs {
     noneCfg = -1,
     oceanCfg = 0,
-    flowerForestCfg,
-    iceSpikesCfg,
     jungleCfg,
     megaTaigaCfg,
     mesaCfg,
     mushroomIslandCfg,
+    flowerForestCfg,
+    iceSpikesCfg,
+    mesaBryceCfg,
     sunflowerPlainsCfg,
 };
-#define NUM_BIOME_SEARCH_CONFIGS 8
+#define NUM_BIOME_SEARCH_CONFIGS 9
 
 typedef struct {
     char name[20];
@@ -118,29 +119,22 @@ void initSearchConfig(
 
 
 void initSearchConfigs() {
+    // Ocean spawns are interesting for survival island situations, or for
+    // spawn-proofing the spawn chunks for passive mob farms.
     initSearchConfig(
             "ocean",
             &biomeSearchConfigs[oceanCfg], 0.85f,
             3, (int[]){ocean, frozenOcean, deepOcean},
             0, (int[]){});
 
-    initSearchConfig(
-            "flower forest",
-            &biomeSearchConfigs[flowerForestCfg], 0.65f,
-            1, (int[]){forest+128},
-            3, (int[]){river, ocean, deepOcean});
-
-    initSearchConfig(
-            "ice spikes",
-            &biomeSearchConfigs[iceSpikesCfg], 0.75f,
-            1, (int[]){icePlains+128},
-            7, (int[]){icePlains, iceMountains, frozenRiver,
-                       river, frozenOcean, ocean, deepOcean});
-
+    // Jungle, mega taiga and mesa biomes are considered "special" by the biome
+    // generator, making them more rare (even though they tend to be large),
+    // and have unique items.
     initSearchConfig(
             "jungle",
             &biomeSearchConfigs[jungleCfg], 0.95f,
-            5, (int[]){jungle, jungleHills, jungleEdge, jungle+128, jungleEdge+128},
+            5, (int[]){jungle, jungleHills, jungleEdge,
+                       jungle+128, jungleEdge+128},
             3, (int[]){river, ocean, deepOcean});
 
     initSearchConfig(
@@ -157,17 +151,43 @@ void initSearchConfigs() {
                        mesa+128, mesaPlateau_F+128, mesaPlateau+128},
             3, (int[]){river, ocean, deepOcean});
 
+    // Mushroom islands are treated uniquely by the biome generator.
     initSearchConfig(
             "mushroom island",
             &biomeSearchConfigs[mushroomIslandCfg], 0.50f,
             2, (int[]){mushroomIsland, mushroomIslandShore},
             3, (int[]){river, ocean, deepOcean});
 
+    // These are the interesting M (mutated) biomes. Some other M or "hills"
+    // biomes are rare, but are not interesting at all; "Jungle Edge M" is the
+    // rarest biome, but who cares?
+    initSearchConfig(
+            "flower forest",
+            &biomeSearchConfigs[flowerForestCfg], 0.65f,
+            1, (int[]){forest+128},
+            3, (int[]){river, ocean, deepOcean});
+
+    initSearchConfig(
+            "ice spikes",
+            &biomeSearchConfigs[iceSpikesCfg], 0.75f,
+            1, (int[]){icePlains+128},
+            7, (int[]){icePlains, iceMountains, frozenRiver,
+                       river, frozenOcean, ocean, deepOcean});
+
+    initSearchConfig(
+            "mesa bryce",
+            &biomeSearchConfigs[mesaBryceCfg], 0.75f,
+            1, (int[]){mesa+128},
+            8, (int[]){mesa, mesaPlateau_F, mesaPlateau,
+                       mesaPlateau_F+128, mesaPlateau+128,
+                       river, ocean, deepOcean});
+
     initSearchConfig(
             "sunflower plains",
             &biomeSearchConfigs[sunflowerPlainsCfg], 0.65f,
             1, (int[]){plains+128},
             3, (int[]){river, ocean, deepOcean});
+
 }
 
 
@@ -190,8 +210,8 @@ void usage() {
     fprintf(stderr, "    --all_biomes\n");
     fprintf(stderr, "      Search for all biomes within search radius.\n");
     fprintf(stderr, "    --spawn_biomes=<string>\n");
-    fprintf(stderr, "      ocean, flower_forest, ice_spikes, jungle,\n");
-    fprintf(stderr, "      mega_taiga, mesa, mushroom_island or\n");
+    fprintf(stderr, "      ocean, jungle, mega_taiga, mesa, mushroom_island,\n");
+    fprintf(stderr, "      flower_forest, ice_spikes, mesa_bryce or\n");
     fprintf(stderr, "      sunflower_plains.\n");
     fprintf(stderr, "    --monument_distance=<integer>\n");
     fprintf(stderr, "      Search for an ocean monument within a number of\n");
@@ -260,15 +280,6 @@ BiomeSearchConfig* parseSpawnBiome(const char *arg) {
     if (strcmp(arg, "ocean")                == 0)
         return &biomeSearchConfigs[oceanCfg];
 
-    if (strcmp(arg, "flower_forest")        == 0 ||
-            strcmp(arg, "flower")           == 0 ||
-            strcmp(arg, "flowerForest")     == 0)
-        return &biomeSearchConfigs[flowerForestCfg];
-
-    if (strcmp(arg, "ice_spikes")           == 0 ||
-            strcmp(arg, "iceSpikes")        == 0)
-        return &biomeSearchConfigs[iceSpikesCfg];
-
     if (strcmp(arg, "jungle")               == 0)
         return &biomeSearchConfigs[jungleCfg];
 
@@ -283,6 +294,20 @@ BiomeSearchConfig* parseSpawnBiome(const char *arg) {
             strcmp(arg, "mushroom")         == 0 ||
             strcmp(arg, "mushroomIsland")   == 0)
         return &biomeSearchConfigs[mushroomIslandCfg];
+
+    if (strcmp(arg, "flower_forest")        == 0 ||
+            strcmp(arg, "flower")           == 0 ||
+            strcmp(arg, "flowerForest")     == 0)
+        return &biomeSearchConfigs[flowerForestCfg];
+
+    if (strcmp(arg, "ice_spikes")           == 0 ||
+            strcmp(arg, "iceSpikes")        == 0)
+        return &biomeSearchConfigs[iceSpikesCfg];
+
+    if (strcmp(arg, "mesa_bryce")           == 0 ||
+            strcmp(arg, "mesaBryce")        == 0 ||
+            strcmp(arg, "bryce")            == 0)
+        return &biomeSearchConfigs[mesaBryceCfg];
 
     if (strcmp(arg, "sunflower")            == 0 ||
             strcmp(arg, "sunflower_plains") == 0 ||
@@ -574,39 +599,40 @@ int getBiomeGroup(int biome) {
         case frozenOcean:
         case deepOcean:
             return 1;
-        case forest+128:            // Flower Forest
-            return 2;
-        case icePlains+128:         // Ice Spikes
-            return 3;
         case jungle:
         case jungleHills:
         case jungleEdge:
         case jungle+128:            // Jungle M
         case jungleEdge+128:        // Jungle Edge M
-            return 4;
+            return 2;
         case megaTaiga:
         case megaTaigaHills:
         case megaTaiga+128:         // Mega Spruce Taiga
         case megaTaigaHills+128:    // Mega Spruce Taiga Hills
-            return 5;
+            return 3;
         case mesa:
         case mesaPlateau_F:
         case mesaPlateau:
-        case mesa+128:              // Mesa Bryce
         case mesaPlateau_F+128:     // Mesa Plateau F M
         case mesaPlateau+128:       // Mesa Plateau M
-            return 6;
+            return 4;
         case mushroomIsland:
         case mushroomIslandShore:
+            return 5;
+        case forest+128:            // Flower Forest
+            return 6;
+        case icePlains+128:         // Ice Spikes
             return 7;
-        case plains+128:            // Sunflower plains
+        case mesa+128:              // Mesa Bryce
             return 8;
+        case plains+128:            // Sunflower plains
+            return 9;
     }
     return 0;
 }
 
 
-#define NUM_ALL_BIOMES 9
+#define NUM_ALL_BIOMES 10
 int hasAllBiomes(LayerStack *g, Pos spawn, int radius) {
     Layer *lShoreBiome = &g->layers[L_SHORE_16];
     int biomeCounts[NUM_ALL_BIOMES] = {0};
@@ -850,7 +876,7 @@ int main(int argc, char *argv[])
     fprintf(stderr,
             "Searching base seeds %ld-%ld, radius %d using %d threads...\n",
             opts.startSeed, opts.endSeed, opts.radius, opts.threads);
-    if (opts.outputDir) {
+    if (*opts.outputDir) {
         if (opts.append)
             fprintf(stderr, "Appending to files in \"%s\"...\n", opts.outputDir);
         else
