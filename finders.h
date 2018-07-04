@@ -357,8 +357,8 @@ int64_t filterAllMajorBiomes(
         const int64_t seedCnt,
         const int pX,
         const int pZ,
-        const uint sX,
-        const uint sZ
+        const unsigned int sX,
+        const unsigned int sZ
         );
 
 /********************** C copy of the Java Random methods **********************

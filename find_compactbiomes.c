@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
     initBiomes();
 
     int64_t seedStart, seedEnd;
-    uint threads, t;
+    unsigned int threads, t;
 
     if(argc <= 1 || sscanf(argv[1], "%ld", &seedStart) != 1) seedStart = 0;
     if(argc <= 2 || sscanf(argv[2], "%ld", &seedEnd) != 1) seedEnd = 100000000L;
