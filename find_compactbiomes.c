@@ -46,7 +46,7 @@ void *searchCompactBiomesThread(void *data)
 
         for(i = 0; i < scnt; i++)
         {
-            printf("%ld\n", seeds[i]);
+            printf("%"PRId64"\n", seeds[i]);
         }
         fflush(stdout);
     }
@@ -64,11 +64,11 @@ int main(int argc, char *argv[])
     int64_t seedStart, seedEnd;
     unsigned int threads, t;
 
-    if(argc <= 1 || sscanf(argv[1], "%ld", &seedStart) != 1) seedStart = 0;
-    if(argc <= 2 || sscanf(argv[2], "%ld", &seedEnd) != 1) seedEnd = 100000000L;
+    if(argc <= 1 || sscanf(argv[1], "%"PRId64, &seedStart) != 1) seedStart = 0;
+    if(argc <= 2 || sscanf(argv[2], "%"PRId64, &seedEnd) != 1) seedEnd = 100000000LL;
     if(argc <= 3 || sscanf(argv[3], "%u", &threads) != 1) threads = 1;
 
-    printf("Starting search through seeds %ld to %ld, using %u threads.\n", seedStart, seedEnd, threads);
+    printf("Starting search through seeds %"PRId64 " to %"PRId64", using %u threads.\n", seedStart, seedEnd, threads);
 
     pthread_t threadID[threads];
     struct compactinfo_t info[threads];

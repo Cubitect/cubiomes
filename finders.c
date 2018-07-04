@@ -61,8 +61,6 @@ Biome biomes[256];
  */
 
 
-#define SEEDMAX (1L << 48)
-
 
 typedef struct quad_threadinfo_t
 {
@@ -115,27 +113,27 @@ int isQuadFeatureBase(const int64_t structureSeed, const int64_t seed,
     int64_t s;
 
     s = (reg00base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 < upper) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 < upper) return 0;
 
     s = (reg01base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 > lower) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 < upper) return 0;
 
     s = (reg10base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 < upper) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 > lower) return 0;
 
     s = (reg11base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 > lower) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 > lower) return 0;
 
     return 1;
@@ -155,35 +153,35 @@ int isTriFeatureBase(const int64_t structureSeed, const int64_t seed,
     int missing = 0;
 
     s = (reg00base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 < upper ||
-      (((s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff) >> 17) % 24 < upper)
+      (((s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff) >> 17) % 24 < upper)
     {
         missing++;
     }
 
     s = (reg01base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 > lower ||
-      (((s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff) >> 17) % 24 < upper)
+      (((s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff) >> 17) % 24 < upper)
     {
         if(missing) return 0;
         missing++;
     }
 
     s = (reg10base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 < upper ||
-      (((s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff) >> 17) % 24 > lower)
+      (((s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff) >> 17) % 24 > lower)
     {
         if(missing) return 0;
         missing++;
     }
 
     s = (reg11base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     if((s >> 17) % 24 > lower ||
-      (((s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff) >> 17) % 24 > lower)
+      (((s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff) >> 17) % 24 > lower)
     {
         if(missing) return 0;
     }
@@ -209,72 +207,72 @@ int isQuadMonumentBase(const int64_t seed, const int qual)
 
     /*
     seed = regionX*341873128712 + regionZ*132897987541 + seed + 10387313;
-    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
+    seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x = (seed >> 17) % 27;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x += (seed >> 17) % 27;
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z = (seed >> 17) % 27;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z += (seed >> 17) % 27;
     */
 
     s = (reg00base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p < 26-qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p < 2*26-qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p < 26-qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p < 2*26-qual) return 0;
 
     s = (reg01base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p > qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p > qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p < 26-qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p < 2*26-qual) return 0;
 
     s = (reg10base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p < 26-qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p < 2*26-qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p > qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p > qual) return 0;
 
     s = (reg11base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p > qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p > qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p > qual) return 0;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p > qual) return 0;
 
@@ -295,30 +293,30 @@ int isTriMonumentBase(const int64_t seed, const int qual)
 
     /*
     seed = regionX*341873128712 + regionZ*132897987541 + seed + 10387313;
-    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
+    seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x = (seed >> 17) % 27;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x += (seed >> 17) % 27;
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z = (seed >> 17) % 27;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z += (seed >> 17) % 27;
     */
 
     s = (reg00base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p < 26-qual) goto incomp11;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p < 2*26-qual) goto incomp11;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p < 26-qual) goto incomp11;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p < 2*26-qual) goto incomp11;
 
@@ -329,16 +327,16 @@ int isTriMonumentBase(const int64_t seed, const int qual)
     }
 
     s = (reg01base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p > qual) goto incomp01;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p > qual) goto incomp01;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p < 26-qual) goto incomp01;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p < 2*26-qual) goto incomp01;
 
@@ -350,16 +348,16 @@ int isTriMonumentBase(const int64_t seed, const int qual)
     }
 
     s = (reg10base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p < 26-qual) goto incomp10;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p < 2*26-qual) goto incomp10;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p > qual) goto incomp10;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p > qual) goto incomp10;
 
@@ -371,16 +369,16 @@ int isTriMonumentBase(const int64_t seed, const int qual)
     }
 
     s = (reg11base + seed) ^ 0x5DEECE66DL; // & 0xffffffffffff;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p > qual) goto incomp00;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p > qual) goto incomp00;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p = (s >> 17) % 27;
     if(p > qual) goto incomp00;
-    s = (s * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    s = (s * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     p += (s >> 17) % 27;
     if(p > qual) goto incomp00;
 
@@ -471,7 +469,7 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt)
 
     while(!feof(fp))
     {
-        if(fscanf(fp, "%ld", &seed) == 1) (*scnt)++;
+        if(fscanf(fp, "%"PRId64, &seed) == 1) (*scnt)++;
         else while(!feof(fp) && fgetc(fp) != '\n');
     }
 
@@ -481,7 +479,7 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt)
 
     for(int64_t i = 0; i < *scnt && !feof(fp);)
     {
-        if(fscanf(fp, "%ld", &baseSeeds[i]) == 1) i++;
+        if(fscanf(fp, "%"PRId64, &baseSeeds[i]) == 1) i++;
         else while(!feof(fp) && fgetc(fp) != '\n');
     }
 
@@ -557,14 +555,14 @@ static void *search4QuadBasesThread(void *data)
         {
             char *last_newline = strrchr(buf, '\n');
 
-            if(sscanf(last_newline, "%ld", &seed) == 1)
+            if(sscanf(last_newline, "%"PRId64, &seed) == 1)
             {
                 while(lowerBits[lowerBitsIdx] <= (seed & 0xffff))
                     lowerBitsIdx++;
 
                 seed = (seed & 0x0000ffffffff0000) + lowerBits[lowerBitsIdx];
 
-                printf("Thread %d starting from: %ld\n", info.threadID, seed);
+                printf("Thread %d starting from: %"PRId64"\n", info.threadID, seed);
             }
             else
             {
@@ -581,9 +579,9 @@ static void *search4QuadBasesThread(void *data)
     {
         if(isQuadFeatureBase(structureSeed, seed, lower, upper))
         {
-            fprintf(fp, "%ld\n", seed);
+            fprintf(fp, "%"PRId64"\n", seed);
             fflush(fp);
-            //printf("Thread %d: %ld\n", info.threadID, seed);
+            //printf("Thread %d: %"PRId64"\n", info.threadID, seed);
         }
 
         lowerBitsIdx++;
@@ -706,12 +704,12 @@ Pos getStructurePos(const int64_t structureSeed, int64_t seed,
 
     // set seed
     seed = regionX*341873128712 + regionZ*132897987541 + seed + structureSeed;
-    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
+    seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x = (seed >> 17) % 24;
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z = (seed >> 17) % 24;
 
     pos.x = regionX*512 + (pos.x << 4) + 8;
@@ -742,12 +740,12 @@ Pos getStructureChunkInRegion(const int64_t structureSeed, int64_t seed,
 
     // set seed
     seed = regionX*341873128712 + regionZ*132897987541 + seed + structureSeed;
-    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
+    seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x = (seed >> 17) % 24;
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z = (seed >> 17) % 24;
 
     return pos;
@@ -766,16 +764,16 @@ Pos getOceanMonumentPos(int64_t seed, const int64_t regionX, const int64_t regio
 
     // set seed
     seed = regionX*341873128712 + regionZ*132897987541 + seed + MONUMENT_SEED;
-    seed = (seed ^ 0x5DEECE66DL) & ((1L << 48) - 1);
+    seed = (seed ^ 0x5DEECE66DLL) & ((1LL << 48) - 1);
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x = (seed >> 17) % 27;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x += (seed >> 17) % 27;
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z = (seed >> 17) % 27;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z += (seed >> 17) % 27;
 
     pos.x = regionX*32 + (pos.x >> 1);
@@ -799,16 +797,16 @@ Pos getMansionPos(int64_t seed, const int64_t area80X, const int64_t area80Z)
 
     // set seed
     seed = area80X*341873128712 + area80Z*132897987541 + seed + MANSION_SEED;
-    seed = (seed ^ 0x5DEECE66DL);// & ((1L << 48) - 1);
+    seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x = (seed >> 17) % 60;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.x += (seed >> 17) % 60;
 
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z = (seed >> 17) % 60;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
     pos.z += (seed >> 17) % 60;
 
     pos.x = area80X*80 + (pos.x >> 1);

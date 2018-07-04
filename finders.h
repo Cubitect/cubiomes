@@ -9,7 +9,7 @@
 
 
 #define THREADS 6
-#define SEEDMAX (1L << 48)
+#define SEEDMAX (1LL << 48)
 
 #define FEATURE_SEED        14357617
 #define VILLAGE_SEED        10387312
@@ -366,12 +366,12 @@ int64_t filterAllMajorBiomes(
 
 static inline void setSeed(int64_t *seed)
 {
-    *seed = (*seed ^ 0x5DEECE66DL) & ((1L << 48) - 1);
+    *seed = (*seed ^ 0x5DEECE66DLL) & ((1LL << 48) - 1);
 }
 
 static inline int next(int64_t *seed, const int bits)
 {
-    *seed = (*seed * 0x5DEECE66DL + 0xBL) & ((1L << 48) - 1);
+    *seed = (*seed * 0x5DEECE66DLL + 0xBLL) & ((1LL << 48) - 1);
     return (int) (*seed >> (48 - bits));
 }
 
@@ -398,7 +398,7 @@ static inline float nextFloat(int64_t *seed)
 
 static inline double nextDouble(int64_t *seed)
 {
-    return (((int64_t) next(seed, 26) << 27) + next(seed, 27)) / (double) (1L << 53);
+    return (((int64_t) next(seed, 26) << 27) + next(seed, 27)) / (double) (1LL << 53);
 }
 
 
@@ -431,13 +431,13 @@ static inline int secondInt24(int64_t seed)
 static inline int64_t invSeed48(int64_t nseed)
 {
     const int64_t x = 0x5deece66d;
-    const int64_t xinv = 0xdfe05bcb1365L;
-    const int64_t y = 0xbL;
-    const int64_t m48 = 0xffffffffffffL;
+    const int64_t xinv = 0xdfe05bcb1365LL;
+    const int64_t y = 0xbLL;
+    const int64_t m48 = 0xffffffffffffLL;
 
     int64_t a = nseed >> 32;
-    int64_t b = nseed & 0xffffffffL;
-    if(b & 0x80000000L) a++;
+    int64_t b = nseed & 0xffffffffLL;
+    if(b & 0x80000000LL) a++;
 
     int64_t q = ((b << 16) - y - (a << 16)*x) & m48;
     for(int64_t k = 0; k <= 5; k++)

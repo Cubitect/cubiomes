@@ -116,11 +116,11 @@ void setWorldSeed(Layer *layer, int64_t seed)
         setWorldSeed(layer->p, seed);
 
     layer->worldSeed = seed;
-    layer->worldSeed *= layer->worldSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->worldSeed *= layer->worldSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->worldSeed += layer->baseSeed;
-    layer->worldSeed *= layer->worldSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->worldSeed *= layer->worldSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->worldSeed += layer->baseSeed;
-    layer->worldSeed *= layer->worldSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->worldSeed *= layer->worldSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->worldSeed += layer->baseSeed;
 }
 
@@ -135,7 +135,7 @@ void mapIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWid
     register int x, z;
 
     const int64_t ws = l->worldSeed;
-    const int64_t ss = ws * (ws * 6364136223846793005L + 1442695040888963407L);
+    const int64_t ss = ws * (ws * 6364136223846793005LL + 1442695040888963407LL);
 
     for(z = 0; z < areaHeight; z++)
     {
@@ -145,11 +145,11 @@ void mapIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWid
             const int64_t chunkZ = (int64_t)(z + areaZ);
             register int64_t cs = ss;
             cs += chunkX;
-            cs *= cs * 6364136223846793005L + 1442695040888963407L;
+            cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
             cs += chunkZ;
-            cs *= cs * 6364136223846793005L + 1442695040888963407L;
+            cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
             cs += chunkX;
-            cs *= cs * 6364136223846793005L + 1442695040888963407L;
+            cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
             cs += chunkZ;
 
             out[x + z*areaWidth] = (cs >> 24) % 10 == 0;
@@ -384,7 +384,7 @@ void mapAddIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int area
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
 
     const int64_t ws = l->worldSeed;
-    const int64_t ss = ws * (ws * 6364136223846793005L + 1442695040888963407L);
+    const int64_t ss = ws * (ws * 6364136223846793005LL + 1442695040888963407LL);
 
     for(z = 0; z < areaHeight; z++)
     {
@@ -425,11 +425,11 @@ void mapAddIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int area
 
                 register int64_t cs = ss;
                 cs += chunkX;
-                cs *= cs * 6364136223846793005L + 1442695040888963407L;
+                cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
                 cs += chunkZ;
-                cs *= cs * 6364136223846793005L + 1442695040888963407L;
+                cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
                 cs += chunkX;
-                cs *= cs * 6364136223846793005L + 1442695040888963407L;
+                cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
                 cs += chunkZ;
 
                 if((cs >> 24) % 5 == 0)

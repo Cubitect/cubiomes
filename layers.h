@@ -3,6 +3,8 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <inttypes.h>
+
 
 #if defined USE_SIMD && __AVX2__
 #include <emmintrin.h>
@@ -153,7 +155,7 @@ static inline int mcNextInt(Layer *layer, int mod)
         ret += mod;
     }
 
-    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->chunkSeed += layer->worldSeed;
     return ret;
 }
@@ -161,24 +163,24 @@ static inline int mcNextInt(Layer *layer, int mod)
 static inline void setChunkSeed(Layer *layer, int64_t chunkX, int64_t chunkZ)
 {
     layer->chunkSeed =  layer->worldSeed;
-    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->chunkSeed += chunkX;
-    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->chunkSeed += chunkZ;
-    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->chunkSeed += chunkX;
-    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->chunkSeed *= layer->chunkSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->chunkSeed += chunkZ;
 }
 
 static inline void setBaseSeed(Layer *layer, int64_t seed)
 {
     layer->baseSeed = seed;
-    layer->baseSeed *= layer->baseSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->baseSeed *= layer->baseSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->baseSeed += seed;
-    layer->baseSeed *= layer->baseSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->baseSeed *= layer->baseSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->baseSeed += seed;
-    layer->baseSeed *= layer->baseSeed * 6364136223846793005L + 1442695040888963407L;
+    layer->baseSeed *= layer->baseSeed * 6364136223846793005LL + 1442695040888963407LL;
     layer->baseSeed += seed;
 
     layer->p = NULL;

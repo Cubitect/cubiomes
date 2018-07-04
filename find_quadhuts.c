@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
             if(getBiomeAtPos(g, qhpos[2]) != swampland) continue;
             if(getBiomeAtPos(g, qhpos[3]) != swampland) continue;
 
-            printf("%ld\n", seed);
+            printf("%"PRId64 "\n", seed);
             hits++;
         }
     }
