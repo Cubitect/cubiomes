@@ -10,6 +10,9 @@
 
 #define THREADS 6
 #define SEEDMAX (1L << 48)
+#define STRONGHOLD_CHUNKS 32.0
+#define PI 3.141592653589793
+#define TAU 6.283185307179586
 
 enum {SWAMP_HUT = 1, IGLOO, DESERT_TEMPLE, JUNGLE_TEMPLE};
 
@@ -38,6 +41,10 @@ STRUCT(Pos)
 
 extern Biome biomes[256];
 
+
+static inline int MIN(int a, int b) {
+    return a < b ? a : b;
+}
 
 
 /******************************** SEED FINDING *********************************
@@ -218,6 +225,19 @@ Pos findBiomePosition(
  * worldSeed : world seed used for the generator
  */
 void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, long worldSeed);
+
+/* findStrongholds
+ * ---------------------
+ * Finds up to 128 strongholds. Returns the number of strongholds found.
+ * Warning: Slow!
+ *
+ * g         : generator layer stack [world seed will be updated]
+ * cache     : biome buffer, set to NULL for temporary allocation
+ * locations : output block positions for the 128 strongholds
+ * worldSeed : world seed used for the generator
+ * maxRadius : If > 0, stop searching if the radius exceeds this value.
+ */
+int findStrongholds(LayerStack *g, int *cache, Pos *locations, long worldSeed, int maxRadius);
 
 /* getSpawn
  * --------

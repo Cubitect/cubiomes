@@ -59,8 +59,8 @@ typedef struct {
     int plentifulness;
     BiomeSearchConfig *spawnBiomes;
     int monumentDistance;
+    int strongholdDistance;
     int woodlandMansions;
-    // TODO: Stronghold near witch huts.
 
     // Search radius options
     int radius;
@@ -224,6 +224,9 @@ void usage() {
     fprintf(stderr, "    --monument_distance=<integer>\n");
     fprintf(stderr, "      Search for an ocean monument within a number of\n");
     fprintf(stderr, "      chunks of the quad hut perimeter.\n");
+    fprintf(stderr, "    --stronghold_distance=<integer>\n");
+    fprintf(stderr, "      Search for a stronghold within a number of\n");
+    fprintf(stderr, "      blocks of the quad hut perimeter.\n");
     fprintf(stderr, "    --woodland_mansions=<integer>\n");
     fprintf(stderr, "      Search for a number of nearby woodland mansions.\n");
     fprintf(stderr, "    --radius=<integer>\n");
@@ -347,6 +350,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         .plentifulness        = 75,
         .spawnBiomes          = NULL,
         .monumentDistance     = 0,
+        .strongholdDistance   = 0,
         .woodlandMansions     = 0,
         .radius               = 2048,
         .biomeRadius          = 0,
@@ -369,6 +373,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             {"plentifulness",         required_argument, NULL, 'P'},
             {"spawn_biomes",          required_argument, NULL, 'b'},
             {"monument_distance",     required_argument, NULL, 'm'},
+            {"stronghold_distance",   required_argument, NULL, 'z'},
             {"woodland_mansions",     required_argument, NULL, 'w'},
             {"radius",                required_argument, NULL, 'r'},
             {"biome_radius",          required_argument, NULL, 'B'},
@@ -377,7 +382,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         };
         int index = 0;
         c = getopt_long(argc, argv,
-                "hXs:e:t:o:AS:ap:P:b:m:w:r:B:H:M:", longOptions, &index);
+                "hXs:e:t:o:AS:ap:P:b:m:z:w:r:B:H:M:", longOptions, &index);
 
         if (c == -1)
             break;
@@ -443,6 +448,10 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 break;
             case 'm':
                 opts.monumentDistance = parseIntArgument(
+                        optarg, longOptions[index].name);
+                break;
+            case 'z':
+                opts.strongholdDistance = parseIntArgument(
                         optarg, longOptions[index].name);
                 break;
             case 'w':
@@ -548,6 +557,29 @@ int verifyMonuments(LayerStack *g, Monuments *mon, int rX, int rZ) {
             return 1;
         }
     }
+    return 0;
+}
+
+
+int hasStronghold(LayerStack *g, long seed, int maxDistance, Pos qhpos[4]) {
+    Pos strongholds[128];
+    // Approximateish center of quad hut formation.
+    int cx = (qhpos[0].x + qhpos[1].x + qhpos[2].x + qhpos[3].x) / 4;
+    int cz = (qhpos[0].z + qhpos[1].z + qhpos[2].z + qhpos[3].z) / 4;
+
+    // Quit searching strongholds in outer rings; include a fudge factor.
+    int maxRadius = (int)round(sqrt(cx*cx + cz*cz)) + maxDistance + 16;
+
+    // TODO: preallocate cache
+    int count = findStrongholds(g, NULL, strongholds, seed, maxRadius);
+
+    for (int i=0; i<count; i++) {
+        int dx = strongholds[i].x - cx;
+        int dz = strongholds[i].z - cz;
+        if (dx*dx + dz*dz <= maxDistance*maxDistance)
+            return 1;
+    }
+
     return 0;
 }
 
@@ -848,11 +880,16 @@ void *searchQuadHutsThread(void *data) {
                         continue;
                     hutHits++;
 
-                    // This check has to get exact biomes for a whole area, so
-                    // is relatively slow. It might be a bit faster if we
-                    // preallocate a cache and stuff, but it might be marginal.
+                    // These checks are a tad slow because they have to get full
+                    // biomes for a bit of an area. They might be a bit faster
+                    // if we preallocate a cache and stuff, but it might be
+                    // marginal.
                     if (opts.monumentDistance &&
                             !verifyMonuments(&g, &monuments, rX, rZ))
+                        continue;
+
+                    if (opts.strongholdDistance &&
+                            !hasStronghold(&g, seed, opts.strongholdDistance, qhpos))
                         continue;
 
                     if (opts.woodlandMansions &&
@@ -863,12 +900,12 @@ void *searchQuadHutsThread(void *data) {
                         // TODO: Preallocate cache?
                         Pos spawn = getSpawn(&g, NULL, seed);
 
-                        // This check is slow.
+                        // This has to get more biome area, so is slower.
                         if (opts.spawnBiomes
                                 && !hasSpawnBiome(&g, spawn, opts.spawnBiomes))
                             continue;
 
-                        // These checks are very slow.
+                        // These have to get a lot of biome area, so very slow.
                         if (opts.allBiomes || opts.plentifulBiome) {
                             getAreaBiomes(shoreCache, &g, spawn, biomeRadius);
                             if (opts.allBiomes
@@ -935,6 +972,10 @@ int main(int argc, char *argv[])
     if (opts.monumentDistance) {
         fprintf(stderr, "Looking for an ocean monument within %d chunks of quad hut perimeter.\n",
                 opts.monumentDistance);
+    }
+    if (opts.strongholdDistance) {
+        fprintf(stderr, "Looking for a stronghold within %d blocks of quad hut center.\n",
+                opts.strongholdDistance);
     }
     if (opts.woodlandMansions) {
         fprintf(stderr, "Looking for %d woodland mansions within %d blocks.\n",

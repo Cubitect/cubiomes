@@ -935,6 +935,17 @@ Pos findBiomePosition(
 }
 
 
+void populateValidStrongholdBiomes(int *validStrongholdBiomes) {
+    if(!validStrongholdBiomes[plains])
+    {
+        int id;
+        for(id = 0; id < 256; id++)
+        {
+            if(biomeExists(id) && biomes[id].height > 0.0) validStrongholdBiomes[id] = 1;
+        }
+    }
+}
+
 /* findStrongholds_pre19
  * ---------------------
  * Finds the 3 stronghold positions for the specified world seed up to MC 1.9.
@@ -951,32 +962,68 @@ void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, long world
     const int SHNUM = 3;
     int i;
 
-    if(!validStrongholdBiomes[plains])
-    {
-        int id;
-        for(id = 0; id < 256; id++)
-        {
-            if(biomeExists(id) && biomes[id].height > 0.0) validStrongholdBiomes[id] = 1;
-        }
-    }
+    populateValidStrongholdBiomes(validStrongholdBiomes);
 
     setWorldSeed(&g->layers[L_RIVER_MIX_4], worldSeed);
 
     setSeed(&worldSeed);
-    double angle = nextDouble(&worldSeed) * 3.141592653589793 * 2.0;
+    double angle = nextDouble(&worldSeed) * PI * 2.0;
 
 
     for(i = 0; i < SHNUM; i++)
     {
-        double distance = (1.25 + nextDouble(&worldSeed)) * 32.0;
+        double distance = (1.25 + nextDouble(&worldSeed)) * STRONGHOLD_CHUNKS;
         int x = (int)round(cos(angle) * distance);
         int z = (int)round(sin(angle) * distance);
 
         locations[i] = findBiomePosition(*g, cache, (x << 4) + 8, (z << 4) + 8, 112,
                 validStrongholdBiomes, &worldSeed, NULL);
 
-        angle += 6.283185307179586 / (double)SHNUM;
+        angle += TAU / (double)SHNUM;
     }
+}
+
+
+int findStrongholds(LayerStack *g, int *cache, Pos *locations, long worldSeed, int maxRadius) {
+    static int validStrongholdBiomes[256];
+    const int SHNUM = 128;
+    int i;
+
+    populateValidStrongholdBiomes(validStrongholdBiomes);
+
+    int currentRing = 0;
+    int currentCount = 0;
+    int perRing = 3;
+
+    setSeed(&worldSeed);
+    double angle = nextDouble(&worldSeed) * PI * 2.0;
+
+    for (i=0; i<SHNUM; i++) {
+        double distance = (4.0 * STRONGHOLD_CHUNKS) +
+            (6.0 * currentRing * STRONGHOLD_CHUNKS) +
+            (nextDouble(&worldSeed) - 0.5) * STRONGHOLD_CHUNKS * 2.5;
+
+        if (maxRadius && distance*16 > maxRadius)
+            return i;
+
+        int x = (int)round(cos(angle) * distance);
+        int z = (int)round(sin(angle) * distance);
+
+        locations[i] = findBiomePosition(*g, cache, (x << 4) + 8, (z << 4) + 8, 112,
+                validStrongholdBiomes, &worldSeed, NULL);
+        angle += TAU / perRing;
+        currentCount++;
+        if (currentCount == perRing) {
+            // Current ring is complete, move to next ring.
+            currentRing++;
+            currentCount = 0;
+            perRing = perRing + 2*perRing/(currentRing+1);
+            perRing = MIN(perRing, SHNUM-i);
+            angle = angle + nextDouble(&worldSeed) * PI * 2.0;
+        }
+    }
+
+    return SHNUM;
 }
 
 
