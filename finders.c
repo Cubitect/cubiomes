@@ -977,8 +977,8 @@ void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, int64_t wo
 
 /* findStrongholds
  * ---------------------
- * Finds up to 128 strongholds as in MC since 1.9. Returns the number of
- * strongholds found within the specified radius.
+ * Finds up to 128 strongholds which generate since MC 1.9. Returns the number
+ * of strongholds found within the specified radius.
  * Warning: Slow!
  *
  * g         : generator layer stack [world seed will be updated]
