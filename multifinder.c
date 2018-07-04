@@ -768,7 +768,7 @@ void *searchQuadHutsThread(void *data) {
         int basehits = 0;
 
         // The ocean monument check is quick and has a high probability
-        // of eliminating the seed, so perform that first.
+        // of eliminating the base seed, so perform that first.
         if (opts.monumentDistance) {
             monuments = potentialMonuments(
                     info.qhcandidates[i], opts.monumentDistance);
