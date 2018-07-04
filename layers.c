@@ -861,7 +861,6 @@ void mapBiomeEdge(Layer *l, int * __restrict out, int areaX, int areaZ, int area
 }
 
 
-/* This function is not threadsafe. */
 void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {
     int pX = areaX - 1;
@@ -878,13 +877,7 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
         exit(1);
     }
 
-    if(bufsize < pWidth*pHeight)
-    {
-        if(buf != NULL) free(buf);
-
-        bufsize = pWidth*pHeight;
-        buf = (int*)malloc(bufsize*sizeof(int));
-    }
+    buf = (int *) malloc(pWidth*pHeight*sizeof(int));
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
     memcpy(buf, out, pWidth*pHeight*sizeof(int));
@@ -982,6 +975,8 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
             }
         }
     }
+
+    free(buf);
 }
 
 
@@ -1202,7 +1197,8 @@ void mapShore(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
 void mapRiverMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {
     int idx;
-    int *buf = (int*)malloc(areaWidth*areaHeight*sizeof(int));
+    int len;
+    int *buf;
 
     if(l->p2 == NULL)
     {
@@ -1210,12 +1206,15 @@ void mapRiverMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
         exit(1);
     }
 
+    len = areaWidth*areaHeight;
+    buf = (int *) malloc(len*sizeof(int));
+
     l->p->getMap(l->p, out, areaX, areaZ, areaWidth, areaHeight); // biome chain
-    memcpy(buf, out, areaWidth*areaHeight*sizeof(int));
+    memcpy(buf, out, len*sizeof(int));
 
     l->p2->getMap(l->p2, out, areaX, areaZ, areaWidth, areaHeight); // rivers
 
-    for(idx = 0; idx < areaHeight*areaWidth; idx++)
+    for(idx = 0; idx < len; idx++)
     {
         if(isOceanic(buf[idx]))
         {

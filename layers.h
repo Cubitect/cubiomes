@@ -376,7 +376,6 @@ void mapDeepOcean(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapBiome(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapRiverInit(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapBiomeEdge(Layer *l, int * __restrict out, int x, int z, int w, int h);
-/* This function is not threadsafe. */
 void mapHills(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapRiver(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapSmooth(Layer *l, int * __restrict out, int x, int z, int w, int h);
