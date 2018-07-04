@@ -146,8 +146,7 @@ void search4QuadBases(const char *fnam, int threads, const int64_t structureSeed
 
 /* getBiomeAtPos
  * ----------------
- * Returns the biome for the specified block position. This function is not
- * threadsafe.
+ * Returns the biome for the specified block position.
  * (Alternatives should be considered in performance critical code.)
  * This function is not threadsafe.
  */
