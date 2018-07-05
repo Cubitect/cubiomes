@@ -10,7 +10,6 @@
 
 #define DEFAULT_WIDTH 3840*2
 #define DEFAULT_HEIGHT DEFAULT_WIDTH*9/16
-#define ICON_SIZE 16
 #define ICON_SCALE 4
 
 void setBiomeColour(unsigned char biomeColour[256][3], int biome,
@@ -185,14 +184,15 @@ void writeMap(LayerStack *g, FILE *fp, int width, int height) {
 }
 
 
-void addIcon(char *icon, int width, int height, Pos pos, int scale) {
-    int iconSize = ICON_SIZE*scale;
-    int realX = pos.x + width/2 - iconSize/2;
-    int realZ = pos.z + height/2 - iconSize/2;
+void addIcon(char *icon, int width, int height, Pos pos, int iconWidth, int iconHeight, int scale) {
+    int iconW = iconWidth*scale;
+    int iconH = iconHeight*scale;
+    int realX = pos.x + width/2 - iconW/2;
+    int realZ = pos.z + height/2 - iconH/2;
 
     // Just ignore icons that are off the edge of the map.
     if (realX < 0 || realZ < 0 ||
-            realX > width-iconSize || realZ > height-iconSize)
+            realX > width-iconW || realZ > height-iconH)
         return;
 
     printf("    \\( \"icon/%s.png\" -resize %d00%% \\) -geometry +%d+%d -composite \\\n",
@@ -217,7 +217,7 @@ void printCompositeCommand(LayerStack *g, int64_t seed, char *ppmfn, char *pngfn
 
     printf("convert \"%s\" -filter Point \\\n", ppmfn);
     Pos spawn = getSpawn(g, cache, seed);
-    addIcon("spawn", width, height, spawn, ICON_SCALE);
+    addIcon("spawn", width, height, spawn, 20, 20, ICON_SCALE);
 
     int rX = regionify(width/2, 32);
     int rZ = regionify(height/2, 32);
@@ -229,28 +229,45 @@ void printCompositeCommand(LayerStack *g, int64_t seed, char *ppmfn, char *pngfn
             pos = getStructurePos(DESERT_PYRAMID_SEED, seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == desert || biomeAt == desertHills)
-                addIcon("desert", width, height, pos, ICON_SCALE);
+                addIcon("desert", width, height, pos, 19, 20, ICON_SCALE);
 
             pos = getStructurePos(IGLOO_SEED, seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == icePlains || biomeAt == coldTaiga)
-                addIcon("igloo", width, height, pos, ICON_SCALE);
+                addIcon("igloo", width, height, pos, 20, 20, ICON_SCALE);
 
             pos = getStructurePos(JUNGLE_PYRAMID_SEED, seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == jungle || biomeAt == jungleHills)
-                addIcon("jungle", width, height, pos, ICON_SCALE);
+                addIcon("jungle", width, height, pos, 19, 20, ICON_SCALE);
 
             pos = getStructurePos(SWAMP_HUT_SEED, seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == swampland)
-                addIcon("witch", width, height, pos, ICON_SCALE);
+                addIcon("witch", width, height, pos, 20, 27, ICON_SCALE);
+
+            pos = getOceanMonumentPos(seed, x, z);
+            if (isViableOceanMonumentPos(*g, cache, pos.x, pos.z))
+                addIcon("ocean_monument", width, height, pos, 20, 20, ICON_SCALE);
         }
     }
+
+    rX = regionify(width/2, 80);
+    rZ = regionify(height/2, 80);
+    for (int z=-rZ; z<rZ; z++) {
+        for (int x=-rX; x<rX; x++) {
+            Pos pos = getMansionPos(seed, x, z);
+            if (isViableMansionPos(*g, cache, pos.x, pos.z))
+                addIcon("woodland_mansion", width, height, pos, 20, 26, ICON_SCALE);
+        }
+    }
+
+    Pos strongholds[128];
+    findStrongholds(g, cache, strongholds, seed, 0);
+    for (int i=0; i<128; i++) {
+        addIcon("stronghold", width, height, strongholds[i], 19, 20, ICON_SCALE);
+    }
     // TODO:
-    // ocean monuments
-    // strongholds
-    // woodland mansions
     // villages
     // Add seed text overlay?
     printf("    \"%s\"\n", pngfn);
