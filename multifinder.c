@@ -890,8 +890,8 @@ void *searchQuadHutsThread(void *data) {
                     // quad hut checks, even if they fail the other checks, so
                     // that the other checks don't cause this to fail too early.
                     if (!opts.disableOptimizations) {
-                        debug("Double checking weak seed.");
                         if (hutHits == 0 && (j & 0xfff) == 0xfff) {
+                            debug("Checking area around a weak seed.");
                             int swpc = 0;
                             setChunkSeed(&layerBiomeDummy, areaX, areaZ+1);
                             swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
@@ -915,7 +915,7 @@ void *searchQuadHutsThread(void *data) {
                         // Dismiss seeds that don't have a swamp near the quad
                         // temple. Misses an additional 0.03% of seeds for a 1.7:1
                         // speedup.
-                        debug("Checking if swamp is in the area.");
+                        debug("Checking if swamp is actually in the area.");
                         setWorldSeed(lFilterBiome, seed);
                         genArea(lFilterBiome, cache.filter, areaX+1, areaZ+1, 1, 1);
                         if (cache.filter[0] != swampland)
@@ -978,7 +978,6 @@ void *searchQuadHutsThread(void *data) {
                 fflush(fh);
             }
         }
-        debug("Finishing base seed.");
         fprintf(stderr, "Base seed %ld (thread %d): %d hits\n",
                 info.qhcandidates[i], info.thread, basehits);
     }
