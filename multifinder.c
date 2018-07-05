@@ -85,6 +85,14 @@ typedef struct {
     char filename[256];
 } ThreadInfo;
 
+typedef struct {
+    int *filter;
+    int *lastLayer;
+    int *structure;
+    int *spawnArea;
+    int *shore;
+} SearchCaches;
+
 #define INT_ERROR "An integer argument is required with --%s\n"
 
 
@@ -354,7 +362,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         .baseSeedsFile        = "./seeds/quadhutbases_1_13_Q1.txt",
         .allBiomes            = 0,
         .plentifulBiome       = NULL,
-        .plentifulness        = 75,
+        .plentifulness        = 25,
         .spawnBiomes          = NULL,
         .monumentDistance     = 0,
         .strongholdDistance   = 0,
@@ -558,13 +566,13 @@ Monuments potentialMonuments(int64_t baseSeed, int distance) {
 }
 
 
-int verifyMonuments(LayerStack *g, Monuments *mon, int rX, int rZ) {
+int verifyMonuments(LayerStack *g, int *cache, Monuments *mon, int rX, int rZ) {
     for (int m = 0; m < mon->numMonuments; m++) {
         // Translate monument coordintes from the origin-relative coordinates
         // from the base seed family.
         int monX = mon->monuments[m].x + rX*32*16;
         int monZ = mon->monuments[m].z + rZ*32*16;
-        if (isViableOceanMonumentPos(*g, NULL, monX, monZ)) {
+        if (isViableOceanMonumentPos(*g, cache, monX, monZ)) {
             return 1;
         }
     }
@@ -572,7 +580,7 @@ int verifyMonuments(LayerStack *g, Monuments *mon, int rX, int rZ) {
 }
 
 
-int hasStronghold(LayerStack *g, int64_t seed, int maxDistance, Pos qhpos[4]) {
+int hasStronghold(LayerStack *g, int *cache, int64_t seed, int maxDistance, Pos qhpos[4]) {
     Pos strongholds[128];
     // Approximateish center of quad hut formation.
     int cx = (qhpos[0].x + qhpos[1].x + qhpos[2].x + qhpos[3].x) / 4;
@@ -581,8 +589,7 @@ int hasStronghold(LayerStack *g, int64_t seed, int maxDistance, Pos qhpos[4]) {
     // Quit searching strongholds in outer rings; include a fudge factor.
     int maxRadius = (int)round(sqrt(cx*cx + cz*cz)) + maxDistance + 16;
 
-    // TODO: preallocate cache
-    int count = findStrongholds(g, NULL, strongholds, seed, maxRadius);
+    int count = findStrongholds(g, cache, strongholds, seed, maxRadius);
 
     for (int i=0; i<count; i++) {
         int dx = strongholds[i].x - cx;
@@ -595,46 +602,35 @@ int hasStronghold(LayerStack *g, int64_t seed, int maxDistance, Pos qhpos[4]) {
 }
 
 
-int hasMansions(const LayerStack *g, int64_t seed, int radius, int minCount) {
+int hasMansions(const LayerStack *g, int *cache, int64_t seed, int radius, int minCount) {
     int count = 0;
-
-    // Dug through isViableMansionPos... to figure out value of "17".
-    int *cache = allocCache(&g->layers[L_RIVER_MIX_4], 17, 17);
 
     for (int rZ=-radius; rZ<radius; rZ++) {
         for (int rX=-radius; rX<radius; rX++) {
             Pos mansion = getMansionPos(seed, rX, rZ);
-            // TODO: Preallocate the cache?
             if (isViableMansionPos(*g, cache, mansion.x, mansion.z)) {
                 count++;
-                if (count >= minCount) {
-                    free(cache);
+                if (count >= minCount)
                     return 1;
-                }
             }
         }
     }
-    free(cache);
     return 0;
 }
 
 
-int hasSpawnBiome(LayerStack *g, Pos spawn, BiomeSearchConfig *config) {
+int hasSpawnBiome(LayerStack *g, int *cache, Pos spawn, BiomeSearchConfig *config) {
     Layer *lShoreBiome = &g->layers[L_SHORE_16];
 
-    // Shore layer is 16:1, and spawn is 256x256, and we want to include
-    // the neighboring areas which blend into it -> 18.
-    // TODO: Might be a bit better to allocate this once.
-    int *spawnCache = allocCache(lShoreBiome, 18, 18);
     int areaX = spawn.x >> 4;
     int areaZ = spawn.z >> 4;
     float ignoreFraction = 0;
     float includeFraction = 0;
 
-    genArea(lShoreBiome, spawnCache, areaX-9, areaZ-9, 18, 18);
+    genArea(lShoreBiome, cache, areaX-9, areaZ-9, 18, 18);
 
     for (int i=0; i<18*18; i++) {
-        switch (config->lookup[spawnCache[i]]) {
+        switch (config->lookup[cache[i]]) {
             case 1:
                 includeFraction += 1;
                 break;
@@ -644,8 +640,6 @@ int hasSpawnBiome(LayerStack *g, Pos spawn, BiomeSearchConfig *config) {
         }
     }
 
-    free(spawnCache);
-
     includeFraction /= (18*18);
     ignoreFraction /= (18*18);
     if (ignoreFraction > 0.80f) { ignoreFraction = 0.80f; }
@@ -654,11 +648,12 @@ int hasSpawnBiome(LayerStack *g, Pos spawn, BiomeSearchConfig *config) {
 }
 
 
-void getAreaBiomes(int *cache, LayerStack *g, Pos spawn, int radius) {
+void getAreaBiomes(LayerStack *g, int *cache, Pos spawn, int radius) {
     Layer *lShoreBiome = &g->layers[L_SHORE_16];
-    int left = (spawn.x >> 4) - radius;
-    int top  = (spawn.z >> 4) - radius;
-    genArea(lShoreBiome, cache, left, top, radius*2, radius*2);
+    int width = radius >> 3;  // 1:16 resolution layer, *2 for a radius.
+    int left = (spawn.x - radius) >> 4;
+    int top  = (spawn.z - radius) >> 4;
+    genArea(lShoreBiome, cache, left, top, width, width);
 }
 
 
@@ -710,9 +705,11 @@ int getBiomeGroup(int biome) {
 
 #define NUM_ALL_BIOMES 10
 int hasAllBiomes(int *cache, int radius) {
-    int biomeCounts[NUM_ALL_BIOMES] = {0};
+    int width = radius >> 3;  // 1:16 resolution layer, *2 for a radius.
+    int area = width*width;
 
-    for (int i=0; i<radius*radius; i++) {
+    int biomeCounts[NUM_ALL_BIOMES] = {0};
+    for (int i=0; i<area; i++) {
         biomeCounts[getBiomeGroup(cache[i])]++;
     }
 
@@ -727,14 +724,53 @@ int hasAllBiomes(int *cache, int radius) {
 
 int hasPlentifulBiome(int *cache, int radius, int plentifulness,
         BiomeSearchConfig *config) {
+    int width = radius >> 3;  // 1:16 resolution layer, *2 for a radius.
+    int area = width*width;
+
     float fraction = 0.0;
-    for (int i=0; i<radius*radius; i++) {
+    for (int i=0; i<area; i++) {
         if (config->lookup[cache[i]] == 1)
             fraction += 1.0;
     }
 
-    // Five times as frequent as usual? Is that a good ratio?
-    return fraction / (radius*radius) >= config->naturalFraction * plentifulness;
+    return fraction / area >= config->naturalFraction * plentifulness;
+}
+
+
+SearchCaches preallocateCaches(const LayerStack *g, const SearchOptions *opts) {
+    SearchCaches cache = {NULL, NULL, NULL, NULL, NULL};
+
+    // 1:256 and 1:1 layer caches for checking a single value.
+    cache.filter = allocCache(&g->layers[L_BIOME_256], 3, 3);
+    cache.lastLayer = allocCache(&g->layers[g->layerNum-1], 3, 3);
+
+    // Just make a cache big enough to accomodate all structures.
+    cache.structure = allocCache(&g->layers[L_RIVER_MIX_4], 256, 256);
+
+    // Shore layer is 16:1, and spawn is 256x256, and we want to include
+    // the neighboring areas which blend into it -> 18.
+    if (opts->spawnBiomes)
+        cache.spawnArea = allocCache(&g->layers[L_SHORE_16], 18, 18);
+
+    // A 1:16 resolution biome, but x2 because it's a radius.
+    if (opts->allBiomes || opts->plentifulBiome) {
+        int biomeWidth = opts->biomeRadius >> 3;
+        cache.shore = allocCache(
+                &g->layers[L_SHORE_16], biomeWidth, biomeWidth);
+    }
+
+    return cache;
+}
+
+
+void freeCaches(SearchCaches *cache) {
+    free(cache->filter);
+    free(cache->lastLayer);
+    free(cache->structure);
+    if (cache->spawnArea)
+        free(cache->spawnArea);
+    if (cache->shore)
+        free(cache->shore);
 }
 
 
@@ -744,19 +780,7 @@ void *searchQuadHutsThread(void *data) {
 
     LayerStack g = setupGenerator();
     Layer *lFilterBiome = &g.layers[L_BIOME_256];
-    int *filterCache = allocCache(lFilterBiome, 3, 3);
-    int *lastLayerCache = allocCache(&g.layers[g.layerNum-1], 3, 3);
     int64_t j, base, seed;
-
-    int biomeRadius = 0;
-    int *shoreCache = NULL;
-    if (opts.allBiomes || opts.plentifulBiome) {
-        // Shore layer is used for biome searches and is 16:1.
-        debug("Setting up biome cache.");
-        biomeRadius = opts.biomeRadius >> 4;
-        shoreCache = allocCache(
-                &g.layers[L_SHORE_16], biomeRadius*2, biomeRadius*2);
-    }
 
     Monuments monuments = {0};
 
@@ -780,7 +804,10 @@ void *searchQuadHutsThread(void *data) {
         fh = stdout;
     }
 
+    SearchCaches cache = preallocateCaches(&g, &opts);
+
     // Every nth + m base seed is assigned to thread m;
+    debug("Starting search.");
     for(int i=info.startIndex;
             i < info.qhcount && info.qhcandidates[i] < opts.endSeed;
             i+=opts.threads) {
@@ -828,6 +855,7 @@ void *searchQuadHutsThread(void *data) {
 
                 // Misses 8-9% of seeds for a 2x speedup.
                 if (!opts.disableOptimizations) {
+                    debug("Checking lush conversion.");
                     for (j = 0x53; j < 0x58; j++) {
                         seed = base + (j << 48);
                         setWorldSeed(&layerBiomeDummy, seed);
@@ -839,6 +867,7 @@ void *searchQuadHutsThread(void *data) {
                         continue;
                 }
 
+                debug("Getting witch hut positions.");
                 qhpos[0] = getStructurePos(SWAMP_HUT_SEED, base, 0+rX, 0+rZ);
                 qhpos[1] = getStructurePos(SWAMP_HUT_SEED, base, 0+rX, 1+rZ);
                 qhpos[2] = getStructurePos(SWAMP_HUT_SEED, base, 1+rX, 0+rZ);
@@ -861,6 +890,7 @@ void *searchQuadHutsThread(void *data) {
                     // quad hut checks, even if they fail the other checks, so
                     // that the other checks don't cause this to fail too early.
                     if (!opts.disableOptimizations) {
+                        debug("Double checking weak seed.");
                         if (hutHits == 0 && (j & 0xfff) == 0xfff) {
                             int swpc = 0;
                             setChunkSeed(&layerBiomeDummy, areaX, areaZ+1);
@@ -877,6 +907,7 @@ void *searchQuadHutsThread(void *data) {
                         // We can check that at least one swamp could generate in
                         // this area before doing the biome generator checks.
                         // Misses an additional 0.2% of seeds for a 2.75:1 speedup.
+                        debug("Checking if swamp is possible in the area.");
                         setChunkSeed(&layerBiomeDummy, areaX+1, areaZ+1);
                         if (mcNextInt(&layerBiomeDummy, 6) != 5)
                             continue;
@@ -884,57 +915,58 @@ void *searchQuadHutsThread(void *data) {
                         // Dismiss seeds that don't have a swamp near the quad
                         // temple. Misses an additional 0.03% of seeds for a 1.7:1
                         // speedup.
+                        debug("Checking if swamp is in the area.");
                         setWorldSeed(lFilterBiome, seed);
-                        genArea(lFilterBiome, filterCache, areaX+1, areaZ+1, 1, 1);
-                        if (filterCache[0] != swampland)
+                        genArea(lFilterBiome, cache.filter, areaX+1, areaZ+1, 1, 1);
+                        if (cache.filter[0] != swampland)
                             continue;
                     }
 
+                    debug("Checking witch hut swamps.");
                     applySeed(&g, seed);
-                    if (getBiomeAt(g, qhpos[0], lastLayerCache) != swampland)
+                    if (getBiomeAt(g, qhpos[0], cache.lastLayer) != swampland)
                         continue;
-                    if (getBiomeAt(g, qhpos[1], lastLayerCache) != swampland)
+                    if (getBiomeAt(g, qhpos[1], cache.lastLayer) != swampland)
                         continue;
-                    if (getBiomeAt(g, qhpos[2], lastLayerCache) != swampland)
+                    if (getBiomeAt(g, qhpos[2], cache.lastLayer) != swampland)
                         continue;
-                    if (getBiomeAt(g, qhpos[3], lastLayerCache) != swampland)
+                    if (getBiomeAt(g, qhpos[3], cache.lastLayer) != swampland)
                         continue;
                     hutHits++;
 
+                    debug("Other structure checks.");
                     // These checks are a tad slow because they have to get full
-                    // biomes for a bit of an area. They might be a bit faster
-                    // if we preallocate a cache and stuff, but it might be
-                    // marginal.
+                    // biomes for a bit of an area.
                     if (opts.monumentDistance &&
-                            !verifyMonuments(&g, &monuments, rX, rZ))
+                            !verifyMonuments(&g, cache.structure, &monuments, rX, rZ))
                         continue;
 
                     if (opts.strongholdDistance &&
-                            !hasStronghold(&g, seed, opts.strongholdDistance, qhpos))
+                            !hasStronghold(&g, cache.structure, seed, opts.strongholdDistance, qhpos))
                         continue;
 
                     if (opts.woodlandMansions &&
-                            !hasMansions(&g, seed, opts.mansionRadius, opts.woodlandMansions))
+                            !hasMansions(&g, cache.structure, seed, opts.mansionRadius, opts.woodlandMansions))
                         continue;
 
                     if (opts.spawnBiomes || opts.allBiomes || opts.plentifulBiome) {
-                        // TODO: Preallocate cache?
-                        Pos spawn = getSpawn(&g, NULL, seed);
+                        debug("Biome checks.");
+                        Pos spawn = getSpawn(&g, cache.structure, seed);
 
                         // This has to get more biome area, so is slower.
                         if (opts.spawnBiomes
-                                && !hasSpawnBiome(&g, spawn, opts.spawnBiomes))
+                                && !hasSpawnBiome(&g, cache.spawnArea, spawn, opts.spawnBiomes))
                             continue;
 
                         // These have to get a lot of biome area, so very slow.
                         if (opts.allBiomes || opts.plentifulBiome) {
-                            getAreaBiomes(shoreCache, &g, spawn, biomeRadius);
+                            getAreaBiomes(&g, cache.shore, spawn, opts.biomeRadius);
                             if (opts.allBiomes
-                                    && !hasAllBiomes(shoreCache, biomeRadius))
+                                    && !hasAllBiomes(cache.shore, opts.biomeRadius))
                                 continue;
 
                             if (opts.plentifulBiome
-                                    && !hasPlentifulBiome(shoreCache, biomeRadius, opts.plentifulness, opts.plentifulBiome))
+                                    && !hasPlentifulBiome(cache.shore, opts.biomeRadius, opts.plentifulness, opts.plentifulBiome))
                                 continue;
                         }
                     }
@@ -955,10 +987,7 @@ void *searchQuadHutsThread(void *data) {
         fclose(fh);
         fprintf(stderr, "%s written.\n", info.filename);
     }
-    free(filterCache);
-    free(lastLayerCache);
-    if (shoreCache)
-        free(shoreCache);
+    freeCaches(&cache);
     freeGenerator(g);
 
     return NULL;
