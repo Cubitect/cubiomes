@@ -5,7 +5,13 @@ override CFLAGS += -Wall -fwrapv -march=native
 .PHONY : all debug clean
 
 all: CFLAGS += -O3
-all: find_quadhuts find_compactbiomes multifinder clean
+all: find_quadhuts find_compactbiomes multifinder rendermap clean
+
+rendermap: rendermap.o layers.o generator.o finders.o
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+rendermap.o: rendermap.c
+	$(CC) -c $(CFLAGS) $<
 
 multifinder: multifinder.o layers.o generator.o finders.o
 	$(CC) -o $@ $^ $(LDFLAGS)
