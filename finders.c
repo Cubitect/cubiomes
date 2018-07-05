@@ -865,8 +865,8 @@ Pos findBiomePosition(
 
     genArea(layer, map, x1, z1, width, height);
 
-    out.x = 0;
-    out.z = 0;
+    out.x = centerX;
+    out.z = centerZ;
     found = 0;
 
     for(i = 0; i < width*height; i++)
@@ -955,8 +955,8 @@ void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, int64_t wo
  * cache     : biome buffer, set to NULL for temporary allocation
  * locations : output block positions for the 128 strongholds
  * worldSeed : world seed used for the generator
- * maxRadius : Stop searching if the radius exceeds this value. 0 to return all
- *             strongholds.
+ * maxRadius : Stop searching if the radius exceeds this value in meters. Set to
+ *             0 to return all strongholds.
  */
 int findStrongholds(LayerStack *g, int *cache, Pos *locations, int64_t worldSeed, int maxRadius)
 {
