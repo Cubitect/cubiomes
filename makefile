@@ -13,14 +13,14 @@ rendermap: rendermap.o layers.o generator.o finders.o
 rendermap.o: rendermap.c
 	$(CC) -c $(CFLAGS) $<
 
+debug: CFLAGS += -DDEBUG -O0 -g
+debug: find_quadhuts find_compactbiomes multifinder clean
+
 multifinder: multifinder.o layers.o generator.o finders.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 multifinder.o: multifinder.c
 	$(CC) -c $(CFLAGS) $<
-
-debug: CFLAGS += -DDEBUG -O0 -g
-debug: find_quadhuts find_compactbiomes clean
 
 find_compactbiomes: find_compactbiomes.o layers.o generator.o finders.o
 	$(CC) -o $@ $^ $(LDFLAGS)
