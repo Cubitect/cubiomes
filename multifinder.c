@@ -16,6 +16,13 @@
 #include <unistd.h>
 
 
+int DEBUG = 0;
+
+void debug(char *msg) {
+    if (DEBUG)
+        fprintf(stderr, " --- %s\n", msg);
+}
+
 typedef struct {
     int numMonuments;
     Pos monuments[4];
@@ -361,6 +368,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
     while (1) {
         static struct option longOptions[] = {
             {"help",                  no_argument,       NULL, 'h'},
+            {"debug",                 no_argument,       NULL, 'D'},
             {"disable_optimizations", no_argument,       NULL, 'X'},
             {"start_seed",            required_argument, NULL, 's'},
             {"end_seed",              required_argument, NULL, 'e'},
@@ -382,7 +390,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         };
         int index = 0;
         c = getopt_long(argc, argv,
-                "hXs:e:t:o:AS:ap:P:b:m:z:w:r:B:H:M:", longOptions, &index);
+                "hDXs:e:t:o:AS:ap:P:b:m:z:w:r:B:H:M:", longOptions, &index);
 
         if (c == -1)
             break;
@@ -391,6 +399,9 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             case 'h':
                 usage();
                 exit(0);
+                break;
+            case 'D':
+                DEBUG = 1;
                 break;
             case 'X':
                 opts.disableOptimizations = 1;
@@ -586,18 +597,24 @@ int hasStronghold(LayerStack *g, int64_t seed, int maxDistance, Pos qhpos[4]) {
 
 int hasMansions(const LayerStack *g, int64_t seed, int radius, int minCount) {
     int count = 0;
+
+    // Dug through isViableMansionPos... to figure out value of "17".
+    int *cache = allocCache(&g->layers[L_RIVER_MIX_4], 17, 17);
+
     for (int rZ=-radius; rZ<radius; rZ++) {
         for (int rX=-radius; rX<radius; rX++) {
             Pos mansion = getMansionPos(seed, rX, rZ);
             // TODO: Preallocate the cache?
-            if (isViableMansionPos(*g, NULL, mansion.x, mansion.z)) {
+            if (isViableMansionPos(*g, cache, mansion.x, mansion.z)) {
                 count++;
                 if (count >= minCount) {
+                    free(cache);
                     return 1;
                 }
             }
         }
     }
+    free(cache);
     return 0;
 }
 
@@ -735,6 +752,7 @@ void *searchQuadHutsThread(void *data) {
     int *shoreCache = NULL;
     if (opts.allBiomes || opts.plentifulBiome) {
         // Shore layer is used for biome searches and is 16:1.
+        debug("Setting up biome cache.");
         biomeRadius = opts.biomeRadius >> 4;
         shoreCache = allocCache(
                 &g.layers[L_SHORE_16], biomeRadius*2, biomeRadius*2);
@@ -752,6 +770,7 @@ void *searchQuadHutsThread(void *data) {
 
     FILE *fh;
     if (strlen(info.filename)) {
+        debug("Opening output files.");
         fh = fopen(info.filename, opts.append ? "a" : "w");
         if (fh == NULL) {
             fprintf(stderr, "Could not open file %s.\n", info.filename);
@@ -767,9 +786,11 @@ void *searchQuadHutsThread(void *data) {
             i+=opts.threads) {
         int basehits = 0;
 
+        debug("New base seed.");
         // The ocean monument check is quick and has a high probability
         // of eliminating the base seed, so perform that first.
         if (opts.monumentDistance) {
+            debug("Checking monument distance.");
             monuments = potentialMonuments(
                     info.qhcandidates[i], opts.monumentDistance);
             if (monuments.numMonuments == 0)
@@ -925,6 +946,7 @@ void *searchQuadHutsThread(void *data) {
                 fflush(fh);
             }
         }
+        debug("Finishing base seed.");
         fprintf(stderr, "Base seed %ld (thread %d): %d hits\n",
                 info.qhcandidates[i], info.thread, basehits);
     }
