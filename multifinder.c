@@ -521,8 +521,8 @@ int64_t* getBaseSeeds(int64_t *qhcount, int threads, const char *seedFileName) {
 }
 
 
-int getBiomeAt(const LayerStack g, const Pos pos, int *buf) {
-    genArea(&g.layers[g.layerNum-1], buf, pos.x, pos.z, 1, 1);
+int getBiomeAt(const LayerStack *g, const Pos pos, int *buf) {
+    genArea(&g->layers[g->layerNum-1], buf, pos.x, pos.z, 1, 1);
     return buf[0];
 }
 
@@ -924,13 +924,13 @@ void *searchQuadHutsThread(void *data) {
 
                     debug("Checking witch hut swamps.");
                     applySeed(&g, seed);
-                    if (getBiomeAt(g, qhpos[0], cache.lastLayer) != swampland)
+                    if (getBiomeAt(&g, qhpos[0], cache.lastLayer) != swampland)
                         continue;
-                    if (getBiomeAt(g, qhpos[1], cache.lastLayer) != swampland)
+                    if (getBiomeAt(&g, qhpos[1], cache.lastLayer) != swampland)
                         continue;
-                    if (getBiomeAt(g, qhpos[2], cache.lastLayer) != swampland)
+                    if (getBiomeAt(&g, qhpos[2], cache.lastLayer) != swampland)
                         continue;
-                    if (getBiomeAt(g, qhpos[3], cache.lastLayer) != swampland)
+                    if (getBiomeAt(&g, qhpos[3], cache.lastLayer) != swampland)
                         continue;
                     hutHits++;
 
