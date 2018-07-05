@@ -8,7 +8,7 @@
 #include <stdlib.h>
 
 
-#define THREADS 6
+#define DEFAULT_THREADS 6
 #define SEEDMAX (1LL << 48)
 #define PI 3.141592653589793
 
@@ -174,6 +174,7 @@ Pos getStructurePos(const int64_t structureSeed, int64_t seed, const int64_t reg
  */
 Pos getOceanMonumentChunk(int64_t seed, const int64_t regionX, const int64_t regionZ);
 
+
 /* getOceanMonumentPos
  * -------------------
  * Fast implementation for finding the block position at which the ocean
@@ -240,8 +241,8 @@ void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, int64_t wo
  * cache     : biome buffer, set to NULL for temporary allocation
  * locations : output block positions for the 128 strongholds
  * worldSeed : world seed used for the generator
- * maxRadius : Stop searching if the radius exceeds this value. 0 to return all
- *             strongholds.
+ * maxRadius : Stop searching if the radius exceeds this value in meters. Set to
+ *             0 to return all strongholds.
  */
 int findStrongholds(LayerStack *g, int *cache, Pos *locations, int64_t worldSeed, int maxRadius);
 
