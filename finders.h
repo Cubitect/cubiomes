@@ -10,6 +10,7 @@
 
 #define THREADS 6
 #define SEEDMAX (1LL << 48)
+#define PI 3.141592653589793
 
 #define FEATURE_SEED        14357617
 #define VILLAGE_SEED        10387312
@@ -221,6 +222,21 @@ Pos findBiomePosition(
  * worldSeed : world seed used for the generator
  */
 void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, int64_t worldSeed);
+
+/* findStrongholds
+ * ---------------------
+ * Finds up to 128 strongholds which generate since MC 1.9. Returns the number
+ * of strongholds found within the specified radius.
+ * Warning: Slow!
+ *
+ * g         : generator layer stack [world seed will be updated]
+ * cache     : biome buffer, set to NULL for temporary allocation
+ * locations : output block positions for the 128 strongholds
+ * worldSeed : world seed used for the generator
+ * maxRadius : Stop searching if the radius exceeds this value. 0 to return all
+ *             strongholds.
+ */
+int findStrongholds(LayerStack *g, int *cache, Pos *locations, int64_t worldSeed, int maxRadius);
 
 /* getSpawn
  * --------

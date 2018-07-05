@@ -893,6 +893,22 @@ Pos findBiomePosition(
 }
 
 
+int* getValidStrongholdBiomes() {
+    static int validStrongholdBiomes[256];
+
+    if(!validStrongholdBiomes[plains])
+    {
+        int id;
+        for(id = 0; id < 256; id++)
+        {
+            if(biomeExists(id) && biomes[id].height > 0.0) validStrongholdBiomes[id] = 1;
+        }
+    }
+
+    return validStrongholdBiomes;
+}
+
+
 /* findStrongholds_pre19
  * ---------------------
  * Finds the 3 stronghold positions for the specified world seed up to MC 1.9.
@@ -905,23 +921,14 @@ Pos findBiomePosition(
  */
 void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, int64_t worldSeed)
 {
-    static int validStrongholdBiomes[256];
     const int SHNUM = 3;
     int i;
-
-    if(!validStrongholdBiomes[plains])
-    {
-        int id;
-        for(id = 0; id < 256; id++)
-        {
-            if(biomeExists(id) && biomes[id].height > 0.0) validStrongholdBiomes[id] = 1;
-        }
-    }
+    int *validStrongholdBiomes = getValidStrongholdBiomes();
 
     setWorldSeed(&g->layers[L_RIVER_MIX_4], worldSeed);
 
     setSeed(&worldSeed);
-    double angle = nextDouble(&worldSeed) * 3.141592653589793 * 2.0;
+    double angle = nextDouble(&worldSeed) * PI * 2.0;
 
 
     for(i = 0; i < SHNUM; i++)
@@ -933,8 +940,64 @@ void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, int64_t wo
         locations[i] = findBiomePosition(*g, cache, (x << 4) + 8, (z << 4) + 8, 112,
                 validStrongholdBiomes, &worldSeed, NULL);
 
-        angle += 6.283185307179586 / (double)SHNUM;
+        angle += 2 * PI / (double)SHNUM;
     }
+}
+
+
+/* findStrongholds
+ * ---------------------
+ * Finds up to 128 strongholds which generate since MC 1.9. Returns the number
+ * of strongholds found within the specified radius.
+ * Warning: Slow!
+ *
+ * g         : generator layer stack [world seed will be updated]
+ * cache     : biome buffer, set to NULL for temporary allocation
+ * locations : output block positions for the 128 strongholds
+ * worldSeed : world seed used for the generator
+ * maxRadius : Stop searching if the radius exceeds this value. 0 to return all
+ *             strongholds.
+ */
+int findStrongholds(LayerStack *g, int *cache, Pos *locations, int64_t worldSeed, int maxRadius)
+{
+    const int SHNUM = 128;
+    int i;
+    int *validStrongholdBiomes = getValidStrongholdBiomes();
+
+    int currentRing = 0;
+    int currentCount = 0;
+    int perRing = 3;
+
+    setSeed(&worldSeed);
+    double angle = nextDouble(&worldSeed) * PI * 2.0;
+
+    for (i=0; i<SHNUM; i++) {
+        double distance = (4.0 * 32.0) +
+            (6.0 * currentRing * 32.0) +
+            (nextDouble(&worldSeed) - 0.5) * 32 * 2.5;
+
+        if (maxRadius && distance*16 > maxRadius)
+            return i;
+
+        int x = (int)round(cos(angle) * distance);
+        int z = (int)round(sin(angle) * distance);
+
+        locations[i] = findBiomePosition(*g, cache, (x << 4) + 8, (z << 4) + 8, 112,
+                validStrongholdBiomes, &worldSeed, NULL);
+        angle += 2 * PI / perRing;
+        currentCount++;
+        if (currentCount == perRing) {
+            // Current ring is complete, move to next ring.
+            currentRing++;
+            currentCount = 0;
+            perRing = perRing + 2*perRing/(currentRing+1);
+            if (perRing > SHNUM-i)
+                perRing = SHNUM-i;
+            angle = angle + nextDouble(&worldSeed) * PI * 2.0;
+        }
+    }
+
+    return SHNUM;
 }
 
 
