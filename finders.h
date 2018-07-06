@@ -394,11 +394,15 @@ static inline int next(int64_t *seed, const int bits)
 static inline int nextInt(int64_t *seed, const int n)
 {
     int bits, val;
+    const int m = n - 1;
+
+    if((m & n) == 0) return (int) ((n * (long)next(seed, 31)) >> 31);
+
     do {
         bits = next(seed, 31);
         val = bits % n;
     }
-    while(bits - val + (n - 1) < 0);
+    while(bits - val + m < 0);
     return val;
 }
 
