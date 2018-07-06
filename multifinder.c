@@ -937,18 +937,15 @@ void *searchQuadHutsThread(void *data) {
                     hutHits++;
 
                     debug("Other structure checks.");
-                    // These checks are a tad slow because they have to get full
-                    // biomes for a bit of an area.
+                    // TODO: Determine the optimal ordering of these checks.
                     if (opts.monumentDistance &&
                             !verifyMonuments(&g, cache.structure, &monuments, rX, rZ))
                         continue;
 
+                    // TODO: Might be able to optimize this by skipping biome
+                    // checks for strongholds nowhere near the quad huts.
                     if (opts.strongholdDistance &&
                             !hasStronghold(&g, cache.structure, seed, opts.strongholdDistance, qhpos))
-                        continue;
-
-                    if (opts.woodlandMansions &&
-                            !hasMansions(&g, cache.structure, seed, opts.mansionRadius, opts.woodlandMansions))
                         continue;
 
                     if (opts.spawnBiomes || opts.allBiomes || opts.plentifulBiome) {
@@ -972,6 +969,12 @@ void *searchQuadHutsThread(void *data) {
                                 continue;
                         }
                     }
+
+                    // This is slower than the above biome checks because they
+                    // use quite low resolution biome data.
+                    if (opts.woodlandMansions &&
+                            !hasMansions(&g, cache.structure, seed, opts.mansionRadius, opts.woodlandMansions))
+                        continue;
 
                     fprintf(fh, "%ld\n", seed);
                     hits++;
@@ -1031,7 +1034,7 @@ int main(int argc, char *argv[])
 
     fprintf(stderr, "===========================================================================\n");
     fprintf(stderr,
-            "Searching base seeds %ld-%ld, radius %d using %d threads...\n",
+            "Searching base seeds %ld-%ld, radius %d, using %d threads...\n",
             opts.startSeed, opts.endSeed, opts.radius, opts.threads);
     if (*opts.outputDir) {
         if (opts.append)
