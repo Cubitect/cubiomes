@@ -55,9 +55,27 @@ echo '[91m'
 diff /tmp/multifinder_monument.txt test/golden_monument.txt
 echo '(B[m'
 
+# ===========================================================================
+# Woodland mansions
+# ===========================================================================
+./multifinder -s 24B -e 25B --woodland_mansions=2 | \
+    sort -bn > /tmp/multifinder_mansions.txt
+echo '[91m'
+diff /tmp/multifinder_mansions.txt test/golden_mansions.txt
+echo '(B[m'
+
+#rm -r /tmp/multifinder*
+
+# ===========================================================================
+# Strongholds
+# ===========================================================================
+./multifinder -s 13B -e 14B --stronghold_distance=150 | \
+    sort -bn > /tmp/multifinder_stronghold.txt
+echo '[91m'
+diff /tmp/multifinder_stronghold.txt test/golden_stronghold.txt
+echo '(B[m'
+
 rm -r /tmp/multifinder*
 
 # TODO: file append
-# TODO: strongholds
-# TODO: woodland mansions
 # TODO: radii
