@@ -9,9 +9,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DEFAULT_WIDTH 3840*2
+#define DEFAULT_WIDTH 3840*3
 #define DEFAULT_HEIGHT DEFAULT_WIDTH*9/16
-#define DEFAULT_ICON_SCALE 2
 
 typedef struct {
     int64_t seed;
@@ -21,10 +20,14 @@ typedef struct {
     int height;
     int iconScale;
     int hutScale;
+    int desertScale;
+    int iglooScale;
+    int jungleScale;
     int mansionScale;
     int monumentScale;
     int spawnScale;
     int strongholdScale;
+    int villageScale;
     int use_1_13;
     int highlightSpecial;
     int highlightMutated;
@@ -181,17 +184,22 @@ int intArg(const char *val, const char *name) {
 MapOptions parseOptions(int argc, char *argv[]) {
     int c;
     MapOptions opts = {
-        .seed          = 0,
-        .ppmfn         = "",
-        .pngfn         = "",
-        .width         = DEFAULT_WIDTH,
-        .height        = DEFAULT_HEIGHT,
-        .iconScale     = DEFAULT_ICON_SCALE,
-        .hutScale      = 0,
-        .mansionScale  = 0,
-        .monumentScale = 0,
-        .spawnScale    = 0,
-        .use_1_13      = 0,
+        .seed            = 0,
+        .ppmfn           = "",
+        .pngfn           = "",
+        .width           = DEFAULT_WIDTH,
+        .height          = DEFAULT_HEIGHT,
+        .iconScale       = 1,
+        .desertScale     = -1,
+        .iglooScale      = -1,
+        .jungleScale     = -1,
+        .hutScale        = -1,
+        .mansionScale    = -1,
+        .monumentScale   = -1,
+        .spawnScale      = -1,
+        .strongholdScale = -1,
+        .villageScale    = -1,
+        .use_1_13        = 0,
     };
 
     while (1) {
@@ -202,11 +210,15 @@ MapOptions parseOptions(int argc, char *argv[]) {
             {"width",              required_argument, NULL, 'x'},
             {"height",             required_argument, NULL, 'z'},
             {"icon_scale",         required_argument, NULL, 'i'},
+            {"desert_scale",       required_argument, NULL, 'D'},
+            {"igloo_scale",        required_argument, NULL, 'I'},
+            {"jungle_scale",       required_argument, NULL, 'J'},
             {"hut_scale",          required_argument, NULL, 'H'},
             {"mansion_scale",      required_argument, NULL, 'W'},
             {"monument_scale",     required_argument, NULL, 'M'},
             {"spawn_scale",        required_argument, NULL, 'S'},
             {"stronghold_scale",   required_argument, NULL, 'T'},
+            {"village_scale",      required_argument, NULL, 'V'},
             {"use_1_13",           no_argument,       NULL, '3'},
             {"highlight_special",  no_argument,       NULL, '7'},
             {"highlight_mutated",  no_argument,       NULL, '8'},
@@ -243,6 +255,15 @@ MapOptions parseOptions(int argc, char *argv[]) {
             case 'i':
                 opts.iconScale = intArg(optarg, longOptions[index].name);
                 break;
+            case 'D':
+                opts.desertScale = intArg(optarg, longOptions[index].name);
+                break;
+            case 'I':
+                opts.iglooScale = intArg(optarg, longOptions[index].name);
+                break;
+            case 'J':
+                opts.jungleScale = intArg(optarg, longOptions[index].name);
+                break;
             case 'H':
                 opts.hutScale = intArg(optarg, longOptions[index].name);
                 break;
@@ -257,6 +278,9 @@ MapOptions parseOptions(int argc, char *argv[]) {
                 break;
             case 'T':
                 opts.strongholdScale = intArg(optarg, longOptions[index].name);
+                break;
+            case 'V':
+                opts.villageScale = intArg(optarg, longOptions[index].name);
                 break;
             case '3':
                 opts.use_1_13 = 1;
@@ -287,16 +311,24 @@ MapOptions parseOptions(int argc, char *argv[]) {
         exit(-1);
     }
 
-    if (!opts.hutScale)
-        opts.hutScale = opts.iconScale*2;
-    if (!opts.mansionScale)
-        opts.mansionScale = opts.iconScale*3;
-    if (!opts.monumentScale)
-        opts.monumentScale = opts.iconScale*3;
-    if (!opts.spawnScale)
-        opts.spawnScale = opts.iconScale*2;
-    if (!opts.strongholdScale)
-        opts.strongholdScale = opts.iconScale*3;
+    if (opts.desertScale == -1)
+        opts.desertScale = opts.iconScale*3;
+    if (opts.iglooScale == -1)
+        opts.iglooScale = opts.iconScale*2;
+    if (opts.jungleScale == -1)
+        opts.jungleScale = opts.iconScale*3;
+    if (opts.hutScale == -1)
+        opts.hutScale = opts.iconScale*3;
+    if (opts.mansionScale == -1)
+        opts.mansionScale = opts.iconScale*7;
+    if (opts.monumentScale == -1)
+        opts.monumentScale = opts.iconScale*5;
+    if (opts.spawnScale == -1)
+        opts.spawnScale = opts.iconScale*4;
+    if (opts.strongholdScale == -1)
+        opts.strongholdScale = opts.iconScale*6;
+    if (opts.villageScale == -1)
+        opts.villageScale = opts.iconScale*3;
 
     return opts;
 }
@@ -444,6 +476,11 @@ void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
 
 void addIcon(char *icon, int width, int height, Pos pos,
         int iconWidth, int iconHeight, int scale) {
+
+    // Setting scale to 0 can be used to hide an icon category.
+    if (!scale)
+        return;
+
     int iconW = iconWidth*scale;
     int iconH = iconHeight*scale;
     int realX = pos.x + width/2 - iconW/2;
@@ -486,23 +523,28 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
         for (int x=-rX; x<rX; x++) {
             int biomeAt;
 
+            pos = getStructurePos(VILLAGE_SEED, opts.seed, x, z);
+            if (isViableVillagePos(*g, cache, pos.x, pos.z))
+                addIcon("village", opts.width, opts.height, pos,
+                        20, 26, opts.villageScale);
+
             pos = getStructurePos(DESERT_PYRAMID_SEED, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == desert || biomeAt == desertHills)
                 addIcon("desert", opts.width, opts.height, pos,
-                        19, 20, opts.iconScale);
+                        19, 20, opts.desertScale);
 
             pos = getStructurePos(IGLOO_SEED, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == icePlains || biomeAt == coldTaiga)
                 addIcon("igloo", opts.width, opts.height, pos,
-                        20, 20, opts.iconScale);
+                        20, 20, opts.iglooScale);
 
             pos = getStructurePos(JUNGLE_PYRAMID_SEED, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == jungle || biomeAt == jungleHills)
                 addIcon("jungle", opts.width, opts.height, pos,
-                        19, 20, opts.iconScale);
+                        19, 20, opts.jungleScale);
 
             pos = getStructurePos(SWAMP_HUT_SEED, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
@@ -534,7 +576,6 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
         addIcon("stronghold", opts.width, opts.height, strongholds[i],
                 19, 20, opts.strongholdScale);
     }
-    // TODO: villages
     printf("    \"%s\"\n", opts.pngfn);
 
     free(cache);
