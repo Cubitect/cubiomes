@@ -1014,6 +1014,21 @@ int main(int argc, char *argv[])
         exit(-1);
     }
 
+    // Record the command line for later reproducibility
+    if (*opts.outputDir) {
+        char filename[256];
+        snprintf(filename, 256, "%s/COMMAND", opts.outputDir);
+        FILE *fh = fopen(filename, "w");
+        if (fh != NULL) {
+            fprintf(fh, "%s", argv[0]);
+            for (int i=1; i<argc; i++) {
+                fprintf(fh, " %s", argv[i]);
+            }
+            fprintf(fh, "\n");
+            fclose(fh);
+        }
+    }
+
     fprintf(stderr, "===========================================================================\n");
     fprintf(stderr,
             "Searching base seeds %ld-%ld, radius %d using %d threads...\n",
