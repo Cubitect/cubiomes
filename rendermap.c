@@ -141,9 +141,19 @@ void biomesToColors(
             fprintf(stderr, "Invalid biome.\n");
             exit(-1);
         }
-        pixels[i*3+0] = biomeColors[biomes[i]][0];
-        pixels[i*3+1] = biomeColors[biomes[i]][1];
-        pixels[i*3+2] = biomeColors[biomes[i]][2];
+        int r, g, b;
+        if (biomes[i] < 128) {
+            r = biomeColors[biomes[i]][0];
+            g = biomeColors[biomes[i]][1];
+            b = biomeColors[biomes[i]][2];
+        } else {
+            r = biomeColors[biomes[i]][0] + 40; r = (r>0xff) ? 0xff : r;
+            g = biomeColors[biomes[i]][1] + 40; g = (g>0xff) ? 0xff : g;
+            b = biomeColors[biomes[i]][2] + 40; b = (b>0xff) ? 0xff : b;
+        }
+        pixels[i*3+0] = r;
+        pixels[i*3+1] = g;
+        pixels[i*3+2] = b;
     }
 }
 
@@ -211,13 +221,13 @@ int getBiomeAt(const LayerStack *g, const Pos pos, int *buf) {
 }
 
 
-void printCompositeCommand(LayerStack *g, int64_t seed, char *ppmfn, char *pngfn, int width, int height) {
+void printCompositeCommand(LayerStack *g, int64_t seed, char *ppmfn, char *pngfn, int width, int height, int scale) {
     Layer *fullRes = &g->layers[g->layerNum-1];
     int *cache = allocCache(fullRes, 256, 256);
 
     printf("convert \"%s\" -filter Point \\\n", ppmfn);
     Pos spawn = getSpawn(g, cache, seed);
-    addIcon("spawn", width, height, spawn, 20, 20, ICON_SCALE);
+    addIcon("spawn", width, height, spawn, 20, 20, scale);
 
     int rX = regionify(width/2, 32);
     int rZ = regionify(height/2, 32);
@@ -229,26 +239,26 @@ void printCompositeCommand(LayerStack *g, int64_t seed, char *ppmfn, char *pngfn
             pos = getStructurePos(DESERT_PYRAMID_SEED, seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == desert || biomeAt == desertHills)
-                addIcon("desert", width, height, pos, 19, 20, ICON_SCALE);
+                addIcon("desert", width, height, pos, 19, 20, scale);
 
             pos = getStructurePos(IGLOO_SEED, seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == icePlains || biomeAt == coldTaiga)
-                addIcon("igloo", width, height, pos, 20, 20, ICON_SCALE);
+                addIcon("igloo", width, height, pos, 20, 20, scale);
 
             pos = getStructurePos(JUNGLE_PYRAMID_SEED, seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == jungle || biomeAt == jungleHills)
-                addIcon("jungle", width, height, pos, 19, 20, ICON_SCALE);
+                addIcon("jungle", width, height, pos, 19, 20, scale);
 
             pos = getStructurePos(SWAMP_HUT_SEED, seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == swampland)
-                addIcon("witch", width, height, pos, 20, 27, ICON_SCALE);
+                addIcon("witch", width, height, pos, 20, 27, scale);
 
             pos = getOceanMonumentPos(seed, x, z);
             if (isViableOceanMonumentPos(*g, cache, pos.x, pos.z))
-                addIcon("ocean_monument", width, height, pos, 20, 20, ICON_SCALE);
+                addIcon("ocean_monument", width, height, pos, 20, 20, scale);
         }
     }
 
@@ -258,14 +268,14 @@ void printCompositeCommand(LayerStack *g, int64_t seed, char *ppmfn, char *pngfn
         for (int x=-rX; x<rX; x++) {
             Pos pos = getMansionPos(seed, x, z);
             if (isViableMansionPos(*g, cache, pos.x, pos.z))
-                addIcon("woodland_mansion", width, height, pos, 20, 26, ICON_SCALE);
+                addIcon("woodland_mansion", width, height, pos, 20, 26, scale);
         }
     }
 
     Pos strongholds[128];
     findStrongholds(g, cache, strongholds, seed, 0);
     for (int i=0; i<128; i++) {
-        addIcon("stronghold", width, height, strongholds[i], 19, 20, ICON_SCALE);
+        addIcon("stronghold", width, height, strongholds[i], 19, 20, scale);
     }
     // TODO:
     // villages
@@ -276,35 +286,44 @@ void printCompositeCommand(LayerStack *g, int64_t seed, char *ppmfn, char *pngfn
 }
 
 
+int64_t int64Arg(char *val, char *name) {
+    char *endptr;
+    int64_t ret = strtol(val, &endptr, 10);
+    if (errno != 0) {
+        fprintf(stderr, "%s must be an integer\n", name);
+        usage();
+        exit(-1);
+    }
+    return ret;
+}
+
+
+int intArg(char *val, char *name) {
+    return (int)int64Arg(val, name);
+}
+
+
 int main(int argc, char *argv[]) {
-    if (argc != 3 && argc != 5) {
+    if (argc != 3 && argc != 5 && argc != 6) {
         usage();
         exit(0);
     }
 
-    char *endptr;
-    int64_t seed = strtol(argv[1], &endptr, 10);
-    if (errno != 0) {
-        fprintf(stderr, "Seed must be an integer\n");
-        exit(-1);
-    }
+    int64_t seed = int64Arg(argv[1], "World seed");
 
-    int width, height;
-    if (argc == 5) {
-        width = strtol(argv[3], &endptr, 10);
-        if (errno != 0) {
-            fprintf(stderr, "Width must be an integer\n");
-            exit(-1);
-        }
-
-        height = strtol(argv[4], &endptr, 10);
-        if (errno != 0) {
-            fprintf(stderr, "Height must be an integer\n");
-            exit(-1);
-        }
+    int width, height, scale;
+    if (argc >= 5) {
+        width = intArg(argv[3], "Image width");
+        height = intArg(argv[4], "Image height");
     } else {
         width = DEFAULT_WIDTH;
         height = DEFAULT_HEIGHT;
+    }
+
+    if (argc == 6) {
+        scale = intArg(argv[5], "Icon scale");
+    } else {
+        scale = ICON_SCALE;
     }
 
     char ppmfn[256];
@@ -324,7 +343,7 @@ int main(int argc, char *argv[]) {
 
     // Write the base map as a PPM file
     initBiomes();
-    LayerStack g = setupGenerator();
+    LayerStack g = setupGeneratorMC113();
     applySeed(&g, seed);
     writeMap(&g, fp, width, height);
 
@@ -332,7 +351,7 @@ int main(int argc, char *argv[]) {
 
     // Write a imagemagick command to compose the map with icons and convert
     // to a .png file.
-    printCompositeCommand(&g, seed, ppmfn, pngfn, width, height);
+    printCompositeCommand(&g, seed, ppmfn, pngfn, width, height, scale);
 
     return 0;
 }

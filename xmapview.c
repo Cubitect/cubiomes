@@ -32,7 +32,7 @@ void initBiomeColours(unsigned char biomeColours[256][3])
     setBiomeColour(biomeColours, river, 0, 0, 255);
     setBiomeColour(biomeColours, hell, 255, 0, 0);
     setBiomeColour(biomeColours, sky, 128, 128, 255);
-    setBiomeColour(biomeColours, frozenOcean, 144, 144, 160);
+    setBiomeColour(biomeColours, frozenOcean, 112, 112, 214);
     setBiomeColour(biomeColours, frozenRiver, 160, 160, 255);
     setBiomeColour(biomeColours, icePlains, 255, 255, 255);
     setBiomeColour(biomeColours, iceMountains, 160, 160, 160);
@@ -63,13 +63,13 @@ void initBiomeColours(unsigned char biomeColours[256][3])
     setBiomeColour(biomeColours, mesaPlateau_F, 176, 151, 101);
     setBiomeColour(biomeColours, mesaPlateau, 202, 140, 101);
 
-    setBiomeColour(biomeColours, warmOcean, 0, 50, 92);
-    setBiomeColour(biomeColours, lukewarmOcean, 0, 30, 100);
-    setBiomeColour(biomeColours, coldOcean, 20, 20, 80);
-    setBiomeColour(biomeColours, warmDeepOcean, 0, 24, 38);
-    setBiomeColour(biomeColours, lukewarmDeepOcean, 0, 16, 42);
-    setBiomeColour(biomeColours, coldDeepOcean, 16, 16, 40);
-    setBiomeColour(biomeColours, frozenDeepOcean, 100, 100, 112);
+    setBiomeColour(biomeColours, warmOcean, 0, 0, 172);
+    setBiomeColour(biomeColours, lukewarmOcean, 0, 0, 144);
+    setBiomeColour(biomeColours, coldOcean, 32, 32, 112);
+    setBiomeColour(biomeColours, warmDeepOcean, 0, 0, 80);
+    setBiomeColour(biomeColours, lukewarmDeepOcean, 0, 0, 64);
+    setBiomeColour(biomeColours, coldDeepOcean, 32, 32, 56);
+    setBiomeColour(biomeColours, frozenDeepOcean, 64, 64, 144);
 
 
     setBiomeColour(biomeColours, ocean+128, 0, 0, 112);
