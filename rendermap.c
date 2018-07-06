@@ -3,6 +3,7 @@
 #include "layers.h"
 
 #include <errno.h>
+#include <getopt.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,7 +11,22 @@
 
 #define DEFAULT_WIDTH 3840*2
 #define DEFAULT_HEIGHT DEFAULT_WIDTH*9/16
-#define ICON_SCALE 4
+#define DEFAULT_ICON_SCALE 2
+
+typedef struct {
+    int64_t seed;
+    char ppmfn[256];
+    char pngfn[256];
+    int width;
+    int height;
+    int iconScale;
+    int hutScale;
+    int mansionScale;
+    int monumentScale;
+    int spawnScale;
+    int strongholdScale;
+    int use_1_13;
+} MapOptions;
 
 void setBiomeColour(unsigned char biomeColour[256][3], int biome,
         unsigned char r, unsigned char g, unsigned char b)
@@ -123,13 +139,148 @@ void initBiomeColours(unsigned char biomeColours[256][3])
 
 
 void usage() {
-    fprintf(stderr, "Usage:\n");
-    fprintf(stderr, "    rendermap [seed] [filename]\n");
-    fprintf(stderr, "    rendermap [seed] [filename] [width] [height]\n\n");
-    fprintf(stderr, "Do not inclde an extension in the filename. A .ppm file");
-    fprintf(stderr, "will be used as a simple intermediate format, then a\n");
-    fprintf(stderr, "command line will be provided to compose it with icons\n");
-    fprintf(stderr, "with imagemagick and save it as a .png.\n");
+    fprintf(stderr, "Options:\n");
+    fprintf(stderr, "    --help\n");
+    fprintf(stderr, "    --seed=<integer>\n");
+    fprintf(stderr, "    --filename=<string>\n");
+    fprintf(stderr, "    --width=<integer>\n");
+    fprintf(stderr, "    --height=<integer>\n");
+    fprintf(stderr, "    --icon_scale=<integer>\n");
+    fprintf(stderr, "    --hut_scale=<integer>\n");
+    fprintf(stderr, "    --mansion_scale=<integer>\n");
+    fprintf(stderr, "    --monument_scale=<integer>\n");
+    fprintf(stderr, "    --spawn_scale=<integer>\n");
+    fprintf(stderr, "    --stronghold_scale=<integer>\n");
+    fprintf(stderr, "    --use_1_13\n");
+}
+
+
+int64_t int64Arg(const char *val, const char *name) {
+    char *endptr;
+    int64_t ret = strtol(val, &endptr, 10);
+    if (errno != 0) {
+        fprintf(stderr, "%s must be an integer\n", name);
+        usage();
+        exit(-1);
+    }
+    return ret;
+}
+
+
+int intArg(const char *val, const char *name) {
+    return (int)int64Arg(val, name);
+}
+
+
+MapOptions parseOptions(int argc, char *argv[]) {
+    int c;
+    MapOptions opts = {
+        .seed          = 0,
+        .ppmfn         = "",
+        .pngfn         = "",
+        .width         = DEFAULT_WIDTH,
+        .height        = DEFAULT_HEIGHT,
+        .iconScale     = DEFAULT_ICON_SCALE,
+        .hutScale      = 0,
+        .mansionScale  = 0,
+        .monumentScale = 0,
+        .spawnScale    = 0,
+        .use_1_13      = 0,
+    };
+
+    while (1) {
+        static struct option longOptions[] = {
+            {"help",             no_argument,       NULL, 'h'},
+            {"seed",             required_argument, NULL, 's'},
+            {"filename",         required_argument, NULL, 'f'},
+            {"width",            required_argument, NULL, 'x'},
+            {"height",           required_argument, NULL, 'z'},
+            {"icon_scale",       required_argument, NULL, 'i'},
+            {"hut_scale",        required_argument, NULL, 'H'},
+            {"mansion_scale",    required_argument, NULL, 'W'},
+            {"monument_scale",   required_argument, NULL, 'M'},
+            {"spawn_scale",      required_argument, NULL, 'S'},
+            {"stronghold_scale", required_argument, NULL, 'T'},
+            {"use_1_13",         no_argument,       NULL, '3'},
+        };
+        int index = 0;
+        c = getopt_long(argc, argv,
+                "hs:f:x:z:i:H:W:M:S:T:3", longOptions, &index);
+        if (c == -1)
+            break;
+
+        switch (c) {
+            case 'h':
+                usage();
+                exit(0);
+                break;
+            case 's':
+                opts.seed = int64Arg(optarg, longOptions[index].name);
+                break;
+            case 'f':
+                if (strlen(optarg) > 250) {
+                    fprintf(stderr, "Output filename too long.");
+                    exit(-1);
+                }
+                snprintf(opts.ppmfn, 256, "%s.ppm", optarg);
+                snprintf(opts.pngfn, 256, "%s.png", optarg);
+                break;
+            case 'x':
+                opts.width = intArg(optarg, longOptions[index].name);
+                break;
+            case 'z':
+                opts.height = intArg(optarg, longOptions[index].name);
+                break;
+            case 'i':
+                opts.iconScale = intArg(optarg, longOptions[index].name);
+                break;
+            case 'H':
+                opts.hutScale = intArg(optarg, longOptions[index].name);
+                break;
+            case 'W':
+                opts.mansionScale = intArg(optarg, longOptions[index].name);
+                break;
+            case 'M':
+                opts.monumentScale = intArg(optarg, longOptions[index].name);
+                break;
+            case 'S':
+                opts.spawnScale = intArg(optarg, longOptions[index].name);
+                break;
+            case 'T':
+                opts.strongholdScale = intArg(optarg, longOptions[index].name);
+                break;
+            case '3':
+                opts.use_1_13 = 1;
+                break;
+            default:
+                exit(-1);
+        }
+    }
+
+    if (!opts.seed) {
+        fprintf(stderr, "Seed is required (0 is not a valid MC seed).\n");
+        usage();
+        exit(-1);
+    }
+
+    if (!strlen(opts.ppmfn)) {
+        fprintf(stderr, "Filename is required.\n");
+        usage();
+        exit(-1);
+    }
+
+    if (!opts.hutScale)
+        opts.hutScale = opts.iconScale*2;
+    if (!opts.mansionScale)
+        opts.mansionScale = opts.iconScale*3;
+    if (!opts.monumentScale)
+        opts.monumentScale = opts.iconScale*3;
+    if (!opts.spawnScale)
+        opts.spawnScale = opts.iconScale*2;
+    if (!opts.strongholdScale)
+        opts.strongholdScale = opts.iconScale*3;
+
+    return opts;
 }
 
 
@@ -163,26 +314,26 @@ void writePPMHeader(FILE *fp, int width, int height) {
 }
 
 
-void writeMap(LayerStack *g, FILE *fp, int width, int height) {
+void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
     unsigned char biomeColors[256][3];
     initBiomeColours(biomeColors);
 
     Layer *fullRes = &g->layers[g->layerNum-1];
-    int *cache = allocCache(fullRes, width, 256);
+    int *cache = allocCache(fullRes, opts.width, 256);
     unsigned char pixelBuf[256*3];
 
-    writePPMHeader(fp, width, height);
+    writePPMHeader(fp, opts.width, opts.height);
 
-    int left = -width/2;
-    for (int top=-height/2; top<height/2; top+=256) {
+    int left = -opts.width/2;
+    for (int top=-opts.height/2; top<opts.height/2; top+=256) {
 
-        int rows = height/2 - top;
+        int rows = opts.height/2 - top;
         rows = rows > 256 ? 256 : rows;
-        genArea(fullRes, cache, left, top, width, rows);
+        genArea(fullRes, cache, left, top, opts.width, rows);
 
         int pixels = 0;
-        while (pixels < width*rows) {
-            int toWrite = width*rows - pixels;
+        while (pixels < opts.width*rows) {
+            int toWrite = opts.width*rows - pixels;
             toWrite = toWrite > 256 ? 256 : toWrite;
             biomesToColors(biomeColors, cache+pixels, pixelBuf, toWrite);
             fwrite(pixelBuf, 3, 256, fp);
@@ -221,137 +372,106 @@ int getBiomeAt(const LayerStack *g, const Pos pos, int *buf) {
 }
 
 
-void printCompositeCommand(LayerStack *g, int64_t seed, char *ppmfn, char *pngfn, int width, int height, int scale) {
+void printCompositeCommand(MapOptions opts, LayerStack *g) {
     Layer *fullRes = &g->layers[g->layerNum-1];
     int *cache = allocCache(fullRes, 256, 256);
 
-    printf("convert \"%s\" -filter Point \\\n", ppmfn);
-    Pos spawn = getSpawn(g, cache, seed);
-    addIcon("spawn", width, height, spawn, 20, 20, scale);
+    printf("convert \"%s\" -filter Point \\\n", opts.ppmfn);
+    Pos pos = getSpawn(g, cache, opts.seed);
+    addIcon("spawn", opts.width, opts.height, pos,
+            20, 20, opts.spawnScale);
 
-    int rX = regionify(width/2, 32);
-    int rZ = regionify(height/2, 32);
+    int rX = regionify(opts.width/2, 32);
+    int rZ = regionify(opts.height/2, 32);
     for (int z=-rZ; z<rZ; z++) {
         for (int x=-rX; x<rX; x++) {
-            Pos pos;
             int biomeAt;
 
-            pos = getStructurePos(DESERT_PYRAMID_SEED, seed, x, z);
+            pos = getStructurePos(DESERT_PYRAMID_SEED, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == desert || biomeAt == desertHills)
-                addIcon("desert", width, height, pos, 19, 20, scale);
+                addIcon("desert", opts.width, opts.height, pos,
+                        19, 20, opts.iconScale);
 
-            pos = getStructurePos(IGLOO_SEED, seed, x, z);
+            pos = getStructurePos(IGLOO_SEED, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == icePlains || biomeAt == coldTaiga)
-                addIcon("igloo", width, height, pos, 20, 20, scale);
+                addIcon("igloo", opts.width, opts.height, pos,
+                        20, 20, opts.iconScale);
 
-            pos = getStructurePos(JUNGLE_PYRAMID_SEED, seed, x, z);
+            pos = getStructurePos(JUNGLE_PYRAMID_SEED, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == jungle || biomeAt == jungleHills)
-                addIcon("jungle", width, height, pos, 19, 20, scale);
+                addIcon("jungle", opts.width, opts.height, pos,
+                        19, 20, opts.iconScale);
 
-            pos = getStructurePos(SWAMP_HUT_SEED, seed, x, z);
+            pos = getStructurePos(SWAMP_HUT_SEED, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == swampland)
-                addIcon("witch", width, height, pos, 20, 27, scale);
+                addIcon("witch", opts.width, opts.height, pos,
+                        20, 27, opts.hutScale);
 
-            pos = getOceanMonumentPos(seed, x, z);
+            pos = getOceanMonumentPos(opts.seed, x, z);
             if (isViableOceanMonumentPos(*g, cache, pos.x, pos.z))
-                addIcon("ocean_monument", width, height, pos, 20, 20, scale);
+                addIcon("ocean_monument", opts.width, opts.height, pos,
+                        20, 20, opts.monumentScale);
         }
     }
 
-    rX = regionify(width/2, 80);
-    rZ = regionify(height/2, 80);
+    rX = regionify(opts.width/2, 80);
+    rZ = regionify(opts.height/2, 80);
     for (int z=-rZ; z<rZ; z++) {
         for (int x=-rX; x<rX; x++) {
-            Pos pos = getMansionPos(seed, x, z);
+            pos = getMansionPos(opts.seed, x, z);
             if (isViableMansionPos(*g, cache, pos.x, pos.z))
-                addIcon("woodland_mansion", width, height, pos, 20, 26, scale);
+                addIcon("woodland_mansion", opts.width, opts.height, pos,
+                        20, 26, opts.mansionScale);
         }
     }
 
     Pos strongholds[128];
-    findStrongholds(g, cache, strongholds, seed, 0);
+    findStrongholds(g, cache, strongholds, opts.seed, 0);
     for (int i=0; i<128; i++) {
-        addIcon("stronghold", width, height, strongholds[i], 19, 20, scale);
+        addIcon("stronghold", opts.width, opts.height, strongholds[i],
+                19, 20, opts.strongholdScale);
     }
-    // TODO:
-    // villages
-    // Add seed text overlay?
-    printf("    \"%s\"\n", pngfn);
+    // TODO: villages
+    printf("    \"%s\"\n", opts.pngfn);
 
     free(cache);
 }
 
 
-int64_t int64Arg(char *val, char *name) {
-    char *endptr;
-    int64_t ret = strtol(val, &endptr, 10);
-    if (errno != 0) {
-        fprintf(stderr, "%s must be an integer\n", name);
-        usage();
-        exit(-1);
-    }
-    return ret;
-}
-
-
-int intArg(char *val, char *name) {
-    return (int)int64Arg(val, name);
-}
-
-
 int main(int argc, char *argv[]) {
-    if (argc != 3 && argc != 5 && argc != 6) {
-        usage();
-        exit(0);
-    }
+    MapOptions opts = parseOptions(argc, argv);
 
-    int64_t seed = int64Arg(argv[1], "World seed");
+    fprintf(stderr, "===========================================================================\n");
+    fprintf(stderr, "Writing map for seed %ld...\n", opts.seed);
+    fprintf(stderr, "===========================================================================\n");
 
-    int width, height, scale;
-    if (argc >= 5) {
-        width = intArg(argv[3], "Image width");
-        height = intArg(argv[4], "Image height");
-    } else {
-        width = DEFAULT_WIDTH;
-        height = DEFAULT_HEIGHT;
-    }
-
-    if (argc == 6) {
-        scale = intArg(argv[5], "Icon scale");
-    } else {
-        scale = ICON_SCALE;
-    }
-
-    char ppmfn[256];
-    char pngfn[256];
-    if (strlen(argv[2]) > 250) {
-        fprintf(stderr, "Filename too long.\n");
-        exit(-1);
-    }
-    snprintf(ppmfn, 256, "%s.ppm", argv[2]);
-    snprintf(pngfn, 256, "%s.png", argv[2]);
-
-    FILE *fp = fopen(ppmfn, "w");
+    FILE *fp = fopen(opts.ppmfn, "w");
     if (fp == NULL) {
-        fprintf(stderr, "Could not open file %s for writing.\n", argv[2]);
+        fprintf(stderr, "Could not open file %s for writing.\n", opts.ppmfn);
         exit(-1);
     }
+
+    initBiomes();
+    LayerStack g;
+    if (opts.use_1_13) {
+        g = setupGeneratorMC113();
+    } else {
+        g = setupGenerator();
+    }
+    applySeed(&g, opts.seed);
 
     // Write the base map as a PPM file
-    initBiomes();
-    LayerStack g = setupGeneratorMC113();
-    applySeed(&g, seed);
-    writeMap(&g, fp, width, height);
+    writeMap(opts, &g, fp);
 
     fclose(fp);
 
     // Write a imagemagick command to compose the map with icons and convert
     // to a .png file.
-    printCompositeCommand(&g, seed, ppmfn, pngfn, width, height, scale);
+    printCompositeCommand(opts, &g);
 
     return 0;
 }
