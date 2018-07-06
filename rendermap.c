@@ -26,6 +26,9 @@ typedef struct {
     int spawnScale;
     int strongholdScale;
     int use_1_13;
+    int highlightSpecial;
+    int highlightMutated;
+    int highlightSearched;
 } MapOptions;
 
 void setBiomeColour(unsigned char biomeColour[256][3], int biome,
@@ -152,6 +155,9 @@ void usage() {
     fprintf(stderr, "    --spawn_scale=<integer>\n");
     fprintf(stderr, "    --stronghold_scale=<integer>\n");
     fprintf(stderr, "    --use_1_13\n");
+    fprintf(stderr, "    --highlight_special");
+    fprintf(stderr, "    --highlight_mutated");
+    fprintf(stderr, "    --highlight_searched");
 }
 
 
@@ -190,22 +196,25 @@ MapOptions parseOptions(int argc, char *argv[]) {
 
     while (1) {
         static struct option longOptions[] = {
-            {"help",             no_argument,       NULL, 'h'},
-            {"seed",             required_argument, NULL, 's'},
-            {"filename",         required_argument, NULL, 'f'},
-            {"width",            required_argument, NULL, 'x'},
-            {"height",           required_argument, NULL, 'z'},
-            {"icon_scale",       required_argument, NULL, 'i'},
-            {"hut_scale",        required_argument, NULL, 'H'},
-            {"mansion_scale",    required_argument, NULL, 'W'},
-            {"monument_scale",   required_argument, NULL, 'M'},
-            {"spawn_scale",      required_argument, NULL, 'S'},
-            {"stronghold_scale", required_argument, NULL, 'T'},
-            {"use_1_13",         no_argument,       NULL, '3'},
+            {"help",               no_argument,       NULL, 'h'},
+            {"seed",               required_argument, NULL, 's'},
+            {"filename",           required_argument, NULL, 'f'},
+            {"width",              required_argument, NULL, 'x'},
+            {"height",             required_argument, NULL, 'z'},
+            {"icon_scale",         required_argument, NULL, 'i'},
+            {"hut_scale",          required_argument, NULL, 'H'},
+            {"mansion_scale",      required_argument, NULL, 'W'},
+            {"monument_scale",     required_argument, NULL, 'M'},
+            {"spawn_scale",        required_argument, NULL, 'S'},
+            {"stronghold_scale",   required_argument, NULL, 'T'},
+            {"use_1_13",           no_argument,       NULL, '3'},
+            {"highlight_special",  no_argument,       NULL, '7'},
+            {"highlight_mutated",  no_argument,       NULL, '8'},
+            {"highlight_searched", no_argument,       NULL, '9'},
         };
         int index = 0;
         c = getopt_long(argc, argv,
-                "hs:f:x:z:i:H:W:M:S:T:3", longOptions, &index);
+                "hs:f:x:z:i:H:W:M:S:T:3789", longOptions, &index);
         if (c == -1)
             break;
 
@@ -252,6 +261,15 @@ MapOptions parseOptions(int argc, char *argv[]) {
             case '3':
                 opts.use_1_13 = 1;
                 break;
+            case '7':
+                opts.highlightSpecial = 1;
+                break;
+            case '8':
+                opts.highlightMutated = 1;
+                break;
+            case '9':
+                opts.highlightSearched = 1;
+                break;
             default:
                 exit(-1);
         }
@@ -284,24 +302,103 @@ MapOptions parseOptions(int argc, char *argv[]) {
 }
 
 
+// Standard values from IEC 61966-2-1
+// NOTE: A gamma of 2.2 approximates sRGB, but the actual sRGB curve is a
+// combination of a linear and power component. The power component of that
+// curve has an expontent of 2.4.
+#define SRGB_GAMMA 2.4
+#define SRGB_A 0.055
+#define SRGB_PHI 12.92
+#define SRGB_K0 0.04045
+
+float sRGBToLinear(int c) {
+    float c1 = (float)c/255.0;
+    float ret;
+
+    if (c1 <= SRGB_K0)
+        ret = c1 / SRGB_PHI;
+    else
+        ret = pow((c1 + SRGB_A) / (1 + SRGB_A), SRGB_GAMMA);
+
+    if (ret < 0.0)
+        return 0.0;
+    if (ret > 1.0)
+        return 1.0;
+
+    return ret;
+}
+
+
+int linearTosRGB(float c) {
+    float c1;
+
+    if (c <= SRGB_K0/SRGB_PHI)
+        c1 = c*SRGB_PHI;
+    else
+        c1 = (1 + SRGB_A) * pow(c, 1.0/SRGB_GAMMA) - SRGB_A;
+
+    int ret = (int)round(255.0*c1);
+
+    if (ret < 0)
+        return 0;
+    if (ret > 255)
+        return 255;
+    return ret;
+}
+
+
 void biomesToColors(
-        unsigned char biomeColors[256][3],
+        MapOptions opts, unsigned char biomeColors[256][3],
         int *biomes, unsigned char *pixels, int count) {
     for (int i=0; i<count; i++) {
         if (biomes[i] > 255) {
             fprintf(stderr, "Invalid biome.\n");
             exit(-1);
         }
+
         int r, g, b;
-        if (biomes[i] < 128) {
-            r = biomeColors[biomes[i]][0];
-            g = biomeColors[biomes[i]][1];
-            b = biomeColors[biomes[i]][2];
+        int id = biomes[i];
+        if (id < 128) {
+            r = biomeColors[id][0];
+            g = biomeColors[id][1];
+            b = biomeColors[id][2];
         } else {
-            r = biomeColors[biomes[i]][0] + 40; r = (r>0xff) ? 0xff : r;
-            g = biomeColors[biomes[i]][1] + 40; g = (g>0xff) ? 0xff : g;
-            b = biomeColors[biomes[i]][2] + 40; b = (b>0xff) ? 0xff : b;
+            r = biomeColors[id][0] + 40; r = (r>0xff) ? 0xff : r;
+            g = biomeColors[id][1] + 40; g = (g>0xff) ? 0xff : g;
+            b = biomeColors[id][2] + 40; b = (b>0xff) ? 0xff : b;
         }
+
+        if (opts.highlightSpecial || opts.highlightSearched ||
+                opts.highlightMutated) {
+            int highlighted = 0;
+            if ((opts.highlightSpecial || opts.highlightSearched) && (
+                        id == jungle || id == jungleHills || id == jungleEdge ||
+                        id == jungle+128 || id == jungleEdge+128 ||
+                        id == megaTaiga || id == megaTaigaHills ||
+                        id == megaTaiga+128 || id == megaTaigaHills+128 ||
+                        id == mesa || id == mesaPlateau_F ||
+                        id == mesaPlateau || id == mesa+128 ||
+                        id == mesaPlateau_F+128 || id == mesaPlateau+128 ||
+                        id == mushroomIsland || id == mushroomIslandShore))
+                highlighted = 1;
+
+            if (opts.highlightMutated && id >= 128)
+                highlighted = 1;
+
+            if (opts.highlightSearched && (
+                        id == forest+128 || id == plains+128 ||
+                        id == icePlains+128 || id == mesa+128))
+                highlighted = 1;
+
+            if (!highlighted) {
+                // I think I'm probably a tool for making this
+                // colometrically correct.
+                r = linearTosRGB(sRGBToLinear(r) * 0.03);
+                g = linearTosRGB(sRGBToLinear(g) * 0.03);
+                b = linearTosRGB(sRGBToLinear(b) * 0.03);
+            }
+        }
+
         pixels[i*3+0] = r;
         pixels[i*3+1] = g;
         pixels[i*3+2] = b;
@@ -335,7 +432,7 @@ void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
         while (pixels < opts.width*rows) {
             int toWrite = opts.width*rows - pixels;
             toWrite = toWrite > 256 ? 256 : toWrite;
-            biomesToColors(biomeColors, cache+pixels, pixelBuf, toWrite);
+            biomesToColors(opts, biomeColors, cache+pixels, pixelBuf, toWrite);
             fwrite(pixelBuf, 3, 256, fp);
             pixels += toWrite;
         }
@@ -345,7 +442,8 @@ void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
 }
 
 
-void addIcon(char *icon, int width, int height, Pos pos, int iconWidth, int iconHeight, int scale) {
+void addIcon(char *icon, int width, int height, Pos pos,
+        int iconWidth, int iconHeight, int scale) {
     int iconW = iconWidth*scale;
     int iconH = iconHeight*scale;
     int realX = pos.x + width/2 - iconW/2;
@@ -356,7 +454,8 @@ void addIcon(char *icon, int width, int height, Pos pos, int iconWidth, int icon
             realX > width-iconW || realZ > height-iconH)
         return;
 
-    printf("    \\( \"icon/%s.png\" -resize %d00%% \\) -geometry +%d+%d -composite \\\n",
+    printf("    \\( \"icon/%s.png\" -resize %d00%% \\) "
+            "-geometry +%d+%d -composite \\\n",
             icon, scale, realX, realZ);
 }
 
@@ -445,9 +544,11 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
 int main(int argc, char *argv[]) {
     MapOptions opts = parseOptions(argc, argv);
 
-    fprintf(stderr, "===========================================================================\n");
+    fprintf(stderr, "======================================="
+            "======================================\n");
     fprintf(stderr, "Writing map for seed %ld...\n", opts.seed);
-    fprintf(stderr, "===========================================================================\n");
+    fprintf(stderr, "======================================="
+            "======================================\n");
 
     FILE *fp = fopen(opts.ppmfn, "w");
     if (fp == NULL) {
