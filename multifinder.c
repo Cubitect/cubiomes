@@ -782,6 +782,9 @@ void *searchQuadHutsThread(void *data) {
     Layer *lFilterBiome = &g.layers[L_BIOME_256];
     int64_t j, base, seed;
 
+    // Number of seeds evaluated per base seed.
+    int perBase = 0x10000 * opts.hutRadius*2*opts.hutRadius*2;
+
     Monuments monuments = {0};
 
     // Load the positions of the four structures that make up the quad-structure
@@ -811,6 +814,7 @@ void *searchQuadHutsThread(void *data) {
     for(int i=info.startIndex;
             i < info.qhcount && info.qhcandidates[i] < opts.endSeed;
             i+=opts.threads) {
+        time_t start = time(NULL);
         int basehits = 0;
 
         debug("New base seed.");
@@ -878,18 +882,15 @@ void *searchQuadHutsThread(void *data) {
 
                 for (j = 0; j < 0x10000; j++) {
                     seed = base + (j << 48);
-                    setWorldSeed(&layerBiomeDummy, seed);
 
-                    // This seed base does not seem to contain many quad huts,
-                    // so make a more detailed analysis of the surroundings and
-                    // see if there is enough potential for more swamps to
-                    // justify searching further. Misses and additional 1% of
-                    // seeds for a 1.4:1 speedup.
-
-                    // This uses a separate counter for all seeds that pass the
-                    // quad hut checks, even if they fail the other checks, so
-                    // that the other checks don't cause this to fail too early.
                     if (!opts.disableOptimizations) {
+                        setWorldSeed(&layerBiomeDummy, seed);
+
+                        // This seed base does not seem to contain many quad
+                        // huts, so make a more detailed analysis of the
+                        // surroundings and see if there is enough potential for
+                        // more swamps to justify searching further. Misses and
+                        // additional 1% of seeds for a 1.4:1 speedup.
                         if (hutHits == 0 && (j & 0xfff) == 0xfff) {
                             debug("Checking area around a weak seed.");
                             int swpc = 0;
@@ -904,17 +905,18 @@ void *searchQuadHutsThread(void *data) {
                                 break;
                         }
 
-                        // We can check that at least one swamp could generate in
-                        // this area before doing the biome generator checks.
-                        // Misses an additional 0.2% of seeds for a 2.75:1 speedup.
+                        // We can check that at least one swamp could generate
+                        // in this area before doing the biome generator checks.
+                        // Misses an additional 0.2% of seeds for a 2.75:1
+                        // speedup.
                         debug("Checking if swamp is possible in the area.");
                         setChunkSeed(&layerBiomeDummy, areaX+1, areaZ+1);
                         if (mcNextInt(&layerBiomeDummy, 6) != 5)
                             continue;
 
                         // Dismiss seeds that don't have a swamp near the quad
-                        // temple. Misses an additional 0.03% of seeds for a 1.7:1
-                        // speedup.
+                        // temple. Misses an additional 0.03% of seeds for a
+                        // 1.7:1 speedup.
                         debug("Checking if swamp is actually in the area.");
                         setWorldSeed(lFilterBiome, seed);
                         genArea(lFilterBiome, cache.filter, areaX+1, areaZ+1, 1, 1);
@@ -978,8 +980,11 @@ void *searchQuadHutsThread(void *data) {
                 fflush(fh);
             }
         }
-        fprintf(stderr, "Base seed %ld (thread %d): %d hits\n",
-                info.qhcandidates[i], info.thread, basehits);
+        int elapsed = time(NULL) - start;
+        int seedRate = perBase / elapsed;
+        fprintf(stderr,
+                "Base seed %15ld (thread %2d): %5d hits, %d seeds/sec\n",
+                info.qhcandidates[i], info.thread, basehits, seedRate);
     }
 
     if (fh != stdout) {
