@@ -277,6 +277,8 @@ int64_t parseHumanArgument(char *arg, const char *flagName) {
         case 'T': mult = 1024LL*1024LL*1024LL*1024LL; break;
     }
 
+    // TODO: This is hacky and stop doing it. It makes the COMMAND file
+    // print wrong.
     if (mult != 1)
         arg[len-1] = 0;
     int64_t val = strtol(arg, &endptr, 10);
