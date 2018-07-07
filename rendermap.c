@@ -32,6 +32,7 @@ typedef struct {
     int highlightSpecial;
     int highlightMutated;
     int highlightSearched;
+    int highlightIcons;
 } MapOptions;
 
 void setBiomeColour(unsigned char biomeColour[256][3], int biome,
@@ -158,9 +159,10 @@ void usage() {
     fprintf(stderr, "    --spawn_scale=<integer>\n");
     fprintf(stderr, "    --stronghold_scale=<integer>\n");
     fprintf(stderr, "    --use_1_13\n");
-    fprintf(stderr, "    --highlight_special");
-    fprintf(stderr, "    --highlight_mutated");
-    fprintf(stderr, "    --highlight_searched");
+    fprintf(stderr, "    --highlight_special\n");
+    fprintf(stderr, "    --highlight_mutated\n");
+    fprintf(stderr, "    --highlight_searched\n");
+    fprintf(stderr, "    --highlight_icons\n");
 }
 
 
@@ -184,22 +186,26 @@ int intArg(const char *val, const char *name) {
 MapOptions parseOptions(int argc, char *argv[]) {
     int c;
     MapOptions opts = {
-        .seed            = 0,
-        .ppmfn           = "",
-        .pngfn           = "",
-        .width           = DEFAULT_WIDTH,
-        .height          = DEFAULT_HEIGHT,
-        .iconScale       = 1,
-        .desertScale     = -1,
-        .iglooScale      = -1,
-        .jungleScale     = -1,
-        .hutScale        = -1,
-        .mansionScale    = -1,
-        .monumentScale   = -1,
-        .spawnScale      = -1,
-        .strongholdScale = -1,
-        .villageScale    = -1,
-        .use_1_13        = 0,
+        .seed              = 0,
+        .ppmfn             = "",
+        .pngfn             = "",
+        .width             = DEFAULT_WIDTH,
+        .height            = DEFAULT_HEIGHT,
+        .iconScale         = 1,
+        .desertScale       = -1,
+        .iglooScale        = -1,
+        .jungleScale       = -1,
+        .hutScale          = -1,
+        .mansionScale      = -1,
+        .monumentScale     = -1,
+        .spawnScale        = -1,
+        .strongholdScale   = -1,
+        .villageScale      = -1,
+        .use_1_13          = 0,
+        .highlightSpecial  = 0,
+        .highlightMutated  = 0,
+        .highlightSearched = 0,
+        .highlightIcons    = 0,
     };
 
     while (1) {
@@ -220,13 +226,14 @@ MapOptions parseOptions(int argc, char *argv[]) {
             {"stronghold_scale",   required_argument, NULL, 'T'},
             {"village_scale",      required_argument, NULL, 'V'},
             {"use_1_13",           no_argument,       NULL, '3'},
-            {"highlight_special",  no_argument,       NULL, '7'},
-            {"highlight_mutated",  no_argument,       NULL, '8'},
-            {"highlight_searched", no_argument,       NULL, '9'},
+            {"highlight_special",  no_argument,       NULL, '6'},
+            {"highlight_mutated",  no_argument,       NULL, '7'},
+            {"highlight_searched", no_argument,       NULL, '8'},
+            {"highlight_icons",    no_argument,       NULL, '9'},
         };
         int index = 0;
         c = getopt_long(argc, argv,
-                "hs:f:x:z:i:H:W:M:S:T:3789", longOptions, &index);
+                "hs:f:x:z:i:D:I:H:W:M:S:T:V:36789", longOptions, &index);
         if (c == -1)
             break;
 
@@ -285,14 +292,17 @@ MapOptions parseOptions(int argc, char *argv[]) {
             case '3':
                 opts.use_1_13 = 1;
                 break;
-            case '7':
+            case '6':
                 opts.highlightSpecial = 1;
                 break;
-            case '8':
+            case '7':
                 opts.highlightMutated = 1;
                 break;
-            case '9':
+            case '8':
                 opts.highlightSearched = 1;
+                break;
+            case '9':
+                opts.highlightIcons = 1;
                 break;
             default:
                 exit(-1);
@@ -336,8 +346,8 @@ MapOptions parseOptions(int argc, char *argv[]) {
 
 // Standard values from IEC 61966-2-1
 // NOTE: A gamma of 2.2 approximates sRGB, but the actual sRGB curve is a
-// combination of a linear and power component. The power component of that
-// curve has an expontent of 2.4.
+// piecewise function of a linear and power component. The power component of
+// that curve has an expontent of 2.4.
 #define SRGB_GAMMA 2.4
 #define SRGB_A 0.055
 #define SRGB_PHI 12.92
@@ -401,7 +411,7 @@ void biomesToColors(
         }
 
         if (opts.highlightSpecial || opts.highlightSearched ||
-                opts.highlightMutated) {
+                opts.highlightMutated || opts.highlightIcons) {
             int highlighted = 0;
             if ((opts.highlightSpecial || opts.highlightSearched) && (
                         id == jungle || id == jungleHills || id == jungleEdge ||
@@ -423,8 +433,9 @@ void biomesToColors(
                 highlighted = 1;
 
             if (!highlighted) {
-                // I think I'm probably a tool for making this
-                // colometrically correct.
+                // I think I'm probably a tool for making this colometrically
+                // correct. I should probably make the multiplier a command
+                // line option.
                 r = linearTosRGB(sRGBToLinear(r) * 0.03);
                 g = linearTosRGB(sRGBToLinear(g) * 0.03);
                 b = linearTosRGB(sRGBToLinear(b) * 0.03);
