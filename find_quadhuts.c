@@ -18,6 +18,7 @@ int main(int argc, char *argv[])
     // Always initialize the biome list before starting any seed finder or
     // biome generator.
     initBiomes();
+    LayerStack g;
 
     // Translate the positions to the desired regions.
     int regPosX = 0;
@@ -58,11 +59,16 @@ int main(int argc, char *argv[])
     {
         featureSeed = SWAMP_HUT_SEED;
         seedFileName = "./seeds/quadhutbases_1_13_Q1.txt";
+        // setupGeneratorMC113 biome generation is slower and unnecessary,
+        // we are only interested in the biomes on land, which haven't changed
+        // since MC 1.7.
+        g = setupGeneratorMC17();
     }
     else
     {
         featureSeed = FEATURE_SEED;
         seedFileName = "./seeds/quadhutbases_1_7_Q1.txt";
+        g = setupGeneratorMC17();
     }
 
     if(access(seedFileName, F_OK))
@@ -77,8 +83,6 @@ int main(int argc, char *argv[])
     int64_t i, j, qhcnt;
     int64_t base, seed;
     int64_t *qhcandidates = loadSavedSeeds(seedFileName, &qhcnt);
-
-    LayerStack g = setupGenerator();
 
 
     Layer *lFilterBiome = &g.layers[L_BIOME_256];

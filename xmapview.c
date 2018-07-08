@@ -71,7 +71,6 @@ void initBiomeColours(unsigned char biomeColours[256][3])
     setBiomeColour(biomeColours, coldDeepOcean, 32, 32, 56);
     setBiomeColour(biomeColours, frozenDeepOcean, 64, 64, 144);
 
-
     setBiomeColour(biomeColours, ocean+128, 0, 0, 112);
     setBiomeColour(biomeColours, plains+128, 141, 179, 96);
     setBiomeColour(biomeColours, desert+128, 250, 148, 24);
@@ -216,7 +215,7 @@ void getBiomeColourMap(uint *colbuf, const unsigned char biomeColour[256][3],
 
 void viewmap(Layer *layer, unsigned char biomeColour[256][3], int areaX, int areaZ, uint areaWidth, uint areaHeight, uint pixscale)
 {
-    int *ints = allocCache(layer, areaWidth+10, areaHeight+1);
+    int *ints = allocCache(layer, areaWidth, areaHeight);
 
     // generate the biome ints
     genArea(layer, ints, areaX, areaZ, areaWidth, areaHeight);

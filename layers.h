@@ -1,6 +1,8 @@
 #ifndef LAYER_H_
 #define LAYER_H_
 
+#include "javarnd.h"
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <inttypes.h>
@@ -44,7 +46,9 @@ enum BiomeTempCategory {
     Oceanic, Warm, Lush, Cold, Freezing, Unknown
 };
 
-STRUCT(Biome) {
+
+STRUCT(Biome)
+{
     int id;
     int type;
     double height;
@@ -52,18 +56,29 @@ STRUCT(Biome) {
     int tempCat;
 };
 
-STRUCT(Layer) {
-    int64_t baseSeed;  // Generator seed (depends only on hierarchy of generator)
-    int64_t worldSeed; // based on the seed of the world
 
-    int64_t chunkSeed; // randomiser seed
+STRUCT(OceanRnd)
+{
+    int d[512];
+    double a, b, c;
+};
 
-    int scale;      // map scale of this layer (map entry = scale x scale blocks)
+STRUCT(Layer)
+{
+    int64_t baseSeed;   // Generator seed (depends only on layer hierarchy)
+    int64_t worldSeed;  // based on the seed of the world
+
+    int64_t chunkSeed;  // randomiser seed
+
+    OceanRnd *oceanRnd; // world seed dependent data for ocean temperatures
+
+    int scale;          // map scale of this layer (map entry = scale x scale blocks)
 
     void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h);
 
-    Layer *p, *p2;
+    Layer *p, *p2;      // parent layers
 };
+
 
 extern Biome biomes[256];
 
@@ -71,7 +86,10 @@ extern Biome biomes[256];
 /* initBiomes() has to be called before any of the generators can be used */
 void initBiomes();
 
-
+/* setWorldSeed
+ * ------------
+ * Applies the given world seed to the layer and all dependent layers.
+ */
 void setWorldSeed(Layer *layer, int64_t seed);
 
 
@@ -386,9 +404,7 @@ void mapRareBiome(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapShore(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapRiverMix(Layer *l, int * __restrict out, int x, int z, int w, int h);
 
-// TODO: 1.13 updated again and these functions are outdated!
 void mapOceanTemp(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight);
-void mapEdgeOcean(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight);
 void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight);
 
 void mapVoronoiZoom(Layer *l, int * __restrict out, int x, int z, int w, int h);
