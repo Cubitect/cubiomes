@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
 
 
     // Search for a swamp at the structure positions
-    for(i = 0; i < 100; i++)
+    for(i = 0; i < qhcnt; i++)
     {
         base = moveStructure(qhcandidates[i], regPosX, regPosZ);
 
