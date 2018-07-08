@@ -680,15 +680,14 @@ void search4QuadBases(const char *fnam, const int threads,
  * -------------
  * Returns the biome for the specified block position.
  * (Alternatives should be considered in performance critical code.)
- * This function is not threadsafe.
  */
 int getBiomeAtPos(const LayerStack g, const Pos pos)
 {
-    static int ints[0x1000];
-
-    genArea(&g.layers[g.layerNum-1], &ints[0], pos.x, pos.z, 1, 1);
-
-    return ints[0];
+    int *map = allocCache(&g.layers[g.layerNum-1], 1, 1);
+    genArea(&g.layers[g.layerNum-1], map, pos.x, pos.z, 1, 1);
+    int biomeID = map[0];
+    free(map);
+    return biomeID;
 }
 
 /* getStructurePos
