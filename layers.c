@@ -1084,7 +1084,7 @@ void mapRareBiome(Layer *l, int * __restrict out, int areaX, int areaZ, int area
 
             if(mcNextInt(l, 57) == 0 && v11 == plains)
             {
-                // Flower Forest
+                // Sunflower Plains
                 out[x + z*areaWidth] = plains + 128;
             }
             else
