@@ -1365,7 +1365,7 @@ void mapOceanTemp(Layer *l, int * __restrict out, int areaX, int areaZ, int area
     }
 }
 
-
+/* Warning: this function is horribly slow compared to other layers! */
 void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {
     int landX = areaX-8, landZ = areaZ-8;
@@ -1402,13 +1402,13 @@ void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
                 continue;
             }
 
-            for(int i2 = -8; i2 <= 8; i2 += 4)
+            for(int i = -8; i <= 8; i += 4)
             {
-                for(int i3 = -8; i3 <= 8; i3 += 4)
+                for(int j = -8; j <= 8; j += 4)
                 {
-                    int n8 = map1[(x+i2+8) + (z+i3+8)*landWidth];
+                    int nearbyID = map1[(x+i+8) + (z+j+8)*landWidth];
 
-                    if(isOceanic(n8)) continue;
+                    if(isOceanic(nearbyID)) continue;
 
                     if(oceanID == warmOcean)
                     {
@@ -1416,27 +1416,33 @@ void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
                         goto loop_x;
                     }
 
-                    if(oceanID != frozenOcean) continue;
-
-                    out[x + z*areaWidth] = coldOcean;
-                    goto loop_x;
+                    if(oceanID == frozenOcean)
+                    {
+                        out[x + z*areaWidth] = coldOcean;
+                        goto loop_x;
+                    }
                 }
             }
 
-            if (landID == deepOcean) {
-                if (oceanID == lukewarmOcean) {
+            if(landID == deepOcean)
+            {
+                if(oceanID == lukewarmOcean)
+                {
                     out[x + z*areaWidth] = lukewarmDeepOcean;
                     continue;
                 }
-                if (oceanID == ocean) {
+                if(oceanID == ocean)
+                {
                     out[x + z*areaWidth] = deepOcean;
                     continue;
                 }
-                if (oceanID == coldOcean) {
+                if(oceanID == coldOcean)
+                {
                     out[x + z*areaWidth] = coldDeepOcean;
                     continue;
                 }
-                if (oceanID == frozenOcean) {
+                if(oceanID == frozenOcean)
+                {
                     out[x + z*areaWidth] = frozenDeepOcean;
                     continue;
                 }
