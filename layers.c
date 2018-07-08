@@ -1248,12 +1248,6 @@ void mapRiverMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
 }
 
 
-/* Corner lookup tables for ocean PRNG */
-const double e[] = {1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, 0.0};
-const double f[] = {1.0, 1.0, -1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0};
-const double g[] = {0.0, 0.0, 0.0, 0.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 0.0, 1.0, 0.0, -1.0};
-const double h[] = {1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, 0.0};
-const double i[] = {0.0, 0.0, 0.0, 0.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 0.0, 1.0, 0.0, -1.0};
 
 /* oceanRndInit
  * ------------
@@ -1262,84 +1256,88 @@ const double i[] = {0.0, 0.0, 0.0, 0.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1
  */
 static void oceanRndInit(OceanRnd *rnd, int64_t seed)
 {
+    int i = 0;
     memset(rnd, 0, sizeof(*rnd));
     setSeed(&seed);
     rnd->a = nextDouble(&seed) * 256.0;
     rnd->b = nextDouble(&seed) * 256.0;
     rnd->c = nextDouble(&seed) * 256.0;
 
-    int n2 = 0;
-    while (n2 < 256)
+    for(i = 0; i < 256; i++)
     {
-        rnd->d[n2] = n2;
-        n2++;
+        rnd->d[i] = i;
     }
-    for (n2 = 0; n2 < 256; ++n2)
+    for(i = 0; i < 256; i++)
     {
-        int n3 = nextInt(&seed, 256 - n2) + n2;
-        int n4 = rnd->d[n2];
-        rnd->d[n2] = rnd->d[n3];
+        int n3 = nextInt(&seed, 256 - i) + i;
+        int n4 = rnd->d[i];
+        rnd->d[i] = rnd->d[n3];
         rnd->d[n3] = n4;
-        rnd->d[n2 + 256] = rnd->d[n2];
+        rnd->d[i + 256] = rnd->d[i];
     }
 }
 
-static double fddd(const double d2, const double d3, const double d4)
+static double lerp(const double part, const double from, const double to)
 {
-    return d3 + d2 * (d4 - d3);
+    return from + part * (to - from);
 }
 
-static double faiddd(const int n2, const double d2, const double d3, const double d4)
+/* Table of vectors to cube edge centres (12 + 4 extra), used for ocean PRNG */
+const double cEdgeX[] = {1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 0.0, 0.0, 0.0, 0.0,  1.0, 0.0,-1.0, 0.0};
+const double cEdgeY[] = {1.0, 1.0,-1.0,-1.0, 0.0, 0.0, 0.0, 0.0, 1.0,-1.0, 1.0,-1.0,  1.0,-1.0, 1.0,-1.0};
+const double cEdgeZ[] = {0.0, 0.0, 0.0, 0.0, 1.0, 1.0,-1.0,-1.0, 1.0, 1.0,-1.0,-1.0,  0.0, 1.0, 0.0,-1.0};
+
+static double indexedLerp(int idx, const double d1, const double d2, const double d3)
 {
-    int n3 = n2 & 15;
-    return e[n3] * d2 + f[n3] * d3 + g[n3] * d4;
+    idx &= 0xf;
+    return cEdgeX[idx] * d1 + cEdgeY[idx] * d2 + cEdgeZ[idx] * d3;
 }
 
-static double getOceanTemp(const OceanRnd *rnd, double d2, double d3, double d4)
-{
-    double d5 = d2 + rnd->a;
-    double d6 = d3 + rnd->b;
-    double d7 = d4 + rnd->c;
-    int n2 = (int)d5;
-    int n3 = (int)d6;
-    int n4 = (int)d7;
-    if (d5 < (double)n2) {
-        --n2;
-    }
-    if (d6 < (double)n3) {
-        --n3;
-    }
-    if (d7 < (double)n4) {
-        --n4;
-    }
-    int n5 = n2 & 255;
-    int n6 = n3 & 255;
-    int n7 = n4 & 255;
-    d5 -= (double)n2;
-    double d8 = d5 * d5 * d5 * (d5 * ((d5) * 6.0 - 15.0) + 10.0);
-    d6 -= (double)n3;
-    double d9 = d6 * d6 * d6 * (d6 * ((d6) * 6.0 - 15.0) + 10.0);
-    d7 -= (double)n4;
-    double d10 = d7 * d7 * d7 * (d7 * ((d7) * 6.0 - 15.0) + 10.0);
 
-    int n8 = rnd->d[n5] + n6;
-    int n9 = rnd->d[n8] + n7;
-    int n10 = rnd->d[n8 + 1] + n7;
-    int n11 = rnd->d[n5 + 1] + n6;
-    int n12 = rnd->d[n11] + n7;
-    int n13 = rnd->d[n11 + 1] + n7;
-    return (
-            fddd(  d10,
-                    fddd(   d9,
-                            fddd(d8, faiddd(rnd->d[n9], d5, d6, d7), faiddd(rnd->d[n12], d5 - 1.0, d6, d7)),
-                            fddd(d8, faiddd(rnd->d[n10], d5, d6 - 1.0, d7), faiddd(rnd->d[n13], d5 - 1.0, d6 - 1.0, d7))
-                    ),
-                    fddd(   d9,
-                            fddd(d8, faiddd(rnd->d[n9 + 1], d5, d6, d7 - 1.0), faiddd(rnd->d[n12 + 1], d5 - 1.0, d6, d7 - 1.0)),
-                            fddd(d8, faiddd(rnd->d[n10 + 1], d5, d6 - 1.0, d7 - 1.0), faiddd(rnd->d[n13 + 1], d5 - 1.0, d6 - 1.0, d7 - 1.0))
-                    )
-            )
-        );
+static double getOceanTemp(const OceanRnd *rnd, double d1, double d2, double d3)
+{
+    d1 += rnd->a;
+    d2 += rnd->b;
+    d3 += rnd->c;
+    int i1 = (int)d1 - (int)(d1 < 0);
+    int i2 = (int)d2 - (int)(d2 < 0);
+    int i3 = (int)d3 - (int)(d3 < 0);
+    d1 -= i1;
+    d2 -= i2;
+    d3 -= i3;
+    double t1 = d1*d1*d1 * (d1 * (d1*6.0-15.0) + 10.0);
+    double t2 = d2*d2*d2 * (d2 * (d2*6.0-15.0) + 10.0);
+    double t3 = d3*d3*d3 * (d3 * (d3*6.0-15.0) + 10.0);
+
+    i1 &= 0xff;
+    i2 &= 0xff;
+    i3 &= 0xff;
+
+    int a1 = rnd->d[i1]   + i2;
+    int a2 = rnd->d[a1]   + i3;
+    int a3 = rnd->d[a1+1] + i3;
+    int b1 = rnd->d[i1+1] + i2;
+    int b2 = rnd->d[b1]   + i3;
+    int b3 = rnd->d[b1+1] + i3;
+
+    double l1 = indexedLerp(rnd->d[a2],   d1,   d2,   d3);
+    double l2 = indexedLerp(rnd->d[b2],   d1-1, d2,   d3);
+    double l3 = indexedLerp(rnd->d[a3],   d1,   d2-1, d3);
+    double l4 = indexedLerp(rnd->d[b3],   d1-1, d2-1, d3);
+    double l5 = indexedLerp(rnd->d[a2+1], d1,   d2,   d3-1);
+    double l6 = indexedLerp(rnd->d[b2+1], d1-1, d2,   d3-1);
+    double l7 = indexedLerp(rnd->d[a3+1], d1,   d2-1, d3-1);
+    double l8 = indexedLerp(rnd->d[b3+1], d1-1, d2-1, d3-1);
+
+    l1 = lerp(t1, l1, l2);
+    l3 = lerp(t1, l3, l4);
+    l5 = lerp(t1, l5, l6);
+    l7 = lerp(t1, l7, l8);
+
+    l1 = lerp(t2, l1, l3);
+    l5 = lerp(t2, l5, l7);
+
+    return lerp(t3, l1, l5);
 }
 
 void mapOceanTemp(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
@@ -1351,22 +1349,18 @@ void mapOceanTemp(Layer *l, int * __restrict out, int areaX, int areaZ, int area
     {
         for(x = 0; x < areaWidth; x++)
         {
-            int v11;
-
             double tmp = getOceanTemp(rnd, (x + areaX) / 8.0, (z + areaZ) / 8.0, 0);
 
             if(tmp > 0.4)
-                v11 = warmOcean;
+                out[x + z*areaWidth] = warmOcean;
             else if(tmp > 0.2)
-                v11 = lukewarmOcean;
+                out[x + z*areaWidth] = lukewarmOcean;
             else if(tmp < -0.4)
-                v11 = frozenOcean;
+                out[x + z*areaWidth] = frozenOcean;
             else if(tmp < -0.2)
-                v11 = coldOcean;
+                out[x + z*areaWidth] = coldOcean;
             else
-                v11 = ocean;
-
-            out[x + z*areaWidth] = v11;
+                out[x + z*areaWidth] = ocean;
         }
     }
 }
@@ -1399,12 +1393,12 @@ void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
     {
         for(x = 0; x < areaWidth; x++)
         {
-            int n4 = map1[(x+8) + (z+8)*landWidth]; // main land branch
-            int n5 = map2[x + z*areaWidth]; // ocean branch
+            int landID = map1[(x+8) + (z+8)*landWidth];
+            int oceanID = map2[x + z*areaWidth];
 
-            if(!isOceanic(n4))
+            if(!isOceanic(landID))
             {
-                out[x + z*areaWidth] = n4;
+                out[x + z*areaWidth] = landID;
                 continue;
             }
 
@@ -1416,39 +1410,39 @@ void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
 
                     if(isOceanic(n8)) continue;
 
-                    if(n5 == warmOcean)
+                    if(oceanID == warmOcean)
                     {
                         out[x + z*areaWidth] = lukewarmOcean;
                         goto loop_x;
                     }
 
-                    if(n5 != frozenOcean) continue;
+                    if(oceanID != frozenOcean) continue;
 
                     out[x + z*areaWidth] = coldOcean;
                     goto loop_x;
                 }
             }
 
-            if (n4 == deepOcean) {
-                if (n5 == lukewarmOcean) {
+            if (landID == deepOcean) {
+                if (oceanID == lukewarmOcean) {
                     out[x + z*areaWidth] = lukewarmDeepOcean;
                     continue;
                 }
-                if (n5 == ocean) {
+                if (oceanID == ocean) {
                     out[x + z*areaWidth] = deepOcean;
                     continue;
                 }
-                if (n5 == coldOcean) {
+                if (oceanID == coldOcean) {
                     out[x + z*areaWidth] = coldDeepOcean;
                     continue;
                 }
-                if (n5 == frozenOcean) {
+                if (oceanID == frozenOcean) {
                     out[x + z*areaWidth] = frozenDeepOcean;
                     continue;
                 }
             }
 
-            out[x + z*areaWidth] = n5;
+            out[x + z*areaWidth] = oceanID;
 
             loop_x:;
         }
