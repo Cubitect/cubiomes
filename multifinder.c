@@ -71,6 +71,7 @@ typedef struct {
 
     // Search radius options
     int radius;
+    int circleRadius;
     int biomeRadius;
     int hutRadius;
     int mansionRadius;
@@ -247,6 +248,13 @@ void usage() {
     fprintf(stderr, "    --radius=<integer>\n");
     fprintf(stderr, "      Search radius, in blocks (rounded to nearest\n");
     fprintf(stderr, "      structure region).\n");
+    fprintf(stderr, "    --circle_radius\n");
+    fprintf(stderr, "      Use an approximately circular radius when doing\n");
+    fprintf(stderr, "      searches for --all_biomes or --plentiful_bomes.\n");
+    fprintf(stderr, "      A circular radius is not used for structure\n");
+    fprintf(stderr, "      searches, since regions are so chunky, nor spawn\n");
+    fprintf(stderr, "      biome searches, because the square spawn chunks\n");
+    fprintf(stderr, "      are the thing of interest.\n");
     fprintf(stderr, "    --biome_radius=<integer>\n");
     fprintf(stderr, "      Search radius, in blocks, for --all_biomes\n");
     fprintf(stderr, "      option. Defaults to --search_radius.\n");
@@ -370,6 +378,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         .strongholdDistance   = 0,
         .woodlandMansions     = 0,
         .radius               = 2048,
+        .circleRadius         = 0,
         .biomeRadius          = 0,
         .hutRadius            = 0,
         .mansionRadius        = 0,
@@ -394,13 +403,14 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             {"stronghold_distance",   required_argument, NULL, 'z'},
             {"woodland_mansions",     required_argument, NULL, 'w'},
             {"radius",                required_argument, NULL, 'r'},
+            {"circle_radius",         no_argument,       NULL, 'c'},
             {"biome_radius",          required_argument, NULL, 'B'},
             {"hut_radius",            required_argument, NULL, 'H'},
             {"mansion_radius",        required_argument, NULL, 'M'},
         };
         int index = 0;
         c = getopt_long(argc, argv,
-                "hDXs:e:t:o:AS:ap:P:b:m:z:w:r:B:H:M:", longOptions, &index);
+                "hDXs:e:t:o:AS:ap:P:b:m:z:w:r:cB:H:M:", longOptions, &index);
 
         if (c == -1)
             break;
@@ -482,6 +492,9 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             case 'r':
                 opts.radius = parseIntArgument(
                         optarg, longOptions[index].name);
+                break;
+            case 'c':
+                opts.circleRadius = 1;
                 break;
             case 'B':
                 opts.biomeRadius = parseIntArgument(
@@ -706,13 +719,18 @@ int getBiomeGroup(int biome) {
 
 
 #define NUM_ALL_BIOMES 10
-int hasAllBiomes(int *cache, int radius) {
-    int width = radius >> 3;  // 1:16 resolution layer, *2 for a radius.
-    int area = width*width;
+int hasAllBiomes(int *cache, const SearchOptions *opts) {
+    int width = opts->biomeRadius >> 3;  // 1:16 resolution layer, *2 for a radius.
+    int r = width >> 1;
 
     int biomeCounts[NUM_ALL_BIOMES] = {0};
-    for (int i=0; i<area; i++) {
-        biomeCounts[getBiomeGroup(cache[i])]++;
+    int i=0;
+    for (int z=0; z<width; z++) {
+        for (int x=0; x<width; x++) {
+            if (!opts->circleRadius || (x-r)*(x-r) + (z-r)*(z-r) <= r*r)
+                biomeCounts[getBiomeGroup(cache[i])]++;
+            i++;
+        }
     }
 
     for (int i=0; i<NUM_ALL_BIOMES; i++) {
@@ -724,18 +742,25 @@ int hasAllBiomes(int *cache, int radius) {
 }
 
 
-int hasPlentifulBiome(int *cache, int radius, int plentifulness,
-        BiomeSearchConfig *config) {
-    int width = radius >> 3;  // 1:16 resolution layer, *2 for a radius.
-    int area = width*width;
+int hasPlentifulBiome(int *cache, const SearchOptions *opts) {
+    int width = opts->biomeRadius >> 3;  // 1:16 resolution layer, *2 for a radius.
+    int r = width >> 1;
 
     float fraction = 0.0;
-    for (int i=0; i<area; i++) {
-        if (config->lookup[cache[i]] == 1)
-            fraction += 1.0;
+    int i=0;
+    int area = 0;
+    for (int z=0; z<width; z++) {
+        for (int x=0; x<width; x++) {
+            if (!opts->circleRadius || (x-r)*(x-r) + (z-r)*(z-r) <= r*r) {
+                area++;
+                if (opts->plentifulBiome->lookup[cache[i]] == 1)
+                    fraction += 1.0;
+            }
+            i++;
+        }
     }
 
-    return fraction / area >= config->naturalFraction * plentifulness;
+    return fraction / area >= opts->plentifulBiome->naturalFraction * opts->plentifulness;
 }
 
 
@@ -963,11 +988,11 @@ void *searchQuadHutsThread(void *data) {
                         if (opts.allBiomes || opts.plentifulBiome) {
                             getAreaBiomes(&g, cache.shore, spawn, opts.biomeRadius);
                             if (opts.allBiomes
-                                    && !hasAllBiomes(cache.shore, opts.biomeRadius))
+                                    && !hasAllBiomes(cache.shore, &opts))
                                 continue;
 
                             if (opts.plentifulBiome
-                                    && !hasPlentifulBiome(cache.shore, opts.biomeRadius, opts.plentifulness, opts.plentifulBiome))
+                                    && !hasPlentifulBiome(cache.shore, &opts))
                                 continue;
                         }
                     }
