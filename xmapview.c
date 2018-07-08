@@ -216,7 +216,7 @@ void getBiomeColourMap(uint *colbuf, const unsigned char biomeColour[256][3],
 
 void viewmap(Layer *layer, unsigned char biomeColour[256][3], int areaX, int areaZ, uint areaWidth, uint areaHeight, uint pixscale)
 {
-    int *ints = allocCache(layer, areaWidth+10, areaHeight+1);
+    int *ints = allocCache(layer, areaWidth, areaHeight);
 
     // generate the biome ints
     genArea(layer, ints, areaX, areaZ, areaWidth, areaHeight);

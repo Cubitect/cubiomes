@@ -56,7 +56,6 @@ enum
 
     // 1.13 layers
     L13_OCEAN_TEMP_256 = 43,
-    L13_EDGE_OCEAN_256,
     L13_ZOOM_128,
     L13_ZOOM_64,
     L13_ZOOM_32,
@@ -70,12 +69,6 @@ enum
 };
 
 
-/*
-typedef struct LayerStack
-{
-
-} Generator;*/
-
 STRUCT(LayerStack)
 {
     Layer *layers;
@@ -87,9 +80,6 @@ LayerStack setupGenerator();
 LayerStack setupGeneratorMC17();
 LayerStack setupGeneratorMC113();
 
-
-// Sets the top level layer of a generator.
-void setTopLevel(LayerStack *g, int topLevel);
 
 // Cleans up and frees the generator layers
 void freeGenerator(LayerStack g);

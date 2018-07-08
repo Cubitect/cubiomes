@@ -3,6 +3,10 @@
 #include <string.h>
 #include <stdio.h>
 
+
+static void oceanRndInit(OceanRnd *rnd, int64_t seed);
+
+
 void initAddBiome(int id, int tempCat, int biometype, float temp, float height)
 {
     if(id & (~0xff)) return;
@@ -114,6 +118,9 @@ void setWorldSeed(Layer *layer, int64_t seed)
 
     if(layer->p != NULL)
         setWorldSeed(layer->p, seed);
+
+    if(layer->oceanRnd != NULL)
+        oceanRndInit(layer->oceanRnd, seed);
 
     layer->worldSeed = seed;
     layer->worldSeed *= layer->worldSeed * 6364136223846793005LL + 1442695040888963407LL;
@@ -1241,88 +1248,123 @@ void mapRiverMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
 }
 
 
+/* Corner lookup tables for ocean PRNG */
+const double e[] = {1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, 0.0};
+const double f[] = {1.0, 1.0, -1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0};
+const double g[] = {0.0, 0.0, 0.0, 0.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 0.0, 1.0, 0.0, -1.0};
+const double h[] = {1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, 0.0};
+const double i[] = {0.0, 0.0, 0.0, 0.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 0.0, 1.0, 0.0, -1.0};
 
-void mapOceanTemp(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
+/* oceanRndInit
+ * ------------
+ * Initialises data for the ocean temperature types using the world seed.
+ * This function is called when the world seed is applied in setWorldSeed().
+ */
+static void oceanRndInit(OceanRnd *rnd, int64_t seed)
 {
-    // The new ocean branch doesn't actually depend on previous layers.
+    memset(rnd, 0, sizeof(*rnd));
+    setSeed(&seed);
+    rnd->a = nextDouble(&seed) * 256.0;
+    rnd->b = nextDouble(&seed) * 256.0;
+    rnd->c = nextDouble(&seed) * 256.0;
 
-    //int pX = areaX - 1;
-    //int pZ = areaZ - 1;
-    //int pWidth = areaWidth + 2;
-    //int pHeight = areaHeight + 2;
-    int x, z;
-
-    //l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
-
-    for(z = 0; z < areaHeight; z++)
+    int n2 = 0;
+    while (n2 < 256)
     {
-        for(x = 0; x < areaWidth; x++)
-        {
-            setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
-
-            int v11;
-
-            float tmp = (float)mcNextInt(l, 100) / 100.0f;
-
-            if(tmp < 0.05f)
-                v11 = warmOcean;
-            else if(tmp < 0.4f)
-                v11 = lukewarmOcean;
-            else if(tmp < 0.675f)
-                v11 = ocean;
-            else if(tmp < 0.95f)
-                v11 = coldOcean;
-            else if(tmp < 1.0f)
-                v11 = frozenOcean;
-            else
-                v11 = ocean;
-
-            out[x + z*areaWidth] = v11;
-        }
+        rnd->d[n2] = n2;
+        n2++;
+    }
+    for (n2 = 0; n2 < 256; ++n2)
+    {
+        int n3 = nextInt(&seed, 256 - n2) + n2;
+        int n4 = rnd->d[n2];
+        rnd->d[n2] = rnd->d[n3];
+        rnd->d[n3] = n4;
+        rnd->d[n2 + 256] = rnd->d[n2];
     }
 }
 
-void mapEdgeOcean(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
+static double fddd(const double d2, const double d3, const double d4)
 {
-    int pX = areaX - 1;
-    int pZ = areaZ - 1;
-    int pWidth = areaWidth + 2;
-    int pHeight = areaHeight + 2;
-    int x, z;
+    return d3 + d2 * (d4 - d3);
+}
 
-    l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
+static double faiddd(const int n2, const double d2, const double d3, const double d4)
+{
+    int n3 = n2 & 15;
+    return e[n3] * d2 + f[n3] * d3 + g[n3] * d4;
+}
+
+static double getOceanTemp(const OceanRnd *rnd, double d2, double d3, double d4)
+{
+    double d5 = d2 + rnd->a;
+    double d6 = d3 + rnd->b;
+    double d7 = d4 + rnd->c;
+    int n2 = (int)d5;
+    int n3 = (int)d6;
+    int n4 = (int)d7;
+    if (d5 < (double)n2) {
+        --n2;
+    }
+    if (d6 < (double)n3) {
+        --n3;
+    }
+    if (d7 < (double)n4) {
+        --n4;
+    }
+    int n5 = n2 & 255;
+    int n6 = n3 & 255;
+    int n7 = n4 & 255;
+    d5 -= (double)n2;
+    double d8 = d5 * d5 * d5 * (d5 * ((d5) * 6.0 - 15.0) + 10.0);
+    d6 -= (double)n3;
+    double d9 = d6 * d6 * d6 * (d6 * ((d6) * 6.0 - 15.0) + 10.0);
+    d7 -= (double)n4;
+    double d10 = d7 * d7 * d7 * (d7 * ((d7) * 6.0 - 15.0) + 10.0);
+
+    int n8 = rnd->d[n5] + n6;
+    int n9 = rnd->d[n8] + n7;
+    int n10 = rnd->d[n8 + 1] + n7;
+    int n11 = rnd->d[n5 + 1] + n6;
+    int n12 = rnd->d[n11] + n7;
+    int n13 = rnd->d[n11 + 1] + n7;
+    return (
+            fddd(  d10,
+                    fddd(   d9,
+                            fddd(d8, faiddd(rnd->d[n9], d5, d6, d7), faiddd(rnd->d[n12], d5 - 1.0, d6, d7)),
+                            fddd(d8, faiddd(rnd->d[n10], d5, d6 - 1.0, d7), faiddd(rnd->d[n13], d5 - 1.0, d6 - 1.0, d7))
+                    ),
+                    fddd(   d9,
+                            fddd(d8, faiddd(rnd->d[n9 + 1], d5, d6, d7 - 1.0), faiddd(rnd->d[n12 + 1], d5 - 1.0, d6, d7 - 1.0)),
+                            fddd(d8, faiddd(rnd->d[n10 + 1], d5, d6 - 1.0, d7 - 1.0), faiddd(rnd->d[n13 + 1], d5 - 1.0, d6 - 1.0, d7 - 1.0))
+                    )
+            )
+        );
+}
+
+void mapOceanTemp(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
+{
+    int x, z;
+    OceanRnd *rnd = l->oceanRnd;
 
     for(z = 0; z < areaHeight; z++)
     {
         for(x = 0; x < areaWidth; x++)
         {
-            int v11 = out[x+1 + (z+1)*pWidth];
+            int v11;
 
-            if(v11 == warmOcean)
-            {
-                int v10 = out[x+1 + (z+0)*pWidth];
-                int v21 = out[x+2 + (z+1)*pWidth];
-                int v01 = out[x+0 + (z+1)*pWidth];
-                int v12 = out[x+1 + (z+2)*pWidth];
+            double tmp = getOceanTemp(rnd, (x + areaX) / 8.0, (z + areaZ) / 8.0, 0);
 
-                if(v10 == frozenOcean || v21 == frozenOcean || v01 == frozenOcean || v12 == frozenOcean)
-                {
-                    v11 = ocean;
-                }
-            }
-
-            if(v11 == frozenOcean)
-            {
-                int v10 = out[x+1 + (z+0)*pWidth];
-                int v21 = out[x+2 + (z+1)*pWidth];
-                int v01 = out[x+0 + (z+1)*pWidth];
-                int v12 = out[x+1 + (z+2)*pWidth];
-
-                if(v10 == warmOcean || v21 == warmOcean || v01 == warmOcean || v12 == warmOcean)
-                {
-                    v11 = ocean;
-                }
-            }
+            if(tmp > 0.4)
+                v11 = warmOcean;
+            else if(tmp > 0.2)
+                v11 = lukewarmOcean;
+            else if(tmp < -0.4)
+                v11 = frozenOcean;
+            else if(tmp < -0.2)
+                v11 = coldOcean;
+            else
+                v11 = ocean;
 
             out[x + z*areaWidth] = v11;
         }
@@ -1332,8 +1374,9 @@ void mapEdgeOcean(Layer *l, int * __restrict out, int areaX, int areaZ, int area
 
 void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {
-    int idx;
-    int *buf = (int*)malloc(areaWidth*areaHeight*sizeof(int));
+    int landX = areaX-8, landZ = areaZ-8;
+    int landWidth = areaWidth+17, landHeight = areaHeight+17;
+    int *map1, *map2;
 
     if(l->p2 == NULL)
     {
@@ -1341,34 +1384,79 @@ void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
         exit(1);
     }
 
-    l->p->getMap(l->p, out, areaX, areaZ, areaWidth, areaHeight);
-    memcpy(buf, out, areaWidth*areaHeight*sizeof(int));
+    l->p->getMap(l->p, out, landX, landZ, landWidth, landHeight);
+    map1 = (int *) malloc(landWidth*landHeight*sizeof(int));
+    memcpy(map1, out, landWidth*landHeight*sizeof(int));
 
     l->p2->getMap(l->p2, out, areaX, areaZ, areaWidth, areaHeight);
+    map2 = (int *) malloc(areaWidth*areaHeight*sizeof(int));
+    memcpy(map2, out, areaWidth*areaHeight*sizeof(int));
 
-    for(idx = 0; idx < areaHeight*areaWidth; idx++)
+
+    int x, z;
+
+    for(z = 0; z < areaHeight; z++)
     {
-        if(!isOceanic(buf[idx]) || !isOceanic(out[idx]))
+        for(x = 0; x < areaWidth; x++)
         {
-            out[idx] = buf[idx];
-        }
-        else if(buf[idx] == deepOcean)
-        {
-            if(out[idx] == lukewarmOcean)
-                out[idx] = lukewarmDeepOcean;
-            else if(out[idx] == ocean)
-                out[idx] = deepOcean;
-            else if(out[idx] == coldOcean)
-                out[idx] = coldDeepOcean;
-            else if(out[idx] == frozenOcean)
-                out[idx] = frozenDeepOcean;
+            int n4 = map1[(x+8) + (z+8)*landWidth]; // main land branch
+            int n5 = map2[x + z*areaWidth]; // ocean branch
+
+            if(!isOceanic(n4))
+            {
+                out[x + z*areaWidth] = n4;
+                continue;
+            }
+
+            for(int i2 = -8; i2 <= 8; i2 += 4)
+            {
+                for(int i3 = -8; i3 <= 8; i3 += 4)
+                {
+                    int n8 = map1[(x+i2+8) + (z+i3+8)*landWidth];
+
+                    if(isOceanic(n8)) continue;
+
+                    if(n5 == warmOcean)
+                    {
+                        out[x + z*areaWidth] = lukewarmOcean;
+                        goto loop_x;
+                    }
+
+                    if(n5 != frozenOcean) continue;
+
+                    out[x + z*areaWidth] = coldOcean;
+                    goto loop_x;
+                }
+            }
+
+            if (n4 == deepOcean) {
+                if (n5 == lukewarmOcean) {
+                    out[x + z*areaWidth] = lukewarmDeepOcean;
+                    continue;
+                }
+                if (n5 == ocean) {
+                    out[x + z*areaWidth] = deepOcean;
+                    continue;
+                }
+                if (n5 == coldOcean) {
+                    out[x + z*areaWidth] = coldDeepOcean;
+                    continue;
+                }
+                if (n5 == frozenOcean) {
+                    out[x + z*areaWidth] = frozenDeepOcean;
+                    continue;
+                }
+            }
+
+            out[x + z*areaWidth] = n5;
+
+            loop_x:;
         }
     }
 
-    free(buf);
+    free(map1);
+    free(map2);
 }
-
-
 
 
 
