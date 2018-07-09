@@ -141,42 +141,49 @@ void initSearchConfig(
 void initSearchConfigs() {
     // Ocean spawns are interesting for survival island situations, or for
     // spawn-proofing the spawn chunks for passive mob farms.
+    int allOceans[] = {
+        ocean, deepOcean,
+        frozenOcean, frozenDeepOcean,
+        coldOcean, coldDeepOcean,
+        lukewarmOcean, lukewarmDeepOcean,
+        warmOcean, warmDeepOcean};
+
     initSearchConfig(
             "ocean", &biomeSearchConfigs[oceanCfg],
             0.85f, (15.7+15.7)/100.0,
-            3, (int[]){ocean, frozenOcean, deepOcean},
+            10, allOceans,
             0, (int[]){});
 
     // Jungle, mega taiga and mesa biomes are considered "special" by the biome
     // generator, making them more rare (even though they tend to be large),
-    // and have unique items.
+    // and they have unique items.
     initSearchConfig(
             "jungle", &biomeSearchConfigs[jungleCfg],
             0.95f, (1.03+0.359+0.0853+0.0492+0.000451)/100.0,
             5, (int[]){jungle, jungleHills, jungleEdge,
                        jungle+128, jungleEdge+128},
-            3, (int[]){river, ocean, deepOcean});
+            10, allOceans);
 
     initSearchConfig(
             "mega taiga", &biomeSearchConfigs[megaTaigaCfg],
             0.90f, (0.691+0.313+0.0358+0.0354)/100.0,
             4, (int[]){megaTaiga, megaTaigaHills,
                        megaTaiga+128, megaTaigaHills+128},
-            3, (int[]){river, ocean, deepOcean});
+            10, allOceans);
 
     initSearchConfig(
             "mesa", &biomeSearchConfigs[mesaCfg],
             0.90f, (0.469+0.242+0.103+0.0236+0.0121+0.00566)/100.0,
             6, (int[]){mesa, mesaPlateau_F, mesaPlateau,
                        mesa+128, mesaPlateau_F+128, mesaPlateau+128},
-            3, (int[]){river, ocean, deepOcean});
+            10, allOceans);
 
     // Mushroom islands are treated uniquely by the biome generator.
     initSearchConfig(
             "mushroom island", &biomeSearchConfigs[mushroomIslandCfg],
             0.50f, (0.0370+0.0208)/100.0,
             2, (int[]){mushroomIsland, mushroomIslandShore},
-            3, (int[]){river, ocean, deepOcean});
+            10, allOceans);
 
     // These are the interesting M (mutated) biomes. Some other M or "hills"
     // biomes are rare, but are not interesting at all; "Jungle Edge M" is the
@@ -185,28 +192,36 @@ void initSearchConfigs() {
             "flower forest", &biomeSearchConfigs[flowerForestCfg],
             0.65f, (0.430)/100.0,
             1, (int[]){forest+128},
-            3, (int[]){river, ocean, deepOcean});
+            10, allOceans);
 
     initSearchConfig(
             "ice spikes", &biomeSearchConfigs[iceSpikesCfg],
             0.75f, (0.157)/100.0,
             1, (int[]){icePlains+128},
-            7, (int[]){icePlains, iceMountains, frozenRiver,
-                       river, frozenOcean, ocean, deepOcean});
+            12, (int[]){icePlains, iceMountains,
+                        ocean, deepOcean,
+                        frozenOcean, frozenDeepOcean,
+                        coldOcean, coldDeepOcean,
+                        lukewarmOcean, lukewarmDeepOcean,
+                        warmOcean, warmDeepOcean});
 
     initSearchConfig(
             "mesa bryce", &biomeSearchConfigs[mesaBryceCfg],
             0.75f, (0.0236)/100.0,
             1, (int[]){mesa+128},
-            8, (int[]){mesa, mesaPlateau_F, mesaPlateau,
-                       mesaPlateau_F+128, mesaPlateau+128,
-                       river, ocean, deepOcean});
+            15, (int[]){mesa, mesaPlateau_F, mesaPlateau,
+                        mesaPlateau_F+128, mesaPlateau+128,
+                        ocean, deepOcean,
+                        frozenOcean, frozenDeepOcean,
+                        coldOcean, coldDeepOcean,
+                        lukewarmOcean, lukewarmDeepOcean,
+                        warmOcean, warmDeepOcean});
 
     initSearchConfig(
             "sunflower plains", &biomeSearchConfigs[sunflowerPlainsCfg],
             0.65f, (0.571)/100.0,
             1, (int[]){plains+128},
-            3, (int[]){river, ocean, deepOcean});
+            10, allOceans);
 
 }
 
@@ -685,11 +700,17 @@ int getBiomeGroup(int biome) {
     // A list of bomes that completes the Adventuring Time advancement would
     // also be a cool option.
     switch(biome) {
-        // TODO: New ocean biomes. Should it be optional to do ocean types with
-        // the "all biomes" option?
+        // TODO: Should there ben an option to do ocean types with the "all biomes" option?
         case ocean:
-        case frozenOcean:
         case deepOcean:
+        case frozenOcean:
+        case frozenDeepOcean:
+        case coldOcean:
+        case coldDeepOcean:
+        case lukewarmOcean:
+        case lukewarmDeepOcean:
+        case warmOcean:
+        case warmDeepOcean:         // Does not occur in the game, nor reality.
             return 1;
         case jungle:
         case jungleHills:
@@ -810,10 +831,21 @@ void freeCaches(SearchCaches *cache) {
 void *searchQuadHutsThread(void *data) {
     const ThreadInfo info = *(const ThreadInfo *)data;
     const SearchOptions opts = *info.opts;
+    LayerStack g;
 
-    // TODO: Use 1.12 generator for speed, but add the new mutated layer, as in
-    // find_quadhuts.c.
-    LayerStack g = setupGenerator();
+    if (opts.allBiomes || opts.spawnBiomes || opts.plentifulBiome) {
+        // If we're including biome features in our search, the full, slower
+        // 1.13 biome generation is required.
+        g = setupGeneratorMC113();
+    } else {
+        // setupGeneratorMC113() biome generation is slower and unnecessary.
+        // We are only interested in the biomes on land, which haven't changed
+        // since MC 1.7 except for some modified variants.
+        g = setupGeneratorMC17();
+        // Use the 1.13 Hills layer to get the correct modified biomes.
+        g.layers[L_HILLS_64].getMap = mapHills113;
+    }
+
     Layer *lFilterBiome = &g.layers[L_BIOME_256];
     int64_t j, base, seed;
 
