@@ -546,6 +546,16 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
     addIcon("spawn", opts.width, opts.height, pos,
             20, 20, opts.spawnScale);
 
+    StructureConfig desertPyramid, igloo, junglePyramid, swampHut;
+    if (opts.use_1_12) {
+        desertPyramid = igloo = junglePyramid = swampHut = FEATURE_CONFIG;
+    } else {
+        desertPyramid = DESERT_PYRAMID_CONFIG;
+        igloo = IGLOO_CONFIG;
+        junglePyramid = JUNGLE_PYRAMID_CONFIG;
+        swampHut = SWAMP_HUT_CONFIG;
+    }
+
     int rX = regionify(opts.width/2, FEATURE_CONFIG.regionSize);
     int rZ = regionify(opts.height/2, FEATURE_CONFIG.regionSize);
     int biomeAt;
@@ -556,25 +566,25 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
                 addIcon("village", opts.width, opts.height, pos,
                         20, 26, opts.villageScale);
 
-            pos = getStructurePos(DESERT_PYRAMID_CONFIG, opts.seed, x, z);
+            pos = getStructurePos(desertPyramid, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == desert || biomeAt == desertHills)
                 addIcon("desert", opts.width, opts.height, pos,
                         19, 20, opts.desertScale);
 
-            pos = getStructurePos(IGLOO_CONFIG, opts.seed, x, z);
+            pos = getStructurePos(igloo, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == icePlains || biomeAt == coldTaiga)
                 addIcon("igloo", opts.width, opts.height, pos,
                         20, 20, opts.iglooScale);
 
-            pos = getStructurePos(JUNGLE_PYRAMID_CONFIG, opts.seed, x, z);
+            pos = getStructurePos(junglePyramid, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == jungle || biomeAt == jungleHills)
                 addIcon("jungle", opts.width, opts.height, pos,
                         19, 20, opts.jungleScale);
 
-            pos = getStructurePos(SWAMP_HUT_CONFIG, opts.seed, x, z);
+            pos = getStructurePos(swampHut, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == swampland)
                 addIcon("witch", opts.width, opts.height, pos,
@@ -587,27 +597,29 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
         }
     }
 
-    rX = regionify(opts.width/2, OCEAN_RUIN_CONFIG.regionSize);
-    rZ = regionify(opts.height/2, OCEAN_RUIN_CONFIG.regionSize);
-    for (int z=-rZ; z<rZ; z++) {
-        for (int x=-rX; x<rX; x++) {
-            pos = getOceanRuinPos(opts.seed, x, z);
-            biomeAt = getBiomeAt(g, pos, cache);
-            if (isOceanic(biomeAt))
-                addIcon("ocean_ruins", opts.width, opts.height, pos,
-                        20, 20, opts.oceanRuinScale);
+    if (!opts.use_1_12) {
+        rX = regionify(opts.width/2, OCEAN_RUIN_CONFIG.regionSize);
+        rZ = regionify(opts.height/2, OCEAN_RUIN_CONFIG.regionSize);
+        for (int z=-rZ; z<rZ; z++) {
+            for (int x=-rX; x<rX; x++) {
+                pos = getOceanRuinPos(opts.seed, x, z);
+                biomeAt = getBiomeAt(g, pos, cache);
+                if (isOceanic(biomeAt))
+                    addIcon("ocean_ruins", opts.width, opts.height, pos,
+                            20, 20, opts.oceanRuinScale);
+            }
         }
-    }
 
-    rX = regionify(opts.width/2, SHIPWRECK_CONFIG.regionSize);
-    rZ = regionify(opts.height/2, SHIPWRECK_CONFIG.regionSize);
-    for (int z=-rZ; z<rZ; z++) {
-        for (int x=-rX; x<rX; x++) {
-            pos = getStructurePos(SHIPWRECK_CONFIG, opts.seed, x, z);
-            biomeAt = getBiomeAt(g, pos, cache);
-            if (isOceanic(biomeAt))
-                addIcon("shipwreck", opts.width, opts.height, pos,
-                        20, 20, opts.shipwreckScale);
+        rX = regionify(opts.width/2, SHIPWRECK_CONFIG.regionSize);
+        rZ = regionify(opts.height/2, SHIPWRECK_CONFIG.regionSize);
+        for (int z=-rZ; z<rZ; z++) {
+            for (int x=-rX; x<rX; x++) {
+                pos = getStructurePos(SHIPWRECK_CONFIG, opts.seed, x, z);
+                biomeAt = getBiomeAt(g, pos, cache);
+                if (isOceanic(biomeAt))
+                    addIcon("shipwreck", opts.width, opts.height, pos,
+                            20, 20, opts.shipwreckScale);
+            }
         }
     }
 
@@ -652,7 +664,7 @@ int main(int argc, char *argv[]) {
     initBiomes();
     LayerStack g;
     if (opts.use_1_12) {
-        g = setupGenerator();
+        g = setupGeneratorMC17();
     } else {
         g = setupGeneratorMC113();
     }
