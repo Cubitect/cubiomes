@@ -59,10 +59,12 @@ int main(int argc, char *argv[])
     {
         featureSeed = SWAMP_HUT_SEED;
         seedFileName = "./seeds/quadhutbases_1_13_Q1.txt";
-        // setupGeneratorMC113 biome generation is slower and unnecessary,
-        // we are only interested in the biomes on land, which haven't changed
-        // since MC 1.7.
+        // setupGeneratorMC113() biome generation is slower and unnecessary.
+        // We are only interested in the biomes on land, which haven't changed
+        // since MC 1.7 except for some modified variants.
         g = setupGeneratorMC17();
+        // Use the 1.13 Hills layer to get the correct modified biomes.
+        g.layers[L_HILLS_64].getMap = mapHills113;
     }
     else
     {
