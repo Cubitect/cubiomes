@@ -62,6 +62,7 @@ typedef struct {
 
     // Additional search critera
     int allBiomes;
+    int includeOceans;
     BiomeSearchConfig *plentifulBiome;
     int plentifulness;
     BiomeSearchConfig *spawnBiomes;
@@ -92,6 +93,7 @@ typedef struct {
     int *structure;
     int *spawnArea;
     int *shore;
+    int *oceanMix;
 } SearchCaches;
 
 #define INT_ERROR "An integer argument is required with --%s\n"
@@ -244,6 +246,10 @@ void usage() {
     fprintf(stderr, "    --base_seeds_file=<string>\n");
     fprintf(stderr, "    --all_biomes\n");
     fprintf(stderr, "      Search for all biomes within search radius.\n");
+    fprintf(stderr, "    --include_oceans\n");
+    fprintf(stderr, "      Include 1.13 ocean type biomes from --all_biomes\n");
+    fprintf(stderr, "      requirements. WARNING: 40x slower because\n");
+    fprintf(stderr, "      Minecraft 1.13 is a geriatric snail.\n");
     fprintf(stderr, "    --plentiful_biome=<string>\n");
     fprintf(stderr, "      Find seeds with lots of a particular biome.\n");
     fprintf(stderr, "    --plentifulness=<integer>\n");
@@ -386,6 +392,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         .append               = 0,
         .baseSeedsFile        = "./seeds/quadhutbases_1_13_Q1.txt",
         .allBiomes            = 0,
+        .includeOceans        = 0,
         .plentifulBiome       = NULL,
         .plentifulness        = 25,
         .spawnBiomes          = NULL,
@@ -411,6 +418,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             {"append",                no_argument,       NULL, 'A'},
             {"base_seeds_file",       required_argument, NULL, 'S'},
             {"all_biomes",            no_argument,       NULL, 'a'},
+            {"include_oceans",        no_argument,       NULL, 'O'},
             {"plentiful_biome",       required_argument, NULL, 'p'},
             {"plentifulness",         required_argument, NULL, 'P'},
             {"spawn_biomes",          required_argument, NULL, 'b'},
@@ -425,7 +433,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         };
         int index = 0;
         c = getopt_long(argc, argv,
-                "hDXs:e:t:o:AS:ap:P:b:m:z:w:r:cB:H:M:", longOptions, &index);
+                "hDXs:e:t:o:AS:aOp:P:b:m:z:w:r:cB:H:M:", longOptions, &index);
 
         if (c == -1)
             break;
@@ -481,6 +489,9 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 break;
             case 'a':
                 opts.allBiomes = 1;
+                break;
+            case 'O':
+                opts.includeOceans = 1;
                 break;
             case 'p':
                 opts.plentifulBiome = parseBiome(optarg);
@@ -691,6 +702,15 @@ void getAreaBiomes(LayerStack *g, int *cache, Pos spawn, int radius) {
 }
 
 
+void getAreaBiomesWithOceans(LayerStack *g, int *cache, Pos spawn, int radius) {
+    Layer *lOceanMix = &g->layers[L13_OCEAN_MIX_4];
+    int width = radius >> 1;  // 1:4 resolution layer, *2 for a radius.
+    int left = (spawn.x - radius) >> 2;
+    int top  = (spawn.z - radius) >> 2;
+    genArea(lOceanMix, cache, left, top, width, width);
+}
+
+
 int getBiomeGroup(int biome) {
     // Most biomes are basically everywhere, so we only make an effort to
     // count up the ones that have a good chance of being far away. The list
@@ -703,14 +723,6 @@ int getBiomeGroup(int biome) {
         // TODO: Should there ben an option to do ocean types with the "all biomes" option?
         case ocean:
         case deepOcean:
-        case frozenOcean:
-        case frozenDeepOcean:
-        case coldOcean:
-        case coldDeepOcean:
-        case lukewarmOcean:
-        case lukewarmDeepOcean:
-        case warmOcean:
-        case warmDeepOcean:         // Does not occur in the game, nor reality.
             return 1;
         case jungle:
         case jungleHills:
@@ -740,16 +752,39 @@ int getBiomeGroup(int biome) {
             return 8;
         case plains+128:            // Sunflower plains
             return 9;
+        case frozenOcean:
+        case frozenDeepOcean:
+            return 10;
+        case coldOcean:
+        case coldDeepOcean:
+            return 11;
+        case lukewarmOcean:
+        case lukewarmDeepOcean:
+            return 12;
+        case warmOcean:
+        case warmDeepOcean:         // Does not occur in the game, nor reality.
+            return 13;
     }
     return 0;
 }
 
 
-#define NUM_ALL_BIOMES 10
+#define NUM_ALL_BIOMES 14
 int hasAllBiomes(int *cache, const SearchOptions *opts) {
-    int width = opts->biomeRadius >> 3;  // 1:16 resolution layer, *2 for a radius.
-    int r = width >> 1;
+    // 1:16 or 1:4 resolution, but *2 for a radius.
+    // Require a non-trivial amount of biome area (e.g. a 4x4 chunk area).
+    int width, minArea, numBiomes;
+    if (opts->includeOceans) {
+        width = opts->biomeRadius >> 1;
+        minArea = 256;
+        numBiomes = NUM_ALL_BIOMES;
+    } else {
+        width = opts->biomeRadius >> 3;
+        minArea = 16;
+        numBiomes = NUM_ALL_BIOMES-4;
+    }
 
+    int r = width >> 1;
     int biomeCounts[NUM_ALL_BIOMES] = {0};
     int i=0;
     for (int z=0; z<width; z++) {
@@ -760,9 +795,8 @@ int hasAllBiomes(int *cache, const SearchOptions *opts) {
         }
     }
 
-    for (int i=0; i<NUM_ALL_BIOMES; i++) {
-        // Require a non-trivial amount of biome area (e.g. a 4x4 chunk area).
-        if (biomeCounts[i] < 16)
+    for (int i=0; i<numBiomes; i++) {
+        if (biomeCounts[i] < minArea)
             return 0;
     }
     return 1;
@@ -792,7 +826,7 @@ int hasPlentifulBiome(int *cache, const SearchOptions *opts) {
 
 
 SearchCaches preallocateCaches(const LayerStack *g, const SearchOptions *opts) {
-    SearchCaches cache = {NULL, NULL, NULL, NULL, NULL};
+    SearchCaches cache = {NULL, NULL, NULL, NULL, NULL, NULL};
 
     // 1:256 and 1:1 layer caches for checking a single value.
     cache.filter = allocCache(&g->layers[L_BIOME_256], 3, 3);
@@ -806,11 +840,18 @@ SearchCaches preallocateCaches(const LayerStack *g, const SearchOptions *opts) {
     if (opts->spawnBiomes)
         cache.spawnArea = allocCache(&g->layers[L_SHORE_16], 18, 18);
 
-    // A 1:16 resolution biome, but x2 because it's a radius.
-    if (opts->allBiomes || opts->plentifulBiome) {
+    // A 1:16 resolution layer, but x2 because it's a radius.
+    if ((opts->allBiomes && !opts->includeOceans) || opts->plentifulBiome) {
         int biomeWidth = opts->biomeRadius >> 3;
         cache.shore = allocCache(
                 &g->layers[L_SHORE_16], biomeWidth, biomeWidth);
+    }
+
+    // A 1:4 resolution layer, but x2 because it's a radius.
+    if (opts->allBiomes && opts->includeOceans) {
+        int biomeWidth = opts->biomeRadius >> 1;
+        cache.oceanMix = allocCache(
+                &g->layers[L13_OCEAN_MIX_4], biomeWidth, biomeWidth);
     }
 
     return cache;
@@ -825,6 +866,8 @@ void freeCaches(SearchCaches *cache) {
         free(cache->spawnArea);
     if (cache->shore)
         free(cache->shore);
+    if (cache->oceanMix)
+        free(cache->oceanMix);
 }
 
 
@@ -833,9 +876,9 @@ void *searchQuadHutsThread(void *data) {
     const SearchOptions opts = *info.opts;
     LayerStack g;
 
-    if (opts.allBiomes || opts.spawnBiomes || opts.plentifulBiome) {
-        // If we're including biome features in our search, the full, slower
-        // 1.13 biome generation is required.
+    if (opts.allBiomes && opts.includeOceans) {
+        // If we're including new ocean biome features in our search, the full,
+        // slower 1.13 biome generation is required.
         g = setupGeneratorMC113();
     } else {
         // setupGeneratorMC113() biome generation is slower and unnecessary.
@@ -1026,14 +1069,24 @@ void *searchQuadHutsThread(void *data) {
 
                         // These have to get a lot of biome area, so very slow.
                         if (opts.allBiomes || opts.plentifulBiome) {
-                            getAreaBiomes(&g, cache.shore, spawn, opts.biomeRadius);
-                            if (opts.allBiomes
-                                    && !hasAllBiomes(cache.shore, &opts))
-                                continue;
+                            if (opts.plentifulBiome || !opts.includeOceans)
+                                getAreaBiomes(&g, cache.shore, spawn, opts.biomeRadius);
 
                             if (opts.plentifulBiome
                                     && !hasPlentifulBiome(cache.shore, &opts))
                                 continue;
+
+                            if (opts.allBiomes) {
+                                if (opts.includeOceans) {
+                                    getAreaBiomesWithOceans(
+                                            &g, cache.oceanMix, spawn, opts.biomeRadius);
+                                    if (!hasAllBiomes(cache.oceanMix, &opts))
+                                        continue;
+                                } else {
+                                    if (!hasAllBiomes(cache.shore, &opts))
+                                        continue;
+                                }
+                            }
                         }
                     }
 
