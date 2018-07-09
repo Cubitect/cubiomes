@@ -33,7 +33,7 @@ static inline int nextInt(int64_t *seed, const int n)
     return val;
 }
 
-static inline int64_t nextint64_t(int64_t *seed)
+static inline int64_t nextLong(int64_t *seed)
 {
     return ((int64_t) next(seed, 32) << 32) + next(seed, 32);
 }
