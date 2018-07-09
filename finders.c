@@ -23,8 +23,8 @@ const StructureConfig SWAMP_HUT_CONFIG      = { 14357620, 32, 24};
 const StructureConfig VILLAGE_CONFIG        = { 10387312, 32, 24};
 const StructureConfig OCEAN_RUIN_CONFIG     = { 14357621, 16,  8};
 const StructureConfig SHIPWRECK_CONFIG      = {165745295, 15,  7};
-const StructureConfig MONUMENT_CONFIG       = {165745295, 32, 27};
-const StructureConfig MANSION_CONFIG        = {165745295, 80, 60};
+const StructureConfig MONUMENT_CONFIG       = { 10387313, 32, 27};
+const StructureConfig MANSION_CONFIG        = { 10387319, 80, 60};
 
 
 /******************************** SEED FINDING *********************************
@@ -787,7 +787,6 @@ Pos getStructureChunkInRegion(const StructureConfig config, int64_t seed,
 
     return pos;
 }
-
 
 
 /* getLargeStructurePos
