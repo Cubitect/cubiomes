@@ -23,6 +23,21 @@
 #define JUNGLE_PYRAMID_SEED 14357619
 #define SWAMP_HUT_SEED      14357620
 #define OCEAN_RUIN_SEED     14357621
+#define SHIPWRECK_SEED     165745295
+
+#define FEATURE_CHUNK_RANGE       24
+#define VILLAGE_CHUNK_RANGE       24
+#define MONUMENT_CHUNK_RANGE      27
+#define MANSION_CHUNK_RANGE       60
+#define OCEAN_RUIN_CHUNK_RANGE     8
+#define SHIPWRECK_CHUNK_RANGE      7
+
+#define FEATURE_REGION_SIZE       32
+#define VILLAGE_REGION_SIZE       32
+#define MONUMENT_REGION_SIZE      32
+#define MANSION_REGION_SIZE       80
+#define OCEAN_RUIN_REGION_SIZE    16
+#define SHIPWRECK_REGION_SIZE     15
 
 enum {Desert_Pyramid=1, Igloo, Jungle_Pyramid, Swamp_Hut, Ocean_Ruin};
 
@@ -149,12 +164,14 @@ int getBiomeAtPos(const LayerStack g, const Pos pos);
 
 /* getStructureChunkInRegion
  * -------------------------
- * Finds the chunk position within the specified region (32x32 chunks) where
- * the structure generation attempt will occur.
+ * Finds the chunk position within the specified region (a square region of
+ * chunks depending on structure type) where the structure generation attempt
+ * will occur.
+ *
  * This function applies for scattered-feature structureSeeds and villages.
  */
-Pos getStructureChunkInRegion(const int64_t structureSeed, int64_t seed,
-        const int regionX, const int regionZ);
+Pos getStructureChunkInRegion(const int64_t structureSeed, const int chunkRange,
+        int64_t seed, const int regionX, const int regionZ);
 
 
 /* getStructurePos
@@ -163,8 +180,8 @@ Pos getStructureChunkInRegion(const int64_t structureSeed, int64_t seed,
  * generation attempt will occur in the specified region.
  * This function applies for scattered-feature structureSeeds and villages.
  */
-Pos getStructurePos(const int64_t structureSeed, int64_t seed, const int64_t regionX,
-        const int64_t regionZ);
+Pos getStructurePos(const int64_t structureSeed, const int chunkRange,
+        const int regionSize, int64_t seed, const int64_t regionX, const int64_t regionZ);
 
 
 /* getOceanMonumentChunk

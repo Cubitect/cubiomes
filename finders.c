@@ -696,8 +696,8 @@ int getBiomeAtPos(const LayerStack g, const Pos pos)
  * generation attempt will occur in the specified region.
  * This function applies for scattered-feature structureSeeds and villages.
  */
-Pos getStructurePos(const int64_t structureSeed, int64_t seed,
-        const int64_t regionX, const int64_t regionZ)
+Pos getStructurePos(const int64_t structureSeed, const int regionSize, const int chunkRange,
+        int64_t seed, const int64_t regionX, const int64_t regionZ)
 {
     Pos pos;
 
@@ -706,13 +706,19 @@ Pos getStructurePos(const int64_t structureSeed, int64_t seed,
     seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
 
     seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-    pos.x = (seed >> 17) % 24;
+    if ((chunkRange & (chunkRange-1)) == 0) {
+        // Java RNG treats powers of 2 as a special case.
+        pos.x = (chunkRange * (seed >> 17)) >> 31;
+        seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
+        pos.z = (chunkRange * (seed >> 17)) >> 31;
+    } else {
+        pos.x = (seed >> 17) % chunkRange;
+        seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
+        pos.z = (seed >> 17) % chunkRange;
+    }
 
-    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-    pos.z = (seed >> 17) % 24;
-
-    pos.x = regionX*512 + (pos.x << 4) + 8;
-    pos.z = regionZ*512 + (pos.z << 4) + 8;
+    pos.x = ((regionX*regionSize + pos.x) << 4) + 8;
+    pos.z = ((regionZ*regionSize + pos.z) << 4) + 8;
     return pos;
 }
 
@@ -723,8 +729,8 @@ Pos getStructurePos(const int64_t structureSeed, int64_t seed,
  * the structure generation attempt will occur.
  * This function applies for scattered-feature structureSeeds and villages.
  */
-Pos getStructureChunkInRegion(const int64_t structureSeed, int64_t seed,
-        const int regionX, const int regionZ)
+Pos getStructureChunkInRegion(const int64_t structureSeed, const int chunkRange,
+        int64_t seed, const int regionX, const int regionZ)
 {
     /*
     // Vanilla like implementation.
@@ -742,10 +748,16 @@ Pos getStructureChunkInRegion(const int64_t structureSeed, int64_t seed,
     seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
 
     seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-    pos.x = (seed >> 17) % 24;
-
-    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-    pos.z = (seed >> 17) % 24;
+    if ((chunkRange & (chunkRange-1)) == 0) {
+        // Java RNG treats powers of 2 as a special case.
+        pos.x = (chunkRange * (seed >> 17)) >> 31;
+        seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
+        pos.z = (chunkRange * (seed >> 17)) >> 31;
+    } else {
+        pos.x = (seed >> 17) % chunkRange;
+        seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
+        pos.z = (seed >> 17) % chunkRange;
+    }
 
     return pos;
 }
