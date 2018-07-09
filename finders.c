@@ -11,6 +11,20 @@
 
 Biome biomes[256];
 
+/* For desert temples, igloos, jungle temples and witch huts prior to 1.13. */
+const StructureConfig FEATURE_CONFIG        = { 14357617, 32, 24};
+
+/* 1.13 separated feature seeds by type */
+const StructureConfig DESERT_PYRAMID_CONFIG = { 14357617, 32, 24};
+const StructureConfig IGLOO_CONFIG          = { 14357618, 32, 24};
+const StructureConfig JUNGLE_PYRAMID_CONFIG = { 14357619, 32, 24};
+const StructureConfig SWAMP_HUT_CONFIG      = { 14357620, 32, 24};
+
+const StructureConfig VILLAGE_CONFIG        = { 10387312, 32, 24};
+const StructureConfig OCEAN_RUIN_CONFIG     = { 14357621, 16,  8};
+const StructureConfig SHIPWRECK_CONFIG      = {165745295, 15,  7};
+const StructureConfig MONUMENT_CONFIG       = { 10387313, 32, 27};
+const StructureConfig MANSION_CONFIG        = { 10387319, 80, 60};
 
 
 /******************************** SEED FINDING *********************************
@@ -198,10 +212,10 @@ int64_t moveStructure(const int64_t baseSeed, const int regionX, const int regio
 int isQuadMonumentBase(const int64_t seed, const int qual)
 {
     // seed offsets for the regions (0,0) to (1,1)
-    const int64_t reg00base = MONUMENT_SEED;
-    const int64_t reg01base = 341873128712 + MONUMENT_SEED;
-    const int64_t reg10base = 132897987541 + MONUMENT_SEED;
-    const int64_t reg11base = 341873128712 + 132897987541 + MONUMENT_SEED;
+    const int64_t reg00base = MONUMENT_CONFIG.seed;
+    const int64_t reg01base = 341873128712 + MONUMENT_CONFIG.seed;
+    const int64_t reg10base = 132897987541 + MONUMENT_CONFIG.seed;
+    const int64_t reg11base = 341873128712 + 132897987541 + MONUMENT_CONFIG.seed;
 
     int64_t s, p;
 
@@ -283,10 +297,10 @@ int isQuadMonumentBase(const int64_t seed, const int qual)
 int isTriMonumentBase(const int64_t seed, const int qual)
 {
     // seed offsets for the regions (0,0) to (1,1)
-    const int64_t reg00base = MONUMENT_SEED;
-    const int64_t reg01base = 341873128712 + MONUMENT_SEED;
-    const int64_t reg10base = 132897987541 + MONUMENT_SEED;
-    const int64_t reg11base = 341873128712 + 132897987541 + MONUMENT_SEED;
+    const int64_t reg00base = MONUMENT_CONFIG.seed;
+    const int64_t reg01base = 341873128712 + MONUMENT_CONFIG.seed;
+    const int64_t reg10base = 132897987541 + MONUMENT_CONFIG.seed;
+    const int64_t reg11base = 341873128712 + 132897987541 + MONUMENT_CONFIG.seed;
 
     int64_t s, p;
     int incomplete = 0;
@@ -690,47 +704,66 @@ int getBiomeAtPos(const LayerStack g, const Pos pos)
     return biomeID;
 }
 
+
+/* getOceanRuinPos
+ * ---------------
+ * Fast implementation for finding the block position at which an ocean ruin
+ * generation attempt will occur in the specified region.
+ */
+Pos getOceanRuinPos(int64_t seed, const int64_t regionX, const int64_t regionZ) {
+    Pos pos;
+
+    // set seed
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + OCEAN_RUIN_CONFIG.seed;
+    seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
+
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
+    // Java RNG treats powers of 2 as a special case.
+    pos.x = (OCEAN_RUIN_CONFIG.chunkRange * (seed >> 17)) >> 31;
+
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
+    pos.z = (OCEAN_RUIN_CONFIG.chunkRange * (seed >> 17)) >> 31;
+
+    pos.x = ((regionX*OCEAN_RUIN_CONFIG.regionSize + pos.x) << 4) + 8;
+    pos.z = ((regionZ*OCEAN_RUIN_CONFIG.regionSize + pos.z) << 4) + 8;
+    return pos;
+}
+
+
 /* getStructurePos
  * ---------------
  * Fast implementation for finding the block position at which the structure
  * generation attempt will occur in the specified region.
- * This function applies for scattered-feature structureSeeds and villages.
+ * This function applies for scattered-feature structures and villages.
  */
-Pos getStructurePos(const int64_t structureSeed, const int regionSize, const int chunkRange,
-        int64_t seed, const int64_t regionX, const int64_t regionZ)
+Pos getStructurePos(const StructureConfig config, int64_t seed,
+        const int64_t regionX, const int64_t regionZ)
 {
     Pos pos;
 
-    // set seed
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + structureSeed;
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + config.seed;
     seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
 
     seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-    if ((chunkRange & (chunkRange-1)) == 0) {
-        // Java RNG treats powers of 2 as a special case.
-        pos.x = (chunkRange * (seed >> 17)) >> 31;
-        seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-        pos.z = (chunkRange * (seed >> 17)) >> 31;
-    } else {
-        pos.x = (seed >> 17) % chunkRange;
-        seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-        pos.z = (seed >> 17) % chunkRange;
-    }
+    pos.x = (seed >> 17) % config.chunkRange;
 
-    pos.x = ((regionX*regionSize + pos.x) << 4) + 8;
-    pos.z = ((regionZ*regionSize + pos.z) << 4) + 8;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
+    pos.z = (seed >> 17) % config.chunkRange;
+
+    pos.x = ((regionX*config.regionSize + pos.x) << 4) + 8;
+    pos.z = ((regionZ*config.regionSize + pos.z) << 4) + 8;
     return pos;
 }
 
 
 /* getStructureChunkInRegion
  * -------------------------
- * Finds the chunk position within the specified region (32x32 chunks) where
- * the structure generation attempt will occur.
+ * Fast implementation for finding the chunk position at which the structure
+ * generation attempt will occur in the specified region.
  * This function applies for scattered-feature structureSeeds and villages.
  */
-Pos getStructureChunkInRegion(const int64_t structureSeed, const int chunkRange,
-        int64_t seed, const int regionX, const int regionZ)
+Pos getStructureChunkInRegion(const StructureConfig config, int64_t seed,
+        const int regionX, const int regionZ)
 {
     /*
     // Vanilla like implementation.
@@ -743,116 +776,80 @@ Pos getStructureChunkInRegion(const int64_t structureSeed, const int chunkRange,
     */
     Pos pos;
 
-    // set seed
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + structureSeed;
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + config.seed;
     seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
 
     seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-    if ((chunkRange & (chunkRange-1)) == 0) {
-        // Java RNG treats powers of 2 as a special case.
-        pos.x = (chunkRange * (seed >> 17)) >> 31;
-        seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-        pos.z = (chunkRange * (seed >> 17)) >> 31;
-    } else {
-        pos.x = (seed >> 17) % chunkRange;
-        seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-        pos.z = (seed >> 17) % chunkRange;
-    }
+    pos.x = (seed >> 17) % config.chunkRange;
+
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
+    pos.z = (seed >> 17) % config.chunkRange;
 
     return pos;
 }
 
 
-/* getOceanMonumentChunk
- * ---------------------
- * Fast implementation for finding the chunk relative to the region at which the
- * ocean monument generation attempt will occur.
- */
-
-Pos getOceanMonumentChunk(int64_t seed, const int64_t regionX, const int64_t regionZ)
-{
-    Pos pos;
-
-    // set seed
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + 10387313;
-    seed = (seed ^ 0x5DEECE66DL) & ((1L << 48) - 1);
-
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
-    pos.x = (seed >> 17) % 27;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
-    pos.x += (seed >> 17) % 27;
-
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
-    pos.z = (seed >> 17) % 27;
-    seed = (seed * 0x5DEECE66DL + 0xBL) & 0xffffffffffff;
-    pos.z += (seed >> 17) % 27;
-
-    pos.x >>= 1;
-    pos.z >>= 1;
-    return pos;
-}
-
-
-/* getOceanMonumentPos
+/* getLargeStructurePos
  * -------------------
  * Fast implementation for finding the block position at which the ocean
- * monument generation attempt will occur in the specified region.
+ * monument or woodland mansion generation attempt will occur in the
+ * specified region.
  */
-Pos getOceanMonumentPos(int64_t seed, const int64_t regionX, const int64_t regionZ)
+Pos getLargeStructurePos(StructureConfig config, int64_t seed,
+        const int64_t regionX, const int64_t regionZ)
 {
     Pos pos;
 
     // set seed
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + MONUMENT_SEED;
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + config.seed;
     seed = (seed ^ 0x5DEECE66DLL) & ((1LL << 48) - 1);
 
     seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-    pos.x = (seed >> 17) % 27;
+    pos.x = (seed >> 17) % config.chunkRange;
     seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-    pos.x += (seed >> 17) % 27;
+    pos.x += (seed >> 17) % config.chunkRange;
 
     seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-    pos.z = (seed >> 17) % 27;
+    pos.z = (seed >> 17) % config.chunkRange;
     seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-    pos.z += (seed >> 17) % 27;
+    pos.z += (seed >> 17) % config.chunkRange;
 
-    pos.x = regionX*32 + (pos.x >> 1);
-    pos.z = regionZ*32 + (pos.z >> 1);
+    pos.x = regionX*config.regionSize + (pos.x >> 1);
+    pos.z = regionZ*config.regionSize + (pos.z >> 1);
     pos.x = pos.x*16 + 8;
     pos.z = pos.z*16 + 8;
     return pos;
 }
 
 
-/* getMansionPos
- * -------------
- * Fast implementation for finding the block position at which the woodland
- * mansions generation attempt will occur in the specified 80x80 chunk area.
- *
- * area80X, area80Z: area coordinates in units 1280 blocks (= 80 chunks)
+/* getLargeStructureChunkInRegion
+ * -------------------
+ * Fast implementation for finding the Chunk position at which the ocean
+ * monument or woodland mansion generation attempt will occur in the
+ * specified region.
  */
-Pos getMansionPos(int64_t seed, const int64_t area80X, const int64_t area80Z)
+Pos getLargeStructureChunkInRegion(StructureConfig config, int64_t seed,
+        const int64_t regionX, const int64_t regionZ)
 {
     Pos pos;
 
     // set seed
-    seed = area80X*341873128712 + area80Z*132897987541 + seed + MANSION_SEED;
-    seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + config.seed;
+    seed = (seed ^ 0x5DEECE66DLL) & ((1LL << 48) - 1);
 
     seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-    pos.x = (seed >> 17) % 60;
+    pos.x = (seed >> 17) % config.chunkRange;
     seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-    pos.x += (seed >> 17) % 60;
+    pos.x += (seed >> 17) % config.chunkRange;
 
     seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-    pos.z = (seed >> 17) % 60;
+    pos.z = (seed >> 17) % config.chunkRange;
     seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-    pos.z += (seed >> 17) % 60;
+    pos.z += (seed >> 17) % config.chunkRange;
 
-    pos.x = area80X*80 + (pos.x >> 1);
-    pos.z = area80Z*80 + (pos.z >> 1);
-    pos.x = pos.x*16 + 8;
-    pos.z = pos.z*16 + 8;
+    pos.x >>= 1;
+    pos.z >>= 1;
+
     return pos;
 }
 

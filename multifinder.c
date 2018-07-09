@@ -502,11 +502,13 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 break;
             case 'H':
                 opts.hutRadius = blockToRegion(
-                        parseIntArgument(optarg, longOptions[index].name), 32);
+                        parseIntArgument(optarg, longOptions[index].name),
+                        SWAMP_HUT_CONFIG.regionSize);
                 break;
             case 'M':
                 opts.mansionRadius = blockToRegion(
-                        parseIntArgument(optarg, longOptions[index].name), 80);
+                        parseIntArgument(optarg, longOptions[index].name),
+                        MANSION_CONFIG.regionSize);
                 break;
             default:
                 exit(-1);
@@ -515,9 +517,11 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         if (!opts.biomeRadius)
             opts.biomeRadius = opts.radius;
         if (!opts.hutRadius)
-            opts.hutRadius = blockToRegion(opts.radius, 32);
+            opts.hutRadius = blockToRegion(
+                    opts.radius, SWAMP_HUT_CONFIG.regionSize);
         if (!opts.mansionRadius)
-            opts.mansionRadius = blockToRegion(opts.radius, 80);
+            opts.mansionRadius = blockToRegion(
+                    opts.radius, MANSION_CONFIG.regionSize);
 
     }
     return opts;
@@ -529,7 +533,7 @@ int64_t* getBaseSeeds(int64_t *qhcount, int threads, const char *seedFileName) {
         fprintf(stderr, "Seed base file does not exist: Creating new one.\n"
                 "This may take a few minutes...\n");
         int quality = 1;
-        search4QuadBases(seedFileName, threads, SWAMP_HUT_SEED, quality);
+        search4QuadBases(seedFileName, threads, SWAMP_HUT_CONFIG.seed, quality);
     }
 
     return loadSavedSeeds(seedFileName, qhcount);
@@ -549,28 +553,28 @@ Monuments potentialMonuments(int64_t baseSeed, int distance) {
     potential.numMonuments = 0;
     Pos pos;
 
-    pos = getOceanMonumentChunk(baseSeed, 0, 0);
+    pos = getLargeStructureChunkInRegion(MONUMENT_CONFIG, baseSeed, 0, 0);
     if (pos.x >= upper && pos.z >= upper) {
         pos.x = (pos.x +  0) * 16 + 8;
         pos.z = (pos.z +  0) * 16 + 8;
         potential.monuments[potential.numMonuments++] = pos;
     }
 
-    pos = getOceanMonumentChunk(baseSeed, 1, 0);
+    pos = getLargeStructureChunkInRegion(MONUMENT_CONFIG, baseSeed, 1, 0);
     if (pos.x <= lower && pos.z >= upper) {
         pos.x = (pos.x + 32) * 16 + 8;
         pos.z = (pos.z +  0) * 16 + 8;
         potential.monuments[potential.numMonuments++] = pos;
     }
 
-    pos = getOceanMonumentChunk(baseSeed, 0, 1);
+    pos = getLargeStructureChunkInRegion(MONUMENT_CONFIG, baseSeed, 0, 1);
     if (pos.x >= upper && pos.z <= lower) {
         pos.x = (pos.x +  0) * 16 + 8;
         pos.z = (pos.z + 32) * 16 + 8;
         potential.monuments[potential.numMonuments++] = pos;
     }
 
-    pos = getOceanMonumentChunk(baseSeed, 1, 1);
+    pos = getLargeStructureChunkInRegion(MONUMENT_CONFIG, baseSeed, 1, 1);
     if (pos.x <= lower && pos.z <= lower) {
         pos.x = (pos.x + 32) * 16 + 8;
         pos.z = (pos.z + 32) * 16 + 8;
@@ -622,7 +626,7 @@ int hasMansions(const LayerStack *g, int *cache, int64_t seed, int radius, int m
 
     for (int rZ=-radius; rZ<radius; rZ++) {
         for (int rX=-radius; rX<radius; rX++) {
-            Pos mansion = getMansionPos(seed, rX, rZ);
+            Pos mansion = getLargeStructurePos(MANSION_CONFIG, seed, rX, rZ);
             if (isViableMansionPos(*g, cache, mansion.x, mansion.z)) {
                 count++;
                 if (count >= minCount)
@@ -681,6 +685,8 @@ int getBiomeGroup(int biome) {
     // A list of bomes that completes the Adventuring Time advancement would
     // also be a cool option.
     switch(biome) {
+        // TODO: New ocean biomes. Should it be optional to do ocean types with
+        // the "all biomes" option?
         case ocean:
         case frozenOcean:
         case deepOcean:
@@ -805,6 +811,8 @@ void *searchQuadHutsThread(void *data) {
     const ThreadInfo info = *(const ThreadInfo *)data;
     const SearchOptions opts = *info.opts;
 
+    // TODO: Use 1.12 generator for speed, but add the new mutated layer, as in
+    // find_quadhuts.c.
     LayerStack g = setupGenerator();
     Layer *lFilterBiome = &g.layers[L_BIOME_256];
     int64_t j, base, seed;
@@ -899,18 +907,10 @@ void *searchQuadHutsThread(void *data) {
                 }
 
                 debug("Getting witch hut positions.");
-                qhpos[0] = getStructurePos(
-                        SWAMP_HUT_SEED, FEATURE_REGION_SIZE, FEATURE_CHUNK_RANGE,
-                        base, 0+rX, 0+rZ);
-                qhpos[1] = getStructurePos(
-                        SWAMP_HUT_SEED, FEATURE_REGION_SIZE, FEATURE_CHUNK_RANGE,
-                        base, 0+rX, 1+rZ);
-                qhpos[2] = getStructurePos(
-                        SWAMP_HUT_SEED, FEATURE_REGION_SIZE, FEATURE_CHUNK_RANGE,
-                        base, 1+rX, 0+rZ);
-                qhpos[3] = getStructurePos(
-                        SWAMP_HUT_SEED, FEATURE_REGION_SIZE, FEATURE_CHUNK_RANGE,
-                        base, 1+rX, 1+rZ);
+                qhpos[0] = getStructurePos(SWAMP_HUT_CONFIG, base, 0+rX, 0+rZ);
+                qhpos[1] = getStructurePos(SWAMP_HUT_CONFIG, base, 0+rX, 1+rZ);
+                qhpos[2] = getStructurePos(SWAMP_HUT_CONFIG, base, 1+rX, 0+rZ);
+                qhpos[3] = getStructurePos(SWAMP_HUT_CONFIG, base, 1+rX, 1+rZ);
 
                 int64_t hits = 0;
                 int64_t hutHits = 0;
@@ -1087,7 +1087,7 @@ int main(int argc, char *argv[])
     }
     if (opts.woodlandMansions) {
         fprintf(stderr, "Looking for %d woodland mansions within %d blocks.\n",
-                opts.woodlandMansions, opts.mansionRadius*80*16);
+                opts.woodlandMansions, opts.mansionRadius*MANSION_CONFIG.regionSize*16);
     }
     if (opts.allBiomes) {
         fprintf(stderr, "Looking for all biomes within %d blocks.\n", opts.biomeRadius);

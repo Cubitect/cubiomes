@@ -12,32 +12,25 @@
 #define SEEDMAX (1LL << 48)
 #define PI 3.141592653589793
 
-#define FEATURE_SEED        14357617
-#define VILLAGE_SEED        10387312
-#define MONUMENT_SEED       10387313
-#define MANSION_SEED        10387319
+STRUCT(StructureConfig) {
+    int64_t seed;
+    int regionSize, chunkRange;
+};
+
+/* For desert temples, igloos, jungle temples and witch huts prior to 1.13. */
+extern const StructureConfig FEATURE_CONFIG;
 
 /* 1.13 separated feature seeds by type */
-#define DESERT_PYRAMID_SEED 14357617
-#define IGLOO_SEED          14357618
-#define JUNGLE_PYRAMID_SEED 14357619
-#define SWAMP_HUT_SEED      14357620
-#define OCEAN_RUIN_SEED     14357621
-#define SHIPWRECK_SEED     165745295
+extern const StructureConfig DESERT_PYRAMID_CONFIG;
+extern const StructureConfig IGLOO_CONFIG;
+extern const StructureConfig JUNGLE_PYRAMID_CONFIG;
+extern const StructureConfig SWAMP_HUT_CONFIG;
 
-#define FEATURE_CHUNK_RANGE       24
-#define VILLAGE_CHUNK_RANGE       24
-#define MONUMENT_CHUNK_RANGE      27
-#define MANSION_CHUNK_RANGE       60
-#define OCEAN_RUIN_CHUNK_RANGE     8
-#define SHIPWRECK_CHUNK_RANGE      7
-
-#define FEATURE_REGION_SIZE       32
-#define VILLAGE_REGION_SIZE       32
-#define MONUMENT_REGION_SIZE      32
-#define MANSION_REGION_SIZE       80
-#define OCEAN_RUIN_REGION_SIZE    16
-#define SHIPWRECK_REGION_SIZE     15
+extern const StructureConfig VILLAGE_CONFIG;
+extern const StructureConfig OCEAN_RUIN_CONFIG;
+extern const StructureConfig SHIPWRECK_CONFIG;
+extern const StructureConfig MONUMENT_CONFIG;
+extern const StructureConfig MANSION_CONFIG;
 
 enum {Desert_Pyramid=1, Igloo, Jungle_Pyramid, Swamp_Hut, Ocean_Ruin};
 
@@ -162,6 +155,22 @@ void search4QuadBases(const char *fnam, int threads, const int64_t structureSeed
 int getBiomeAtPos(const LayerStack g, const Pos pos);
 
 
+/* getOceanRuinPos
+ * ---------------
+ * Fast implementation for finding the block position at which an ocean ruin
+ * generation attempt will occur in the specified region.
+ */
+Pos getOceanRuinPos(int64_t seed, const int64_t regionX, const int64_t regionZ);
+
+/* getStructurePos
+ * ---------------
+ * Fast implementation for finding the block position at which the structure
+ * generation attempt will occur in the specified region.
+ * This function applies for scattered-feature structureSeeds and villages.
+ */
+Pos getStructurePos(StructureConfig config, int64_t seed,
+        const int64_t regionX, const int64_t regionZ);
+
 /* getStructureChunkInRegion
  * -------------------------
  * Finds the chunk position within the specified region (a square region of
@@ -170,43 +179,26 @@ int getBiomeAtPos(const LayerStack g, const Pos pos);
  *
  * This function applies for scattered-feature structureSeeds and villages.
  */
-Pos getStructureChunkInRegion(const int64_t structureSeed, const int chunkRange,
-        int64_t seed, const int regionX, const int regionZ);
+Pos getStructureChunkInRegion(StructureConfig config, int64_t seed,
+        const int regionX, const int regionZ);
 
-
-/* getStructurePos
- * ---------------
- * Fast implementation for finding the block position at which the structure
- * generation attempt will occur in the specified region.
- * This function applies for scattered-feature structureSeeds and villages.
- */
-Pos getStructurePos(const int64_t structureSeed, const int chunkRange,
-        const int regionSize, int64_t seed, const int64_t regionX, const int64_t regionZ);
-
-
-/* getOceanMonumentChunk
- * ---------------------
- * Fast implementation for finding the chunk relative to the region at which the
- * ocean monument generation attempt will occur.
- */
-Pos getOceanMonumentChunk(int64_t seed, const int64_t regionX, const int64_t regionZ);
-
-
-/* getOceanMonumentPos
+/* getLargeStructurePos
  * -------------------
  * Fast implementation for finding the block position at which the ocean
- * monument generation attempt will occur in the specified region.
+ * monument or woodland mansion generation attempt will occur in the
+ * specified region.
  */
-Pos getOceanMonumentPos(int64_t seed, const int64_t regionX, const int64_t regionZ);
+Pos getLargeStructurePos(StructureConfig config, int64_t seed,
+        const int64_t regionX, const int64_t regionZ);
 
-/* getMansionPos
- * -------------
- * Fast implementation for finding the block position at which the woodland
- * mansions generation attempt will occur in the specified 80x80 chunk area.
- *
- * area80X, area80Z: area coordinates in units 1280 blocks (= 80 chunks)
+/* getLargeStructureChunkInRegion
+ * -------------------
+ * Fast implementation for finding the chunk position at which the ocean
+ * monument or woodland mansion generation attempt will occur in the
+ * specified region.
  */
-Pos getMansionPos(int64_t seed, const int64_t area80X, const int64_t area80Z);
+Pos getLargeStructureChunkInRegion(StructureConfig config, int64_t seed,
+        const int64_t regionX, const int64_t regionZ);
 
 
 /* findBiomePosition

@@ -31,7 +31,7 @@ echo '(B[m'
 # ===========================================================================
 # Rare spawn chunks biome
 # ===========================================================================
-./multifinder -s 11B -e 12B --spawn_biomes=flower_forest | \
+./multifinder -s 59B -e 60B --spawn_biomes=flower_forest | \
     sort -bn > /tmp/multifinder_spawn.txt
 echo '[91m'
 diff /tmp/multifinder_spawn.txt test/golden_spawn.txt
