@@ -899,10 +899,18 @@ void *searchQuadHutsThread(void *data) {
                 }
 
                 debug("Getting witch hut positions.");
-                qhpos[0] = getStructurePos(SWAMP_HUT_SEED, base, 0+rX, 0+rZ);
-                qhpos[1] = getStructurePos(SWAMP_HUT_SEED, base, 0+rX, 1+rZ);
-                qhpos[2] = getStructurePos(SWAMP_HUT_SEED, base, 1+rX, 0+rZ);
-                qhpos[3] = getStructurePos(SWAMP_HUT_SEED, base, 1+rX, 1+rZ);
+                qhpos[0] = getStructurePos(
+                        SWAMP_HUT_SEED, FEATURE_REGION_SIZE, FEATURE_CHUNK_RANGE,
+                        base, 0+rX, 0+rZ);
+                qhpos[1] = getStructurePos(
+                        SWAMP_HUT_SEED, FEATURE_REGION_SIZE, FEATURE_CHUNK_RANGE,
+                        base, 0+rX, 1+rZ);
+                qhpos[2] = getStructurePos(
+                        SWAMP_HUT_SEED, FEATURE_REGION_SIZE, FEATURE_CHUNK_RANGE,
+                        base, 1+rX, 0+rZ);
+                qhpos[3] = getStructurePos(
+                        SWAMP_HUT_SEED, FEATURE_REGION_SIZE, FEATURE_CHUNK_RANGE,
+                        base, 1+rX, 1+rZ);
 
                 int64_t hits = 0;
                 int64_t hutHits = 0;
