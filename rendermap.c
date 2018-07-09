@@ -28,6 +28,8 @@ typedef struct {
     int spawnScale;
     int strongholdScale;
     int villageScale;
+    int oceanRuinScale;
+    int shipwreckScale;
     int use_1_13;
     int highlightSpecial;
     int highlightMutated;
@@ -157,6 +159,9 @@ void usage() {
     fprintf(stderr, "    --monument_scale=<integer>\n");
     fprintf(stderr, "    --spawn_scale=<integer>\n");
     fprintf(stderr, "    --stronghold_scale=<integer>\n");
+    fprintf(stderr, "    --village_scale=<integer>\n");
+    fprintf(stderr, "    --ocean_ruin_scale=<integer>\n");
+    fprintf(stderr, "    --shipwreck_scale=<integer>\n");
     fprintf(stderr, "    --use_1_13\n");
     fprintf(stderr, "    --highlight_special\n");
     fprintf(stderr, "    --highlight_mutated\n");
@@ -200,6 +205,8 @@ MapOptions parseOptions(int argc, char *argv[]) {
         .spawnScale        = -1,
         .strongholdScale   = -1,
         .villageScale      = -1,
+        .oceanRuinScale    = -1,
+        .shipwreckScale    = -1,
         .use_1_13          = 0,
         .highlightSpecial  = 0,
         .highlightMutated  = 0,
@@ -224,6 +231,8 @@ MapOptions parseOptions(int argc, char *argv[]) {
             {"spawn_scale",        required_argument, NULL, 'S'},
             {"stronghold_scale",   required_argument, NULL, 'T'},
             {"village_scale",      required_argument, NULL, 'V'},
+            {"ocean_ruin_scale",   required_argument, NULL, 'O'},
+            {"shipwreck_scale",    required_argument, NULL, 'K'},
             {"use_1_13",           no_argument,       NULL, '3'},
             {"highlight_special",  no_argument,       NULL, '6'},
             {"highlight_mutated",  no_argument,       NULL, '7'},
@@ -232,7 +241,7 @@ MapOptions parseOptions(int argc, char *argv[]) {
         };
         int index = 0;
         c = getopt_long(argc, argv,
-                "hs:f:x:z:i:D:I:H:W:M:S:T:V:36789", longOptions, &index);
+                "hs:f:x:z:i:D:I:H:W:M:S:T:V:O:K:36789", longOptions, &index);
         if (c == -1)
             break;
 
@@ -288,6 +297,12 @@ MapOptions parseOptions(int argc, char *argv[]) {
             case 'V':
                 opts.villageScale = intArg(optarg, longOptions[index].name);
                 break;
+            case 'O':
+                opts.oceanRuinScale = intArg(optarg, longOptions[index].name);
+                break;
+            case 'K':
+                opts.shipwreckScale = intArg(optarg, longOptions[index].name);
+                break;
             case '3':
                 opts.use_1_13 = 1;
                 break;
@@ -338,6 +353,10 @@ MapOptions parseOptions(int argc, char *argv[]) {
         opts.strongholdScale = opts.iconScale*6;
     if (opts.villageScale == -1)
         opts.villageScale = opts.iconScale*3;
+    if (opts.oceanRuinScale == -1)
+        opts.oceanRuinScale = opts.iconScale*2;
+    if (opts.shipwreckScale == -1)
+        opts.shipwreckScale = opts.iconScale*2;
 
     return opts;
 }
@@ -527,36 +546,40 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
     addIcon("spawn", opts.width, opts.height, pos,
             20, 20, opts.spawnScale);
 
-    int rX = regionify(opts.width/2, 32);
-    int rZ = regionify(opts.height/2, 32);
+    int rX = regionify(opts.width/2, FEATURE_REGION_SIZE);
+    int rZ = regionify(opts.height/2, FEATURE_REGION_SIZE);
+    int biomeAt;
     for (int z=-rZ; z<rZ; z++) {
         for (int x=-rX; x<rX; x++) {
-            int biomeAt;
-
-            pos = getStructurePos(VILLAGE_SEED, opts.seed, x, z);
+            pos = getStructurePos(
+                    VILLAGE_SEED, FEATURE_REGION_SIZE, VILLAGE_CHUNK_RANGE, opts.seed, x, z);
             if (isViableVillagePos(*g, cache, pos.x, pos.z))
                 addIcon("village", opts.width, opts.height, pos,
                         20, 26, opts.villageScale);
 
-            pos = getStructurePos(DESERT_PYRAMID_SEED, opts.seed, x, z);
+            pos = getStructurePos(
+                    DESERT_PYRAMID_SEED, FEATURE_REGION_SIZE, FEATURE_CHUNK_RANGE, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == desert || biomeAt == desertHills)
                 addIcon("desert", opts.width, opts.height, pos,
                         19, 20, opts.desertScale);
 
-            pos = getStructurePos(IGLOO_SEED, opts.seed, x, z);
+            pos = getStructurePos(
+                    IGLOO_SEED, FEATURE_REGION_SIZE, FEATURE_CHUNK_RANGE, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == icePlains || biomeAt == coldTaiga)
                 addIcon("igloo", opts.width, opts.height, pos,
                         20, 20, opts.iglooScale);
 
-            pos = getStructurePos(JUNGLE_PYRAMID_SEED, opts.seed, x, z);
+            pos = getStructurePos(
+                    JUNGLE_PYRAMID_SEED, FEATURE_REGION_SIZE, FEATURE_CHUNK_RANGE, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == jungle || biomeAt == jungleHills)
                 addIcon("jungle", opts.width, opts.height, pos,
                         19, 20, opts.jungleScale);
 
-            pos = getStructurePos(SWAMP_HUT_SEED, opts.seed, x, z);
+            pos = getStructurePos(
+                    SWAMP_HUT_SEED, FEATURE_REGION_SIZE, FEATURE_CHUNK_RANGE, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == swampland)
                 addIcon("witch", opts.width, opts.height, pos,
@@ -569,8 +592,34 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
         }
     }
 
-    rX = regionify(opts.width/2, 80);
-    rZ = regionify(opts.height/2, 80);
+    rX = regionify(opts.width/2, OCEAN_RUIN_REGION_SIZE);
+    rZ = regionify(opts.height/2, OCEAN_RUIN_REGION_SIZE);
+    for (int z=-rZ; z<rZ; z++) {
+        for (int x=-rX; x<rX; x++) {
+            pos = getStructurePos(
+                    OCEAN_RUIN_SEED, OCEAN_RUIN_REGION_SIZE, OCEAN_RUIN_CHUNK_RANGE, opts.seed, x, z);
+            biomeAt = getBiomeAt(g, pos, cache);
+            if (isOceanic(biomeAt))
+                addIcon("ocean_ruins", opts.width, opts.height, pos,
+                        20, 20, opts.oceanRuinScale);
+        }
+    }
+
+    rX = regionify(opts.width/2, SHIPWRECK_REGION_SIZE);
+    rZ = regionify(opts.height/2, SHIPWRECK_REGION_SIZE);
+    for (int z=-rZ; z<rZ; z++) {
+        for (int x=-rX; x<rX; x++) {
+            pos = getStructurePos(
+                    SHIPWRECK_SEED, SHIPWRECK_REGION_SIZE, SHIPWRECK_CHUNK_RANGE, opts.seed, x, z);
+            biomeAt = getBiomeAt(g, pos, cache);
+            if (isOceanic(biomeAt))
+                addIcon("shipwreck", opts.width, opts.height, pos,
+                        20, 20, opts.shipwreckScale);
+        }
+    }
+
+    rX = regionify(opts.width/2, MANSION_REGION_SIZE);
+    rZ = regionify(opts.height/2, MANSION_REGION_SIZE);
     for (int z=-rZ; z<rZ; z++) {
         for (int x=-rX; x<rX; x++) {
             pos = getMansionPos(opts.seed, x, z);
