@@ -162,6 +162,29 @@ void search4QuadBases(const char *fnam, int threads, const int64_t structureSeed
 int getBiomeAtPos(const LayerStack g, const Pos pos);
 
 
+/* getOceanRuinPos
+ * ---------------
+ * Fast implementation for finding the block position at which an ocean ruin
+ * generation attempt will occur in the specified region.
+ */
+Pos getOceanRuinPos(int64_t seed, const int64_t regionX, const int64_t regionZ);
+
+/* getShipwreckPos
+ * ---------------
+ * Fast implementation for finding the block position at which a shipwreck
+ * generation attempt will occur in the specified region.
+ */
+Pos getShipwreckPos(int64_t seed, const int64_t regionX, const int64_t regionZ);
+
+/* getStructurePos
+ * ---------------
+ * Fast implementation for finding the block position at which the structure
+ * generation attempt will occur in the specified region.
+ * This function applies for scattered-feature structureSeeds and villages.
+ */
+Pos getStructurePos(const int64_t structureSeed, int64_t seed,
+        const int64_t regionX, const int64_t regionZ);
+
 /* getStructureChunkInRegion
  * -------------------------
  * Finds the chunk position within the specified region (a square region of
@@ -170,19 +193,8 @@ int getBiomeAtPos(const LayerStack g, const Pos pos);
  *
  * This function applies for scattered-feature structureSeeds and villages.
  */
-Pos getStructureChunkInRegion(const int64_t structureSeed, const int chunkRange,
-        int64_t seed, const int regionX, const int regionZ);
-
-
-/* getStructurePos
- * ---------------
- * Fast implementation for finding the block position at which the structure
- * generation attempt will occur in the specified region.
- * This function applies for scattered-feature structureSeeds and villages.
- */
-Pos getStructurePos(const int64_t structureSeed, const int chunkRange,
-        const int regionSize, int64_t seed, const int64_t regionX, const int64_t regionZ);
-
+Pos getStructureChunkInRegion(const int64_t structureSeed, int64_t seed,
+        const int regionX, const int regionZ);
 
 /* getOceanMonumentPos
  * -------------------

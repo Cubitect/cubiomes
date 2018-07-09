@@ -109,18 +109,10 @@ int main(int argc, char *argv[])
     {
         base = moveStructure(qhcandidates[i], regPosX, regPosZ);
 
-        qhpos[0] = getStructurePos(
-                featureSeed, FEATURE_REGION_SIZE, FEATURE_CHUNK_RANGE,
-                base, 0+regPosX, 0+regPosZ);
-        qhpos[1] = getStructurePos(
-                featureSeed, FEATURE_REGION_SIZE, FEATURE_CHUNK_RANGE,
-                base, 0+regPosX, 1+regPosZ);
-        qhpos[2] = getStructurePos(
-                featureSeed, FEATURE_REGION_SIZE, FEATURE_CHUNK_RANGE,
-                base, 1+regPosX, 0+regPosZ);
-        qhpos[3] = getStructurePos(
-                featureSeed, FEATURE_REGION_SIZE, FEATURE_CHUNK_RANGE,
-                base, 1+regPosX, 1+regPosZ);
+        qhpos[0] = getStructurePos(featureSeed, base, 0+regPosX, 0+regPosZ);
+        qhpos[1] = getStructurePos(featureSeed, base, 0+regPosX, 1+regPosZ);
+        qhpos[2] = getStructurePos(featureSeed, base, 1+regPosX, 0+regPosZ);
+        qhpos[3] = getStructurePos(featureSeed, base, 1+regPosX, 1+regPosZ);
 
         /*
         for(j = 0; j < 4; j++)

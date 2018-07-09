@@ -690,35 +690,68 @@ int getBiomeAtPos(const LayerStack g, const Pos pos)
     return biomeID;
 }
 
+
+Pos getOceanRuinPos(int64_t seed, const int64_t regionX, const int64_t regionZ) {
+    Pos pos;
+
+    // set seed
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + OCEAN_RUIN_SEED;
+    seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
+
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
+    // Java RNG treats powers of 2 as a special case.
+    pos.x = (8 * (seed >> 17)) >> 31;
+
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
+    pos.z = (8 * (seed >> 17)) >> 31;
+
+    pos.x = regionX*256 + (pos.x << 4) + 8;
+    pos.z = regionZ*256 + (pos.z << 4) + 8;
+    return pos;
+}
+
+
+Pos getShipwreckPos(int64_t seed, const int64_t regionX, const int64_t regionZ) {
+    Pos pos;
+
+    // set seed
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + SHIPWRECK_SEED;
+    seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
+
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
+    pos.x = (seed >> 17) % 7;
+
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
+    pos.z = (seed >> 17) % 7;
+
+    pos.x = regionX*240 + (pos.x << 4) + 8;
+    pos.z = regionZ*240 + (pos.z << 4) + 8;
+    return pos;
+}
+
+
 /* getStructurePos
  * ---------------
  * Fast implementation for finding the block position at which the structure
  * generation attempt will occur in the specified region.
  * This function applies for scattered-feature structureSeeds and villages.
  */
-Pos getStructurePos(const int64_t structureSeed, const int regionSize, const int chunkRange,
-        int64_t seed, const int64_t regionX, const int64_t regionZ)
+Pos getStructurePos(const int64_t structureSeed, int64_t seed,
+        const int64_t regionX, const int64_t regionZ)
 {
     Pos pos;
 
-    // set seed
     seed = regionX*341873128712 + regionZ*132897987541 + seed + structureSeed;
     seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
 
     seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-    if ((chunkRange & (chunkRange-1)) == 0) {
-        // Java RNG treats powers of 2 as a special case.
-        pos.x = (chunkRange * (seed >> 17)) >> 31;
-        seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-        pos.z = (chunkRange * (seed >> 17)) >> 31;
-    } else {
-        pos.x = (seed >> 17) % chunkRange;
-        seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-        pos.z = (seed >> 17) % chunkRange;
-    }
+    pos.x = (seed >> 17) % 24;
 
-    pos.x = ((regionX*regionSize + pos.x) << 4) + 8;
-    pos.z = ((regionZ*regionSize + pos.z) << 4) + 8;
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
+    pos.z = (seed >> 17) % 24;
+
+    pos.x = regionX*512 + (pos.x << 4) + 8;
+    pos.z = regionZ*512 + (pos.z << 4) + 8;
     return pos;
 }
 
@@ -729,8 +762,8 @@ Pos getStructurePos(const int64_t structureSeed, const int regionSize, const int
  * the structure generation attempt will occur.
  * This function applies for scattered-feature structureSeeds and villages.
  */
-Pos getStructureChunkInRegion(const int64_t structureSeed, const int chunkRange,
-        int64_t seed, const int regionX, const int regionZ)
+Pos getStructureChunkInRegion(const int64_t structureSeed, int64_t seed,
+        const int regionX, const int regionZ)
 {
     /*
     // Vanilla like implementation.
@@ -743,21 +776,14 @@ Pos getStructureChunkInRegion(const int64_t structureSeed, const int chunkRange,
     */
     Pos pos;
 
-    // set seed
     seed = regionX*341873128712 + regionZ*132897987541 + seed + structureSeed;
     seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
 
     seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-    if ((chunkRange & (chunkRange-1)) == 0) {
-        // Java RNG treats powers of 2 as a special case.
-        pos.x = (chunkRange * (seed >> 17)) >> 31;
-        seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-        pos.z = (chunkRange * (seed >> 17)) >> 31;
-    } else {
-        pos.x = (seed >> 17) % chunkRange;
-        seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
-        pos.z = (seed >> 17) % chunkRange;
-    }
+    pos.x = (seed >> 17) % 24;
+
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
+    pos.z = (seed >> 17) % 24;
 
     return pos;
 }
