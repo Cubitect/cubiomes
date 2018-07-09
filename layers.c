@@ -136,6 +136,16 @@ void mapNull(Layer *l, int * __restrict out, int x, int z, int w, int h)
 {
 }
 
+void mapSkip(Layer *l, int * __restrict out, int x, int z, int w, int h)
+{
+    if(l->p == NULL)
+    {
+        printf("mapSkip() requires a non-null parent layer.\n");
+        exit(1);
+    }
+    l->p->getMap(l->p, out, x, z, w, h);
+}
+
 
 void mapIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {

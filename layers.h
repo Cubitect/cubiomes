@@ -384,6 +384,9 @@ static inline int selectModeOrRandom(Layer *l, int a1, int a2, int a3, int a4)
 
 // A null layer does nothing, and can be used to apply a layer to existing data.
 void mapNull(Layer *l, int * __restrict out, int x, int z, int w, int h);
+// A skip layer simply calls its first parent without modification.
+// This can be used as an easy way to skip a layer in a generator.
+void mapSkip(Layer *l, int * __restrict out, int x, int z, int w, int h);
 
 void mapIsland(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapZoom(Layer *l, int * __restrict out, int x, int z, int w, int h);

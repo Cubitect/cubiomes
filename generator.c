@@ -219,7 +219,9 @@ static void getMaxArea(Layer *layer, int areaX, int areaZ, int *maxX, int *maxZ)
     }
     else
     {
-        if( layer->getMap != mapIsland &&
+        if( layer->getMap != mapNull &&
+            layer->getMap != mapSkip &&
+            layer->getMap != mapIsland &&
             layer->getMap != mapSpecial &&
             layer->getMap != mapBiome &&
             layer->getMap != mapRiverInit &&
