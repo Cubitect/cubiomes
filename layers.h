@@ -109,6 +109,7 @@ static inline int getTempCategory(int id)
     return biomes[id & 0xff].tempCat;
 }
 
+
 static inline int equalOrPlateau(int id1, int id2)
 {
     if(id1 == id2) return 1;
@@ -404,6 +405,8 @@ void mapRareBiome(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapShore(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapRiverMix(Layer *l, int * __restrict out, int x, int z, int w, int h);
 
+// 1.13 layers
+void mapHills113(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapOceanTemp(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight);
 void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight);
 

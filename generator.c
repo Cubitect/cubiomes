@@ -156,7 +156,7 @@ LayerStack setupGeneratorMC113()
     setupLayer( 128, &g.layers[23], &g.layers[22], 1000, mapZoom);
     setupLayer(  64, &g.layers[24], &g.layers[23], 1001, mapZoom);
 
-    setupMultiLayer(64, &g.layers[25], &g.layers[21], &g.layers[24], 1000, mapHills);
+    setupMultiLayer(64, &g.layers[25], &g.layers[21], &g.layers[24], 1000, mapHills113);
 
     setupLayer(  64, &g.layers[26], &g.layers[25], 1001, mapRareBiome);
     setupLayer(  32, &g.layers[27], &g.layers[26], 1000, mapZoom);

@@ -986,6 +986,127 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
 }
 
 
+void mapHills113(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
+{
+    int pX = areaX - 1;
+    int pZ = areaZ - 1;
+    int pWidth = areaWidth + 2;
+    int pHeight = areaHeight + 2;
+    int x, z;
+    int *buf = NULL;
+
+    if(l->p2 == NULL)
+    {
+        printf("mapHills() requires two parents! Use setupMultiLayer()\n");
+        exit(1);
+    }
+
+    buf = (int *) malloc(pWidth*pHeight*sizeof(int));
+
+    l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
+    memcpy(buf, out, pWidth*pHeight*sizeof(int));
+
+    l->p2->getMap(l->p2, out, pX, pZ, pWidth, pHeight);
+
+    for(z = 0; z < areaHeight; z++)
+    {
+        for(x = 0; x < areaWidth; x++)
+        {
+            setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
+            int a11 = buf[x+1 + (z+1)*pWidth]; // biome branch
+            int b11 = out[x+1 + (z+1)*pWidth]; // river branch
+            int idx = x + z*areaWidth;
+
+            int bn = (b11 - 2) % 29;
+
+            if(!(isOceanic(a11) || b11 < 2 || bn != 1 || a11 >= 128))
+            {
+                out[idx] = (biomeExists(a11 + 128)) ? a11 + 128 : a11;
+            }
+            else if(mcNextInt(l, 3) == 0 || bn == 0)
+            {
+                int hillID = a11;
+
+                switch(a11){
+                case desert:
+                    hillID = desertHills; break;
+                case forest:
+                    hillID = forestHills; break;
+                case birchForest:
+                    hillID = birchForestHills; break;
+                case roofedForest:
+                    hillID = plains; break;
+                case taiga:
+                    hillID = taigaHills; break;
+                case megaTaiga:
+                    hillID = megaTaigaHills; break;
+                case coldTaiga:
+                    hillID = coldTaigaHills; break;
+                case plains:
+                    hillID = (mcNextInt(l, 3) == 0) ? forestHills : forest; break;
+                case icePlains:
+                    hillID = iceMountains; break;
+                case jungle:
+                    hillID = jungleHills; break;
+                case ocean:
+                    hillID = deepOcean; break;
+                case extremeHills:
+                    hillID = extremeHillsPlus; break;
+                case savanna:
+                    hillID = savannaPlateau; break;
+                default:
+                    if(equalOrPlateau(a11, mesaPlateau_F))
+                        hillID = mesa;
+                    else if((a11 == deepOcean || a11 == lukewarmDeepOcean ||
+                             a11 == coldDeepOcean || a11 == frozenDeepOcean) &&
+                             mcNextInt(l, 3) == 0)
+                        hillID = (mcNextInt(l, 2) == 0) ? plains : forest;
+                    break;
+                }
+
+                if(bn == 0 && hillID != a11)
+                {
+                    if(biomeExists(hillID + 128))
+                        hillID += 128;
+                    else
+                        hillID = a11;
+                }
+
+                if(hillID != a11)
+                {
+                    int a10 = buf[x+1 + (z+0)*pWidth];
+                    int a21 = buf[x+2 + (z+1)*pWidth];
+                    int a01 = buf[x+0 + (z+1)*pWidth];
+                    int a12 = buf[x+1 + (z+2)*pWidth];
+                    int equals = 0;
+
+                    if(equalOrPlateau(a10, a11)) equals++;
+                    if(equalOrPlateau(a21, a11)) equals++;
+                    if(equalOrPlateau(a01, a11)) equals++;
+                    if(equalOrPlateau(a12, a11)) equals++;
+
+                    if(equals >= 3)
+                        out[idx] = hillID;
+                    else
+                        out[idx] = a11;
+                }
+                else
+                {
+                    out[idx] = a11;
+                }
+            }
+            else
+            {
+                out[idx] = a11;
+            }
+        }
+    }
+
+    free(buf);
+}
+
+
+
 static inline int reduceID(int id)
 {
     return id >= 2 ? 2 + (id & 1) : id;
@@ -1084,7 +1205,7 @@ void mapRareBiome(Layer *l, int * __restrict out, int areaX, int areaZ, int area
 
             if(mcNextInt(l, 57) == 0 && v11 == plains)
             {
-                // Flower Forest
+                // Sunflower Plains
                 out[x + z*areaWidth] = plains + 128;
             }
             else
