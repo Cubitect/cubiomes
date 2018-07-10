@@ -761,7 +761,6 @@ int getBiomeGroup(int biome) {
     // A list of bomes that completes the Adventuring Time advancement would
     // also be a cool option.
     switch(biome) {
-        // TODO: Should there ben an option to do ocean types with the "all biomes" option?
         case ocean:
         case deepOcean:
             return 1;
