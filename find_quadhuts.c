@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
 
     int mcversion = 0;
     const char *seedFileName;
-    int64_t featureSeed;
+    StructureConfig featureConfig;
 
     if(argc > 2)
     {
@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 
     if(mcversion == 113)
     {
-        featureSeed = SWAMP_HUT_CONFIG.seed;
+        featureConfig = SWAMP_HUT_CONFIG;
         seedFileName = "./seeds/quadhutbases_1_13_Q1.txt";
         // setupGeneratorMC113() biome generation is slower and unnecessary.
         // We are only interested in the biomes on land, which haven't changed
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
     }
     else
     {
-        featureSeed = FEATURE_CONFIG.seed;
+        featureConfig = FEATURE_CONFIG;
         seedFileName = "./seeds/quadhutbases_1_7_Q1.txt";
         g = setupGeneratorMC17();
     }
@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
                "This may take a few minutes...\n");
         int threads = 6;
         int quality = 1;
-        search4QuadBases(seedFileName, threads, featureSeed, quality);
+        search4QuadBases(seedFileName, threads, featureConfig.seed, quality);
     }
 
     int64_t i, j, qhcnt;
@@ -109,10 +109,10 @@ int main(int argc, char *argv[])
     {
         base = moveStructure(qhcandidates[i], regPosX, regPosZ);
 
-        qhpos[0] = getStructurePos(SWAMP_HUT_CONFIG, base, 0+regPosX, 0+regPosZ);
-        qhpos[1] = getStructurePos(SWAMP_HUT_CONFIG, base, 0+regPosX, 1+regPosZ);
-        qhpos[2] = getStructurePos(SWAMP_HUT_CONFIG, base, 1+regPosX, 0+regPosZ);
-        qhpos[3] = getStructurePos(SWAMP_HUT_CONFIG, base, 1+regPosX, 1+regPosZ);
+        qhpos[0] = getStructurePos(featureConfig, base, 0+regPosX, 0+regPosZ);
+        qhpos[1] = getStructurePos(featureConfig, base, 0+regPosX, 1+regPosZ);
+        qhpos[2] = getStructurePos(featureConfig, base, 1+regPosX, 0+regPosZ);
+        qhpos[3] = getStructurePos(featureConfig, base, 1+regPosX, 1+regPosZ);
 
         /*
         for(j = 0; j < 4; j++)
