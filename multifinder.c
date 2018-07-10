@@ -290,14 +290,16 @@ void usage() {
 }
 
 
-int64_t parseHumanArgument(char *arg, const char *flagName) {
+int64_t parseHumanArgument(const char *original, const char *flagName) {
     char *endptr;
+    char arg[32];
 
-    int len = strlen(arg);
-    if (len < 1) {
+    int len = strlen(original);
+    if (len < 1 || len > 30) {
         fprintf(stderr, INT_ERROR, flagName);
         exit(-1);
     }
+    strncpy(arg, original, 32);
 
     int64_t mult = 1;
     switch (arg[len-1]) {
@@ -308,8 +310,6 @@ int64_t parseHumanArgument(char *arg, const char *flagName) {
         case 'T': mult = 1024LL*1024LL*1024LL*1024LL; break;
     }
 
-    // TODO: This is hacky and stop doing it. It makes the COMMAND file
-    // print wrong.
     if (mult != 1)
         arg[len-1] = 0;
     int64_t val = strtol(arg, &endptr, 10);
