@@ -63,6 +63,7 @@ typedef struct {
 
     // Additional search critera
     int allBiomes;
+    int adventureTime;
     int includeOceans;
     BiomeSearchConfig *plentifulBiome;
     int plentifulness;
@@ -99,24 +100,18 @@ typedef struct {
 #define INT_ERROR "An integer argument is required with --%s\n"
 
 
-// Adventuring time 1.12
-// Beach, Birch Forest, Birch Forest Hills, Cold Beach, Cold Taiga, Cold Taiga
-// Hills, Deep Ocean, Desert, Desert Hills, Extreme Hills, Extreme Hills+,
-// Forest, Forest Hills, Frozen River, Ice Mountains, Ice Plains, Jungle, Jungle
-// Edge, Jungle Hills, Mega Taiga, Mega Taiga Hills, Mesa, Mesa Plateau, Mesa
-// Plateau F, Mushroom Island, Mushroom Island Shore, Ocean, Plains, River,
-// Roofed Forest, Savanna, Savanna Plateau, Stone Beach, Swampland, Taiga, Taiga
-// Hills
-
-// Adventuring time 1.13
-// Beach, Birch Forest, Birch Forest Hills, Cold Beach, Cold Taiga, Cold Taiga
-// Hills, Deep Ocean, Desert, Desert Hills, Extreme Hills, Extreme Hills+,
-// Forest, Forest Hills, Frozen River, Ice Mountains, Ice Plains, Jungle, Jungle
-// Edge, Jungle Hills, Mega Taiga, Mega Taiga Hills, Mesa, Mesa Plateau, Mesa
-// Plateau F, Mushroom Island, Mushroom Island Shore, Ocean, Plains, River,
-// Roofed Forest, Savanna, Savanna Plateau, Stone Beach, Swampland, Taiga, Taiga
-// Hills, Cold Ocean, Cold Deep Ocean, Frozen Deep Ocean, Lukewarm Ocean,
-// Lukewarm Deep Ocean, Warm Ocean
+const int adventureBiomes[] = {
+    beach, coldBeach, stoneBeach, plains, swampland, roofedForest,
+    forest, forestHills, birchForest, birchForestHills,
+    taiga, taigaHills, coldTaiga, coldTaigaHills, megaTaiga, megaTaigaHills,
+    mushroomIsland, mushroomIslandShore, mesa, mesaPlateau, mesaPlateau_F,
+    jungle, jungleEdge, jungleHills, extremeHills, extremeHillsPlus,
+    desert, desertHills, savanna, savannaPlateau, icePlains, iceMountains,
+    ocean, deepOcean, frozenOcean, frozenDeepOcean, coldOcean, coldDeepOcean,
+    lukewarmOcean, lukewarmDeepOcean, warmOcean,
+    // river and frozenRiver are required too, but not available at the low-res
+    // layer we look at. But they are everywhere, so it won't matter.
+};
 
 
 void initSearchConfig(
@@ -246,6 +241,9 @@ void usage() {
     fprintf(stderr, "    --base_seeds_file=<string>\n");
     fprintf(stderr, "    --all_biomes\n");
     fprintf(stderr, "      Search for all biomes within search radius.\n");
+    fprintf(stderr, "    --adventure_time\n");
+    fprintf(stderr, "      Search for all biomes required for the\n");
+    fprintf(stderr, "      adventuring time advancement.\n");
     fprintf(stderr, "    --include_oceans\n");
     fprintf(stderr, "      Include 1.13 ocean type biomes from --all_biomes\n");
     fprintf(stderr, "      requirements. About 10%% slower and about twice\n");
@@ -395,6 +393,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         .append               = 0,
         .baseSeedsFile        = "./seeds/quadhutbases_1_13_Q1.txt",
         .allBiomes            = 0,
+        .adventureTime        = 0,
         .includeOceans        = 0,
         .plentifulBiome       = NULL,
         .plentifulness        = 25,
@@ -421,6 +420,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             {"append",                no_argument,       NULL, 'A'},
             {"base_seeds_file",       required_argument, NULL, 'S'},
             {"all_biomes",            no_argument,       NULL, 'a'},
+            {"adventure_time",        no_argument,       NULL, 'v'},
             {"include_oceans",        no_argument,       NULL, 'O'},
             {"plentiful_biome",       required_argument, NULL, 'p'},
             {"plentifulness",         required_argument, NULL, 'P'},
@@ -436,7 +436,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         };
         int index = 0;
         c = getopt_long(argc, argv,
-                "hDXs:e:t:o:AS:aOp:P:b:m:z:w:r:cB:H:M:", longOptions, &index);
+                "hDXs:e:t:o:AS:avOp:P:b:m:z:w:r:cB:H:M:", longOptions, &index);
 
         if (c == -1)
             break;
@@ -492,6 +492,9 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 break;
             case 'a':
                 opts.allBiomes = 1;
+                break;
+            case 'v':
+                opts.adventureTime = 1;
                 break;
             case 'O':
                 opts.includeOceans = 1;
@@ -753,6 +756,28 @@ void getAreaBiomes(Layer *layer16, int *cache, Pos spawn, int radius) {
 
 
 
+int adventuringTime(int *cache, const SearchOptions *opts) {
+    int width = opts->biomeRadius >> 3;
+
+    int r = width >> 1;
+    int biomeCounts[256] = {0};
+    int i=0;
+    for (int z=0; z<width; z++) {
+        for (int x=0; x<width; x++) {
+            if (!opts->circleRadius || (x-r)*(x-r) + (z-r)*(z-r) <= r*r)
+                biomeCounts[cache[i&0xff]]++;
+            i++;
+        }
+    }
+
+    for (int i=0; i<sizeof(adventureBiomes)/sizeof(int); i++) {
+        if (biomeCounts[adventureBiomes[i]] <= 0)
+            return 0;
+    }
+    return 1;
+}
+
+
 int hasAllBiomes(int *cache, const SearchOptions *opts) {
     int width = opts->biomeRadius >> 3;
     int numBiomes = opts->includeOceans ? NUM_ALL_BIOMES : NUM_ALL_BIOMES - 4;
@@ -815,7 +840,7 @@ SearchCaches preallocateCaches(const LayerStack *g, const SearchOptions *opts) {
         cache.spawnArea = allocCache(&g->layers[L_SHORE_16], 18, 18);
 
     // A 1:16 resolution layer, but x2 because it's a radius.
-    if (opts->allBiomes || opts->plentifulBiome) {
+    if (opts->allBiomes || opts->adventureTime || opts->plentifulBiome) {
         int biomeWidth = opts->biomeRadius >> 3;
         cache.res16 = allocCache(
                 &g->layers[L_SHORE_16], biomeWidth, biomeWidth);
@@ -850,7 +875,7 @@ void *searchQuadHutsThread(void *data) {
     LayerStack gAll;
     // a 1:16 resolution layer, depending on generator version.
     Layer *layer16 = &(Layer) {};
-    if (opts.allBiomes && opts.includeOceans) {
+    if ((opts.allBiomes && opts.includeOceans) || opts.adventureTime) {
         // If we're including new ocean biome features in our search, the full,
         // slower 1.13 biome generation is required, but we have a cheat...
         gAll = setupGeneratorMC113();
@@ -1030,11 +1055,11 @@ void *searchQuadHutsThread(void *data) {
                             !hasStronghold(&g, cache.structure, seed, opts.strongholdDistance, qhpos))
                         continue;
 
-                    if (opts.spawnBiomes || opts.allBiomes || opts.plentifulBiome) {
+                    if (opts.spawnBiomes || opts.allBiomes || opts.adventureTime || opts.plentifulBiome) {
                         debug("Biome checks.");
                         Pos spawn = getSpawn(&g, cache.structure, seed);
 
-                        if (opts.allBiomes && opts.includeOceans)
+                        if ((opts.allBiomes && opts.includeOceans) || opts.adventureTime)
                             applySeed(&gAll, seed);
 
                         // This has to get more biome area, so is slower.
@@ -1043,7 +1068,7 @@ void *searchQuadHutsThread(void *data) {
                             continue;
 
                         // These have to get yet more biome area, so very slow.
-                        if (opts.allBiomes || opts.plentifulBiome) {
+                        if (opts.allBiomes || opts.adventureTime || opts.plentifulBiome) {
                             getAreaBiomes(layer16, cache.res16, spawn, opts.biomeRadius);
 
                             if (opts.plentifulBiome
@@ -1052,6 +1077,10 @@ void *searchQuadHutsThread(void *data) {
 
                             if (opts.allBiomes
                                     && !hasAllBiomes(cache.res16, &opts))
+                                continue;
+
+                            if (opts.adventureTime
+                                    && !adventuringTime(cache.res16, &opts))
                                 continue;
                         }
                     }
@@ -1149,6 +1178,14 @@ int main(int argc, char *argv[])
                     opts.biomeRadius);
         if (opts.includeOceans)
             fprintf(stderr, "  ...including 1.13 ocean biomes.\n");
+    }
+    if (opts.adventureTime) {
+        if (opts.circleRadius)
+            fprintf(stderr, "Looking for adventure time biomes within a %d block circular radius.\n",
+                    opts.biomeRadius);
+        else
+            fprintf(stderr, "Looking for adventure time biomes within %d blocks.\n",
+                    opts.biomeRadius);
     }
     if (opts.plentifulBiome) {
         fprintf(stderr, "Looking for %dx more than usual %s biomes.\n",
