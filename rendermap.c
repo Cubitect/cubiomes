@@ -1,9 +1,11 @@
+#include "biome_util.h"
 #include "finders.h"
 #include "generator.h"
 #include "layers.h"
 
 #include <errno.h>
 #include <getopt.h>
+#include <limits.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -368,9 +370,9 @@ MapOptions parseOptions(int argc, char *argv[]) {
     if (opts.villageScale == -1)
         opts.villageScale = opts.iconScale*3;
     if (opts.oceanRuinScale == -1)
-        opts.oceanRuinScale = opts.iconScale*2;
+        opts.oceanRuinScale = opts.iconScale*1;
     if (opts.shipwreckScale == -1)
-        opts.shipwreckScale = opts.iconScale*2;
+        opts.shipwreckScale = opts.iconScale*1;
 
     return opts;
 }
@@ -494,6 +496,26 @@ void writePPMHeader(FILE *fp, int width, int height) {
 }
 
 
+static inline int min(int a, int b) {
+    return a < b ? a : b;
+}
+
+
+static inline int dist(Pos spawn, int x, int z) {
+    int dx = spawn.x - x;
+    int dz = spawn.z - z;
+    return (int)round(sqrt(dx*dx + dz*dz));
+}
+
+
+void printDist(const char *name, int value) {
+    if (value == INT_MAX)
+        fprintf(stderr, "    %s: none found\n", name);
+    else
+        fprintf(stderr, "    %s: %d\n", name, value);
+}
+
+
 void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
     unsigned char biomeColors[256][3];
     initBiomeColours(biomeColors);
@@ -501,6 +523,10 @@ void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
     Layer *fullRes = &g->layers[g->layerNum-1];
     int *cache = allocCache(fullRes, opts.width, 256);
     unsigned char pixelBuf[256*3];
+    Pos spawn = getSpawn(g, cache, opts.seed);
+
+    int distances[NUM_ALL_BIOMES];
+    for (int i=0; i<NUM_ALL_BIOMES; i++) distances[i] = INT_MAX;
 
     writePPMHeader(fp, opts.width, opts.height);
 
@@ -515,6 +541,14 @@ void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
         while (pixels < opts.width*rows) {
             int toWrite = opts.width*rows - pixels;
             toWrite = toWrite > 256 ? 256 : toWrite;
+
+            int z = top + pixels / opts.width;
+            for (int i=0; i<toWrite; i++) {
+                int x = left + pixels % opts.width + i;
+                int group = getBiomeGroup(cache[pixels+i]);
+                distances[group] = min(distances[group], dist(spawn, x, z));
+            }
+
             biomesToColors(opts, biomeColors, cache+pixels, pixelBuf, toWrite);
             fwrite(pixelBuf, 3, 256, fp);
             pixels += toWrite;
@@ -522,6 +556,12 @@ void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
     }
 
     free(cache);
+
+    fprintf(stderr, "Distances to biomes:\n");
+    for (int i=2; i<NUM_ALL_BIOMES; i++)
+        printDist(biomeGroupNames[i], distances[i]);
+    fprintf(stderr, "======================================="
+            "======================================\n");
 }
 
 
@@ -563,9 +603,12 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
     Layer *fullRes = &g->layers[g->layerNum-1];
     int *cache = allocCache(fullRes, 256, 256);
 
+    fprintf(stderr, "Interesting structures:\n");
+
     printf("convert \"%s\" -filter Point \\\n", opts.ppmfn);
-    Pos pos = getSpawn(g, cache, opts.seed);
-    addIcon("spawn", opts.width, opts.height, pos,
+    Pos spawn = getSpawn(g, cache, opts.seed);
+    fprintf(stderr, "    Spawn: %d, %d\n", spawn.x, spawn.z);
+    addIcon("spawn", opts.width, opts.height, spawn,
             20, 20, opts.spawnScale);
 
     StructureConfig desertPyramid, igloo, junglePyramid, swampHut;
@@ -581,6 +624,7 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
     int rX = regionify(opts.width/2, FEATURE_CONFIG.regionSize);
     int rZ = regionify(opts.height/2, FEATURE_CONFIG.regionSize);
     int biomeAt;
+    Pos pos;
     for (int z=-rZ; z<rZ; z++) {
         for (int x=-rX; x<rX; x++) {
             pos = getStructurePos(VILLAGE_CONFIG, opts.seed, x, z);
@@ -650,9 +694,12 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
     for (int z=-rZ; z<rZ; z++) {
         for (int x=-rX; x<rX; x++) {
             pos = getLargeStructurePos(MANSION_CONFIG, opts.seed, x, z);
-            if (isViableMansionPos(*g, cache, pos.x, pos.z))
+            if (isViableMansionPos(*g, cache, pos.x, pos.z)) {
                 addIcon("woodland_mansion", opts.width, opts.height, pos,
                         20, 26, opts.mansionScale);
+                fprintf(stderr, "    Woodland mansion: %d, %d (%d)\n",
+                        pos.x, pos.z, dist(spawn, pos.x, pos.z));
+            }
         }
     }
 
@@ -663,6 +710,9 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
                 19, 20, opts.strongholdScale);
     }
     printf("    \"%s\"\n", opts.pngfn);
+
+    fprintf(stderr, "======================================="
+            "======================================\n");
 
     free(cache);
 }

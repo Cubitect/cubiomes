@@ -13,7 +13,7 @@ benchmark: benchmark.o layers.o generator.o finders.o
 benchmark.o: benchmark.c
 	$(CC) -c $(CFLAGS) $<
 
-rendermap: rendermap.o layers.o generator.o finders.o
+rendermap: rendermap.o layers.o generator.o finders.o biome_util.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 rendermap.o: rendermap.c
@@ -22,7 +22,7 @@ rendermap.o: rendermap.c
 debug: CFLAGS += -DDEBUG -O0 -g
 debug: find_quadhuts find_compactbiomes multifinder clean
 
-multifinder: multifinder.o layers.o generator.o finders.o
+multifinder: multifinder.o layers.o generator.o finders.o biome_util.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 multifinder.o: multifinder.c
@@ -45,6 +45,9 @@ xmapview.o: xmapview.c xmapview.h
 	$(CC) -c $(CFLAGS) $<
 
 finders.o: finders.c finders.h
+	$(CC) -c $(CFLAGS) $<
+
+biome_util.o: biome_util.c biome_util.h
 	$(CC) -c $(CFLAGS) $<
 
 generator.o: generator.c generator.h

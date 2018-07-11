@@ -2,6 +2,7 @@
  * A quad hut finder with lots of fancy options.
  */
 
+#include "biome_util.h"
 #include "finders.h"
 #include "generator.h"
 #include "layers.h"
@@ -752,64 +753,6 @@ void getAreaBiomes(Layer *layer16, int *cache, Pos spawn, int radius) {
 
 
 
-int getBiomeGroup(int biome) {
-    // Most biomes are basically everywhere, so we only make an effort to
-    // count up the ones that have a good chance of being far away. The list
-    // also focuses on biomes with items that don't occur elsewhere (packed ice,
-    // teracotta, podzol, jungle saplings, cocoa beans, certain flowers, etc.)
-
-    // A list of bomes that completes the Adventuring Time advancement would
-    // also be a cool option.
-    switch(biome) {
-        case ocean:
-        case deepOcean:
-            return 1;
-        case jungle:
-        case jungleHills:
-        case jungleEdge:
-        case jungle+128:            // Jungle M
-        case jungleEdge+128:        // Jungle Edge M
-            return 2;
-        case megaTaiga:
-        case megaTaigaHills:
-        case megaTaiga+128:         // Mega Spruce Taiga
-        case megaTaigaHills+128:    // Mega Spruce Taiga Hills
-            return 3;
-        case mesa:
-        case mesaPlateau_F:
-        case mesaPlateau:
-        case mesaPlateau_F+128:     // Mesa Plateau F M
-        case mesaPlateau+128:       // Mesa Plateau M
-            return 4;
-        case mushroomIsland:
-        case mushroomIslandShore:
-            return 5;
-        case forest+128:            // Flower Forest
-            return 6;
-        case icePlains+128:         // Ice Spikes
-            return 7;
-        case mesa+128:              // Mesa Bryce
-            return 8;
-        case plains+128:            // Sunflower plains
-            return 9;
-        case frozenOcean:
-        case frozenDeepOcean:
-            return 10;
-        case coldOcean:
-        case coldDeepOcean:
-            return 11;
-        case lukewarmOcean:
-        case lukewarmDeepOcean:
-            return 12;
-        case warmOcean:
-        case warmDeepOcean:         // Does not occur in the game, nor reality.
-            return 13;
-    }
-    return 0;
-}
-
-
-#define NUM_ALL_BIOMES 14
 int hasAllBiomes(int *cache, const SearchOptions *opts) {
     int width = opts->biomeRadius >> 3;
     int numBiomes = opts->includeOceans ? NUM_ALL_BIOMES : NUM_ALL_BIOMES - 4;
