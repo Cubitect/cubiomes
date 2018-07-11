@@ -13,4 +13,7 @@ enum BiomeGroup {
 int getBiomeGroup(int biome);
 const char *biomeGroupNames[NUM_ALL_BIOMES];
 
+void initBiomeColours(unsigned char biomeColours[256][3]);
+void initBiomeTypeColours(unsigned char biomeColours[256][3]);
+
 #endif
