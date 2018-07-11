@@ -34,6 +34,7 @@ typedef struct {
     int highlightSpecial;
     int highlightMutated;
     int highlightSearched;
+    int highlightNewOceans;
     int highlightIcons;
 } MapOptions;
 
@@ -166,6 +167,7 @@ void usage() {
     fprintf(stderr, "    --highlight_special\n");
     fprintf(stderr, "    --highlight_mutated\n");
     fprintf(stderr, "    --highlight_searched\n");
+    fprintf(stderr, "    --highlight_new_oceans\n");
     fprintf(stderr, "    --highlight_icons\n");
 }
 
@@ -190,58 +192,60 @@ int intArg(const char *val, const char *name) {
 MapOptions parseOptions(int argc, char *argv[]) {
     int c;
     MapOptions opts = {
-        .seed              = 0,
-        .ppmfn             = "",
-        .pngfn             = "",
-        .width             = DEFAULT_WIDTH,
-        .height            = DEFAULT_HEIGHT,
-        .iconScale         = 1,
-        .desertScale       = -1,
-        .iglooScale        = -1,
-        .jungleScale       = -1,
-        .hutScale          = -1,
-        .mansionScale      = -1,
-        .monumentScale     = -1,
-        .spawnScale        = -1,
-        .strongholdScale   = -1,
-        .villageScale      = -1,
-        .oceanRuinScale    = -1,
-        .shipwreckScale    = -1,
-        .use_1_12          = 0,
-        .highlightSpecial  = 0,
-        .highlightMutated  = 0,
-        .highlightSearched = 0,
-        .highlightIcons    = 0,
+        .seed               = 0,
+        .ppmfn              = "",
+        .pngfn              = "",
+        .width              = DEFAULT_WIDTH,
+        .height             = DEFAULT_HEIGHT,
+        .iconScale          = 1,
+        .desertScale        = -1,
+        .iglooScale         = -1,
+        .jungleScale        = -1,
+        .hutScale           = -1,
+        .mansionScale       = -1,
+        .monumentScale      = -1,
+        .spawnScale         = -1,
+        .strongholdScale    = -1,
+        .villageScale       = -1,
+        .oceanRuinScale     = -1,
+        .shipwreckScale     = -1,
+        .use_1_12           = 0,
+        .highlightSpecial   = 0,
+        .highlightMutated   = 0,
+        .highlightSearched  = 0,
+        .highlightNewOceans = 0,
+        .highlightIcons     = 0,
     };
 
     while (1) {
         static struct option longOptions[] = {
-            {"help",               no_argument,       NULL, 'h'},
-            {"seed",               required_argument, NULL, 's'},
-            {"filename",           required_argument, NULL, 'f'},
-            {"width",              required_argument, NULL, 'x'},
-            {"height",             required_argument, NULL, 'z'},
-            {"icon_scale",         required_argument, NULL, 'i'},
-            {"desert_scale",       required_argument, NULL, 'D'},
-            {"igloo_scale",        required_argument, NULL, 'I'},
-            {"jungle_scale",       required_argument, NULL, 'J'},
-            {"hut_scale",          required_argument, NULL, 'H'},
-            {"mansion_scale",      required_argument, NULL, 'W'},
-            {"monument_scale",     required_argument, NULL, 'M'},
-            {"spawn_scale",        required_argument, NULL, 'S'},
-            {"stronghold_scale",   required_argument, NULL, 'T'},
-            {"village_scale",      required_argument, NULL, 'V'},
-            {"ocean_ruin_scale",   required_argument, NULL, 'O'},
-            {"shipwreck_scale",    required_argument, NULL, 'K'},
-            {"use_1_12",           no_argument,       NULL, '3'},
-            {"highlight_special",  no_argument,       NULL, '6'},
-            {"highlight_mutated",  no_argument,       NULL, '7'},
-            {"highlight_searched", no_argument,       NULL, '8'},
-            {"highlight_icons",    no_argument,       NULL, '9'},
+            {"help",                 no_argument,       NULL, 'h'},
+            {"seed",                 required_argument, NULL, 's'},
+            {"filename",             required_argument, NULL, 'f'},
+            {"width",                required_argument, NULL, 'x'},
+            {"height",               required_argument, NULL, 'z'},
+            {"icon_scale",           required_argument, NULL, 'i'},
+            {"desert_scale",         required_argument, NULL, 'D'},
+            {"igloo_scale",          required_argument, NULL, 'I'},
+            {"jungle_scale",         required_argument, NULL, 'J'},
+            {"hut_scale",            required_argument, NULL, 'H'},
+            {"mansion_scale",        required_argument, NULL, 'W'},
+            {"monument_scale",       required_argument, NULL, 'M'},
+            {"spawn_scale",          required_argument, NULL, 'S'},
+            {"stronghold_scale",     required_argument, NULL, 'T'},
+            {"village_scale",        required_argument, NULL, 'V'},
+            {"ocean_ruin_scale",     required_argument, NULL, 'O'},
+            {"shipwreck_scale",      required_argument, NULL, 'K'},
+            {"use_1_12",             no_argument,       NULL, '3'},
+            {"highlight_special",    no_argument,       NULL, '5'},
+            {"highlight_mutated",    no_argument,       NULL, '6'},
+            {"highlight_searched",   no_argument,       NULL, '7'},
+            {"highlight_new_oceans", no_argument,       NULL, '8'},
+            {"highlight_icons",      no_argument,       NULL, '9'},
         };
         int index = 0;
         c = getopt_long(argc, argv,
-                "hs:f:x:z:i:D:I:H:W:M:S:T:V:O:K:36789", longOptions, &index);
+                "hs:f:x:z:i:D:I:H:W:M:S:T:V:O:K:356789", longOptions, &index);
         if (c == -1)
             break;
 
@@ -306,14 +310,17 @@ MapOptions parseOptions(int argc, char *argv[]) {
             case '3':
                 opts.use_1_12 = 1;
                 break;
-            case '6':
+            case '5':
                 opts.highlightSpecial = 1;
                 break;
-            case '7':
+            case '6':
                 opts.highlightMutated = 1;
                 break;
-            case '8':
+            case '7':
                 opts.highlightSearched = 1;
+                break;
+            case '8':
+                opts.highlightNewOceans = 1;
                 break;
             case '9':
                 opts.highlightIcons = 1;
@@ -429,7 +436,8 @@ void biomesToColors(
         }
 
         if (opts.highlightSpecial || opts.highlightSearched ||
-                opts.highlightMutated || opts.highlightIcons) {
+                opts.highlightMutated || opts.highlightNewOceans ||
+                opts.highlightIcons) {
             int highlighted = 0;
             if ((opts.highlightSpecial || opts.highlightSearched) && (
                         id == jungle || id == jungleHills || id == jungleEdge ||
@@ -450,13 +458,20 @@ void biomesToColors(
                         id == icePlains+128 || id == mesa+128))
                 highlighted = 1;
 
+            if (opts.highlightNewOceans && (
+                        id == frozenOcean || id == frozenDeepOcean ||
+                        id == coldOcean || id == coldDeepOcean ||
+                        id == lukewarmOcean || id == lukewarmDeepOcean ||
+                        id == warmOcean || id == warmDeepOcean))
+                highlighted = 1;
+
             if (!highlighted) {
                 // I think I'm probably a tool for making this colometrically
                 // correct. I should probably make the multiplier a command
                 // line option.
-                r = linearTosRGB(sRGBToLinear(r) * 0.03);
-                g = linearTosRGB(sRGBToLinear(g) * 0.03);
-                b = linearTosRGB(sRGBToLinear(b) * 0.03);
+                r = linearTosRGB(sRGBToLinear(r) * 0.01);
+                g = linearTosRGB(sRGBToLinear(g) * 0.01);
+                b = linearTosRGB(sRGBToLinear(b) * 0.01);
             }
         }
 
