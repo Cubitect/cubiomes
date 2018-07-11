@@ -31,6 +31,7 @@ typedef struct {
     int oceanRuinScale;
     int shipwreckScale;
     int use_1_12;
+    int oneBiome;
     int highlightSpecial;
     int highlightMutated;
     int highlightSearched;
@@ -164,6 +165,7 @@ void usage() {
     fprintf(stderr, "    --ocean_ruin_scale=<integer>\n");
     fprintf(stderr, "    --shipwreck_scale=<integer>\n");
     fprintf(stderr, "    --use_1_12\n");
+    fprintf(stderr, "    --one_biome=<integer>\n");
     fprintf(stderr, "    --highlight_special\n");
     fprintf(stderr, "    --highlight_mutated\n");
     fprintf(stderr, "    --highlight_searched\n");
@@ -210,6 +212,7 @@ MapOptions parseOptions(int argc, char *argv[]) {
         .oceanRuinScale     = -1,
         .shipwreckScale     = -1,
         .use_1_12           = 0,
+        .oneBiome           = -1,
         .highlightSpecial   = 0,
         .highlightMutated   = 0,
         .highlightSearched  = 0,
@@ -236,7 +239,8 @@ MapOptions parseOptions(int argc, char *argv[]) {
             {"village_scale",        required_argument, NULL, 'V'},
             {"ocean_ruin_scale",     required_argument, NULL, 'O'},
             {"shipwreck_scale",      required_argument, NULL, 'K'},
-            {"use_1_12",             no_argument,       NULL, '3'},
+            {"use_1_12",             no_argument,       NULL, '2'},
+            {"one_biome",            required_argument, NULL, '1'},
             {"highlight_special",    no_argument,       NULL, '5'},
             {"highlight_mutated",    no_argument,       NULL, '6'},
             {"highlight_searched",   no_argument,       NULL, '7'},
@@ -245,7 +249,7 @@ MapOptions parseOptions(int argc, char *argv[]) {
         };
         int index = 0;
         c = getopt_long(argc, argv,
-                "hs:f:x:z:i:D:I:H:W:M:S:T:V:O:K:356789", longOptions, &index);
+                "hs:f:x:z:i:D:I:H:W:M:S:T:V:O:K:3256789", longOptions, &index);
         if (c == -1)
             break;
 
@@ -307,8 +311,11 @@ MapOptions parseOptions(int argc, char *argv[]) {
             case 'K':
                 opts.shipwreckScale = intArg(optarg, longOptions[index].name);
                 break;
-            case '3':
+            case '2':
                 opts.use_1_12 = 1;
+                break;
+            case '1':
+                opts.oneBiome = intArg(optarg, longOptions[index].name);
                 break;
             case '5':
                 opts.highlightSpecial = 1;
@@ -661,6 +668,25 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
 }
 
 
+void mapFake(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight) {
+    for (int i=0; i<areaWidth*areaHeight; i++) {
+        out[i] = l->baseSeed;
+    }
+}
+
+
+LayerStack setupFakeGenerator(int biome) {
+    LayerStack g = setupGeneratorMC17();
+
+    for (int i=0; i<g.layerNum; i++) {
+        g.layers[i].baseSeed = biome;
+        g.layers[i].getMap = mapFake;
+    }
+
+    return g;
+}
+
+
 int main(int argc, char *argv[]) {
     MapOptions opts = parseOptions(argc, argv);
 
@@ -678,7 +704,9 @@ int main(int argc, char *argv[]) {
 
     initBiomes();
     LayerStack g;
-    if (opts.use_1_12) {
+    if (opts.oneBiome != -1) {
+        g = setupFakeGenerator(opts.oneBiome);
+    } else if (opts.use_1_12) {
         g = setupGeneratorMC17();
     } else {
         g = setupGeneratorMC113();
