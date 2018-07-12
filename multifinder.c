@@ -1101,7 +1101,7 @@ void *searchQuadHutsThread(void *data) {
         int elapsed = time(NULL) - start;
         int seedRate = perBase / (elapsed ? elapsed : 1);
         fprintf(stderr,
-                "Base seed %15ld (thread %2d): %5d hits, %d seeds/sec\n",
+                "Base seed %15ld (thread %2d): %5d hits, %d seeds/sec/thread\n",
                 info.qhcandidates[i], info.thread, basehits, seedRate);
     }
 
