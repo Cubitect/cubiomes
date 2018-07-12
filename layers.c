@@ -415,17 +415,57 @@ void mapAddIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int area
 
             if(v11 == 0 && (v00 != 0 || v20 != 0 || v02 != 0 || v22 != 0))
             {
-                setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
+                const int64_t chunkX = (int64_t)(x + areaX);
+                const int64_t chunkZ = (int64_t)(z + areaZ);
+                register int64_t cs = ss;
+                cs += chunkX;
+                cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
+                cs += chunkZ;
+                cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
+                cs += chunkX;
+                cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
+                cs += chunkZ;
 
                 int v = 1;
-                int inc = 1;
+                int inc = 0;
 
-                if(v00 != 0 && mcNextInt(l, inc++) == 0) v = v00;
-                if(v20 != 0 && mcNextInt(l, inc++) == 0) v = v20;
-                if(v02 != 0 && mcNextInt(l, inc++) == 0) v = v02;
-                if(v22 != 0 && mcNextInt(l, inc++) == 0) v = v22;
+                if(v00 != 0)
+                {
+                    ++inc; v = v00;
+                    cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
+                    cs += ws;
+                }
+                if(v20 != 0)
+                {
+                    if(++inc == 1 || (cs & (1LL << 24)) == 0) v = v20;
+                    cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
+                    cs += ws;
+                }
+                if(v02 != 0)
+                {
+                    switch(++inc)
+                    {
+                    case 1: v = v02; break;
+                    case 2: if((cs & (1LL << 24)) == 0) v = v02; break;
+                    default: if(((cs >> 24) % 3) == 0) v = v02;
+                    }
+                    cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
+                    cs += ws;
+                }
+                if(v22 != 0)
+                {
+                    switch(++inc)
+                    {
+                    case 1: v = v22; break;
+                    case 2: if((cs & (1LL << 24)) == 0) v = v22; break;
+                    case 3: if(((cs >> 24) % 3) == 0) v = v22; break;
+                    default: if((cs & (3LL << 24)) == 0) v = v22;
+                    }
+                    cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
+                    cs += ws;
+                }
 
-                if(mcNextInt(l, 3) == 0)
+                if((cs >> 24) % 3 == 0)
                     out[x + z*areaWidth] = v;
                 else if(v == 4)
                     out[x + z*areaWidth] = 4;
