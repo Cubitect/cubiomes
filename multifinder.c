@@ -32,6 +32,10 @@ typedef struct {
 enum BiomeConfigs {
     noneCfg = -1,
     oceanCfg = 0,
+    frozenOceanCfg,
+    coldOceanCfg,
+    lukewarmOceanCfg,
+    warmOceanCfg,
     jungleCfg,
     megaTaigaCfg,
     mesaCfg,
@@ -41,7 +45,7 @@ enum BiomeConfigs {
     mesaBryceCfg,
     sunflowerPlainsCfg,
 };
-#define NUM_BIOME_SEARCH_CONFIGS 9
+#define NUM_BIOME_SEARCH_CONFIGS 13
 
 typedef struct {
     char name[20];
@@ -152,6 +156,30 @@ void initSearchConfigs() {
             10, allOceans,
             0, (int[]){});
 
+    initSearchConfig(
+            "frozen ocean", &biomeSearchConfigs[frozenOceanCfg],
+            0.70f, (0.56+0.77)/100.0,
+            2, (int[]){frozenOcean, frozenDeepOcean},
+            0, (int[]){});
+
+    initSearchConfig(
+            "cold ocean", &biomeSearchConfigs[coldOceanCfg],
+            0.80f, (3.48+2.53)/100.0,
+            2, (int[]){coldOcean, coldDeepOcean},
+            0, (int[]){});
+
+    initSearchConfig(
+            "lukewarm ocean", &biomeSearchConfigs[lukewarmOceanCfg],
+            0.80f, (3.40+2.50)/100.0,
+            2, (int[]){lukewarmOcean, lukewarmDeepOcean},
+            0, (int[]){});
+
+    initSearchConfig(
+            "warm ocean", &biomeSearchConfigs[warmOceanCfg],
+            0.70f, (1.31+0.00)/100.0,
+            2, (int[]){warmOcean, warmDeepOcean},
+            0, (int[]){});
+
     // Jungle, mega taiga and mesa biomes are considered "special" by the biome
     // generator, making them more rare (even though they tend to be large),
     // and they have unique items.
@@ -257,10 +285,10 @@ void usage() {
     fprintf(stderr, "    --plentifulness=<integer>\n");
     fprintf(stderr, "      Biome is N times more common than usual.\n");
     fprintf(stderr, "    --spawn_biomes=<string>\n");
-    fprintf(stderr, "      ocean, jungle, mega_taiga, mesa, mushroom_island,\n");
+    fprintf(stderr, "      ocean, frozen_ocean, cold_ocean, lukewarm_ocean,\n");
+    fprintf(stderr, "      warm_ocean, jungle, mega_taiga, mesa, mushroom_island,\n");
     fprintf(stderr, "      flower_forest, ice_spikes, mesa_bryce or\n");
     fprintf(stderr, "      sunflower_plains.\n");
-    // TODO: add spawn/plentiful biome options for warm/lukewarm/cold/frozen
     fprintf(stderr, "    --monument_distance=<integer>\n");
     fprintf(stderr, "      Search for an ocean monument within a number of\n");
     fprintf(stderr, "      chunks of the quad hut perimeter.\n");
@@ -342,6 +370,18 @@ int parseIntArgument(const char *arg, const char *flagName) {
 BiomeSearchConfig* parseBiome(const char *arg) {
     if (strcmp(arg, "ocean")                == 0)
         return &biomeSearchConfigs[oceanCfg];
+
+    if (strcmp(arg, "frozen_ocean")          == 0)
+        return &biomeSearchConfigs[frozenOceanCfg];
+
+    if (strcmp(arg, "cold_ocean")           == 0)
+        return &biomeSearchConfigs[coldOceanCfg];
+
+    if (strcmp(arg, "lukewarm_ocean")       == 0)
+        return &biomeSearchConfigs[lukewarmOceanCfg];
+
+    if (strcmp(arg, "warm_ocean")           == 0)
+        return &biomeSearchConfigs[warmOceanCfg];
 
     if (strcmp(arg, "jungle")               == 0)
         return &biomeSearchConfigs[jungleCfg];
