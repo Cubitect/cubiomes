@@ -75,6 +75,7 @@ typedef struct {
     // Search radius options
     int radius;
     int circleRadius;
+    int centerAtHuts;
     int biomeRadius;
     int hutRadius;
     int mansionRadius;
@@ -259,6 +260,7 @@ void usage() {
     fprintf(stderr, "      ocean, jungle, mega_taiga, mesa, mushroom_island,\n");
     fprintf(stderr, "      flower_forest, ice_spikes, mesa_bryce or\n");
     fprintf(stderr, "      sunflower_plains.\n");
+    // TODO: add spawn/plentiful biome options for warm/lukewarm/cold/frozen
     fprintf(stderr, "    --monument_distance=<integer>\n");
     fprintf(stderr, "      Search for an ocean monument within a number of\n");
     fprintf(stderr, "      chunks of the quad hut perimeter.\n");
@@ -277,6 +279,9 @@ void usage() {
     fprintf(stderr, "      searches, since regions are so chunky, nor spawn\n");
     fprintf(stderr, "      biome searches, because the square spawn chunks\n");
     fprintf(stderr, "      are the thing of interest.\n");
+    fprintf(stderr, "    --center_at_huts\n");
+    fprintf(stderr, "      Center biome searches on the quad witch huts\n");
+    fprintf(stderr, "      instead of world spawn.\n");
     fprintf(stderr, "    --biome_radius=<integer>\n");
     fprintf(stderr, "      Search radius, in blocks, for --all_biomes\n");
     fprintf(stderr, "      option. Defaults to --search_radius.\n");
@@ -403,6 +408,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         .woodlandMansions     = 0,
         .radius               = 2048,
         .circleRadius         = 0,
+        .centerAtHuts         = 0,
         .biomeRadius          = 0,
         .hutRadius            = 0,
         .mansionRadius        = 0,
@@ -430,13 +436,14 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             {"woodland_mansions",     required_argument, NULL, 'w'},
             {"radius",                required_argument, NULL, 'r'},
             {"circle_radius",         no_argument,       NULL, 'c'},
+            {"center_at_huts",        no_argument,       NULL, 'C'},
             {"biome_radius",          required_argument, NULL, 'B'},
             {"hut_radius",            required_argument, NULL, 'H'},
             {"mansion_radius",        required_argument, NULL, 'M'},
         };
         int index = 0;
         c = getopt_long(argc, argv,
-                "hDXs:e:t:o:AS:avOp:P:b:m:z:w:r:cB:H:M:", longOptions, &index);
+                "hDXs:e:t:o:AS:avOp:P:b:m:z:w:r:cCB:H:M:", longOptions, &index);
 
         if (c == -1)
             break;
@@ -527,6 +534,9 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 break;
             case 'c':
                 opts.circleRadius = 1;
+                break;
+            case 'C':
+                opts.centerAtHuts = 1;
                 break;
             case 'B':
                 opts.biomeRadius = parseIntArgument(
@@ -765,7 +775,7 @@ int adventuringTime(int *cache, const SearchOptions *opts) {
     for (int z=0; z<width; z++) {
         for (int x=0; x<width; x++) {
             if (!opts->circleRadius || (x-r)*(x-r) + (z-r)*(z-r) <= r*r)
-                biomeCounts[cache[i&0xff]]++;
+                biomeCounts[cache[i]&0xff]++;
             i++;
         }
     }
@@ -1069,7 +1079,14 @@ void *searchQuadHutsThread(void *data) {
 
                         // These have to get yet more biome area, so very slow.
                         if (opts.allBiomes || opts.adventureTime || opts.plentifulBiome) {
-                            getAreaBiomes(layer16, cache.res16, spawn, opts.biomeRadius);
+                            Pos center;
+                            if (opts.centerAtHuts) {
+                                center.x = (rX+1)*32*16;
+                                center.z = (rZ+1)*32*16;
+                            } else {
+                                center = spawn;
+                            }
+                            getAreaBiomes(layer16, cache.res16, center, opts.biomeRadius);
 
                             if (opts.plentifulBiome
                                     && !hasPlentifulBiome(cache.res16, &opts))
@@ -1170,26 +1187,26 @@ int main(int argc, char *argv[])
                 opts.woodlandMansions, opts.mansionRadius*MANSION_CONFIG.regionSize*16);
     }
     if (opts.allBiomes) {
-        if (opts.circleRadius)
-            fprintf(stderr, "Looking for all biomes within a %d block circular radius.\n",
-                    opts.biomeRadius);
-        else
-            fprintf(stderr, "Looking for all biomes within %d blocks.\n",
-                    opts.biomeRadius);
+        fprintf(stderr, "Looking for all biomes within %d blocks.\n",
+                opts.biomeRadius);
         if (opts.includeOceans)
             fprintf(stderr, "  ...including 1.13 ocean biomes.\n");
     }
     if (opts.adventureTime) {
-        if (opts.circleRadius)
-            fprintf(stderr, "Looking for adventure time biomes within a %d block circular radius.\n",
-                    opts.biomeRadius);
-        else
-            fprintf(stderr, "Looking for adventure time biomes within %d blocks.\n",
-                    opts.biomeRadius);
+        fprintf(stderr, "Looking for adventure time biomes within %d blocks.\n",
+                opts.biomeRadius);
     }
     if (opts.plentifulBiome) {
         fprintf(stderr, "Looking for %dx more than usual %s biomes.\n",
                 opts.plentifulness, opts.plentifulBiome->name);
+    }
+    if (opts.allBiomes || opts.adventureTime || opts.plentifulBiome) {
+        if (opts.circleRadius)
+            fprintf(stderr, "  ...searching biomes within a circular radius.\n");
+        if (opts.centerAtHuts)
+            fprintf(stderr, "  ...centered around the quad witch huts.\n");
+        else
+            fprintf(stderr, "  ...centered at world spawn.\n");
     }
     if (opts.spawnBiomes) {
         fprintf(stderr, "Looking for world spawn in %s biomes.\n",
