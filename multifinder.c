@@ -595,17 +595,17 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             default:
                 exit(-1);
         }
-
-        if (!opts.biomeRadius)
-            opts.biomeRadius = opts.radius;
-        if (!opts.hutRadius)
-            opts.hutRadius = blockToRegion(
-                    opts.radius, SWAMP_HUT_CONFIG.regionSize);
-        if (!opts.mansionRadius)
-            opts.mansionRadius = blockToRegion(
-                    opts.radius, MANSION_CONFIG.regionSize);
-
     }
+
+    if (!opts.biomeRadius)
+        opts.biomeRadius = opts.radius;
+    if (!opts.hutRadius)
+        opts.hutRadius = blockToRegion(
+                opts.radius, SWAMP_HUT_CONFIG.regionSize);
+    if (!opts.mansionRadius)
+        opts.mansionRadius = blockToRegion(
+                opts.radius, MANSION_CONFIG.regionSize);
+
     return opts;
 }
 
