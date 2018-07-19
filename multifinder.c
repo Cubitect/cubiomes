@@ -911,6 +911,47 @@ void freeCaches(SearchCaches *cache) {
 }
 
 
+int biomeChecks(const SearchOptions *opts, SearchCaches *cache, LayerStack *g, LayerStack *gAll, Layer *layer16, int64_t seed, int rX, int rZ) {
+    if (!(opts->spawnBiomes || opts->allBiomes || opts->adventureTime || opts->plentifulBiome))
+        return 1;
+
+    debug("Biome checks.");
+    Pos spawn = getSpawn(g, cache->structure, seed);
+
+    if ((opts->allBiomes && opts->includeOceans) || opts->adventureTime)
+        applySeed(gAll, seed);
+
+    // This has to get more biome area, so is slower.
+    if (opts->spawnBiomes
+            && !hasSpawnBiome(g, cache->spawnArea, spawn, opts->spawnBiomes))
+        return 0;
+
+    if (!(opts->allBiomes || opts->adventureTime || opts->plentifulBiome))
+        return 1;
+
+    // These have to get yet more biome area, so very slow.
+    Pos center;
+    if (opts->centerAtHuts) {
+        center.x = (rX+1)*32*16;
+        center.z = (rZ+1)*32*16;
+    } else {
+        center = spawn;
+    }
+    getAreaBiomes(layer16, cache->res16, center, opts->biomeRadius);
+
+    if (opts->plentifulBiome && !hasPlentifulBiome(cache->res16, opts))
+        return 0;
+
+    if (opts->allBiomes && !hasAllBiomes(cache->res16, opts))
+        return 0;
+
+    if (opts->adventureTime && !adventuringTime(cache->res16, opts))
+        return 0;
+
+    return 1;
+}
+
+
 void *searchQuadHutsThread(void *data) {
     const ThreadInfo info = *(const ThreadInfo *)data;
     const SearchOptions opts = *info.opts;
@@ -1105,42 +1146,8 @@ void *searchQuadHutsThread(void *data) {
                             !hasStronghold(&g, cache.structure, seed, opts.strongholdDistance, qhpos))
                         continue;
 
-                    if (opts.spawnBiomes || opts.allBiomes || opts.adventureTime || opts.plentifulBiome) {
-                        debug("Biome checks.");
-                        Pos spawn = getSpawn(&g, cache.structure, seed);
-
-                        if ((opts.allBiomes && opts.includeOceans) || opts.adventureTime)
-                            applySeed(&gAll, seed);
-
-                        // This has to get more biome area, so is slower.
-                        if (opts.spawnBiomes
-                                && !hasSpawnBiome(&g, cache.spawnArea, spawn, opts.spawnBiomes))
-                            continue;
-
-                        // These have to get yet more biome area, so very slow.
-                        if (opts.allBiomes || opts.adventureTime || opts.plentifulBiome) {
-                            Pos center;
-                            if (opts.centerAtHuts) {
-                                center.x = (rX+1)*32*16;
-                                center.z = (rZ+1)*32*16;
-                            } else {
-                                center = spawn;
-                            }
-                            getAreaBiomes(layer16, cache.res16, center, opts.biomeRadius);
-
-                            if (opts.plentifulBiome
-                                    && !hasPlentifulBiome(cache.res16, &opts))
-                                continue;
-
-                            if (opts.allBiomes
-                                    && !hasAllBiomes(cache.res16, &opts))
-                                continue;
-
-                            if (opts.adventureTime
-                                    && !adventuringTime(cache.res16, &opts))
-                                continue;
-                        }
-                    }
+                    if (!biomeChecks(&opts, &cache, &g, &gAll, layer16, seed, rX, rZ))
+                        continue;
 
                     // This is slower than the above biome checks because they
                     // use quite low resolution biome data.
