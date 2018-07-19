@@ -911,19 +911,26 @@ void freeCaches(SearchCaches *cache) {
 }
 
 
-int biomeChecks(const SearchOptions *opts, SearchCaches *cache, LayerStack *g, LayerStack *gAll, Layer *layer16, int64_t seed, int rX, int rZ) {
+typedef struct {
+    LayerStack g;
+    LayerStack gAll;
+    Layer *layer16;
+} Generators;
+
+
+int biomeChecks(const SearchOptions *opts, SearchCaches *cache, Generators *gen, int64_t seed, int rX, int rZ) {
     if (!(opts->spawnBiomes || opts->allBiomes || opts->adventureTime || opts->plentifulBiome))
         return 1;
 
     debug("Biome checks.");
-    Pos spawn = getSpawn(g, cache->structure, seed);
+    Pos spawn = getSpawn(&gen->g, cache->structure, seed);
 
     if ((opts->allBiomes && opts->includeOceans) || opts->adventureTime)
-        applySeed(gAll, seed);
+        applySeed(&gen->gAll, seed);
 
     // This has to get more biome area, so is slower.
     if (opts->spawnBiomes
-            && !hasSpawnBiome(g, cache->spawnArea, spawn, opts->spawnBiomes))
+            && !hasSpawnBiome(&gen->g, cache->spawnArea, spawn, opts->spawnBiomes))
         return 0;
 
     if (!(opts->allBiomes || opts->adventureTime || opts->plentifulBiome))
@@ -937,7 +944,7 @@ int biomeChecks(const SearchOptions *opts, SearchCaches *cache, LayerStack *g, L
     } else {
         center = spawn;
     }
-    getAreaBiomes(layer16, cache->res16, center, opts->biomeRadius);
+    getAreaBiomes(gen->layer16, cache->res16, center, opts->biomeRadius);
 
     if (opts->plentifulBiome && !hasPlentifulBiome(cache->res16, opts))
         return 0;
@@ -952,32 +959,48 @@ int biomeChecks(const SearchOptions *opts, SearchCaches *cache, LayerStack *g, L
 }
 
 
+Generators setupGenerators(const SearchOptions opts) {
+    Generators gen;
+    // setupGeneratorMC113() biome generation is slower and unnecessary.
+    // We are only interested in the biomes on land, which haven't changed
+    // since MC 1.7 except for some modified variants.
+    gen.g = setupGeneratorMC17();
+    // Use the 1.13 Hills layer to get the correct modified biomes.
+    gen.g.layers[L_HILLS_64].getMap = mapHills113;
+
+    // Setup a 1:16 resolution layer, depending on generator version.
+    if ((opts.allBiomes && opts.includeOceans) || opts.adventureTime) {
+        // If we're including new ocean biome features in our search, the full,
+        // slower 1.13 biome generation is required, but we have a cheat...
+        gen.gAll = setupGeneratorMC113();
+        gen.layer16 = (Layer *)malloc(sizeof(Layer));
+        setupMultiLayer(16, gen.layer16, &gen.gAll.layers[L13_ZOOM_16],
+                &gen.gAll.layers[L_SHORE_16], 1234, mapCheatyOceanMix);
+    } else {
+        gen.gAll = gen.g;
+        gen.layer16 = &gen.g.layers[L_SHORE_16];
+    }
+
+    return gen;
+}
+
+
+void freeGenerators(const SearchOptions opts, Generators *gen) {
+    freeGenerator(gen->g);
+    if ((opts.allBiomes && opts.includeOceans) || opts.adventureTime) {
+        freeGenerator(gen->gAll);
+        free(gen->layer16);
+    }
+}
+
+
 void *searchQuadHutsThread(void *data) {
     const ThreadInfo info = *(const ThreadInfo *)data;
     const SearchOptions opts = *info.opts;
 
-    // setupGeneratorMC113() biome generation is slower and unnecessary.
-    // We are only interested in the biomes on land, which haven't changed
-    // since MC 1.7 except for some modified variants.
-    LayerStack g = setupGeneratorMC17();
-    // Use the 1.13 Hills layer to get the correct modified biomes.
-    g.layers[L_HILLS_64].getMap = mapHills113;
+    Generators gen = setupGenerators(opts);
 
-    LayerStack gAll;
-    // a 1:16 resolution layer, depending on generator version.
-    Layer *layer16 = &(Layer) {};
-    if ((opts.allBiomes && opts.includeOceans) || opts.adventureTime) {
-        // If we're including new ocean biome features in our search, the full,
-        // slower 1.13 biome generation is required, but we have a cheat...
-        gAll = setupGeneratorMC113();
-        setupMultiLayer(16, layer16, &gAll.layers[L13_ZOOM_16],
-                &gAll.layers[L_SHORE_16], 1234, mapCheatyOceanMix);
-    } else {
-        gAll = g;
-        layer16 = &g.layers[L_SHORE_16];
-    }
-
-    Layer *lFilterBiome = &g.layers[L_BIOME_256];
+    Layer *lFilterBiome = &gen.g.layers[L_BIOME_256];
     int64_t j, base, seed;
 
     // Number of seeds evaluated per base seed.
@@ -1005,7 +1028,7 @@ void *searchQuadHutsThread(void *data) {
         fh = stdout;
     }
 
-    SearchCaches cache = preallocateCaches(&g, &opts);
+    SearchCaches cache = preallocateCaches(&gen.g, &opts);
 
     // Every nth + m base seed is assigned to thread m;
     debug("Starting search.");
@@ -1123,36 +1146,36 @@ void *searchQuadHutsThread(void *data) {
                     }
 
                     debug("Checking witch hut swamps.");
-                    applySeed(&g, seed);
-                    if (getBiomeAt(&g, qhpos[0], cache.lastLayer) != swampland)
+                    applySeed(&gen.g, seed);
+                    if (getBiomeAt(&gen.g, qhpos[0], cache.lastLayer) != swampland)
                         continue;
-                    if (getBiomeAt(&g, qhpos[1], cache.lastLayer) != swampland)
+                    if (getBiomeAt(&gen.g, qhpos[1], cache.lastLayer) != swampland)
                         continue;
-                    if (getBiomeAt(&g, qhpos[2], cache.lastLayer) != swampland)
+                    if (getBiomeAt(&gen.g, qhpos[2], cache.lastLayer) != swampland)
                         continue;
-                    if (getBiomeAt(&g, qhpos[3], cache.lastLayer) != swampland)
+                    if (getBiomeAt(&gen.g, qhpos[3], cache.lastLayer) != swampland)
                         continue;
                     hutHits++;
 
                     debug("Other structure checks.");
                     // TODO: Determine the optimal ordering of these checks.
                     if (opts.monumentDistance &&
-                            !verifyMonuments(&g, cache.structure, &monuments, rX, rZ))
+                            !verifyMonuments(&gen.g, cache.structure, &monuments, rX, rZ))
                         continue;
 
                     // TODO: Might be able to optimize this by skipping biome
                     // checks for strongholds nowhere near the quad huts.
                     if (opts.strongholdDistance &&
-                            !hasStronghold(&g, cache.structure, seed, opts.strongholdDistance, qhpos))
+                            !hasStronghold(&gen.g, cache.structure, seed, opts.strongholdDistance, qhpos))
                         continue;
 
-                    if (!biomeChecks(&opts, &cache, &g, &gAll, layer16, seed, rX, rZ))
+                    if (!biomeChecks(&opts, &cache, &gen, seed, rX, rZ))
                         continue;
 
                     // This is slower than the above biome checks because they
                     // use quite low resolution biome data.
                     if (opts.woodlandMansions &&
-                            !hasMansions(&g, cache.structure, seed, opts.mansionRadius, opts.woodlandMansions))
+                            !hasMansions(&gen.g, cache.structure, seed, opts.mansionRadius, opts.woodlandMansions))
                         continue;
 
                     fprintf(fh, "%ld\n", seed);
@@ -1173,8 +1196,7 @@ void *searchQuadHutsThread(void *data) {
         fclose(fh);
         fprintf(stderr, "%s written.\n", info.filename);
     }
-    freeCaches(&cache);
-    freeGenerator(g);
+    freeGenerators(opts, &gen);
 
     return NULL;
 }
