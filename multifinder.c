@@ -60,6 +60,7 @@ typedef struct {
     int disableOptimizations;
     int64_t startSeed;
     int64_t endSeed;
+    int precalculated;
     int threads;
     char outputDir[256];
     int append;
@@ -90,8 +91,10 @@ typedef struct {
     int startIndex;
     const int64_t *qhcandidates;
     int64_t qhcount;
+    int64_t fileCount;
     const SearchOptions *opts;
     char filename[256];
+    char **inFiles;
 } ThreadInfo;
 
 typedef struct {
@@ -263,6 +266,10 @@ void usage() {
     fprintf(stderr, "      slower.\n");
     fprintf(stderr, "    --start_seed=<integer> or \"random\"\n");
     fprintf(stderr, "    --end_seed=<integer>\n");
+    fprintf(stderr, "    --read_seeds_from_files\n");
+    fprintf(stderr, "      Read precalculated quad hut seeds from files to\n");
+    fprintf(stderr, "      apply additional search criteria. Filenames\n");
+    fprintf(stderr, "      should be specified after all other flags.\n");
     fprintf(stderr, "    --threads=<integer>\n");
     fprintf(stderr, "    --output_dir=<string>\n");
     fprintf(stderr, "    --append\n");
@@ -428,11 +435,12 @@ int blockToRegion(int val, int regionSize) {
 
 
 SearchOptions parseOptions(int argc, char *argv[]) {
-    int c;
+    int c, index;
     SearchOptions opts = {
         .disableOptimizations = 0,
         .startSeed            = 0,
         .endSeed              = 1LL<<48,
+        .precalculated        = 0,
         .threads              = 1,
         .outputDir            = "",
         .append               = 0,
@@ -461,6 +469,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             {"disable_optimizations", no_argument,       NULL, 'X'},
             {"start_seed",            required_argument, NULL, 's'},
             {"end_seed",              required_argument, NULL, 'e'},
+            {"read_seeds_from_files", no_argument,       NULL, 'F'},
             {"threads",               required_argument, NULL, 't'},
             {"output_dir",            required_argument, NULL, 'o'},
             {"append",                no_argument,       NULL, 'A'},
@@ -481,9 +490,9 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             {"hut_radius",            required_argument, NULL, 'H'},
             {"mansion_radius",        required_argument, NULL, 'M'},
         };
-        int index = 0;
+        index = 0;
         c = getopt_long(argc, argv,
-                "hDXs:e:t:o:AS:avOp:P:b:m:z:w:r:cCB:H:M:", longOptions, &index);
+                "hDXs:e:Ft:o:AS:avOp:P:b:m:z:w:r:cCB:H:M:", longOptions, &index);
 
         if (c == -1)
             break;
@@ -512,6 +521,9 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             case 'e':
                 opts.endSeed = parseHumanArgument(
                         optarg, longOptions[index].name);
+                break;
+            case 'F':
+                opts.precalculated = 1;
                 break;
             case 't':
                 opts.threads = parseIntArgument(
@@ -605,6 +617,12 @@ SearchOptions parseOptions(int argc, char *argv[]) {
     if (!opts.mansionRadius)
         opts.mansionRadius = blockToRegion(
                 opts.radius, MANSION_CONFIG.regionSize);
+
+    if (opts.precalculated)
+        opts.precalculated = optind;
+
+    // Start processing input filenames here if index is set to a value less
+    // than argc and they've specified the precalcualted flag
 
     return opts;
 }
@@ -722,6 +740,9 @@ int verifyMonuments(LayerStack *g, int *cache, Monuments *mon, int rX, int rZ) {
         int monX = mon->monuments[m].x + rX*32*16;
         int monZ = mon->monuments[m].z + rZ*32*16;
         if (isViableOceanMonumentPos(*g, cache, monX, monZ)) {
+            // TODO: Add a second verification step that takes into account
+            // the new biome generation, which blocks a lot of monuments
+            // from warm ocean and near land
             return 1;
         }
     }
@@ -994,9 +1015,127 @@ void freeGenerators(const SearchOptions opts, Generators *gen) {
 }
 
 
+int64_t getNextSeed(FILE *fp) {
+    // 0 is not valid as a minecraft seed and wouldn't be a quad witch hut
+    // seed anyway, so we can use it as an end marker.
+    if (feof(fp))
+        return 0;
+
+    int64_t seed = 0;
+    while (!feof(fp) && fscanf(fp, "%"PRId64, &seed) < 1) {
+        // fprintf(stderr, "ERROR! Skipping bad line!\n");
+        seed = 0;
+        while (!feof(fp) && fgetc(fp) != '\n');
+    }
+
+    return seed;
+}
+
+
+void *searchExistingSeedsThread(void *data) {
+    const ThreadInfo info = *(const ThreadInfo *)data;
+    const SearchOptions opts = *info.opts;
+
+    FILE *fh;
+    if (strlen(info.filename)) {
+        debug("Opening output files.");
+        fh = fopen(info.filename, opts.append ? "a" : "w");
+        if (fh == NULL) {
+            fprintf(stderr, "Could not open file %s.\n", info.filename);
+            return NULL;
+        }
+    } else {
+        fh = stdout;
+    }
+
+    Generators gen = setupGenerators(opts);
+    Pos qhpos[4];
+    SearchCaches cache = preallocateCaches(&gen.g, &opts);
+
+    for (int i=info.startIndex; i < info.fileCount; i+=opts.threads) {
+        FILE *infile = fopen(info.inFiles[i], "r");
+        if (infile == NULL) {
+            fprintf(stderr, "ERROR: Could not open file %s. Skipping...\n", info.inFiles[i]);
+            continue;
+        }
+        fprintf(stderr, "Reading precalculated seeds from %s...\n", info.inFiles[i]);
+
+        int64_t last48 = 0;
+        int64_t seed;
+        int rX = 0, rZ = 0;
+        int hits = 0;
+        while (1) {
+            seed = getNextSeed(infile);
+            if (!seed) break;
+
+            int64_t lower48 = seed & 0xffffffffffff;
+            if (lower48 != last48) {
+                if (last48) {
+                    fflush(fh);
+                    fprintf(stderr,
+                            "Base seed %15ld (thread %2d): %5d hits.\n", last48, info.thread, hits);
+                }
+                last48 = lower48;
+                hits = 0;
+                int foundquad = 0;
+                for (rZ = -opts.hutRadius-1; rZ < opts.hutRadius; rZ++) {
+                    for (rX = -opts.hutRadius-1; rX < opts.hutRadius; rX++) {
+                        int64_t translated = moveStructure(seed, -rX, -rZ);
+                        if ((foundquad = isQuadFeatureBase(
+                                SWAMP_HUT_CONFIG.seed, translated, 1, 22)))
+                            break;
+                    }
+                    if (foundquad)
+                        break;
+                }
+                // TODO: check monument location and other last-48 bit possible
+                // checks, and if no good, just read file until lower48 changes.
+            }
+
+            debug("Other structure checks.");
+            applySeed(&gen.g, seed);
+
+            // TODO: Support monument seraches here
+
+            // TODO: Might be able to optimize this by skipping biome
+            // checks for strongholds nowhere near the quad huts.
+            if (opts.strongholdDistance &&
+                    !hasStronghold(&gen.g, cache.structure, seed, opts.strongholdDistance, qhpos))
+                continue;
+
+            if (!biomeChecks(&opts, &cache, &gen, seed, rX, rZ))
+                continue;
+
+            // This is slower than the above biome checks because they
+            // use quite low resolution biome data.
+            if (opts.woodlandMansions &&
+                    !hasMansions(&gen.g, cache.structure, seed, opts.mansionRadius, opts.woodlandMansions))
+                continue;
+
+            fprintf(fh, "%ld\n", seed);
+            hits++;
+        }
+    }
+
+    return NULL;
+}
+
+
 void *searchQuadHutsThread(void *data) {
     const ThreadInfo info = *(const ThreadInfo *)data;
     const SearchOptions opts = *info.opts;
+
+    FILE *fh;
+    if (strlen(info.filename)) {
+        debug("Opening output files.");
+        fh = fopen(info.filename, opts.append ? "a" : "w");
+        if (fh == NULL) {
+            fprintf(stderr, "Could not open file %s.\n", info.filename);
+            return NULL;
+        }
+    } else {
+        fh = stdout;
+    }
 
     Generators gen = setupGenerators(opts);
 
@@ -1015,18 +1154,6 @@ void *searchQuadHutsThread(void *data) {
     // Setup a dummy layer for Layer 19: Biome.
     Layer layerBiomeDummy;
     setupLayer(256, &layerBiomeDummy, NULL, 200, NULL);
-
-    FILE *fh;
-    if (strlen(info.filename)) {
-        debug("Opening output files.");
-        fh = fopen(info.filename, opts.append ? "a" : "w");
-        if (fh == NULL) {
-            fprintf(stderr, "Could not open file %s.\n", info.filename);
-            return NULL;
-        }
-    } else {
-        fh = stdout;
-    }
 
     SearchCaches cache = preallocateCaches(&gen.g, &opts);
 
@@ -1234,9 +1361,13 @@ int main(int argc, char *argv[])
     }
 
     fprintf(stderr, "===========================================================================\n");
-    fprintf(stderr,
-            "Searching base seeds %ld-%ld, radius %d, using %d threads...\n",
-            opts.startSeed, opts.endSeed, opts.radius, opts.threads);
+    if (opts.precalculated) {
+        fprintf(stderr, "Reading precalculated seeds from files");
+    } else {
+        fprintf(stderr,
+                "Searching base seeds %ld-%ld", opts.startSeed, opts.endSeed);
+    }
+    fprintf(stderr, ", radius %d, using %d threads...\n", opts.radius, opts.threads);
     if (*opts.outputDir) {
         if (opts.append)
             fprintf(stderr, "Appending to files in \"%s\"...\n", opts.outputDir);
@@ -1299,9 +1430,15 @@ int main(int argc, char *argv[])
     for (int t=0; t<opts.threads; t++) {
         info[t].thread = t;
         info[t].startIndex = startIndex + t;
-        info[t].qhcandidates = qhcandidates;
-        info[t].qhcount = qhcount;
         info[t].opts = &opts;
+
+        if (opts.precalculated) {
+            info[t].inFiles = argv + opts.precalculated;
+            info[t].fileCount = argc - opts.precalculated;
+        } else {
+            info[t].qhcandidates = qhcandidates;
+            info[t].qhcount = qhcount;
+        }
 
         if (opts.threads == 1 && !strlen(opts.outputDir)) {
             info[t].filename[0] = 0;
@@ -1312,8 +1449,12 @@ int main(int argc, char *argv[])
     }
 
     for (int t=0; t<opts.threads; t++) {
-        pthread_create(
-                &threadID[t], NULL, searchQuadHutsThread, (void*)&info[t]);
+        if (opts.precalculated)
+            pthread_create(
+                    &threadID[t], NULL, searchExistingSeedsThread, (void*)&info[t]);
+        else
+            pthread_create(
+                    &threadID[t], NULL, searchQuadHutsThread, (void*)&info[t]);
     }
 
     for (int t=0; t<opts.threads; t++) {
