@@ -470,8 +470,8 @@ void addIcon(char *icon, int width, int height, Pos pos,
     int realZ = pos.z + height/2 - iconH/2;
 
     // Just ignore icons that are off the edge of the map.
-    if (realX < 0 || realZ < 0 ||
-            realX > width-iconW || realZ > height-iconH)
+    if (realX < -iconW || realZ < -iconH ||
+            realX > width || realZ > height)
         return;
 
     printf("    \\( \"icon/%s.png\" -resize %d00%% \\) "
@@ -634,7 +634,7 @@ int main(int argc, char *argv[]) {
 
     fprintf(stderr, "======================================="
             "======================================\n");
-    fprintf(stderr, "Writing map for seed %ld...\n", opts.seed);
+    fprintf(stderr, "Writing %dx%d map for seed %ld...\n", opts.width, opts.height, opts.seed);
     fprintf(stderr, "======================================="
             "======================================\n");
 
