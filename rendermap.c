@@ -400,14 +400,6 @@ static inline int dist(Pos spawn, int x, int z) {
 }
 
 
-void printDist(const char *name, int value) {
-    if (value == INT_MAX)
-        fprintf(stderr, "    %s: none found\n", name);
-    else
-        fprintf(stderr, "    %s: %d\n", name, value);
-}
-
-
 void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
     unsigned char biomeColors[256][3];
     initBiomeColours(biomeColors);
@@ -417,8 +409,8 @@ void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
     unsigned char pixelBuf[256*3];
     Pos spawn = getSpawn(g, cache, opts.seed);
 
-    int distances[NUM_ALL_BIOMES];
-    for (int i=0; i<NUM_ALL_BIOMES; i++) distances[i] = INT_MAX;
+    int distances[256];
+    for (int i=0; i<256; i++) distances[i] = INT_MAX;
 
     writePPMHeader(fp, opts.width, opts.height);
 
@@ -437,8 +429,11 @@ void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
             int z = top + pixels / opts.width;
             for (int i=0; i<toWrite; i++) {
                 int x = left + pixels % opts.width + i;
-                int group = getBiomeGroup(cache[pixels+i]);
-                distances[group] = min(distances[group], dist(spawn, x, z));
+                int b = cache[pixels+i];
+                if (b < 256)
+                    distances[b] = min(distances[b], dist(spawn, x, z));
+                else
+                    fprintf(stderr, "INVALID BIOME!");
             }
 
             biomesToColors(opts, biomeColors, cache+pixels, pixelBuf, toWrite);
@@ -450,19 +445,21 @@ void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
     free(cache);
 
     fprintf(stderr, "Distances to biomes:\n");
-    for (int i=2; i<NUM_ALL_BIOMES; i++)
-        printDist(biomeGroupNames[i], distances[i]);
+    for (int i=0; i<256; i++) {
+        if (distances[i] < INT_MAX)
+            fprintf(stderr, "    %23s: %5d\n", biomeNames[i], distances[i]);
+    }
     fprintf(stderr, "======================================="
             "======================================\n");
 }
 
 
-void addIcon(char *icon, int width, int height, Pos pos,
+int addIcon(char *icon, int width, int height, Pos pos,
         int iconWidth, int iconHeight, int scale) {
 
     // Setting scale to 0 can be used to hide an icon category.
     if (!scale)
-        return;
+        return 0;
 
     int iconW = iconWidth*scale;
     int iconH = iconHeight*scale;
@@ -472,11 +469,13 @@ void addIcon(char *icon, int width, int height, Pos pos,
     // Just ignore icons that are off the edge of the map.
     if (realX < -iconW || realZ < -iconH ||
             realX > width || realZ > height)
-        return;
+        return 0;
 
     printf("    \\( \"icon/%s.png\" -resize %d00%% \\) "
             "-geometry +%d+%d -composite \\\n",
             icon, scale, realX, realZ);
+
+    return 1;
 }
 
 
@@ -499,7 +498,7 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
 
     printf("convert \"%s\" -filter Point \\\n", opts.ppmfn);
     Pos spawn = getSpawn(g, cache, opts.seed);
-    fprintf(stderr, "    Spawn: %d, %d\n", spawn.x, spawn.z);
+    fprintf(stderr, "               Spawn: %6d, %6d\n", spawn.x, spawn.z);
     addIcon("spawn", opts.width, opts.height, spawn,
             20, 20, opts.spawnScale);
 
@@ -589,7 +588,7 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
             if (isViableMansionPos(*g, cache, pos.x, pos.z)) {
                 addIcon("woodland_mansion", opts.width, opts.height, pos,
                         20, 26, opts.mansionScale);
-                fprintf(stderr, "    Woodland mansion: %d, %d (%d)\n",
+                fprintf(stderr, "    Woodland mansion: %6d, %6d (%d)\n",
                         pos.x, pos.z, dist(spawn, pos.x, pos.z));
             }
         }
@@ -598,8 +597,12 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
     Pos strongholds[128];
     findStrongholds(g, cache, strongholds, opts.seed, 0);
     for (int i=0; i<128; i++) {
-        addIcon("stronghold", opts.width, opts.height, strongholds[i],
-                19, 20, opts.strongholdScale);
+        pos = strongholds[i];
+        if (addIcon("stronghold", opts.width, opts.height, pos,
+                19, 20, opts.strongholdScale)) {
+            fprintf(stderr, "          Stronghold: %6d, %6d (%d)\n",
+                    pos.x, pos.z, dist(spawn, pos.x, pos.z));
+        }
     }
     printf("    \"%s\"\n", opts.pngfn);
 
