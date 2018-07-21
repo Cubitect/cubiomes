@@ -62,6 +62,7 @@ typedef struct {
     int64_t endSeed;
     int precalculated;
     int threads;
+    int verbose;
     char outputDir[256];
     int append;
     char baseSeedsFile[256];
@@ -271,6 +272,7 @@ void usage() {
     fprintf(stderr, "      apply additional search criteria. Filenames\n");
     fprintf(stderr, "      should be specified after all other flags.\n");
     fprintf(stderr, "    --threads=<integer>\n");
+    fprintf(stderr, "    --verbose\n");
     fprintf(stderr, "    --output_dir=<string>\n");
     fprintf(stderr, "    --append\n");
     fprintf(stderr, "      append to output files instead of overwriting.\n");
@@ -442,6 +444,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         .endSeed              = 1LL<<48,
         .precalculated        = 0,
         .threads              = 1,
+        .verbose              = 0,
         .outputDir            = "",
         .append               = 0,
         .baseSeedsFile        = "./seeds/quadhutbases_1_13_Q1.txt",
@@ -471,6 +474,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             {"end_seed",              required_argument, NULL, 'e'},
             {"read_seeds_from_files", no_argument,       NULL, 'F'},
             {"threads",               required_argument, NULL, 't'},
+            {"verbose",               no_argument,       NULL, 'V'},
             {"output_dir",            required_argument, NULL, 'o'},
             {"append",                no_argument,       NULL, 'A'},
             {"base_seeds_file",       required_argument, NULL, 'S'},
@@ -492,7 +496,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         };
         index = 0;
         c = getopt_long(argc, argv,
-                "hDXs:e:Ft:o:AS:avOp:P:b:m:z:w:r:cCB:H:M:", longOptions, &index);
+                "hDXs:e:Ft:Vo:AS:avOp:P:b:m:z:w:r:cCB:H:M:", longOptions, &index);
 
         if (c == -1)
             break;
@@ -528,6 +532,9 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             case 't':
                 opts.threads = parseIntArgument(
                         optarg, longOptions[index].name);
+                break;
+            case 'V':
+                opts.verbose = 1;
                 break;
             case 'o':
                 if (strlen(optarg) > 255-13) {
@@ -789,15 +796,13 @@ int hasMansions(const LayerStack *g, int *cache, int64_t seed, int radius, int m
 }
 
 
-int hasSpawnBiome(LayerStack *g, int *cache, Pos spawn, BiomeSearchConfig *config) {
-    Layer *lShoreBiome = &g->layers[L_SHORE_16];
-
+int hasSpawnBiome(Layer *layer16, int *cache, Pos spawn, BiomeSearchConfig *config) {
     int areaX = spawn.x >> 4;
     int areaZ = spawn.z >> 4;
     float ignoreFraction = 0;
     float includeFraction = 0;
 
-    genArea(lShoreBiome, cache, areaX-9, areaZ-9, 18, 18);
+    genArea(layer16, cache, areaX-9, areaZ-9, 18, 18);
 
     for (int i=0; i<18*18; i++) {
         switch (config->lookup[cache[i]]) {
@@ -946,12 +951,10 @@ int biomeChecks(const SearchOptions *opts, SearchCaches *cache, Generators *gen,
     debug("Biome checks.");
     Pos spawn = getSpawn(&gen->g, cache->structure, seed);
 
-    if ((opts->allBiomes && opts->includeOceans) || opts->adventureTime)
-        applySeed(&gen->gAll, seed);
+    applySeed(&gen->gAll, seed);
 
-    // This has to get more biome area, so is slower.
     if (opts->spawnBiomes
-            && !hasSpawnBiome(&gen->g, cache->spawnArea, spawn, opts->spawnBiomes))
+            && !hasSpawnBiome(gen->layer16, cache->spawnArea, spawn, opts->spawnBiomes))
         return 0;
 
     if (!(opts->allBiomes || opts->adventureTime || opts->plentifulBiome))
@@ -990,7 +993,7 @@ Generators setupGenerators(const SearchOptions opts) {
     gen.g.layers[L_HILLS_64].getMap = mapHills113;
 
     // Setup a 1:16 resolution layer, depending on generator version.
-    if ((opts.allBiomes && opts.includeOceans) || opts.adventureTime) {
+    if (opts.includeOceans || opts.adventureTime) {
         // If we're including new ocean biome features in our search, the full,
         // slower 1.13 biome generation is required, but we have a cheat...
         gen.gAll = setupGeneratorMC113();
@@ -1008,7 +1011,7 @@ Generators setupGenerators(const SearchOptions opts) {
 
 void freeGenerators(const SearchOptions opts, Generators *gen) {
     freeGenerator(gen->g);
-    if ((opts.allBiomes && opts.includeOceans) || opts.adventureTime) {
+    if (opts.includeOceans || opts.adventureTime) {
         freeGenerator(gen->gAll);
         free(gen->layer16);
     }
@@ -1112,7 +1115,10 @@ void *searchExistingSeedsThread(void *data) {
                     !hasMansions(&gen.g, cache.structure, seed, opts.mansionRadius, opts.woodlandMansions))
                 continue;
 
-            fprintf(fh, "%ld\n", seed);
+            if (opts.verbose)
+                fprintf(fh, "%ld (%d, %d)\n", seed, rX*32*16, rZ*32*16);
+            else
+                fprintf(fh, "%ld\n", seed);
             hits++;
         }
     }
@@ -1305,7 +1311,10 @@ void *searchQuadHutsThread(void *data) {
                             !hasMansions(&gen.g, cache.structure, seed, opts.mansionRadius, opts.woodlandMansions))
                         continue;
 
-                    fprintf(fh, "%ld\n", seed);
+                    if (opts.verbose)
+                        fprintf(fh, "%ld (%d, %d)\n", seed, ((rX+1)*32-8)*16, ((rZ+1)*32-8)*16);
+                    else
+                        fprintf(fh, "%ld\n", seed);
                     hits++;
                     basehits++;
                 }
