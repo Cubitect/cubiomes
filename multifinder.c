@@ -106,6 +106,12 @@ typedef struct {
     int *res16;
 } SearchCaches;
 
+typedef struct {
+    LayerStack g;
+    LayerStack gAll;
+    Layer *layer16;
+} Generators;
+
 #define INT_ERROR "An integer argument is required with --%s\n"
 
 
@@ -740,17 +746,17 @@ Monuments potentialMonuments(int64_t baseSeed, int distance) {
 }
 
 
-int verifyMonuments(LayerStack *g, int *cache, Monuments *mon, int rX, int rZ) {
+int verifyMonuments(Generators *gen, int *cache, Monuments *mon, int rX, int rZ) {
     for (int m = 0; m < mon->numMonuments; m++) {
         // Translate monument coordintes from the origin-relative coordinates
         // from the base seed family.
         int monX = mon->monuments[m].x + rX*32*16;
         int monZ = mon->monuments[m].z + rZ*32*16;
-        if (isViableOceanMonumentPos(*g, cache, monX, monZ)) {
-            // TODO: Add a second verification step that takes into account
-            // the new biome generation, which blocks a lot of monuments
-            // from warm ocean and near land
-            return 1;
+        if (isViableOceanMonumentPos(gen->g, cache, monX, monZ)) {
+            // Perform a second check with the much slower 1.13 gnerator, since
+            // the new ocean generation can remmove some deep oceans.
+            if (isViableOceanMonumentPos(gen->gAll, cache, monX, monZ))
+                return 1;
         }
     }
     return 0;
@@ -937,21 +943,12 @@ void freeCaches(SearchCaches *cache) {
 }
 
 
-typedef struct {
-    LayerStack g;
-    LayerStack gAll;
-    Layer *layer16;
-} Generators;
-
-
 int biomeChecks(const SearchOptions *opts, SearchCaches *cache, Generators *gen, int64_t seed, int rX, int rZ) {
     if (!(opts->spawnBiomes || opts->allBiomes || opts->adventureTime || opts->plentifulBiome))
         return 1;
 
     debug("Biome checks.");
     Pos spawn = getSpawn(&gen->g, cache->structure, seed);
-
-    applySeed(&gen->gAll, seed);
 
     if (opts->spawnBiomes
             && !hasSpawnBiome(gen->layer16, cache->spawnArea, spawn, opts->spawnBiomes))
@@ -985,10 +982,12 @@ int biomeChecks(const SearchOptions *opts, SearchCaches *cache, Generators *gen,
 
 Generators setupGenerators(const SearchOptions opts) {
     Generators gen;
-    // setupGeneratorMC113() biome generation is slower and unnecessary.
-    // We are only interested in the biomes on land, which haven't changed
-    // since MC 1.7 except for some modified variants.
+    // setupGeneratorMC113() biome generation is slower and unnecessary for
+    // many searches. We are only interested in the biomes on land, which
+    // haven't changed since MC 1.7 except for some modified variants.
     gen.g = setupGeneratorMC17();
+    gen.gAll = setupGeneratorMC113();
+
     // Use the 1.13 Hills layer to get the correct modified biomes.
     gen.g.layers[L_HILLS_64].getMap = mapHills113;
 
@@ -996,12 +995,10 @@ Generators setupGenerators(const SearchOptions opts) {
     if (opts.includeOceans || opts.adventureTime) {
         // If we're including new ocean biome features in our search, the full,
         // slower 1.13 biome generation is required, but we have a cheat...
-        gen.gAll = setupGeneratorMC113();
         gen.layer16 = (Layer *)malloc(sizeof(Layer));
         setupMultiLayer(16, gen.layer16, &gen.gAll.layers[L13_ZOOM_16],
                 &gen.gAll.layers[L_SHORE_16], 1234, mapCheatyOceanMix);
     } else {
-        gen.gAll = gen.g;
         gen.layer16 = &gen.g.layers[L_SHORE_16];
     }
 
@@ -1011,8 +1008,8 @@ Generators setupGenerators(const SearchOptions opts) {
 
 void freeGenerators(const SearchOptions opts, Generators *gen) {
     freeGenerator(gen->g);
+    freeGenerator(gen->gAll);
     if (opts.includeOceans || opts.adventureTime) {
-        freeGenerator(gen->gAll);
         free(gen->layer16);
     }
 }
@@ -1098,7 +1095,7 @@ void *searchExistingSeedsThread(void *data) {
             debug("Other structure checks.");
             applySeed(&gen.g, seed);
 
-            // TODO: Support monument seraches here
+            // TODO: Support monument searches here
 
             // TODO: Might be able to optimize this by skipping biome
             // checks for strongholds nowhere near the quad huts.
@@ -1291,9 +1288,11 @@ void *searchQuadHutsThread(void *data) {
                     hutHits++;
 
                     debug("Other structure checks.");
+                    applySeed(&gen.gAll, seed);
+
                     // TODO: Determine the optimal ordering of these checks.
                     if (opts.monumentDistance &&
-                            !verifyMonuments(&gen.g, cache.structure, &monuments, rX, rZ))
+                            !verifyMonuments(&gen, cache.structure, &monuments, rX, rZ))
                         continue;
 
                     // TODO: Might be able to optimize this by skipping biome

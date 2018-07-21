@@ -36,7 +36,7 @@ enum {Desert_Pyramid=1, Igloo, Jungle_Pyramid, Swamp_Hut, Ocean_Ruin};
 
 static const int templeBiomeList[] = {desert, desertHills, jungle, jungleHills, swampland, icePlains, coldTaiga};
 static const int biomesToSpawnIn[] = {forest, plains, taiga, taigaHills, forestHills, jungle, jungleHills};
-static const int oceanMonumentBiomeList[] = {ocean, deepOcean, river, frozenOcean, frozenRiver};
+static const int oceanMonumentBiomeList[] = {ocean, deepOcean, river, frozenRiver, frozenOcean, frozenDeepOcean, coldOcean, coldDeepOcean, lukewarmOcean, lukewarmDeepOcean, warmOcean, warmDeepOcean};
 static const int villageBiomeList[] = {plains, desert, savanna, taiga};
 static const int mansionBiomeList[] = {roofedForest, roofedForest+128};
 

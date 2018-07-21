@@ -1194,7 +1194,11 @@ int isViableOceanMonumentPos(const LayerStack g, int *cache,
             isWaterBiome[ oceanMonumentBiomeList[i] ] = 1;
         }
 
+        isDeepOcean[frozenDeepOcean] = 1;
+        isDeepOcean[coldDeepOcean] = 1;
         isDeepOcean[deepOcean] = 1;
+        isDeepOcean[lukewarmDeepOcean] = 1;
+        isDeepOcean[warmDeepOcean] = 1;
     }
 
     return areBiomesViable(g, cache, blockX, blockZ, 16, isDeepOcean) &&
