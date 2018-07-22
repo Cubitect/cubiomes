@@ -1045,6 +1045,7 @@ int64_t getNextSeed(FILE *fp) {
 void *searchExistingSeedsThread(void *data) {
     const ThreadInfo info = *(const ThreadInfo *)data;
     const SearchOptions opts = *info.opts;
+    int perBase = 0x10000 * opts.hutRadius*2*opts.hutRadius*2;
 
     FILE *fh;
     if (strlen(info.filename)) {
@@ -1071,26 +1072,23 @@ void *searchExistingSeedsThread(void *data) {
         fprintf(stderr, "Reading precalculated seeds from %s...\n", info.inFiles[i]);
 
         int64_t last48 = 0;
+        int64_t lastbase = 0;
+        int64_t base = 0;
         int64_t seed;
+        int64_t translated = 0;
         int rX = 0, rZ = 0;
         int hits = 0;
+        time_t start = time(NULL);
         while (1) {
             seed = getNextSeed(infile);
             if (!seed) break;
 
             int64_t lower48 = seed & 0xffffffffffff;
             if (lower48 != last48) {
-                if (last48) {
-                    fflush(fh);
-                    fprintf(stderr,
-                            "Base seed %15ld (thread %2d): %5d hits.\n", last48, info.thread, hits);
-                }
-                last48 = lower48;
-                hits = 0;
                 int foundquad = 0;
                 for (rZ = -opts.hutRadius-1; rZ < opts.hutRadius; rZ++) {
                     for (rX = -opts.hutRadius-1; rX < opts.hutRadius; rX++) {
-                        int64_t translated = moveStructure(seed, -rX, -rZ);
+                        translated = moveStructure(seed, -rX, -rZ);
                         if ((foundquad = isQuadFeatureBase(
                                 SWAMP_HUT_CONFIG.seed, translated, 1, 22)))
                             break;
@@ -1098,6 +1096,22 @@ void *searchExistingSeedsThread(void *data) {
                     if (foundquad)
                         break;
                 }
+                base = translated & 0xffffffffffff;
+
+                if (base != lastbase) {
+                    if (lastbase) {
+                        int elapsed = time(NULL) - start;
+                        int seedRate = perBase / (elapsed ? elapsed : 1);
+                        fprintf(stderr,
+                                "Base seed %15ld (thread %2d): %5d hits, %d seeds/sec/thread\n",
+                                lastbase, info.thread, hits, seedRate);
+                    }
+                    start = time(NULL);
+                    hits = 0;
+                    lastbase = base;
+                }
+                fflush(fh);
+                last48 = lower48;
                 // TODO: check monument location and other last-48 bit possible
                 // checks, and if no good, just read file until lower48 changes.
             }
@@ -1124,7 +1138,7 @@ void *searchExistingSeedsThread(void *data) {
                 continue;
 
             if (opts.verbose)
-                fprintf(fh, "%ld (%d, %d)\n", seed, hutCenter(rX), hutCenter(rZ));
+                fprintf(fh, "%ld (%d, %d) (base: %ld)\n", seed, hutCenter(rX), hutCenter(rZ), base);
             else
                 fprintf(fh, "%ld\n", seed);
             hits++;
@@ -1322,7 +1336,7 @@ void *searchQuadHutsThread(void *data) {
                         continue;
 
                     if (opts.verbose)
-                        fprintf(fh, "%ld (%d, %d)\n", seed, hutCenter(rX), hutCenter(rZ));
+                        fprintf(fh, "%ld (%d, %d) (base: %ld)\n", seed, hutCenter(rX), hutCenter(rZ), base);
                     else
                         fprintf(fh, "%ld\n", seed);
                     hits++;
@@ -1405,21 +1419,21 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Looking for %d woodland mansions within %d blocks.\n",
                 opts.woodlandMansions, opts.mansionRadius*MANSION_CONFIG.regionSize*16);
     }
-    if (opts.allBiomes) {
-        fprintf(stderr, "Looking for all biomes within %d blocks.\n",
-                opts.biomeRadius);
-        if (opts.includeOceans)
-            fprintf(stderr, "  ...including 1.13 ocean biomes.\n");
-    }
     if (opts.adventureTime) {
         fprintf(stderr, "Looking for adventure time biomes within %d blocks.\n",
                 opts.biomeRadius);
     }
     if (opts.plentifulBiome) {
-        fprintf(stderr, "Looking for %dx more than usual %s biomes.\n",
-                opts.plentifulness, opts.plentifulBiome->name);
+        fprintf(stderr, "Looking for %dx more than usual %s biomes within %d blocks.\n",
+                opts.plentifulness, opts.plentifulBiome->name, opts.biomeRadius);
+    }
+    if (opts.allBiomes) {
+        fprintf(stderr, "Looking for all biomes within %d blocks.\n",
+                opts.biomeRadius);
     }
     if (opts.allBiomes || opts.adventureTime || opts.plentifulBiome) {
+        if (opts.includeOceans)
+            fprintf(stderr, "  ...including 1.13 ocean biomes.\n");
         if (opts.circleRadius)
             fprintf(stderr, "  ...searching biomes within a circular radius.\n");
         if (opts.centerAtHuts)
