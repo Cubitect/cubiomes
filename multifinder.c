@@ -707,6 +707,14 @@ int getBiomeAt(const LayerStack *g, const Pos pos, int *buf) {
 }
 
 
+int hutCenter(int v) {
+    // v is the north west hut region (x or z). We convert that to the
+    // south east region, conver that to chunks, go north-west by 4 chunks
+    // to get to the center of the quad huts, then convert to blocks.
+    return ((v+1)*32-4)*16;
+}
+
+
 Monuments potentialMonuments(int64_t baseSeed, int distance) {
     const int upper = 23 - distance;
     const int lower = distance;
@@ -755,6 +763,8 @@ int verifyMonuments(Generators *gen, int *cache, Monuments *mon, int rX, int rZ)
         if (isViableOceanMonumentPos(gen->g, cache, monX, monZ)) {
             // Perform a second check with the much slower 1.13 gnerator, since
             // the new ocean generation can remmove some deep oceans.
+            // TODO: Make sure this actually works, because it seems to not
+            // sometimes?
             if (isViableOceanMonumentPos(gen->gAll, cache, monX, monZ))
                 return 1;
         }
@@ -960,8 +970,8 @@ int biomeChecks(const SearchOptions *opts, SearchCaches *cache, Generators *gen,
     // These have to get yet more biome area, so very slow.
     Pos center;
     if (opts->centerAtHuts) {
-        center.x = (rX+1)*32*16;
-        center.z = (rZ+1)*32*16;
+        center.x = hutCenter(rX);
+        center.z = hutCenter(rZ);
     } else {
         center = spawn;
     }
@@ -1094,6 +1104,7 @@ void *searchExistingSeedsThread(void *data) {
 
             debug("Other structure checks.");
             applySeed(&gen.g, seed);
+            applySeed(&gen.gAll, seed);
 
             // TODO: Support monument searches here
 
@@ -1113,7 +1124,7 @@ void *searchExistingSeedsThread(void *data) {
                 continue;
 
             if (opts.verbose)
-                fprintf(fh, "%ld (%d, %d)\n", seed, rX*32*16, rZ*32*16);
+                fprintf(fh, "%ld (%d, %d)\n", seed, hutCenter(rX), hutCenter(rZ));
             else
                 fprintf(fh, "%ld\n", seed);
             hits++;
@@ -1311,7 +1322,7 @@ void *searchQuadHutsThread(void *data) {
                         continue;
 
                     if (opts.verbose)
-                        fprintf(fh, "%ld (%d, %d)\n", seed, ((rX+1)*32-8)*16, ((rZ+1)*32-8)*16);
+                        fprintf(fh, "%ld (%d, %d)\n", seed, hutCenter(rX), hutCenter(rZ));
                     else
                         fprintf(fh, "%ld\n", seed);
                     hits++;
