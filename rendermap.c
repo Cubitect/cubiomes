@@ -39,6 +39,7 @@ typedef struct {
     int highlightSearched;
     int highlightNewOceans;
     int highlightIcons;
+    int chunkGrid;
 } MapOptions;
 
 
@@ -65,6 +66,7 @@ void usage() {
     fprintf(stderr, "    --highlight_searched\n");
     fprintf(stderr, "    --highlight_new_oceans\n");
     fprintf(stderr, "    --highlight_icons\n");
+    fprintf(stderr, "    --chunk_grid\n");
 }
 
 
@@ -112,6 +114,7 @@ MapOptions parseOptions(int argc, char *argv[]) {
         .highlightSearched  = 0,
         .highlightNewOceans = 0,
         .highlightIcons     = 0,
+        .chunkGrid          = 0,
     };
 
     while (1) {
@@ -140,10 +143,11 @@ MapOptions parseOptions(int argc, char *argv[]) {
             {"highlight_searched",   no_argument,       NULL, '7'},
             {"highlight_new_oceans", no_argument,       NULL, '8'},
             {"highlight_icons",      no_argument,       NULL, '9'},
+            {"chunk_grid",           no_argument,       NULL, 'g'},
         };
         int index = 0;
         c = getopt_long(argc, argv,
-                "hs:f:x:z:i:D:I:H:W:M:S:T:V:O:K:3256789", longOptions, &index);
+                "hs:f:x:z:i:D:I:H:W:M:S:T:V:O:K:3256789g", longOptions, &index);
         if (c == -1)
             break;
 
@@ -225,6 +229,9 @@ MapOptions parseOptions(int argc, char *argv[]) {
                 break;
             case '9':
                 opts.highlightIcons = 1;
+                break;
+            case 'g':
+                opts.chunkGrid = 1;
                 break;
             default:
                 exit(-1);
@@ -317,7 +324,7 @@ int linearTosRGB(float c) {
 
 void biomesToColors(
         MapOptions opts, unsigned char biomeColors[256][3],
-        int *biomes, unsigned char *pixels, int count) {
+        int *biomes, unsigned char *pixels, int count, int z, int startx) {
     for (int i=0; i<count; i++) {
         if (biomes[i] > 255) {
             fprintf(stderr, "Invalid biome.\n");
@@ -325,6 +332,7 @@ void biomesToColors(
         }
 
         int r, g, b;
+        int x = startx + i;
         int id = biomes[i];
         if (id < 128) {
             r = biomeColors[id][0];
@@ -374,6 +382,33 @@ void biomesToColors(
                 g = linearTosRGB(sRGBToLinear(g) * 0.01);
                 b = linearTosRGB(sRGBToLinear(b) * 0.01);
             }
+        }
+
+        if (opts.chunkGrid) {
+            int chunkx = x >> 4;  // Acts like a flooring div by 16. Regular
+            int chunkz = z >> 4;  // divide is toward zero. Bit shift is signed.
+            int offx = chunkx & 31;
+            int offz = chunkz & 31;
+            float offr, offg, offb;
+
+            if (offx < 24 && offz < 24) {
+                // Witch hut colors
+                offr = 0.35; offg = 0.20; offb = 0.40;
+            } else if (offx < 27 && offz < 27) {
+                // Ocean monument colors
+                offr = 0.25; offg = 0.45; offb = 0.55;
+            } else {
+                // Nothing colors
+                offr = 0.15; offg = 0.15; offb = 0.15;
+            }
+
+            if ((chunkx + chunkz) & 1) {
+                offr *= 0.5; offg *= 0.5; offb *= 0.5;
+            }
+
+            r = linearTosRGB(sRGBToLinear(r) * 0.6 + offr * 0.4);
+            g = linearTosRGB(sRGBToLinear(g) * 0.6 + offg * 0.4);
+            b = linearTosRGB(sRGBToLinear(b) * 0.6 + offb * 0.4);
         }
 
         pixels[i*3+0] = r;
@@ -427,8 +462,9 @@ void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
             toWrite = toWrite > 256 ? 256 : toWrite;
 
             int z = top + pixels / opts.width;
+            int startx = left + pixels % opts.width;
             for (int i=0; i<toWrite; i++) {
-                int x = left + pixels % opts.width + i;
+                int x = startx + i;
                 int b = cache[pixels+i];
                 if (b < 256)
                     distances[b] = min(distances[b], dist(spawn, x, z));
@@ -436,7 +472,8 @@ void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
                     fprintf(stderr, "INVALID BIOME!");
             }
 
-            biomesToColors(opts, biomeColors, cache+pixels, pixelBuf, toWrite);
+            biomesToColors(
+                    opts, biomeColors, cache+pixels, pixelBuf, toWrite, z, startx);
             fwrite(pixelBuf, 3, 256, fp);
             pixels += toWrite;
         }
