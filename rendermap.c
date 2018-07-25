@@ -13,6 +13,7 @@
 
 #define DEFAULT_WIDTH 3840*3
 #define DEFAULT_HEIGHT DEFAULT_WIDTH*9/16
+#define QUAD_SEARCH_RADIUS 10240/16/32
 
 typedef struct {
     int64_t seed;
@@ -40,6 +41,7 @@ typedef struct {
     int highlightNewOceans;
     int highlightIcons;
     int chunkGrid;
+    int centerAtHuts;
 } MapOptions;
 
 
@@ -67,6 +69,7 @@ void usage() {
     fprintf(stderr, "    --highlight_new_oceans\n");
     fprintf(stderr, "    --highlight_icons\n");
     fprintf(stderr, "    --chunk_grid\n");
+    fprintf(stderr, "    --center_at_huts\n");
 }
 
 
@@ -115,6 +118,7 @@ MapOptions parseOptions(int argc, char *argv[]) {
         .highlightNewOceans = 0,
         .highlightIcons     = 0,
         .chunkGrid          = 0,
+        .centerAtHuts       = 0,
     };
 
     while (1) {
@@ -144,10 +148,11 @@ MapOptions parseOptions(int argc, char *argv[]) {
             {"highlight_new_oceans", no_argument,       NULL, '8'},
             {"highlight_icons",      no_argument,       NULL, '9'},
             {"chunk_grid",           no_argument,       NULL, 'g'},
+            {"center_at_huts",       no_argument,       NULL, 'c'},
         };
         int index = 0;
         c = getopt_long(argc, argv,
-                "hs:f:x:z:i:D:I:H:W:M:S:T:V:O:K:3256789g", longOptions, &index);
+                "hs:f:x:z:i:D:I:H:W:M:S:T:V:O:K:3256789gc", longOptions, &index);
         if (c == -1)
             break;
 
@@ -232,6 +237,9 @@ MapOptions parseOptions(int argc, char *argv[]) {
                 break;
             case 'g':
                 opts.chunkGrid = 1;
+                break;
+            case 'c':
+                opts.centerAtHuts = 1;
                 break;
             default:
                 exit(-1);
@@ -324,15 +332,15 @@ int linearTosRGB(float c) {
 
 void biomesToColors(
         MapOptions opts, unsigned char biomeColors[256][3],
-        int *biomes, unsigned char *pixels, int count, int z, int startx) {
-    for (int i=0; i<count; i++) {
+        int *biomes, unsigned char *pixels, int left, int z) {
+    for (int i=0; i<opts.width; i++) {
         if (biomes[i] > 255) {
             fprintf(stderr, "Invalid biome.\n");
             exit(-1);
         }
 
         int r, g, b;
-        int x = startx + i;
+        int x = left + i;
         int id = biomes[i];
         if (id < 128) {
             r = biomeColors[id][0];
@@ -428,10 +436,37 @@ static inline int min(int a, int b) {
 }
 
 
+static inline int max(int a, int b) {
+    return a > b ? a : b;
+}
+
+
 static inline int dist(Pos spawn, int x, int z) {
     int dx = spawn.x - x;
     int dz = spawn.z - z;
     return (int)round(sqrt(dx*dx + dz*dz));
+}
+
+
+Pos findQuadRegions(int64_t seed, int radius) {
+    int rX, rZ;
+    for (rZ = -radius-1; rZ < radius; rZ++) {
+        for (rX = -radius-1; rX < radius; rX++) {
+            int64_t translated = moveStructure(seed, -rX, -rZ);
+            if (isQuadFeatureBase(
+                    SWAMP_HUT_CONFIG.seed, translated, 1, 22))
+                return (Pos){rX, rZ};
+        }
+    }
+    return (Pos){0, 0};
+}
+
+
+Pos findQuadCenter(int64_t seed, int radius) {
+    Pos quad = findQuadRegions(seed, radius);
+    quad.x = ((quad.x+1) * 32 - 4) *16;
+    quad.z = ((quad.z+1) * 32 - 4) *16;
+    return quad;
 }
 
 
@@ -441,7 +476,7 @@ void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
 
     Layer *fullRes = &g->layers[g->layerNum-1];
     int *cache = allocCache(fullRes, opts.width, 256);
-    unsigned char pixelBuf[256*3];
+    unsigned char pixelBuf[opts.width*3];
     Pos spawn = getSpawn(g, cache, opts.seed);
 
     int distances[256];
@@ -449,33 +484,33 @@ void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
 
     writePPMHeader(fp, opts.width, opts.height);
 
-    int left = -opts.width/2;
-    for (int top=-opts.height/2; top<opts.height/2; top+=256) {
+    Pos center = {0, 0};
+    Pos distfrom = spawn;
+    if (opts.centerAtHuts) {
+        center = findQuadCenter(opts.seed, QUAD_SEARCH_RADIUS);
+        distfrom = center;
+    }
 
-        int rows = opts.height/2 - top;
+    int left = center.x - opts.width/2;
+    int minZ = center.z - opts.height/2;
+    int maxZ = center.z + opts.height/2;
+    for (int top=minZ; top<maxZ; top+=256) {
+        int rows = maxZ - top;
         rows = rows > 256 ? 256 : rows;
         genArea(fullRes, cache, left, top, opts.width, rows);
 
-        int pixels = 0;
-        while (pixels < opts.width*rows) {
-            int toWrite = opts.width*rows - pixels;
-            toWrite = toWrite > 256 ? 256 : toWrite;
-
-            int z = top + pixels / opts.width;
-            int startx = left + pixels % opts.width;
-            for (int i=0; i<toWrite; i++) {
-                int x = startx + i;
-                int b = cache[pixels+i];
+        for (int row=0; row < rows; row++) {
+            int z = top + row;
+            for (int i=0; i<opts.width; i++) {
+                int b = cache[row*opts.width+i];
                 if (b < 256)
-                    distances[b] = min(distances[b], dist(spawn, x, z));
+                    distances[b] = min(distances[b], dist(distfrom, i+left, z));
                 else
                     fprintf(stderr, "INVALID BIOME!");
             }
 
-            biomesToColors(
-                    opts, biomeColors, cache+pixels, pixelBuf, toWrite, z, startx);
-            fwrite(pixelBuf, 3, 256, fp);
-            pixels += toWrite;
+            biomesToColors(opts, biomeColors, cache+row*opts.width, pixelBuf, left, z);
+            fwrite(pixelBuf, 3, opts.width, fp);
         }
     }
 
@@ -491,7 +526,7 @@ void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
 }
 
 
-int addIcon(char *icon, int width, int height, Pos pos,
+int addIcon(char *icon, int width, int height, Pos center, Pos pos,
         int iconWidth, int iconHeight, int scale) {
 
     // Setting scale to 0 can be used to hide an icon category.
@@ -500,8 +535,8 @@ int addIcon(char *icon, int width, int height, Pos pos,
 
     int iconW = iconWidth*scale;
     int iconH = iconHeight*scale;
-    int realX = pos.x + width/2 - iconW/2;
-    int realZ = pos.z + height/2 - iconH/2;
+    int realX = pos.x - center.x + width/2 - iconW/2;
+    int realZ = pos.z - center.z + height/2 - iconH/2;
 
     // Just ignore icons that are off the edge of the map.
     if (realX < -iconW || realZ < -iconH ||
@@ -516,8 +551,11 @@ int addIcon(char *icon, int width, int height, Pos pos,
 }
 
 
-int regionify(int val, int chunks) {
-    return (int)ceil((float)val / 16 / chunks);
+void regionify(Pos center, int width, int height, int regionSize, Pos *tl, Pos *br) {
+    tl->x = (int)floor((float)(center.x - width/2) / 16 / regionSize);
+    tl->z = (int)floor((float)(center.z - height/2) / 16 / regionSize);
+    br->x = (int)ceil((float)(center.x + width/2) / 16 / regionSize);
+    br->z = (int)ceil((float)(center.z + height/2) / 16 / regionSize);
 }
 
 
@@ -531,12 +569,17 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
     Layer *fullRes = &g->layers[g->layerNum-1];
     int *cache = allocCache(fullRes, 256, 256);
 
+    Pos center = {0, 0};
+    if (opts.centerAtHuts) {
+        center = findQuadCenter(opts.seed, QUAD_SEARCH_RADIUS);
+    }
+
     fprintf(stderr, "Interesting structures:\n");
 
     printf("convert \"%s\" -filter Point \\\n", opts.ppmfn);
     Pos spawn = getSpawn(g, cache, opts.seed);
     fprintf(stderr, "               Spawn: %6d, %6d\n", spawn.x, spawn.z);
-    addIcon("spawn", opts.width, opts.height, spawn,
+    addIcon("spawn", opts.width, opts.height, center, spawn,
             20, 20, opts.spawnScale);
 
     StructureConfig desertPyramid, igloo, junglePyramid, swampHut;
@@ -549,81 +592,78 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
         swampHut = SWAMP_HUT_CONFIG;
     }
 
-    int rX = regionify(opts.width/2, FEATURE_CONFIG.regionSize);
-    int rZ = regionify(opts.height/2, FEATURE_CONFIG.regionSize);
+    Pos tl, br;
+    regionify(center, opts.width, opts.height, FEATURE_CONFIG.regionSize, &tl, &br);
     int biomeAt;
     Pos pos;
-    for (int z=-rZ; z<rZ; z++) {
-        for (int x=-rX; x<rX; x++) {
+    for (int z=tl.z; z<=br.z; z++) {
+        for (int x=tl.x; x<=br.x; x++) {
             pos = getStructurePos(VILLAGE_CONFIG, opts.seed, x, z);
             if (isViableVillagePos(*g, cache, pos.x, pos.z))
-                addIcon("village", opts.width, opts.height, pos,
+                addIcon("village", opts.width, opts.height, center, pos,
                         20, 26, opts.villageScale);
 
             pos = getStructurePos(desertPyramid, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == desert || biomeAt == desertHills)
-                addIcon("desert", opts.width, opts.height, pos,
+                addIcon("desert", opts.width, opts.height, center, pos,
                         19, 20, opts.desertScale);
 
             pos = getStructurePos(igloo, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == icePlains || biomeAt == coldTaiga)
-                addIcon("igloo", opts.width, opts.height, pos,
+                addIcon("igloo", opts.width, opts.height, center, pos,
                         20, 20, opts.iglooScale);
 
             pos = getStructurePos(junglePyramid, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == jungle || biomeAt == jungleHills)
-                addIcon("jungle", opts.width, opts.height, pos,
+                addIcon("jungle", opts.width, opts.height, center, pos,
                         19, 20, opts.jungleScale);
 
             pos = getStructurePos(swampHut, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == swampland)
-                addIcon("witch", opts.width, opts.height, pos,
+                addIcon("witch", opts.width, opts.height, center, pos,
                         20, 27, opts.hutScale);
 
             pos = getLargeStructurePos(MONUMENT_CONFIG, opts.seed, x, z);
             if (isViableOceanMonumentPos(*g, cache, pos.x, pos.z))
-                addIcon("ocean_monument", opts.width, opts.height, pos,
+                addIcon("ocean_monument", opts.width, opts.height, center, pos,
                         20, 20, opts.monumentScale);
         }
     }
 
     if (!opts.use_1_12) {
-        rX = regionify(opts.width/2, OCEAN_RUIN_CONFIG.regionSize);
-        rZ = regionify(opts.height/2, OCEAN_RUIN_CONFIG.regionSize);
-        for (int z=-rZ; z<rZ; z++) {
-            for (int x=-rX; x<rX; x++) {
+        regionify(center, opts.width, opts.height, OCEAN_RUIN_CONFIG.regionSize, &tl, &br);
+        for (int z=tl.z; z<=br.z; z++) {
+            for (int x=tl.x; x<=br.x; x++) {
                 pos = getOceanRuinPos(opts.seed, x, z);
                 biomeAt = getBiomeAt(g, pos, cache);
                 if (isOceanic(biomeAt))
-                    addIcon("ocean_ruins", opts.width, opts.height, pos,
+                    addIcon("ocean_ruins", opts.width, opts.height, center, pos,
                             20, 20, opts.oceanRuinScale);
             }
         }
 
-        rX = regionify(opts.width/2, SHIPWRECK_CONFIG.regionSize);
-        rZ = regionify(opts.height/2, SHIPWRECK_CONFIG.regionSize);
-        for (int z=-rZ; z<rZ; z++) {
-            for (int x=-rX; x<rX; x++) {
+        regionify(center, opts.width, opts.height, SHIPWRECK_CONFIG.regionSize, &tl, &br);
+        for (int z=tl.z; z<=br.z; z++) {
+            for (int x=tl.x; x<=br.x; x++) {
                 pos = getStructurePos(SHIPWRECK_CONFIG, opts.seed, x, z);
                 biomeAt = getBiomeAt(g, pos, cache);
                 if (isOceanic(biomeAt))
-                    addIcon("shipwreck", opts.width, opts.height, pos,
+                    addIcon("shipwreck", opts.width, opts.height, center, pos,
                             20, 20, opts.shipwreckScale);
             }
         }
     }
 
-    rX = regionify(opts.width/2, MANSION_CONFIG.regionSize);
-    rZ = regionify(opts.height/2, MANSION_CONFIG.regionSize);
-    for (int z=-rZ; z<rZ; z++) {
-        for (int x=-rX; x<rX; x++) {
+    regionify(center, opts.width, opts.height, MANSION_CONFIG.regionSize, &tl, &br);
+    for (int z=tl.z; z<=br.z; z++) {
+        for (int x=tl.x; x<=br.x; x++) {
             pos = getLargeStructurePos(MANSION_CONFIG, opts.seed, x, z);
             if (isViableMansionPos(*g, cache, pos.x, pos.z)) {
-                addIcon("woodland_mansion", opts.width, opts.height, pos,
+                addIcon("woodland_mansion", opts.width, opts.height, center, pos,
                         20, 26, opts.mansionScale);
                 fprintf(stderr, "    Woodland mansion: %6d, %6d (%d)\n",
                         pos.x, pos.z, dist(spawn, pos.x, pos.z));
@@ -635,7 +675,7 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
     findStrongholds(g, cache, strongholds, opts.seed, 0);
     for (int i=0; i<128; i++) {
         pos = strongholds[i];
-        if (addIcon("stronghold", opts.width, opts.height, pos,
+        if (addIcon("stronghold", opts.width, opts.height, center, pos,
                 19, 20, opts.strongholdScale)) {
             fprintf(stderr, "          Stronghold: %6d, %6d (%d)\n",
                     pos.x, pos.z, dist(spawn, pos.x, pos.z));
