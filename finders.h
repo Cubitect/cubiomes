@@ -9,7 +9,7 @@
 
 
 #define DEFAULT_THREADS 6
-#define SEEDMAX (1LL << 48)
+#define SEED_BASE_MAX (1LL << 48)
 #define PI 3.141592653589793
 
 #define LARGE_STRUCT 1
@@ -39,7 +39,7 @@ extern const StructureConfig MANSION_CONFIG;
 enum {
     Desert_Pyramid, Igloo, Jungle_Pyramid, Swamp_Hut,
     Village, Ocean_Ruin, Shipwreck, Monument, Mansion
-} StructureType;
+};
 
 static const int templeBiomeList[] = {desert, desertHills, jungle, jungleHills, swampland, icePlains, coldTaiga};
 static const int biomesToSpawnIn[] = {forest, plains, taiga, taigaHills, forestHills, jungle, jungleHills};
@@ -338,7 +338,7 @@ int areBiomesViable(
  * blockX, blockZ : block coordinates
  *
  * In the case of isViableFeaturePos() the 'type' argument specifies the type of
- * scattered feature the check is performed for.
+ * scattered feature (as an enum) for which the check is performed.
  *
  * The return value is non-zero if the position is valid.
  */

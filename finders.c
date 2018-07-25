@@ -670,8 +670,8 @@ void search4QuadBases(const char *fnam, const int threads,
     for(t = 0; t < threads; t++)
     {
         info[t].threadID = t;
-        info[t].start = (t * SEEDMAX / threads) & 0x0000ffffffff0000;
-        info[t].end = ((info[t].start + (SEEDMAX-1) / threads) & 0x0000ffffffff0000) + 1;
+        info[t].start = (t * SEED_BASE_MAX / threads) & 0x0000ffffffff0000;
+        info[t].end = ((info[t].start + (SEED_BASE_MAX-1) / threads) & 0x0000ffffffff0000) + 1;
         info[t].fnam = fnam;
         info[t].quality = quality;
         info[t].sconf = structureConfig;
