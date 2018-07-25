@@ -12,9 +12,13 @@
 #define SEEDMAX (1LL << 48)
 #define PI 3.141592653589793
 
+#define LARGE_STRUCT 1
+#define USE_POW2_RNG 2
+
 STRUCT(StructureConfig) {
     int64_t seed;
     int regionSize, chunkRange;
+    int properties;
 };
 
 /* For desert temples, igloos, jungle temples and witch huts prior to 1.13. */
@@ -32,7 +36,10 @@ extern const StructureConfig SHIPWRECK_CONFIG;
 extern const StructureConfig MONUMENT_CONFIG;
 extern const StructureConfig MANSION_CONFIG;
 
-enum {Desert_Pyramid=1, Igloo, Jungle_Pyramid, Swamp_Hut, Ocean_Ruin};
+enum {
+    Desert_Pyramid, Igloo, Jungle_Pyramid, Swamp_Hut,
+    Village, Ocean_Ruin, Shipwreck, Monument, Mansion
+} StructureType;
 
 static const int templeBiomeList[] = {desert, desertHills, jungle, jungleHills, swampland, icePlains, coldTaiga};
 static const int biomesToSpawnIn[] = {forest, plains, taiga, taigaHills, forestHills, jungle, jungleHills};
@@ -108,11 +115,13 @@ extern Biome biomes[256];
  */
 
 
-// helper functions
-int isQuadFeatureBase(const int64_t structureSeed, const int64_t seed,
-        const int64_t lower, const int64_t upper);
-int isTriFeatureBase(const int64_t structureSeed, const int64_t seed,
-        const int64_t lower, const int64_t upper);
+/* isQuadBase
+ * ----------
+ * Calls the correct quad-base finder for the structure config, if available.
+ * (Exits program otherwise.)
+ */
+int isQuadBase(const StructureConfig sconf, const int64_t seed, const int64_t qual);
+
 
 /* moveStructure
  * -------------
@@ -138,8 +147,8 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt);
  * Starts a multi-threaded search for structure base seeds of the specified
  * quality (chunk tolerance). The result is saved in a file of path 'fnam'.
  */
-void search4QuadBases(const char *fnam, int threads, const int64_t structureSeed,
-        int quality);
+void search4QuadBases(const char *fnam, int threads,
+        const StructureConfig structureConfig, int quality);
 
 
 
@@ -147,7 +156,7 @@ void search4QuadBases(const char *fnam, int threads, const int64_t structureSeed
  */
 
 /* getBiomeAtPos
- * ----------------
+ * -------------
  * Returns the biome for the specified block position.
  * (Alternatives should be considered in performance critical code.)
  * This function is not threadsafe.
@@ -183,7 +192,7 @@ Pos getStructureChunkInRegion(StructureConfig config, int64_t seed,
         const int regionX, const int regionZ);
 
 /* getLargeStructurePos
- * -------------------
+ * --------------------
  * Fast implementation for finding the block position at which the ocean
  * monument or woodland mansion generation attempt will occur in the
  * specified region.
@@ -192,13 +201,38 @@ Pos getLargeStructurePos(StructureConfig config, int64_t seed,
         const int64_t regionX, const int64_t regionZ);
 
 /* getLargeStructureChunkInRegion
- * -------------------
+ * ------------------------------
  * Fast implementation for finding the chunk position at which the ocean
  * monument or woodland mansion generation attempt will occur in the
  * specified region.
  */
 Pos getLargeStructureChunkInRegion(StructureConfig config, int64_t seed,
         const int64_t regionX, const int64_t regionZ);
+
+
+
+/************************ Biome Checks for Structures **************************
+ *
+ * Scattered features only do a simple check of the biome at the block position
+ * of the structure origin (i.e. the north-west corner). Before 1.13 the type of
+ * structure was determined by the biome, while in 1.13 the scattered feature
+ * positions are calculated separately for each type. However, the biome
+ * requirements remain the same:
+ *
+ *  Desert Pyramid: desert or desertHills
+ *  Igloo         : icePlains or coldTaiga
+ *  Jungle Pyramid: jungle or jungleHills
+ *  Swamp Hut     : swampland
+ *
+ * Similarly, Ocean Ruins and Shipwrecks require any oceanic biome at their
+ * block position.
+ *
+ * Villages, Monuments and Mansions on the other hand require a certain area to
+ * be of a valid biome and the check is performed at a 1:4 scale instead of 1:1.
+ * (Actually the area for villages has a radius zero, which means it is a simple
+ * biome check at a 1:4 scale.)
+ */
+
 
 
 /* findBiomePosition
@@ -241,7 +275,7 @@ Pos findBiomePosition(
 void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, int64_t worldSeed);
 
 /* findStrongholds
- * ---------------------
+ * ---------------
  * Finds up to 128 strongholds which generate since MC 1.9. Returns the number
  * of strongholds found within the specified radius.
  * Warning: Slow!
@@ -268,7 +302,6 @@ int findStrongholds(LayerStack *g, int *cache, Pos *locations, int64_t worldSeed
 Pos getSpawn(LayerStack *g, int *cache, int64_t worldSeed);
 
 
-
 /* areBiomesViable
  * ---------------
  * Determines if the given area contains only biomes specified by 'biomeList'.
@@ -291,8 +324,7 @@ int areBiomesViable(
         );
 
 
-
-/* isViableWitchHutPos
+/* isViableFeaturePos
  * isViableVillagePos
  * isViableOceanMonumentPos
  * isViableMansionPos
@@ -305,13 +337,15 @@ int areBiomesViable(
  * cache          : biome buffer, set to NULL for temporary allocation
  * blockX, blockZ : block coordinates
  *
- * The return value is non-zero if the position is valid, and in the case of
- * isViableWitchHutPos() the return value is an enum of the temple type.
+ * In the case of isViableFeaturePos() the 'type' argument specifies the type of
+ * scattered feature the check is performed for.
+ *
+ * The return value is non-zero if the position is valid.
  */
-int isViableWitchHutPos(const LayerStack g, int *cache, const int64_t blockX, const int64_t blockZ);
-int isViableVillagePos(const LayerStack g, int *cache, const int64_t blockX, const int64_t blockZ);
-int isViableOceanMonumentPos(const LayerStack g, int *cache, const int64_t blockX, const int64_t blockZ);
-int isViableMansionPos(const LayerStack g, int *cache, const int64_t blockX, const int64_t blockZ);
+int isViableFeaturePos(const int type, const LayerStack g, int *cache, const int blockX, const int blockZ);
+int isViableVillagePos(const LayerStack g, int *cache, const int blockX, const int blockZ);
+int isViableOceanMonumentPos(const LayerStack g, int *cache, const int blockX, const int blockZ);
+int isViableMansionPos(const LayerStack g, int *cache, const int blockX, const int blockZ);
 
 
 

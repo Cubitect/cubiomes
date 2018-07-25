@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
                "This may take a few minutes...\n");
         int threads = 6;
         int quality = 1;
-        search4QuadBases(seedFileName, threads, featureConfig.seed, quality);
+        search4QuadBases(seedFileName, threads, featureConfig, quality);
     }
 
     int64_t i, j, qhcnt;
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 
 
     // Search for a swamp at the structure positions
-    for(i = 0; i < qhcnt; i++)
+    for(i = 0; i < 100; i++)
     {
         base = moveStructure(qhcandidates[i], regPosX, regPosZ);
 
