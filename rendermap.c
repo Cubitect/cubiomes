@@ -462,11 +462,14 @@ Pos findQuadRegions(int64_t seed, int radius) {
 }
 
 
+Pos findCenterFromRegion(Pos quad) {
+    return (Pos){((quad.x+1) * 32 - 4) * 16, ((quad.z+1) * 32 - 4) * 16};
+}
+
+
 Pos findQuadCenter(int64_t seed, int radius) {
     Pos quad = findQuadRegions(seed, radius);
-    quad.x = ((quad.x+1) * 32 - 4) *16;
-    quad.z = ((quad.z+1) * 32 - 4) *16;
-    return quad;
+    return findCenterFromRegion(quad);
 }
 
 
@@ -570,8 +573,9 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
     int *cache = allocCache(fullRes, 256, 256);
 
     Pos center = {0, 0};
+    Pos huts = findQuadRegions(opts.seed, QUAD_SEARCH_RADIUS);
     if (opts.centerAtHuts) {
-        center = findQuadCenter(opts.seed, QUAD_SEARCH_RADIUS);
+        center = findCenterFromRegion(huts);
     }
 
     fprintf(stderr, "Interesting structures:\n");
@@ -623,14 +627,26 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
 
             pos = getStructurePos(swampHut, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
-            if (biomeAt == swampland)
+            if (biomeAt == swampland) {
                 addIcon("witch", opts.width, opts.height, center, pos,
                         20, 27, opts.hutScale);
+                if ((z == huts.z || z == huts.z+1) && (x == huts.x || x == huts.x+1)) {
+                    fprintf(stderr, "      Quad witch hut: %6d, %6d (%d, %2d, %2d)\n",
+                         pos.x, pos.z, dist(spawn, pos.x, pos.z),
+                         (pos.x>>4) & 31, (pos.z>>4) & 31);
+                }
+            }
 
             pos = getLargeStructurePos(MONUMENT_CONFIG, opts.seed, x, z);
-            if (isViableOceanMonumentPos(*g, cache, pos.x, pos.z))
+            if (isViableOceanMonumentPos(*g, cache, pos.x, pos.z)) {
                 addIcon("ocean_monument", opts.width, opts.height, center, pos,
                         20, 20, opts.monumentScale);
+                if ((z == huts.z || z == huts.z+1) && (x == huts.x || x == huts.x+1)) {
+                    fprintf(stderr, "     Nearby monument: %6d, %6d (%d, %2d, %2d)\n",
+                         pos.x, pos.z, dist(spawn, pos.x, pos.z),
+                         (pos.x>>4) & 31, (pos.z>>4) & 31);
+                }
+            }
         }
     }
 
