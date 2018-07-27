@@ -259,23 +259,23 @@ MapOptions parseOptions(int argc, char *argv[]) {
     }
 
     if (opts.desertScale == -1)
-        opts.desertScale = opts.iconScale*3;
+        opts.desertScale = opts.iconScale*2;
     if (opts.iglooScale == -1)
         opts.iglooScale = opts.iconScale*2;
     if (opts.jungleScale == -1)
-        opts.jungleScale = opts.iconScale*3;
+        opts.jungleScale = opts.iconScale*2;
     if (opts.hutScale == -1)
-        opts.hutScale = opts.iconScale*3;
+        opts.hutScale = opts.iconScale*2;
     if (opts.mansionScale == -1)
-        opts.mansionScale = opts.iconScale*7;
+        opts.mansionScale = opts.iconScale*4;
     if (opts.monumentScale == -1)
-        opts.monumentScale = opts.iconScale*5;
+        opts.monumentScale = opts.iconScale*3;
     if (opts.spawnScale == -1)
-        opts.spawnScale = opts.iconScale*4;
+        opts.spawnScale = opts.iconScale*3;
     if (opts.strongholdScale == -1)
-        opts.strongholdScale = opts.iconScale*6;
+        opts.strongholdScale = opts.iconScale*3;
     if (opts.villageScale == -1)
-        opts.villageScale = opts.iconScale*3;
+        opts.villageScale = opts.iconScale*2;
     if (opts.oceanRuinScale == -1)
         opts.oceanRuinScale = opts.iconScale*1;
     if (opts.shipwreckScale == -1)
@@ -414,9 +414,9 @@ void biomesToColors(
                 offr *= 0.5; offg *= 0.5; offb *= 0.5;
             }
 
-            r = linearTosRGB(sRGBToLinear(r) * 0.6 + offr * 0.4);
-            g = linearTosRGB(sRGBToLinear(g) * 0.6 + offg * 0.4);
-            b = linearTosRGB(sRGBToLinear(b) * 0.6 + offb * 0.4);
+            r = linearTosRGB(sRGBToLinear(r) * 0.1 + offr * 0.9);
+            g = linearTosRGB(sRGBToLinear(g) * 0.1 + offg * 0.9);
+            b = linearTosRGB(sRGBToLinear(b) * 0.1 + offb * 0.9);
         }
 
         pixels[i*3+0] = r;
@@ -574,11 +574,13 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
 
     Pos center = {0, 0};
     Pos huts = findQuadRegions(opts.seed, QUAD_SEARCH_RADIUS);
+    Pos hutCenter = findCenterFromRegion(huts);
     if (opts.centerAtHuts) {
-        center = findCenterFromRegion(huts);
+        center = hutCenter;
     }
 
     fprintf(stderr, "Interesting structures:\n");
+    fprintf(stderr, "     Quad hut center: %6d, %6d\n", hutCenter.x, hutCenter.z);
 
     printf("convert \"%s\" -filter Point \\\n", opts.ppmfn);
     Pos spawn = getSpawn(g, cache, opts.seed);
@@ -602,6 +604,17 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
     Pos pos;
     for (int z=tl.z; z<=br.z; z++) {
         for (int x=tl.x; x<=br.x; x++) {
+            pos = getLargeStructurePos(MONUMENT_CONFIG, opts.seed, x, z);
+            if (isViableOceanMonumentPos(*g, cache, pos.x, pos.z)) {
+                addIcon("ocean_monument", opts.width, opts.height, center, pos,
+                        20, 20, opts.monumentScale);
+                if ((z == huts.z || z == huts.z+1) && (x == huts.x || x == huts.x+1)) {
+                    fprintf(stderr, "     Nearby monument: %6d, %6d (%d, %2d, %2d)\n",
+                         pos.x, pos.z, dist(spawn, pos.x, pos.z),
+                         (pos.x>>4) & 31, (pos.z>>4) & 31);
+                }
+            }
+
             pos = getStructurePos(VILLAGE_CONFIG, opts.seed, x, z);
             if (isViableVillagePos(*g, cache, pos.x, pos.z))
                 addIcon("village", opts.width, opts.height, center, pos,
@@ -611,7 +624,7 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == desert || biomeAt == desertHills)
                 addIcon("desert", opts.width, opts.height, center, pos,
-                        19, 20, opts.desertScale);
+                        20, 20, opts.desertScale);
 
             pos = getStructurePos(igloo, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
@@ -623,26 +636,15 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == jungle || biomeAt == jungleHills)
                 addIcon("jungle", opts.width, opts.height, center, pos,
-                        19, 20, opts.jungleScale);
+                        20, 20, opts.jungleScale);
 
             pos = getStructurePos(swampHut, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == swampland) {
                 addIcon("witch", opts.width, opts.height, center, pos,
-                        20, 27, opts.hutScale);
+                        20, 26, opts.hutScale);
                 if ((z == huts.z || z == huts.z+1) && (x == huts.x || x == huts.x+1)) {
                     fprintf(stderr, "      Quad witch hut: %6d, %6d (%d, %2d, %2d)\n",
-                         pos.x, pos.z, dist(spawn, pos.x, pos.z),
-                         (pos.x>>4) & 31, (pos.z>>4) & 31);
-                }
-            }
-
-            pos = getLargeStructurePos(MONUMENT_CONFIG, opts.seed, x, z);
-            if (isViableOceanMonumentPos(*g, cache, pos.x, pos.z)) {
-                addIcon("ocean_monument", opts.width, opts.height, center, pos,
-                        20, 20, opts.monumentScale);
-                if ((z == huts.z || z == huts.z+1) && (x == huts.x || x == huts.x+1)) {
-                    fprintf(stderr, "     Nearby monument: %6d, %6d (%d, %2d, %2d)\n",
                          pos.x, pos.z, dist(spawn, pos.x, pos.z),
                          (pos.x>>4) & 31, (pos.z>>4) & 31);
                 }
@@ -692,7 +694,7 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
     for (int i=0; i<128; i++) {
         pos = strongholds[i];
         if (addIcon("stronghold", opts.width, opts.height, center, pos,
-                19, 20, opts.strongholdScale)) {
+                20, 20, opts.strongholdScale)) {
             fprintf(stderr, "          Stronghold: %6d, %6d (%d)\n",
                     pos.x, pos.z, dist(spawn, pos.x, pos.z));
         }
