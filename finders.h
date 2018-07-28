@@ -123,6 +123,14 @@ extern Biome biomes[256];
 int isQuadBase(const StructureConfig sconf, const int64_t seed, const int64_t qual);
 
 
+/* isTriBase
+ * ----------
+ * Calls the correct tri-base finder for the structure config, if available.
+ * (Exits program otherwise.)
+ */
+int isTriBase(const StructureConfig sconf, const int64_t seed, const int64_t qual);
+
+
 /* moveStructure
  * -------------
  * Transposes a base seed such that structures are moved by the specified region
@@ -169,7 +177,7 @@ int getBiomeAtPos(const LayerStack g, const Pos pos);
  * Fast implementation for finding the block position at which an ocean ruin
  * generation attempt will occur in the specified region.
  */
-Pos getOceanRuinPos(int64_t seed, const int64_t regionX, const int64_t regionZ);
+Pos getOceanRuinPos(int64_t seed, const int regionX, const int regionZ);
 
 /* getStructurePos
  * ---------------
@@ -178,7 +186,7 @@ Pos getOceanRuinPos(int64_t seed, const int64_t regionX, const int64_t regionZ);
  * This function applies for scattered-feature structureSeeds and villages.
  */
 Pos getStructurePos(StructureConfig config, int64_t seed,
-        const int64_t regionX, const int64_t regionZ);
+        const int regionX, const int regionZ);
 
 /* getStructureChunkInRegion
  * -------------------------
@@ -198,7 +206,7 @@ Pos getStructureChunkInRegion(StructureConfig config, int64_t seed,
  * specified region.
  */
 Pos getLargeStructurePos(StructureConfig config, int64_t seed,
-        const int64_t regionX, const int64_t regionZ);
+        const int regionX, const int regionZ);
 
 /* getLargeStructureChunkInRegion
  * ------------------------------
@@ -207,7 +215,7 @@ Pos getLargeStructurePos(StructureConfig config, int64_t seed,
  * specified region.
  */
 Pos getLargeStructureChunkInRegion(StructureConfig config, int64_t seed,
-        const int64_t regionX, const int64_t regionZ);
+        const int regionX, const int regionZ);
 
 
 
@@ -260,6 +268,17 @@ Pos findBiomePosition(
         int64_t *seed,
         int *passes
         );
+Pos findBiomePosition113(
+        const LayerStack g,
+        int *cache,
+        const int centerX,
+        const int centerZ,
+        const int range,
+        const int *isValid,
+        int64_t *seed,
+        int *passes
+        );
+
 
 
 /* findStrongholds_pre19
@@ -288,6 +307,7 @@ void findStrongholds_pre19(LayerStack *g, int *cache, Pos *locations, int64_t wo
  *             0 to return all strongholds.
  */
 int findStrongholds(LayerStack *g, int *cache, Pos *locations, int64_t worldSeed, int maxRadius);
+int findStrongholds113(LayerStack *g, int *cache, Pos *locations, int64_t worldSeed, int maxRadius);
 
 /* getSpawn
  * --------
@@ -300,7 +320,7 @@ int findStrongholds(LayerStack *g, int *cache, Pos *locations, int64_t worldSeed
  * worldSeed : world seed used for the generator
  */
 Pos getSpawn(LayerStack *g, int *cache, int64_t worldSeed);
-
+Pos getSpawn113(LayerStack *g, int *cache, int64_t worldSeed);
 
 /* areBiomesViable
  * ---------------

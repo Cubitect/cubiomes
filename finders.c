@@ -452,6 +452,36 @@ int isQuadBase(const StructureConfig sconf, const int64_t seed, const int64_t qu
     }
 }
 
+/* isTriBase
+ * ----------
+ * Calls the correct triple-base finder for the structure config, if available.
+ * (Exits program otherwise.)
+ */
+int isTriBase(const StructureConfig sconf, const int64_t seed, const int64_t qual)
+{
+    switch(sconf.properties)
+    {
+    case 0:
+        return isTriFeatureBase(sconf, seed, qual);
+    case LARGE_STRUCT:
+        return isLargeTriBase(sconf, seed, qual);
+    case USE_POW2_RNG:
+        fprintf(stderr,
+                "Quad-finder using power of 2 RNG is not implemented yet.\n");
+        exit(-1);
+    case LARGE_STRUCT | USE_POW2_RNG:
+        fprintf(stderr,
+                "Quad-finder for large structures using power of 2 RNG"
+                " is not implemented yet.\n");
+        exit(-1);
+    default:
+        fprintf(stderr,
+                "Unknown properties field for structure: 0x%04X\n",
+                sconf.properties);
+        exit(-1);
+    }
+}
+
 
 
 // Searches for the optimal AFK position given four structures at positions 'p',
@@ -756,7 +786,8 @@ int getBiomeAtPos(const LayerStack g, const Pos pos)
  * Fast implementation for finding the block position at which an ocean ruin
  * generation attempt will occur in the specified region.
  */
-Pos getOceanRuinPos(int64_t seed, const int64_t regionX, const int64_t regionZ) {
+Pos getOceanRuinPos(int64_t seed, const int regionX, const int regionZ)
+{
     Pos pos;
 
     // set seed
@@ -783,7 +814,7 @@ Pos getOceanRuinPos(int64_t seed, const int64_t regionX, const int64_t regionZ) 
  * This function applies for scattered-feature structures and villages.
  */
 Pos getStructurePos(const StructureConfig config, int64_t seed,
-        const int64_t regionX, const int64_t regionZ)
+        const int regionX, const int regionZ)
 {
     Pos pos;
 
@@ -842,7 +873,7 @@ Pos getStructureChunkInRegion(const StructureConfig config, int64_t seed,
  * specified region.
  */
 Pos getLargeStructurePos(StructureConfig config, int64_t seed,
-        const int64_t regionX, const int64_t regionZ)
+        const int regionX, const int regionZ)
 {
     Pos pos;
 
@@ -875,7 +906,7 @@ Pos getLargeStructurePos(StructureConfig config, int64_t seed,
  * specified region.
  */
 Pos getLargeStructureChunkInRegion(StructureConfig config, int64_t seed,
-        const int64_t regionX, const int64_t regionZ)
+        const int regionX, const int regionZ)
 {
     Pos pos;
 
@@ -976,7 +1007,8 @@ Pos findBiomePosition(
 }
 
 
-int* getValidStrongholdBiomes() {
+int* getValidStrongholdBiomes()
+{
     static int validStrongholdBiomes[256];
 
     if(!validStrongholdBiomes[plains])
@@ -1083,6 +1115,48 @@ int findStrongholds(LayerStack *g, int *cache, Pos *locations, int64_t worldSeed
     return SHNUM;
 }
 
+int findStrongholds113(LayerStack *g, int *cache, Pos *locations, int64_t worldSeed, int maxRadius)
+{
+    const int SHNUM = 128;
+    int i;
+    int *validStrongholdBiomes = getValidStrongholdBiomes();
+
+    int currentRing = 0;
+    int currentCount = 0;
+    int perRing = 3;
+
+    setSeed(&worldSeed);
+    double angle = nextDouble(&worldSeed) * PI * 2.0;
+
+    for (i=0; i<SHNUM; i++) {
+        double distance = (4.0 * 32.0) +
+            (6.0 * currentRing * 32.0) +
+            (nextDouble(&worldSeed) - 0.5) * 32 * 2.5;
+
+        if (maxRadius && distance*16 > maxRadius)
+            return i;
+
+        int x = (int)round(cos(angle) * distance);
+        int z = (int)round(sin(angle) * distance);
+
+        locations[i] = findBiomePosition113(*g, cache, (x << 4) + 8, (z << 4) + 8, 112,
+                validStrongholdBiomes, &worldSeed, NULL);
+        angle += 2 * PI / perRing;
+        currentCount++;
+        if (currentCount == perRing) {
+            // Current ring is complete, move to next ring.
+            currentRing++;
+            currentCount = 0;
+            perRing = perRing + 2*perRing/(currentRing+1);
+            if (perRing > SHNUM-i)
+                perRing = SHNUM-i;
+            angle = angle + nextDouble(&worldSeed) * PI * 2.0;
+        }
+    }
+
+    return SHNUM;
+}
+
 
 /* TODO: Estimate whether the given positions could be spawn based on biomes.
  */
@@ -1119,11 +1193,11 @@ Pos getSpawn(LayerStack *g, int *cache, int64_t worldSeed)
     applySeed(g, worldSeed);
     setSeed(&worldSeed);
 
-    spawn = findBiomePosition(*g, cache, 0, 0, 256, isSpawnBiome, &worldSeed, &found);
+    spawn = findBiomePosition113(*g, cache, 0, 0, 256, isSpawnBiome, &worldSeed, &found);
 
     if(!found)
     {
-        printf("Unable to find spawn biome.\n");
+        //printf("Unable to find spawn biome.\n");
         spawn.x = spawn.z = 8;
     }
 
@@ -1134,6 +1208,190 @@ Pos getSpawn(LayerStack *g, int *cache, int64_t worldSeed)
     }
 
     return spawn;
+}
+
+
+Pos findBiomePosition113(
+        const LayerStack g,
+        int *cache,
+        const int centerX,
+        const int centerZ,
+        const int range,
+        const int *isValid,
+        int64_t *seed,
+        int *passes
+        )
+{
+    // public ej a(int n2, int n3, int n4, List<ayn> list, Random random) {
+
+    int x1 = (centerX-range) >> 2;
+    int z1 = (centerZ-range) >> 2;
+    int x2 = (centerX+range) >> 2;
+    int z2 = (centerZ+range) >> 2;
+    int width  = x2 - x1 + 1;
+    int height = z2 - z1 + 1;
+    int *map;
+    int i, j, found;
+
+
+    Layer *layer = &g.layers[L_RIVER_MIX_4];
+    Pos out;
+
+    if(layer->scale != 4)
+    {
+        printf("WARN findBiomePosition: The generator has unexpected scale %d at layer %d.\n",
+                layer->scale, L_RIVER_MIX_4);
+    }
+
+    map = cache ? cache : allocCache(layer, width, height);
+
+    genArea(layer, map, x1, z1, width, height);
+
+    out.x = centerX;
+    out.z = centerZ;
+    found = 0;
+
+    for(i = 0, j = 2; i < width*height; i++)
+    {
+        if(!isValid[map[i] & 0xff]) continue;
+        if((found == 0 || nextInt(seed, j++) == 0))
+        {
+            out.x = (x1 + i%width) << 2;
+            out.z = (z1 + i/width) << 2;
+            found = 1;
+        }
+    }
+
+    if(cache == NULL)
+    {
+        free(map);
+    }
+
+    if(passes != NULL)
+    {
+        *passes = found;
+    }
+
+    return out;
+}
+
+
+
+Pos getSpawn113(LayerStack *g, int *cache, int64_t worldSeed)
+{
+    static int isSpawnBiome[0x100];
+    Pos spawn;
+    int found;
+    unsigned int i;
+
+    if(!isSpawnBiome[biomesToSpawnIn[0]])
+    {
+        for(i = 0; i < sizeof(biomesToSpawnIn) / sizeof(int); i++)
+        {
+            isSpawnBiome[ biomesToSpawnIn[i] ] = 1;
+        }
+    }
+
+    applySeed(g, worldSeed);
+    setSeed(&worldSeed);
+
+    Pos p = findBiomePosition113(*g, cache, 0, 0, 256, isSpawnBiome, &worldSeed, &found);
+
+    if(!found)
+    {
+        p.x = p.z = 0;
+    }
+
+    spawn.x = spawn.z = 8;
+
+    int n2 = 0;
+    int n3 = 0;
+    int n4 = 0;
+    int n5 = -1;
+
+    for (int i2 = 0; i2 < 1024; ++i2)
+    {
+        if (n2 > -16 && n2 <= 16 && n3 > -16 && n3 <= 16)
+        {
+            // axi2 = ej3 >> 4
+            //axi2 = new axi(axi2.a + n2, axi2.b + n3);
+
+            int cx = ((p.x >> 4) + n2) << 4;
+            int cz = ((p.z >> 4) + n3) << 4;
+
+            for (int i2 = cx; i2 <= cx+15; ++i2) {
+                for (int i3 = cz; i3 <= cz+15; ++i3) {
+                    //Pos ej2 = getValidTopBlock(i2, i3, true);
+                    Pos pos = {i2, i3};
+                    if(canCoordinateBeSpawn(g, cache, pos))
+                    {
+                        return pos;
+                    }
+                }
+            }
+        }
+
+        if(n2 == n3 || (n2 < 0 && n2 == - n3) || (n2 > 0 && n2 == 1 - n3))
+        {
+            int n7 = n4;
+            n4 = - n5;
+            n5 = n7;
+        }
+        n2 += n4;
+        n3 += n5;
+    }
+
+    return spawn;
+}
+
+/*
+private void b(axx axx2) {
+    axi axi2;
+    Random random;
+    List<ayn> list;
+    if (!this.t.p()) {
+        this.y.a(ej.a.b(this.w.g().d()));
+        return;
+    }
+    if (this.y.t() == axz.h) {
+        this.y.a(ej.a.a());
+        return;
+    }
+    ayp ayp2 = this.w.g().b();
+    ej ej2 = ayp2.a(0, 0, 256, list = ayp2.a(), random = new Random(this.j()));
+    axi axi3 = axi2 = ej2 == null ? new axi(0, 0) : new axi(ej2);
+    if (ej2 == null) {
+        a.warn("Unable to find spawn biome");
+    }
+    boolean bl2 = false;
+    for (bcj bcj2 : wu.I.a()) {
+        if (!ayp2.b().contains(bcj2.p())) continue;
+        bl2 = true;
+        break;
+    }
+    this.y.a(axi2.h().a(8, this.w.g().d(), 8));
+    int n2 = 0;
+    int n3 = 0;
+    int n4 = 0;
+    int n5 = -1;
+    int n6 = 32;
+    for (int i2 = 0; i2 < 1024; ++i2) {
+        ej ej3;
+        if (n2 > -16 && n2 <= 16 && n3 > -16 && n3 <= 16 && (ej3 = this.t.a(new axi(axi2.a + n2, axi2.b + n3), bl2)) != null) {
+            this.y.a(ej3);
+            break;
+        }
+        if (n2 == n3 || n2 < 0 && n2 == - n3 || n2 > 0 && n2 == 1 - n3) {
+            int n7 = n4;
+            n4 = - n5;
+            n5 = n7;
+        }
+        n2 += n4;
+        n3 += n5;
+    }
+    if (axx2.c()) {
+        this.r();
+    }
 }
 
 
