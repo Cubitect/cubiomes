@@ -9,12 +9,12 @@
 
 static inline void setSeed(int64_t *seed)
 {
-    *seed = (*seed ^ 0x5DEECE66DLL) & ((1LL << 48) - 1);
+    *seed = (*seed ^ 0x5deece66d) & ((1LL << 48) - 1);
 }
 
 static inline int next(int64_t *seed, const int bits)
 {
-    *seed = (*seed * 0x5DEECE66DLL + 0xBLL) & ((1LL << 48) - 1);
+    *seed = (*seed * 0x5deece66d + 0xb) & ((1LL << 48) - 1);
     return (int) (*seed >> (48 - bits));
 }
 
@@ -63,15 +63,24 @@ static inline int firstInt24(int64_t seed)
 static inline int secondInt24(int64_t seed)
 {
     seed ^= 0x5deece66d;
-    seed = (seed * 0x5deece66d + 0xB) & 0xffffffffffff;
+    seed = (seed * 0x5deece66d + 0xb) & 0xffffffffffff;
     seed = (seed * 0x5deece66d) & 0xffffffffffff;
     seed >>= 17;
     return seed % 24;
 }
 
-/**
- * invSeed48()
- * -----------
+/* skipNextN
+ * ---------
+ * Jumps forwards in the random number sequence by simulating 'n' calls to next.
+ */
+static inline void skipNextN(int64_t *seed, const int n)
+{
+    for(int i = 0; i < n; i++) *seed = (*seed * 0x5deece66d + 0xb);
+    *seed &= 0xffffffffffff;
+}
+
+/* invSeed48
+ * ---------
  * Returns the previous 48-bit seed which will generate 'nseed'.
  * The upper 16 bits are ignored, both here and in the generator.
  */

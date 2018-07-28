@@ -6,16 +6,6 @@
 #include <string.h>
 
 
-int *allocCache(Layer *layer, int sizeX, int sizeZ)
-{
-    int size = calcRequiredBuf(layer, sizeX, sizeZ);
-
-    int *ret = (int*) malloc(sizeof(*ret)*size);
-    memset(ret, 0, sizeof(*ret)*size);
-
-    return ret;
-}
-
 void setupLayer(int scale, Layer *l, Layer *p, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h))
 {
     setBaseSeed(l, s);
@@ -37,15 +27,18 @@ void setupMultiLayer(int scale, Layer *l, Layer *p1, Layer *p2, int s, void (*ge
 }
 
 
-LayerStack setupGenerator()
+LayerStack setupGenerator(const int mcversion)
 {
-    return setupGeneratorMC17();
+    if (mcversion <= MC_1_12)
+        return setupGeneratorMC17();
+    else
+        return setupGeneratorMC113();
 }
 
 
 LayerStack setupGeneratorMC17()
 {
-    if(biomes[plains].id == 0)
+    if (biomes[plains].id == 0)
     {
         fprintf(stderr, "Warning: The biomes have to be initialised first using initBiomes() before any generator can be used.\n");
     }
@@ -115,7 +108,7 @@ LayerStack setupGeneratorMC17()
 
 LayerStack setupGeneratorMC113()
 {
-    if(biomes[plains].id == 0)
+    if (biomes[plains].id == 0)
     {
         fprintf(stderr, "Warning: The biomes have to be initialised first using initBiomes() before any generator can be used.\n");
     }
@@ -123,7 +116,7 @@ LayerStack setupGeneratorMC113()
     LayerStack g;
 
     g.layerNum = 52;
-    g.layers = (Layer*) malloc(sizeof(Layer)*g.layerNum);
+    g.layers = (Layer *) malloc(sizeof(Layer) * g.layerNum);
 
     //         SCALE    LAYER          PARENT      SEED  LAYER_FUNCTION
     setupLayer(4096, &g.layers[ 0],          NULL,    1, mapIsland);
@@ -196,30 +189,45 @@ LayerStack setupGeneratorMC113()
     return g;
 }
 
+void freeGenerator(LayerStack g)
+{
+    int i;
+    for(i = 0; i < g.layerNum; i++)
+    {
+        if (g.layers[i].oceanRnd != NULL)
+            free(g.layers[i].oceanRnd);
+    }
 
+    free(g.layers);
+}
+
+
+/* Recursively calculates the minimum buffer size required to generate an area
+ * of the specified size from the current layer onwards.
+ */
 static void getMaxArea(Layer *layer, int areaX, int areaZ, int *maxX, int *maxZ)
 {
-    if(layer == NULL)
+    if (layer == NULL)
         return;
 
-    if(layer->getMap == mapZoom)
+    if (layer->getMap == mapZoom)
     {
         areaX = (areaX >> 1) + 2;
         areaZ = (areaZ >> 1) + 2;
     }
-    else if(layer->getMap == mapVoronoiZoom)
+    else if (layer->getMap == mapVoronoiZoom)
     {
         areaX = (areaX >> 2) + 2;
         areaZ = (areaZ >> 2) + 2;
     }
-    else if(layer->getMap == mapOceanMix)
+    else if (layer->getMap == mapOceanMix)
     {
         areaX += 17;
         areaZ += 17;
     }
     else
     {
-        if( layer->getMap != mapNull &&
+        if (layer->getMap != mapNull &&
             layer->getMap != mapSkip &&
             layer->getMap != mapIsland &&
             layer->getMap != mapSpecial &&
@@ -233,13 +241,12 @@ static void getMaxArea(Layer *layer, int areaX, int areaZ, int *maxX, int *maxZ)
         }
     }
 
-    if(areaX > *maxX) *maxX = areaX;
-    if(areaZ > *maxZ) *maxZ = areaZ;
+    if (areaX > *maxX) *maxX = areaX;
+    if (areaZ > *maxZ) *maxZ = areaZ;
 
     getMaxArea(layer->p, areaX, areaZ, maxX, maxZ);
     getMaxArea(layer->p2, areaX, areaZ, maxX, maxZ);
 }
-
 
 int calcRequiredBuf(Layer *layer, int areaX, int areaZ)
 {
@@ -249,24 +256,22 @@ int calcRequiredBuf(Layer *layer, int areaX, int areaZ)
     return maxX * maxZ;
 }
 
-void freeGenerator(LayerStack g)
+int *allocCache(Layer *layer, int sizeX, int sizeZ)
 {
-    int i;
-    for(i = 0; i < g.layerNum; i++)
-    {
-        if(g.layers[i].oceanRnd != NULL)
-            free(g.layers[i].oceanRnd);
-    }
+    int size = calcRequiredBuf(layer, sizeX, sizeZ);
 
-    free(g.layers);
+    int *ret = (int *) malloc(sizeof(*ret)*size);
+    memset(ret, 0, sizeof(*ret)*size);
+
+    return ret;
 }
+
 
 void applySeed(LayerStack *g, int64_t seed)
 {
     // the seed has to be applied recursively
     setWorldSeed(&g->layers[g->layerNum-1], seed);
 }
-
 
 void genArea(Layer *layer, int *out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {

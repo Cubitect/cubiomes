@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
                "This may take a few minutes...\n");
         int threads = 6;
         int quality = 1;
-        search4QuadBases(seedFileName, threads, featureConfig.seed, quality);
+        search4QuadBases(seedFileName, threads, featureConfig, quality);
     }
 
     int64_t i, j, qhcnt;
@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
 
             // This seed base does not seem to contain many quad huts, so make
             // a more detailed analysis of the surroundings and see if there is
-            // enough potential for more swamps to justify searching fruther.
+            // enough potential for more swamps to justify searching further.
             if(hits == 0 && (j & 0xfff) == 0xfff)
             {
                 swpc = 0;

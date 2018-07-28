@@ -26,7 +26,8 @@
 #define OPT_O2 __attribute__((optimize("O2")))
 
 
-enum BiomeID {
+enum BiomeID
+{
     none = -1,
     ocean = 0, plains, desert, extremeHills, forest, taiga, swampland, river, hell, sky, // 0-9
     frozenOcean, frozenRiver, icePlains, iceMountains, mushroomIsland, mushroomIslandShore, beach, desertHills, forestHills, taigaHills,  // 10-19
@@ -38,11 +39,13 @@ enum BiomeID {
     BIOME_NUM
 };
 
-enum BiomeType {
+enum BiomeType
+{
     Ocean, Plains, Desert, Hills, Forest, Taiga, Swamp, River, Hell, Sky, Snow, MushroomIsland, Beach, Jungle, StoneBeach, Savanna, Mesa, BTYPE_NUM
 };
 
-enum BiomeTempCategory {
+enum BiomeTempCategory
+{
     Oceanic, Warm, Lush, Cold, Freezing, Unknown
 };
 
@@ -55,7 +58,6 @@ STRUCT(Biome)
     double temp;
     int tempCat;
 };
-
 
 STRUCT(OceanRnd)
 {
@@ -80,19 +82,23 @@ STRUCT(Layer)
 };
 
 
+//==============================================================================
+// Essentials
+//==============================================================================
+
 extern Biome biomes[256];
 
 
 /* initBiomes() has to be called before any of the generators can be used */
 void initBiomes();
 
-/* setWorldSeed
- * ------------
- * Applies the given world seed to the layer and all dependent layers.
- */
+/* Applies the given world seed to the layer and all dependent layers. */
 void setWorldSeed(Layer *layer, int64_t seed);
 
 
+//==============================================================================
+// Static Helpers
+//==============================================================================
 
 static inline int getBiomeType(int id)
 {
@@ -112,13 +118,13 @@ static inline int getTempCategory(int id)
 
 static inline int equalOrPlateau(int id1, int id2)
 {
-    if(id1 == id2) return 1;
-    if(id1 == mesaPlateau_F || id1 == mesaPlateau) return id2 == mesaPlateau_F || id2 == mesaPlateau;
-    if(!biomeExists(id1) || !biomeExists(id2)) return 0;
+    if (id1 == id2) return 1;
+    if (id1 == mesaPlateau_F || id1 == mesaPlateau) return id2 == mesaPlateau_F || id2 == mesaPlateau;
+    if (!biomeExists(id1) || !biomeExists(id2)) return 0;
     // adjust for asymmetric equality (workaround to simulate a bug in the MC java code)
-    if(id1 >= 128 || id2 >= 128) {
+    if (id1 >= 128 || id2 >= 128) {
         // skip biomes that did not overload the isEqualTo() method
-        if(id2 == 130 || id2 == 133 || id2 == 134 || id2 == 149 || id2 == 151 || id2 == 155 ||
+        if (id2 == 130 || id2 == 133 || id2 == 134 || id2 == 149 || id2 == 151 || id2 == 155 ||
            id2 == 156 || id2 == 157 || id2 == 158 || id2 == 163 || id2 == 164) return 0;
     }
     return getBiomeType(id1) == getBiomeType(id2);
@@ -126,10 +132,10 @@ static inline int equalOrPlateau(int id1, int id2)
 
 static inline int canBeNeighbors(int id1, int id2)
 {
-    if(equalOrPlateau(id1, id2)) return 1;
-    if(!biomeExists(id1) || !biomeExists(id2)) return 0;
-    int tempCat1 = getTempCategory(id1); if(tempCat1 == Lush) return 1;
-    int tempCat2 = getTempCategory(id2); if(tempCat2 == Lush) return 1;
+    if (equalOrPlateau(id1, id2)) return 1;
+    if (!biomeExists(id1) || !biomeExists(id2)) return 0;
+    int tempCat1 = getTempCategory(id1); if (tempCat1 == Lush) return 1;
+    int tempCat2 = getTempCategory(id2); if (tempCat2 == Lush) return 1;
     return tempCat1 == tempCat2;
 }
 
@@ -208,7 +214,9 @@ static inline void setBaseSeed(Layer *layer, int64_t seed)
 }
 
 #if defined USE_SIMD && __AVX2__
-static inline __m256i set8ChunkSeeds(int ws, __m256i xs, __m256i zs) {
+
+static inline __m256i set8ChunkSeeds(int ws, __m256i xs, __m256i zs)
+{
     __m256i out = _mm256_set1_epi32(ws);
     __m256i mul = _mm256_set1_epi32(1284865837);
     __m256i add = _mm256_set1_epi32(4150755663);
@@ -218,19 +226,22 @@ static inline __m256i set8ChunkSeeds(int ws, __m256i xs, __m256i zs) {
     return _mm256_add_epi32(zs, _mm256_mullo_epi32(out, _mm256_add_epi32(add, _mm256_mullo_epi32(out, mul))));
 }
 
-static inline __m256i mc8NextInt(__m256i* cs, int ws, int mask) {
+static inline __m256i mc8NextInt(__m256i* cs, int ws, int mask)
+{
     __m256i and = _mm256_set1_epi32(mask);
     __m256i ret = _mm256_and_si256(and, _mm256_srli_epi32(*cs, 24));
     *cs = _mm256_add_epi32(_mm256_set1_epi32(ws), _mm256_mullo_epi32(*cs, _mm256_add_epi32(_mm256_set1_epi32(4150755663), _mm256_mullo_epi32(*cs, _mm256_set1_epi32(1284865837)))));
     return _mm256_add_epi32(ret, _mm256_and_si256(and, _mm256_cmpgt_epi32(_mm256_set1_epi32(0), ret)));;
 }
 
-static inline __m256i select8Random2(__m256i* cs, int ws, __m256i a1, __m256i a2) {
+static inline __m256i select8Random2(__m256i* cs, int ws, __m256i a1, __m256i a2)
+{
     __m256i cmp = _mm256_cmpeq_epi32(_mm256_set1_epi32(0), mc8NextInt(cs, ws, 0x1));
     return _mm256_or_si256(_mm256_and_si256(cmp, a1), _mm256_andnot_si256(cmp, a2));
 }
 
-static inline __m256i select8Random4(__m256i* cs, int ws, __m256i a1, __m256i a2, __m256i a3, __m256i a4) {
+static inline __m256i select8Random4(__m256i* cs, int ws, __m256i a1, __m256i a2, __m256i a3, __m256i a4)
+{
     __m256i val = mc8NextInt(cs, ws, 0x3);
     __m256i v2 = _mm256_set1_epi32(2);
     __m256i cmp1 = _mm256_cmpeq_epi32(val, _mm256_set1_epi32(0));
@@ -242,7 +253,8 @@ static inline __m256i select8Random4(__m256i* cs, int ws, __m256i a1, __m256i a2
     );
 }
 
-static inline __m256i select8ModeOrRandom(__m256i* cs, int ws, __m256i a1, __m256i a2, __m256i a3, __m256i a4) {
+static inline __m256i select8ModeOrRandom(__m256i* cs, int ws, __m256i a1, __m256i a2, __m256i a3, __m256i a4)
+{
     __m256i cmp1 = _mm256_cmpeq_epi32(a1, a2);
     __m256i cmp2 = _mm256_cmpeq_epi32(a1, a3);
     __m256i cmp3 = _mm256_cmpeq_epi32(a1, a4);
@@ -261,6 +273,7 @@ static inline __m256i select8ModeOrRandom(__m256i* cs, int ws, __m256i a1, __m25
                        _mm256_andnot_si256(cmp2, cmp5)
                    );
     __m256i isa3 = _mm256_andnot_si256(cmp1, cmp6);
+
     return _mm256_or_si256(
         _mm256_andnot_si256(
             _mm256_or_si256(
@@ -278,8 +291,11 @@ static inline __m256i select8ModeOrRandom(__m256i* cs, int ws, __m256i a1, __m25
         )
     );
 }
+
 #elif defined USE_SIMD && defined __SSE4_2__
-static inline __m128i set4ChunkSeeds(int ws, __m128i xs, __m128i zs) {
+
+static inline __m128i set4ChunkSeeds(int ws, __m128i xs, __m128i zs)
+{
     __m128i out = _mm_set1_epi32(ws);
     __m128i mul = _mm_set1_epi32(1284865837);
     __m128i add = _mm_set1_epi32(4150755663);
@@ -289,19 +305,22 @@ static inline __m128i set4ChunkSeeds(int ws, __m128i xs, __m128i zs) {
     return _mm_add_epi32(zs, _mm_mullo_epi32(out, _mm_add_epi32(add, _mm_mullo_epi32(out, mul))));
 }
 
-static inline __m128i mc4NextInt(__m128i* cs, int ws, int mask) {
+static inline __m128i mc4NextInt(__m128i* cs, int ws, int mask)
+{
     __m128i and = _mm_set1_epi32(mask);
     __m128i ret = _mm_and_si128(and, _mm_srli_epi32(*cs, 24));
     *cs = _mm_add_epi32( _mm_set1_epi32(ws), _mm_mullo_epi32(*cs, _mm_add_epi32(_mm_set1_epi32(4150755663), _mm_mullo_epi32(*cs, _mm_set1_epi32(1284865837)))));
     return _mm_add_epi32(ret, _mm_and_si128(and, _mm_cmplt_epi32(ret, _mm_set1_epi32(0))));;
 }
 
-static inline __m128i select4Random2(__m128i* cs, int ws, __m128i a1, __m128i a2) {
+static inline __m128i select4Random2(__m128i* cs, int ws, __m128i a1, __m128i a2)
+{
     __m128i cmp = _mm_cmpeq_epi32(_mm_set1_epi32(0), mc4NextInt(cs, ws, 0x1));
     return _mm_or_si128(_mm_and_si128(cmp, a1), _mm_andnot_si128(cmp, a2));
 }
 
-static inline __m128i select4Random4(__m128i* cs, int ws, __m128i a1, __m128i a2, __m128i a3, __m128i a4) {
+static inline __m128i select4Random4(__m128i* cs, int ws, __m128i a1, __m128i a2, __m128i a3, __m128i a4)
+{
     __m128i val = mc4NextInt(cs, ws, 0x3);
     __m128i v2 = _mm_set1_epi32(2);
     __m128i cmp1 = _mm_cmpeq_epi32(val, _mm_set1_epi32(0));
@@ -313,7 +332,8 @@ static inline __m128i select4Random4(__m128i* cs, int ws, __m128i a1, __m128i a2
     );
 }
 
-static inline __m128i select4ModeOrRandom(__m128i* cs, int ws, __m128i a1, __m128i a2, __m128i a3, __m128i a4) {
+static inline __m128i select4ModeOrRandom(__m128i* cs, int ws, __m128i a1, __m128i a2, __m128i a3, __m128i a4)
+{
     //((a == b)&(c != d) | (a == c)&(b != d) | (a == d)&(b != c))&a | ((b == c)&(a != d) | (b == d)&(a != c))&b | ((c == d)&(a != b))&c
     __m128i cmp1 = _mm_cmpeq_epi32(a1, a2);
     __m128i cmp2 = _mm_cmpeq_epi32(a1, a3);
@@ -350,7 +370,9 @@ static inline __m128i select4ModeOrRandom(__m128i* cs, int ws, __m128i a1, __m12
         )
     );
 }
+
 #else
+
 static inline int selectRandom2(Layer *l, int a1, int a2)
 {
     int i = mcNextInt(l, 2);
@@ -367,20 +389,25 @@ static inline int selectModeOrRandom(Layer *l, int a1, int a2, int a3, int a4)
 {
     int rndarg = selectRandom4(l, a1, a2, a3, a4);
 
-    if(a2 == a3 && a3 == a4) return a2;
-    if(a1 == a2 && a1 == a3) return a1;
-    if(a1 == a2 && a1 == a4) return a1;
-    if(a1 == a3 && a1 == a4) return a1;
-    if(a1 == a2 && a3 != a4) return a1;
-    if(a1 == a3 && a2 != a4) return a1;
-    if(a1 == a4 && a2 != a3) return a1;
-    if(a2 == a3 && a1 != a4) return a2;
-    if(a2 == a4 && a1 != a3) return a2;
-    if(a3 == a4 && a1 != a2) return a3;
+    if (a2 == a3 && a3 == a4) return a2;
+    if (a1 == a2 && a1 == a3) return a1;
+    if (a1 == a2 && a1 == a4) return a1;
+    if (a1 == a3 && a1 == a4) return a1;
+    if (a1 == a2 && a3 != a4) return a1;
+    if (a1 == a3 && a2 != a4) return a1;
+    if (a1 == a4 && a2 != a3) return a1;
+    if (a2 == a3 && a1 != a4) return a2;
+    if (a2 == a4 && a1 != a3) return a2;
+    if (a3 == a4 && a1 != a2) return a3;
 
     return rndarg;
 }
+
 #endif
+
+//==============================================================================
+// Layers
+//==============================================================================
 
 // A null layer does nothing, and can be used to apply a layer to existing data.
 void mapNull(Layer *l, int * __restrict out, int x, int z, int w, int h);

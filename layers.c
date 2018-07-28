@@ -9,7 +9,7 @@ static void oceanRndInit(OceanRnd *rnd, int64_t seed);
 
 void initAddBiome(int id, int tempCat, int biometype, float temp, float height)
 {
-    if(id & (~0xff)) return;
+    if (id & (~0xff)) return;
     biomes[id].id = id;
     biomes[id].type = biometype;
     biomes[id].temp = temp;
@@ -27,7 +27,7 @@ void createMutation(int id)
 void initBiomes()
 {
     int i;
-    for(i = 0; i < 256; i++) biomes[i].id = none;
+    for (i = 0; i < 256; i++) biomes[i].id = none;
 
     const double hDefault = 0.1, hShallowWaters = -0.5, hOceans = -1.0, hDeepOceans = -1.8, hLowPlains = 0.125;
     const double hMidPlains = 0.2, hLowHills = 0.45, hHighPlateaus = 1.5, hMidHills = 1.0, hShores = 0.0;
@@ -113,13 +113,13 @@ void initBiomes()
 
 void setWorldSeed(Layer *layer, int64_t seed)
 {
-    if(layer->p2 != NULL && layer->getMap != mapHills)
+    if (layer->p2 != NULL && layer->getMap != mapHills)
         setWorldSeed(layer->p2, seed);
 
-    if(layer->p != NULL)
+    if (layer->p != NULL)
         setWorldSeed(layer->p, seed);
 
-    if(layer->oceanRnd != NULL)
+    if (layer->oceanRnd != NULL)
         oceanRndInit(layer->oceanRnd, seed);
 
     layer->worldSeed = seed;
@@ -138,7 +138,7 @@ void mapNull(Layer *l, int * __restrict out, int x, int z, int w, int h)
 
 void mapSkip(Layer *l, int * __restrict out, int x, int z, int w, int h)
 {
-    if(l->p == NULL)
+    if (l->p == NULL)
     {
         printf("mapSkip() requires a non-null parent layer.\n");
         exit(1);
@@ -154,9 +154,9 @@ void mapIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWid
     const int64_t ws = l->worldSeed;
     const int64_t ss = ws * (ws * 6364136223846793005LL + 1442695040888963407LL);
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             const int64_t chunkX = (int64_t)(x + areaX);
             const int64_t chunkZ = (int64_t)(z + areaZ);
@@ -173,14 +173,16 @@ void mapIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWid
         }
     }
 
-    if(areaX > -areaWidth && areaX <= 0 && areaZ > -areaHeight && areaZ <= 0)
+    if (areaX > -areaWidth && areaX <= 0 && areaZ > -areaHeight && areaZ <= 0)
     {
         out[-areaX + -areaZ * areaWidth] = 1;
     }
 }
 
 #if defined USE_SIMD && defined __AVX2__
-void mapZoom(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight) {
+
+void mapZoom(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
+{
     int pWidth = (areaWidth>>1)+2, pHeight = (areaHeight>>1)+1;
     
     l->p->getMap(l->p, out, areaX>>1, areaZ>>1, pWidth, pHeight+1);
@@ -198,11 +200,13 @@ void mapZoom(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth,
     int* idx = buf;
     int* outIdx = out;    
     //z first!
-    for (x = 0; x < pWidth-1; x += 8) {
+    for (x = 0; x < pWidth-1; x += 8)
+    {
         a = _mm256_loadu_si256((__m256i*)(outIdx));//0, 0
         b = _mm256_loadu_si256((__m256i*)(outIdx+1));//1, 0
         zs = _mm256_set1_epi32(areaZ&0xFFFFFFFE);
-        for (z = 0; z < pHeight; z++) {
+        for (z = 0; z < pHeight; z++)
+        {
             cs = set8ChunkSeeds(l->worldSeed, xs, zs);
             outIdx += pWidth;
             a1 = _mm256_loadu_si256((__m256i*)(outIdx));//0, 1
@@ -230,15 +234,18 @@ void mapZoom(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth,
         xs = _mm256_add_epi32(xs, v16);
     }
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
         memcpy(&out[z*areaWidth], &buf[(z + (areaZ & 1))*newWidth + (areaX & 1)], areaWidth*sizeof(int));
     }
 
     free(buf);
 }
+
 #elif defined USE_SIMD && defined __SSE4_2__
-void mapZoom(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight) {
+
+void mapZoom(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
+{
     int pWidth = (areaWidth>>1)+2, pHeight = (areaHeight>>1)+1;
     
     l->p->getMap(l->p, out, areaX>>1, areaZ>>1, pWidth, pHeight+1);
@@ -255,11 +262,13 @@ void mapZoom(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth,
     int* idx = buf;
     int* outIdx = out;
     //z first!
-    for (x = 0; x < pWidth-1; x += 4) {
+    for (x = 0; x < pWidth-1; x += 4)
+    {
         a = _mm_loadu_si128((__m128i_u*)(outIdx));//0, 0
         b = _mm_loadu_si128((__m128i_u*)(outIdx+1));//1, 0
         zs = _mm_set1_epi32(areaZ&0xFFFFFFFE);
-        for (z = 0; z < pHeight; z++) {
+        for (z = 0; z < pHeight; z++)
+        {
             cs = set4ChunkSeeds(l->worldSeed, xs, zs);
             outIdx += pWidth;
             a1 = _mm_loadu_si128((__m128i_u*)(outIdx));//0, 1
@@ -287,14 +296,16 @@ void mapZoom(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth,
         xs = _mm_add_epi32(xs, v8);
     }
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
         memcpy(&out[z*areaWidth], &buf[(z + (areaZ & 1))*newWidth + (areaX & 1)], areaWidth*sizeof(int));
     }
 
     free(buf);
 }
+
 #else
+
 void mapZoom(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {
     int pX = areaX >> 1;
@@ -313,13 +324,13 @@ void mapZoom(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth
     const int ws = (int)l->worldSeed;
     const int ss = ws * (ws * 1284865837 + 4150755663);
 
-    for(z = 0; z < pHeight - 1; z++)
+    for (z = 0; z < pHeight - 1; z++)
     {
         idx = (z << 1) * newWidth;
         a = out[(z+0)*pWidth];
         b = out[(z+1)*pWidth];
 
-        for(x = 0; x < pWidth - 1; x++)
+        for (x = 0; x < pWidth - 1; x++)
         {
             int a1 = out[x+1 + (z+0)*pWidth];
             int b1 = out[x+1 + (z+1)*pWidth];
@@ -345,7 +356,7 @@ void mapZoom(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth
             buf[idx] = (cs >> 24) & 1 ? a1 : a;
 
 
-            if(l->p->getMap == mapIsland)
+            if (l->p->getMap == mapIsland)
             {
                 //selectRandom4
                 cs *= cs * 1284865837 + 4150755663;
@@ -381,7 +392,7 @@ void mapZoom(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth
         }
     }
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
         memcpy(&out[z*areaWidth], &buf[(z + (areaZ & 1))*newWidth + (areaX & 1)], areaWidth*sizeof(int));
     }
@@ -403,9 +414,9 @@ void mapAddIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int area
     const int64_t ws = l->worldSeed;
     const int64_t ss = ws * (ws * 6364136223846793005LL + 1442695040888963407LL);
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             int v00 = out[x+0 + (z+0)*pWidth];
             int v20 = out[x+2 + (z+0)*pWidth];
@@ -413,7 +424,7 @@ void mapAddIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int area
             int v22 = out[x+2 + (z+2)*pWidth];
             int v11 = out[x+1 + (z+1)*pWidth];
 
-            if(v11 == 0 && (v00 != 0 || v20 != 0 || v02 != 0 || v22 != 0))
+            if (v11 == 0 && (v00 != 0 || v20 != 0 || v02 != 0 || v22 != 0))
             {
                 const int64_t chunkX = (int64_t)(x + areaX);
                 const int64_t chunkZ = (int64_t)(z + areaZ);
@@ -429,53 +440,53 @@ void mapAddIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int area
                 int v = 1;
                 int inc = 0;
 
-                if(v00 != 0)
+                if (v00 != 0)
                 {
                     ++inc; v = v00;
                     cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
                     cs += ws;
                 }
-                if(v20 != 0)
+                if (v20 != 0)
                 {
-                    if(++inc == 1 || (cs & (1LL << 24)) == 0) v = v20;
+                    if (++inc == 1 || (cs & (1LL << 24)) == 0) v = v20;
                     cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
                     cs += ws;
                 }
-                if(v02 != 0)
+                if (v02 != 0)
                 {
                     switch(++inc)
                     {
                     case 1: v = v02; break;
-                    case 2: if((cs & (1LL << 24)) == 0) v = v02; break;
-                    default: if(((cs >> 24) % 3) == 0) v = v02;
+                    case 2: if ((cs & (1LL << 24)) == 0) v = v02; break;
+                    default: if (((cs >> 24) % 3) == 0) v = v02;
                     }
                     cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
                     cs += ws;
                 }
-                if(v22 != 0)
+                if (v22 != 0)
                 {
                     switch(++inc)
                     {
                     case 1: v = v22; break;
-                    case 2: if((cs & (1LL << 24)) == 0) v = v22; break;
-                    case 3: if(((cs >> 24) % 3) == 0) v = v22; break;
-                    default: if((cs & (3LL << 24)) == 0) v = v22;
+                    case 2: if ((cs & (1LL << 24)) == 0) v = v22; break;
+                    case 3: if (((cs >> 24) % 3) == 0) v = v22; break;
+                    default: if ((cs & (3LL << 24)) == 0) v = v22;
                     }
                     cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
                     cs += ws;
                 }
 
-                if((cs >> 24) % 3 == 0)
+                if ((cs >> 24) % 3 == 0)
                     out[x + z*areaWidth] = v;
-                else if(v == 4)
+                else if (v == 4)
                     out[x + z*areaWidth] = 4;
                 else
                     out[x + z*areaWidth] = 0;
             }
-            else if(v11 > 0 && (v00 == 0 || v20 == 0 || v02 == 0 || v22 == 0))
+            else if (v11 > 0 && (v00 == 0 || v20 == 0 || v02 == 0 || v22 == 0))
             {
                 //setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
-                //if(mcNextInt(l, 5) == 0)...
+                //if (mcNextInt(l, 5) == 0)...
 
                 const int64_t chunkX = (int64_t)(x + areaX);
                 const int64_t chunkZ = (int64_t)(z + areaZ);
@@ -489,7 +500,7 @@ void mapAddIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int area
                 cs *= cs * 6364136223846793005LL + 1442695040888963407LL;
                 cs += chunkZ;
 
-                if((cs >> 24) % 5 == 0)
+                if ((cs >> 24) % 5 == 0)
                     out[x + z*areaWidth] = (v11 == 4) ? 4 : 0;
                 else
                     out[x + z*areaWidth] = v11;
@@ -513,23 +524,23 @@ void mapRemoveTooMuchOcean(Layer *l, int * __restrict out, int areaX, int areaZ,
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             int v11 = out[x+1 + (z+1)*pWidth];
             out[x + z*areaWidth] = v11;
 
-            if(out[x+1 + (z+0)*pWidth] != 0) continue;
-            if(out[x+2 + (z+1)*pWidth] != 0) continue;
-            if(out[x+0 + (z+1)*pWidth] != 0) continue;
-            if(out[x+1 + (z+2)*pWidth] != 0) continue;
+            if (out[x+1 + (z+0)*pWidth] != 0) continue;
+            if (out[x+2 + (z+1)*pWidth] != 0) continue;
+            if (out[x+0 + (z+1)*pWidth] != 0) continue;
+            if (out[x+1 + (z+2)*pWidth] != 0) continue;
 
-            if(v11 == 0)
+            if (v11 == 0)
             {
                 setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
 
-                if(mcNextInt(l, 2) == 0)
+                if (mcNextInt(l, 2) == 0)
                 {
                     out[x + z*areaWidth] = 1;
                 }
@@ -549,13 +560,13 @@ void mapAddSnow(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWi
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
     
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             int v11 = out[x+1 + (z+1)*pWidth];
 
-            if(isShallowOcean(v11))
+            if (isShallowOcean(v11))
             {
                 out[x + z*areaWidth] = v11;
             }
@@ -565,8 +576,8 @@ void mapAddSnow(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWi
                 int r = mcNextInt(l, 6);
                 int v;
 
-                if(r == 0)      v = 4;
-                else if(r <= 1) v = 3;
+                if (r == 0)      v = 4;
+                else if (r <= 1) v = 3;
                 else            v = 1;
 
                 out[x + z*areaWidth] = v;
@@ -588,20 +599,20 @@ void mapCoolWarm(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             int v11 = out[x+1 + (z+1)*pWidth];
 
-            if(v11 == 1)
+            if (v11 == 1)
             {
                 int v10 = out[x+1 + (z+0)*pWidth];
                 int v21 = out[x+2 + (z+1)*pWidth];
                 int v01 = out[x+0 + (z+1)*pWidth];
                 int v12 = out[x+1 + (z+2)*pWidth];
 
-                if(v10 == 3 || v10 == 4 || v21 == 3 || v21 == 4 || v01 == 3 || v01 == 4 || v12 == 3 || v12 == 4)
+                if (v10 == 3 || v10 == 4 || v21 == 3 || v21 == 4 || v01 == 3 || v01 == 4 || v12 == 3 || v12 == 4)
                 {
                     v11 = 2;
                 }
@@ -623,20 +634,20 @@ void mapHeatIce(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWi
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             int v11 = out[x+1 + (z+1)*pWidth];
 
-            if(v11 == 4)
+            if (v11 == 4)
             {
                 int v10 = out[x+1 + (z+0)*pWidth];
                 int v21 = out[x+2 + (z+1)*pWidth];
                 int v01 = out[x+0 + (z+1)*pWidth];
                 int v12 = out[x+1 + (z+2)*pWidth];
 
-                if(v10 == 1 || v10 == 2 || v21 == 1 || v21 == 2 || v01 == 1 || v01 == 2 || v12 == 1 || v12 == 2)
+                if (v10 == 1 || v10 == 2 || v21 == 1 || v21 == 2 || v01 == 1 || v01 == 2 || v12 == 1 || v12 == 2)
                 {
                     v11 = 3;
                 }
@@ -653,16 +664,16 @@ void mapSpecial(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWi
     l->p->getMap(l->p, out, areaX, areaZ, areaWidth, areaHeight);
 
     int x, z;
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             int v = out[x + z*areaWidth];
-            if(v == 0) continue;
+            if (v == 0) continue;
 
             setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
 
-            if(mcNextInt(l, 13) == 0)
+            if (mcNextInt(l, 13) == 0)
             {
                 v |= (1 + mcNextInt(l, 15)) << 8 & 0xf00;
                 // 1 to 1 mapping so 'out' can be overwritten immediately
@@ -683,17 +694,17 @@ void mapAddMushroomIsland(Layer *l, int * __restrict out, int areaX, int areaZ, 
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             int v11 = out[x+1 + (z+1)*pWidth];
 
             // surrounded by ocean?
-            if(v11 == 0 && !out[x+0 + (z+0)*pWidth] && !out[x+2 + (z+0)*pWidth] && !out[x+0 + (z+2)*pWidth] && !out[x+2 + (z+2)*pWidth])
+            if (v11 == 0 && !out[x+0 + (z+0)*pWidth] && !out[x+2 + (z+0)*pWidth] && !out[x+0 + (z+2)*pWidth] && !out[x+2 + (z+2)*pWidth])
             {
                 setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
-                if(mcNextInt(l, 100) == 0) {
+                if (mcNextInt(l, 100) == 0) {
                     out[x + z*areaWidth] = mushroomIsland;
                     continue;
                 }
@@ -715,32 +726,32 @@ void mapDeepOcean(Layer *l, int * __restrict out, int areaX, int areaZ, int area
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             int v11 = out[(x+1) + (z+1)*pWidth];
 
-            if(isShallowOcean(v11))
+            if (isShallowOcean(v11))
             {
                 // count adjacent oceans
                 int oceans = 0;
-                if(isShallowOcean(out[(x+1) + (z+0)*pWidth])) oceans++;
-                if(isShallowOcean(out[(x+2) + (z+1)*pWidth])) oceans++;
-                if(isShallowOcean(out[(x+0) + (z+1)*pWidth])) oceans++;
-                if(isShallowOcean(out[(x+1) + (z+2)*pWidth])) oceans++;
+                if (isShallowOcean(out[(x+1) + (z+0)*pWidth])) oceans++;
+                if (isShallowOcean(out[(x+2) + (z+1)*pWidth])) oceans++;
+                if (isShallowOcean(out[(x+0) + (z+1)*pWidth])) oceans++;
+                if (isShallowOcean(out[(x+1) + (z+2)*pWidth])) oceans++;
 
-                if(oceans > 3)
+                if (oceans > 3)
                 {
-                    if(v11 == warmOcean)
+                    if (v11 == warmOcean)
                         v11 = warmDeepOcean;
-                    else if(v11 == lukewarmOcean)
+                    else if (v11 == lukewarmOcean)
                         v11 = lukewarmDeepOcean;
-                    else if(v11 == ocean)
+                    else if (v11 == ocean)
                         v11 = deepOcean;
-                    else if(v11 == coldOcean)
+                    else if (v11 == coldOcean)
                         v11 = coldDeepOcean;
-                    else if(v11 == frozenOcean)
+                    else if (v11 == frozenOcean)
                         v11 = frozenDeepOcean;
                     else
                         v11 = deepOcean;
@@ -763,16 +774,16 @@ void mapBiome(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
     l->p->getMap(l->p, out, areaX, areaZ, areaWidth, areaHeight);
 
     int x, z;
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             int idx = x + z*areaWidth;
             int id = out[idx];
             int hasHighBit = (id & 0xf00) >> 8;
             id &= -0xf01;
 
-            if(getBiomeType(id) == Ocean || id == mushroomIsland)
+            if (getBiomeType(id) == Ocean || id == mushroomIsland)
             {
                 out[idx] = id;
                 continue;
@@ -782,15 +793,15 @@ void mapBiome(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
 
             switch(id){
             case Warm:
-                if(hasHighBit) out[idx] = (mcNextInt(l, 3) == 0) ? mesaPlateau : mesaPlateau_F;
+                if (hasHighBit) out[idx] = (mcNextInt(l, 3) == 0) ? mesaPlateau : mesaPlateau_F;
                 else out[idx] = warmBiomes[mcNextInt(l, 6)];
                 break;
             case Lush:
-                if(hasHighBit) out[idx] = jungle;
+                if (hasHighBit) out[idx] = jungle;
                 else out[idx] = lushBiomes[mcNextInt(l, 6)];
                 break;
             case Cold:
-                if(hasHighBit) out[idx] = megaTaiga;
+                if (hasHighBit) out[idx] = megaTaiga;
                 else out[idx] = coldBiomes[mcNextInt(l, 4)];
                 break;
             case Freezing:
@@ -809,11 +820,11 @@ void mapRiverInit(Layer *l, int * __restrict out, int areaX, int areaZ, int area
     l->p->getMap(l->p, out, areaX, areaZ, areaWidth, areaHeight);
 
     int x, z;
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
-            if(out[x + z*areaWidth] > 0)
+            if (out[x + z*areaWidth] > 0)
             {
                 setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
                 out[x + z*areaWidth] = mcNextInt(l, 299999)+2;
@@ -832,9 +843,9 @@ void mapRiverInit(Layer *l, int * __restrict out, int areaX, int areaZ, int area
 /*
 static inline int replaceEdgeIfNecessary(int *out, int idx, int v10, int v21, int v01, int v12, int id, int baseID, int edgeID)
 {
-    if(!equalOrPlateau(id, baseID)) return 0;
+    if (!equalOrPlateau(id, baseID)) return 0;
 
-    if(canBeNeighbors(v10, baseID) && canBeNeighbors(v21, baseID) && canBeNeighbors(v01, baseID) && canBeNeighbors(v12, baseID))
+    if (canBeNeighbors(v10, baseID) && canBeNeighbors(v21, baseID) && canBeNeighbors(v01, baseID) && canBeNeighbors(v12, baseID))
         out[idx] = id;
     else
         out[idx] = edgeID;
@@ -845,9 +856,9 @@ static inline int replaceEdgeIfNecessary(int *out, int idx, int v10, int v21, in
 
 static inline int replaceEdge(int *out, int idx, int v10, int v21, int v01, int v12, int id, int baseID, int edgeID)
 {
-    if(id != baseID) return 0;
+    if (id != baseID) return 0;
 
-    if(equalOrPlateau(v10, baseID) && equalOrPlateau(v21, baseID) && equalOrPlateau(v01, baseID) && equalOrPlateau(v12, baseID))
+    if (equalOrPlateau(v10, baseID) && equalOrPlateau(v21, baseID) && equalOrPlateau(v01, baseID) && equalOrPlateau(v12, baseID))
         out[idx] = id;
     else
         out[idx] = edgeID;
@@ -865,9 +876,9 @@ void mapBiomeEdge(Layer *l, int * __restrict out, int areaX, int areaZ, int area
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             int v11 = out[x+1 + (z+1)*pWidth];
 
@@ -876,14 +887,14 @@ void mapBiomeEdge(Layer *l, int * __restrict out, int areaX, int areaZ, int area
             int v01 = out[x+0 + (z+1)*pWidth];
             int v12 = out[x+1 + (z+2)*pWidth];
 
-            if(/*!replaceEdgeIfNecessary(out, x + z*areaWidth, v10, v21, v01, v12, v11, extremeHills, extremeHillsEdge) &&*/
+            if (/*!replaceEdgeIfNecessary(out, x + z*areaWidth, v10, v21, v01, v12, v11, extremeHills, extremeHillsEdge) &&*/
                !replaceEdge(out, x + z*areaWidth, v10, v21, v01, v12, v11, mesaPlateau_F, mesa) &&
                !replaceEdge(out, x + z*areaWidth, v10, v21, v01, v12, v11, mesaPlateau, mesa) &&
                !replaceEdge(out, x + z*areaWidth, v10, v21, v01, v12, v11, megaTaiga, taiga))
             {
-                if(v11 == desert)
+                if (v11 == desert)
                 {
-                    if(v10 != icePlains && v21 != icePlains && v01 != icePlains && v12 != icePlains)
+                    if (v10 != icePlains && v21 != icePlains && v01 != icePlains && v12 != icePlains)
                     {
                         out[x + z*areaWidth] = v11;
                     }
@@ -892,13 +903,13 @@ void mapBiomeEdge(Layer *l, int * __restrict out, int areaX, int areaZ, int area
                         out[x + z*areaWidth] = extremeHillsPlus;
                     }
                 }
-                else if(v11 == swampland)
+                else if (v11 == swampland)
                 {
-                    if(v10 != desert && v21 != desert && v01 != desert && v12 != desert &&
+                    if (v10 != desert && v21 != desert && v01 != desert && v12 != desert &&
                        v10 != coldTaiga && v21 != coldTaiga && v01 != coldTaiga && v12 != coldTaiga &&
                        v10 != icePlains && v21 != icePlains && v01 != icePlains && v12 != icePlains)
                     {
-                        if(v10 != jungle && v12 != jungle && v21 != jungle && v01 != jungle)
+                        if (v10 != jungle && v12 != jungle && v21 != jungle && v01 != jungle)
                             out[x + z*areaWidth] = v11;
                         else
                             out[x + z*areaWidth] = jungleEdge;
@@ -927,7 +938,7 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
     int x, z;
     int *buf = NULL;
 
-    if(l->p2 == NULL)
+    if (l->p2 == NULL)
     {
         printf("mapHills() requires two parents! Use setupMultiLayer()\n");
         exit(1);
@@ -940,9 +951,9 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
 
     l->p2->getMap(l->p2, out, pX, pZ, pWidth, pHeight);
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
             int a11 = buf[x+1 + (z+1)*pWidth]; // biome branch
@@ -951,11 +962,11 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
 
             int var12 = (b11 - 2) % 29 == 0;
 
-            if(a11 != 0 && b11 >= 2 && (b11 - 2) % 29 == 1 && a11 < 128)
+            if (a11 != 0 && b11 >= 2 && (b11 - 2) % 29 == 1 && a11 < 128)
             {
                 out[idx] = (biomeExists(a11 + 128)) ? a11 + 128 : a11;
             }
-            else if(mcNextInt(l, 3) != 0 && !var12)
+            else if (mcNextInt(l, 3) != 0 && !var12)
             {
                 out[idx] = a11;
             }
@@ -991,22 +1002,22 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
                 case savanna:
                     hillID = savannaPlateau; break;
                 default:
-                    if(equalOrPlateau(a11, mesaPlateau_F))
+                    if (equalOrPlateau(a11, mesaPlateau_F))
                         hillID = mesa;
-                    else if(a11 == deepOcean && mcNextInt(l, 3) == 0)
+                    else if (a11 == deepOcean && mcNextInt(l, 3) == 0)
                         hillID = (mcNextInt(l, 2) == 0) ? plains : forest;
                     break;
                 }
 
-                if(var12 && hillID != a11)
+                if (var12 && hillID != a11)
                 {
-                    if(biomeExists(hillID + 128))
+                    if (biomeExists(hillID + 128))
                         hillID += 128;
                     else
                         hillID = a11;
                 }
 
-                if(hillID == a11)
+                if (hillID == a11)
                 {
                     out[idx] = a11;
                 }
@@ -1018,12 +1029,12 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
                     int a12 = buf[x+1 + (z+2)*pWidth];
                     int equals = 0;
 
-                    if(equalOrPlateau(a10, a11)) equals++;
-                    if(equalOrPlateau(a21, a11)) equals++;
-                    if(equalOrPlateau(a01, a11)) equals++;
-                    if(equalOrPlateau(a12, a11)) equals++;
+                    if (equalOrPlateau(a10, a11)) equals++;
+                    if (equalOrPlateau(a21, a11)) equals++;
+                    if (equalOrPlateau(a01, a11)) equals++;
+                    if (equalOrPlateau(a12, a11)) equals++;
 
-                    if(equals >= 3)
+                    if (equals >= 3)
                         out[idx] = hillID;
                     else
                         out[idx] = a11;
@@ -1045,7 +1056,7 @@ void mapHills113(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
     int x, z;
     int *buf = NULL;
 
-    if(l->p2 == NULL)
+    if (l->p2 == NULL)
     {
         printf("mapHills() requires two parents! Use setupMultiLayer()\n");
         exit(1);
@@ -1058,9 +1069,9 @@ void mapHills113(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
 
     l->p2->getMap(l->p2, out, pX, pZ, pWidth, pHeight);
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
             int a11 = buf[x+1 + (z+1)*pWidth]; // biome branch
@@ -1069,11 +1080,11 @@ void mapHills113(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
 
             int bn = (b11 - 2) % 29;
 
-            if(!(isOceanic(a11) || b11 < 2 || bn != 1 || a11 >= 128))
+            if (!(isOceanic(a11) || b11 < 2 || bn != 1 || a11 >= 128))
             {
                 out[idx] = (biomeExists(a11 + 128)) ? a11 + 128 : a11;
             }
-            else if(mcNextInt(l, 3) == 0 || bn == 0)
+            else if (mcNextInt(l, 3) == 0 || bn == 0)
             {
                 int hillID = a11;
 
@@ -1105,24 +1116,24 @@ void mapHills113(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
                 case savanna:
                     hillID = savannaPlateau; break;
                 default:
-                    if(equalOrPlateau(a11, mesaPlateau_F))
+                    if (equalOrPlateau(a11, mesaPlateau_F))
                         hillID = mesa;
-                    else if((a11 == deepOcean || a11 == lukewarmDeepOcean ||
+                    else if ((a11 == deepOcean || a11 == lukewarmDeepOcean ||
                              a11 == coldDeepOcean || a11 == frozenDeepOcean) &&
                              mcNextInt(l, 3) == 0)
                         hillID = (mcNextInt(l, 2) == 0) ? plains : forest;
                     break;
                 }
 
-                if(bn == 0 && hillID != a11)
+                if (bn == 0 && hillID != a11)
                 {
-                    if(biomeExists(hillID + 128))
+                    if (biomeExists(hillID + 128))
                         hillID += 128;
                     else
                         hillID = a11;
                 }
 
-                if(hillID != a11)
+                if (hillID != a11)
                 {
                     int a10 = buf[x+1 + (z+0)*pWidth];
                     int a21 = buf[x+2 + (z+1)*pWidth];
@@ -1130,12 +1141,12 @@ void mapHills113(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
                     int a12 = buf[x+1 + (z+2)*pWidth];
                     int equals = 0;
 
-                    if(equalOrPlateau(a10, a11)) equals++;
-                    if(equalOrPlateau(a21, a11)) equals++;
-                    if(equalOrPlateau(a01, a11)) equals++;
-                    if(equalOrPlateau(a12, a11)) equals++;
+                    if (equalOrPlateau(a10, a11)) equals++;
+                    if (equalOrPlateau(a21, a11)) equals++;
+                    if (equalOrPlateau(a01, a11)) equals++;
+                    if (equalOrPlateau(a12, a11)) equals++;
 
-                    if(equals >= 3)
+                    if (equals >= 3)
                         out[idx] = hillID;
                     else
                         out[idx] = a11;
@@ -1172,9 +1183,9 @@ void mapRiver(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             int v01 = reduceID(out[x+0 + (z+1)*pWidth]);
             int v21 = reduceID(out[x+2 + (z+1)*pWidth]);
@@ -1205,9 +1216,9 @@ void mapSmooth(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWid
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             int v11 = out[x+1 + (z+1)*pWidth];
             int v10 = out[x+1 + (z+0)*pWidth];
@@ -1215,19 +1226,19 @@ void mapSmooth(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWid
             int v01 = out[x+0 + (z+1)*pWidth];
             int v12 = out[x+1 + (z+2)*pWidth];
 
-            if(v01 == v21 && v10 == v12)
+            if (v01 == v21 && v10 == v12)
             {
                 setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
 
-                if(mcNextInt(l, 2) == 0)
+                if (mcNextInt(l, 2) == 0)
                     v11 = v01;
                 else
                     v11 = v10;
             }
             else
             {
-                if(v01 == v21) v11 = v01;
-                if(v10 == v12) v11 = v10;
+                if (v01 == v21) v11 = v01;
+                if (v10 == v12) v11 = v10;
             }
 
             out[x + z * areaWidth] = v11;
@@ -1246,14 +1257,14 @@ void mapRareBiome(Layer *l, int * __restrict out, int areaX, int areaZ, int area
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
             int v11 = out[x+1 + (z+1)*pWidth];
 
-            if(mcNextInt(l, 57) == 0 && v11 == plains)
+            if (mcNextInt(l, 57) == 0 && v11 == plains)
             {
                 // Sunflower Plains
                 out[x + z*areaWidth] = plains + 128;
@@ -1269,9 +1280,9 @@ void mapRareBiome(Layer *l, int * __restrict out, int areaX, int areaZ, int area
 
 inline static int replaceOcean(int *out, int idx, int v10, int v21, int v01, int v12, int id, int replaceID)
 {
-    if(isOceanic(id)) return 0;
+    if (isOceanic(id)) return 0;
 
-    if(!isOceanic(v10) && !isOceanic(v21) && !isOceanic(v01) && !isOceanic(v12))
+    if (!isOceanic(v10) && !isOceanic(v21) && !isOceanic(v01) && !isOceanic(v12))
         out[idx] = id;
     else
         out[idx] = replaceID;
@@ -1294,9 +1305,9 @@ void mapShore(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             int v11 = out[x+1 + (z+1)*pWidth];
             int v10 = out[x+1 + (z+0)*pWidth];
@@ -1306,16 +1317,16 @@ void mapShore(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
 
             int biome = biomeExists(v11) ? v11 : 0;
 
-            if(v11 == mushroomIsland)
+            if (v11 == mushroomIsland)
             {
-                if(v10 != ocean && v21 != ocean && v01 != ocean && v12 != ocean)
+                if (v10 != ocean && v21 != ocean && v01 != ocean && v12 != ocean)
                     out[x + z*areaWidth] = v11;
                 else
                     out[x + z*areaWidth] = mushroomIslandShore;
             }
-            else if(/*biome < 128 &&*/ getBiomeType(biome) == Jungle)
+            else if (/*biome < 128 &&*/ getBiomeType(biome) == Jungle)
             {
-                if(isBiomeJFTO(v10) && isBiomeJFTO(v21) && isBiomeJFTO(v01) && isBiomeJFTO(v12))
+                if (isBiomeJFTO(v10) && isBiomeJFTO(v21) && isBiomeJFTO(v01) && isBiomeJFTO(v12))
                 {
                     if (!isOceanic(v10) && !isOceanic(v21) && !isOceanic(v01) && !isOceanic(v12))
                         out[x + z*areaWidth] = v11;
@@ -1329,15 +1340,15 @@ void mapShore(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
             }
             else if (v11 != extremeHills && v11 != extremeHillsPlus && v11 != extremeHillsEdge)
             {
-                if(isBiomeSnowy(biome))
+                if (isBiomeSnowy(biome))
                 {
                     replaceOcean(out, x + z*areaWidth, v10, v21, v01, v12, v11, coldBeach);
                 }
-                else if(v11 != mesa && v11 != mesaPlateau_F)
+                else if (v11 != mesa && v11 != mesaPlateau_F)
                 {
-                    if(v11 != ocean && v11 != deepOcean && v11 != river && v11 != swampland)
+                    if (v11 != ocean && v11 != deepOcean && v11 != river && v11 != swampland)
                     {
-                        if(!isOceanic(v10) && !isOceanic(v21) && !isOceanic(v01) && !isOceanic(v12))
+                        if (!isOceanic(v10) && !isOceanic(v21) && !isOceanic(v01) && !isOceanic(v12))
                             out[x + z*areaWidth] = v11;
                         else
                             out[x + z*areaWidth] = beach;
@@ -1349,9 +1360,9 @@ void mapShore(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
                 }
                 else
                 {
-                    if(!isOceanic(v10) && !isOceanic(v21) && !isOceanic(v01) && !isOceanic(v12))
+                    if (!isOceanic(v10) && !isOceanic(v21) && !isOceanic(v01) && !isOceanic(v12))
                     {
-                        if(getBiomeType(v10) == Mesa && getBiomeType(v21) == Mesa && getBiomeType(v01) == Mesa && getBiomeType(v12) == Mesa)
+                        if (getBiomeType(v10) == Mesa && getBiomeType(v21) == Mesa && getBiomeType(v01) == Mesa && getBiomeType(v12) == Mesa)
                             out[x + z*areaWidth] = v11;
                         else
                             out[x + z*areaWidth] = desert;
@@ -1377,7 +1388,7 @@ void mapRiverMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
     int len;
     int *buf;
 
-    if(l->p2 == NULL)
+    if (l->p2 == NULL)
     {
         printf("mapRiverMix() requires two parents! Use setupMultiLayer()\n");
         exit(1);
@@ -1391,19 +1402,19 @@ void mapRiverMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
 
     l->p2->getMap(l->p2, out, areaX, areaZ, areaWidth, areaHeight); // rivers
 
-    for(idx = 0; idx < len; idx++)
+    for (idx = 0; idx < len; idx++)
     {
-        if(isOceanic(buf[idx]))
+        if (isOceanic(buf[idx]))
         {
             out[idx] = buf[idx];
         }
         else
         {
-            if(out[idx] == river)
+            if (out[idx] == river)
             {
-                if(buf[idx] == icePlains)
+                if (buf[idx] == icePlains)
                     out[idx] = frozenRiver;
-                else if(buf[idx] == mushroomIsland || buf[idx] == mushroomIslandShore)
+                else if (buf[idx] == mushroomIsland || buf[idx] == mushroomIslandShore)
                     out[idx] = mushroomIslandShore;
                 else
                     out[idx] = out[idx] & 255;
@@ -1420,9 +1431,7 @@ void mapRiverMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
 
 
 
-/* oceanRndInit
- * ------------
- * Initialises data for the ocean temperature types using the world seed.
+/* Initialises data for the ocean temperature types using the world seed.
  * This function is called when the world seed is applied in setWorldSeed().
  */
 static void oceanRndInit(OceanRnd *rnd, int64_t seed)
@@ -1434,11 +1443,11 @@ static void oceanRndInit(OceanRnd *rnd, int64_t seed)
     rnd->b = nextDouble(&seed) * 256.0;
     rnd->c = nextDouble(&seed) * 256.0;
 
-    for(i = 0; i < 256; i++)
+    for (i = 0; i < 256; i++)
     {
         rnd->d[i] = i;
     }
-    for(i = 0; i < 256; i++)
+    for (i = 0; i < 256; i++)
     {
         int n3 = nextInt(&seed, 256 - i) + i;
         int n4 = rnd->d[i];
@@ -1516,19 +1525,19 @@ void mapOceanTemp(Layer *l, int * __restrict out, int areaX, int areaZ, int area
     int x, z;
     OceanRnd *rnd = l->oceanRnd;
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             double tmp = getOceanTemp(rnd, (x + areaX) / 8.0, (z + areaZ) / 8.0, 0);
 
-            if(tmp > 0.4)
+            if (tmp > 0.4)
                 out[x + z*areaWidth] = warmOcean;
-            else if(tmp > 0.2)
+            else if (tmp > 0.2)
                 out[x + z*areaWidth] = lukewarmOcean;
-            else if(tmp < -0.4)
+            else if (tmp < -0.4)
                 out[x + z*areaWidth] = frozenOcean;
-            else if(tmp < -0.2)
+            else if (tmp < -0.2)
                 out[x + z*areaWidth] = coldOcean;
             else
                 out[x + z*areaWidth] = ocean;
@@ -1543,7 +1552,7 @@ void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
     int landWidth = areaWidth+17, landHeight = areaHeight+17;
     int *map1, *map2;
 
-    if(l->p2 == NULL)
+    if (l->p2 == NULL)
     {
         printf("mapOceanMix() requires two parents! Use setupMultiLayer()\n");
         exit(1);
@@ -1560,34 +1569,34 @@ void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
 
     int x, z;
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
-        for(x = 0; x < areaWidth; x++)
+        for (x = 0; x < areaWidth; x++)
         {
             int landID = map1[(x+8) + (z+8)*landWidth];
             int oceanID = map2[x + z*areaWidth];
 
-            if(!isOceanic(landID))
+            if (!isOceanic(landID))
             {
                 out[x + z*areaWidth] = landID;
                 continue;
             }
 
-            for(int i = -8; i <= 8; i += 4)
+            for (int i = -8; i <= 8; i += 4)
             {
-                for(int j = -8; j <= 8; j += 4)
+                for (int j = -8; j <= 8; j += 4)
                 {
                     int nearbyID = map1[(x+i+8) + (z+j+8)*landWidth];
 
-                    if(isOceanic(nearbyID)) continue;
+                    if (isOceanic(nearbyID)) continue;
 
-                    if(oceanID == warmOcean)
+                    if (oceanID == warmOcean)
                     {
                         out[x + z*areaWidth] = lukewarmOcean;
                         goto loop_x;
                     }
 
-                    if(oceanID == frozenOcean)
+                    if (oceanID == frozenOcean)
                     {
                         out[x + z*areaWidth] = coldOcean;
                         goto loop_x;
@@ -1595,24 +1604,24 @@ void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
                 }
             }
 
-            if(landID == deepOcean)
+            if (landID == deepOcean)
             {
-                if(oceanID == lukewarmOcean)
+                if (oceanID == lukewarmOcean)
                 {
                     out[x + z*areaWidth] = lukewarmDeepOcean;
                     continue;
                 }
-                if(oceanID == ocean)
+                if (oceanID == ocean)
                 {
                     out[x + z*areaWidth] = deepOcean;
                     continue;
                 }
-                if(oceanID == coldOcean)
+                if (oceanID == coldOcean)
                 {
                     out[x + z*areaWidth] = coldDeepOcean;
                     continue;
                 }
-                if(oceanID == frozenOcean)
+                if (oceanID == frozenOcean)
                 {
                     out[x + z*areaWidth] = frozenDeepOcean;
                     continue;
@@ -1646,12 +1655,12 @@ void mapVoronoiZoom(Layer *l, int * __restrict out, int areaX, int areaZ, int ar
 
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
 
-    for(z = 0; z < pHeight - 1; z++)
+    for (z = 0; z < pHeight - 1; z++)
     {
         int v00 = out[(z+0)*pWidth];
         int v01 = out[(z+1)*pWidth];
 
-        for(x = 0; x < pWidth - 1; x++)
+        for (x = 0; x < pWidth - 1; x++)
         {
             setChunkSeed(l, (x+pX) << 2, (z+pZ) << 2);
             double da1 = (mcNextInt(l, 1024) / 1024.0 - 0.5) * 3.6;
@@ -1672,11 +1681,11 @@ void mapVoronoiZoom(Layer *l, int * __restrict out, int areaX, int areaZ, int ar
             int v10 = out[x+1 + (z+0)*pWidth] & 255;
             int v11 = out[x+1 + (z+1)*pWidth] & 255;
 
-            for(j = 0; j < 4; j++)
+            for (j = 0; j < 4; j++)
             {
                 int idx = ((z << 2) + j) * newWidth + (x << 2);
 
-                for(i = 0; i < 4; i++)
+                for (i = 0; i < 4; i++)
                 {
                     double da = (j-da2)*(j-da2) + (i-da1)*(i-da1);
                     double db = (j-db2)*(j-db2) + (i-db1)*(i-db1);
@@ -1707,7 +1716,7 @@ void mapVoronoiZoom(Layer *l, int * __restrict out, int areaX, int areaZ, int ar
         }
     }
 
-    for(z = 0; z < areaHeight; z++)
+    for (z = 0; z < areaHeight; z++)
     {
         memcpy(&out[z * areaWidth], &buf[(z + (areaZ & 3))*newWidth + (areaX & 3)], areaWidth*sizeof(int));
     }
