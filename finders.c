@@ -1227,15 +1227,18 @@ int isViableOceanMonumentPos(const LayerStack g, int *cache,
     static int isWaterBiome[0x100];
     static int isDeepOcean[0x100];
 
-    if (!isWaterBiome[oceanMonumentBiomeList[0]])
+    if (!isWaterBiome[oceanMonumentBiomeList1[1]])
     {
         unsigned int i;
-        for (i = 0; i < sizeof(oceanMonumentBiomeList) / sizeof(int); i++)
+        for (i = 0; i < sizeof(oceanMonumentBiomeList1) / sizeof(int); i++)
         {
-            isWaterBiome[ oceanMonumentBiomeList[i] ] = 1;
+            isWaterBiome[ oceanMonumentBiomeList1[i] ] = 1;
         }
 
-        isDeepOcean[deepOcean] = 1;
+        for (i = 0; i < sizeof(oceanMonumentBiomeList2) / sizeof(int); i++)
+        {
+            isDeepOcean[ oceanMonumentBiomeList2[i] ] = 1;
+        }
     }
 
     return areBiomesViable(g, cache, blockX, blockZ, 16, isDeepOcean) &&

@@ -42,7 +42,8 @@ static const StructureConfig MANSION_CONFIG        = { 10387319, 80, 60, LARGE_S
 
 static const int templeBiomeList[] = {desert, desertHills, jungle, jungleHills, swampland, icePlains, coldTaiga};
 static const int biomesToSpawnIn[] = {forest, plains, taiga, taigaHills, forestHills, jungle, jungleHills};
-static const int oceanMonumentBiomeList[] = {ocean, deepOcean, river, frozenOcean, frozenRiver};
+static const int oceanMonumentBiomeList1[] = {ocean, deepOcean, river, frozenRiver, frozenOcean, frozenDeepOcean, coldOcean, coldDeepOcean, lukewarmOcean, lukewarmDeepOcean, warmOcean, warmDeepOcean};
+static const int oceanMonumentBiomeList2[] = {frozenDeepOcean, coldDeepOcean, deepOcean, lukewarmDeepOcean, warmDeepOcean};
 static const int villageBiomeList[] = {plains, desert, savanna, taiga};
 static const int mansionBiomeList[] = {roofedForest, roofedForest+128};
 
