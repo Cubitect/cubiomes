@@ -1124,6 +1124,7 @@ void *searchExistingSeedsThread(void *data) {
 
             // TODO: Might be able to optimize this by skipping biome
             // checks for strongholds nowhere near the quad huts.
+            // TODO: use hutCenter here
             if (opts.strongholdDistance &&
                     !hasStronghold(&gen.g, cache.structure, seed, opts.strongholdDistance, qhpos))
                 continue;
@@ -1133,6 +1134,7 @@ void *searchExistingSeedsThread(void *data) {
 
             // This is slower than the above biome checks because they
             // use quite low resolution biome data.
+            // TODO: Apply centerAtHuts here
             if (opts.woodlandMansions &&
                     !hasMansions(&gen.g, cache.structure, seed, opts.mansionRadius, opts.woodlandMansions))
                 continue;
@@ -1322,6 +1324,7 @@ void *searchQuadHutsThread(void *data) {
 
                     // TODO: Might be able to optimize this by skipping biome
                     // checks for strongholds nowhere near the quad huts.
+                    // TODO: use hutCenter here
                     if (opts.strongholdDistance &&
                             !hasStronghold(&gen.g, cache.structure, seed, opts.strongholdDistance, qhpos))
                         continue;
@@ -1331,6 +1334,7 @@ void *searchQuadHutsThread(void *data) {
 
                     // This is slower than the above biome checks because they
                     // use quite low resolution biome data.
+                    // TODO: Apply centerAtHuts here
                     if (opts.woodlandMansions &&
                             !hasMansions(&gen.g, cache.structure, seed, opts.mansionRadius, opts.woodlandMansions))
                         continue;
