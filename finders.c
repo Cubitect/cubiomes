@@ -1344,56 +1344,6 @@ Pos getSpawn113(LayerStack *g, int *cache, int64_t worldSeed)
     return spawn;
 }
 
-/*
-private void b(axx axx2) {
-    axi axi2;
-    Random random;
-    List<ayn> list;
-    if (!this.t.p()) {
-        this.y.a(ej.a.b(this.w.g().d()));
-        return;
-    }
-    if (this.y.t() == axz.h) {
-        this.y.a(ej.a.a());
-        return;
-    }
-    ayp ayp2 = this.w.g().b();
-    ej ej2 = ayp2.a(0, 0, 256, list = ayp2.a(), random = new Random(this.j()));
-    axi axi3 = axi2 = ej2 == null ? new axi(0, 0) : new axi(ej2);
-    if (ej2 == null) {
-        a.warn("Unable to find spawn biome");
-    }
-    boolean bl2 = false;
-    for (bcj bcj2 : wu.I.a()) {
-        if (!ayp2.b().contains(bcj2.p())) continue;
-        bl2 = true;
-        break;
-    }
-    this.y.a(axi2.h().a(8, this.w.g().d(), 8));
-    int n2 = 0;
-    int n3 = 0;
-    int n4 = 0;
-    int n5 = -1;
-    int n6 = 32;
-    for (int i2 = 0; i2 < 1024; ++i2) {
-        ej ej3;
-        if (n2 > -16 && n2 <= 16 && n3 > -16 && n3 <= 16 && (ej3 = this.t.a(new axi(axi2.a + n2, axi2.b + n3), bl2)) != null) {
-            this.y.a(ej3);
-            break;
-        }
-        if (n2 == n3 || n2 < 0 && n2 == - n3 || n2 > 0 && n2 == 1 - n3) {
-            int n7 = n4;
-            n4 = - n5;
-            n5 = n7;
-        }
-        n2 += n4;
-        n3 += n5;
-    }
-    if (axx2.c()) {
-        this.r();
-    }
-}
-
 
 
 /* areBiomesViable
