@@ -23,7 +23,7 @@ void *searchCompactBiomesThread(void *data)
     int64_t *seeds = (int64_t *) malloc(sizeof(*seeds)*SEED_BUF_LEN);
     int64_t i, s, scnt;
 
-    LayerStack g = setupGenerator();
+    LayerStack g = setupGenerator(MC_1_7);
     int *cache = allocCache(&g.layers[L_BIOME_256], 8, 8);
 
     for(s = info.seedStart; s < info.seedEnd; s += SEED_BUF_LEN)

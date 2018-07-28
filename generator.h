@@ -80,36 +80,39 @@ STRUCT(LayerStack)
     int layerNum;
 };
 
-// Initialise an instance of a generator
-LayerStack setupGenerator();
+/* Initialise an instance of a generator. */
+LayerStack setupGenerator(const int mcversion);
 LayerStack setupGeneratorMC17();
 LayerStack setupGeneratorMC113();
 
-
-// Cleans up and frees the generator layers
+/* Cleans up and frees the generator layers */
 void freeGenerator(LayerStack g);
 
-// Allocates an amount of memory required to generate an area of dimensions
-// 'sizeX' by 'sizeZ' for the magnification of the current top layer.
+
+/* Calculates the minimum size of the buffers required to generate an area of
+ * dimensions 'sizeX' by 'sizeZ' at the specified layer.
+ */
+int calcRequiredBuf(Layer *layer, int areaX, int areaZ);
+
+/* Allocates an amount of memory required to generate an area of dimensions
+ * 'sizeX' by 'sizeZ' for the magnification of the current top layer.
+ */
 int *allocCache(Layer *layer, int sizeX, int sizeZ);
 
-// Set up custom layers
+
+/* Set up custom layers. */
 void setupLayer(int scale, Layer *l, Layer *p, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h));
 void setupMultiLayer(int scale, Layer *l, Layer *p1, Layer *p2, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h));
 
-// Calculates the minimum size of the buffers required to generate an area of dimensions
-// 'sizeX' by 'sizeZ' at the specified layer.
-int calcRequiredBuf(Layer *layer, int areaX, int areaZ);
 
-// Sets the world seed for the generator
+/* Sets the world seed for the generator */
 void applySeed(LayerStack *g, int64_t seed);
 
-/*
- * genArea
- * -------
- * Generates the specified area using the current generator settings and stores the biomeIDs in 'out'.
+/* Generates the specified area using the current generator settings and stores
+ * the biomeIDs in 'out'.
  * The biomeIDs will be indexed in the form: out[x + z*areaWidth]
- * It is recommended that 'out' is allocated using allocCache() for the correct buffer size.
+ * It is recommended that 'out' is allocated using allocCache() for the correct
+ * buffer size.
  */
 void genArea(Layer *layer, int *out, int areaX, int areaZ, int areaWidth, int areaHeight);
 
