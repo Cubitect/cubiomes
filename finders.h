@@ -368,6 +368,25 @@ int isViableOceanMonumentPos(const LayerStack g, int *cache, const int blockX, c
 int isViableMansionPos(const LayerStack g, int *cache, const int blockX, const int blockZ);
 
 
+/************************* FINDING STRUCTURE PROPERTIES ************************
+ */
+
+/* chunkGenerateRnd
+ * ----------------
+ * Initialises and returns a random seed used in the (16x16) chunk generation.
+ * This random object is used for recursiveGenerate() which is responsible for
+ * generating caves, ravines, mineshafts, and virtually all other structures.
+ */
+inline static int64_t chunkGenerateRnd(const int64_t worldSeed, const int chunkX, const int chunkZ)
+{
+    int64_t rnd = worldSeed;
+    setSeed(&rnd);
+    rnd = (nextLong(&rnd) * chunkX) ^ (nextLong(&rnd) * chunkZ) ^ worldSeed;
+    setSeed(&rnd);
+    return rnd;
+}
+
+
 
 /* getBiomeRadius
  * --------------
@@ -390,6 +409,7 @@ int getBiomeRadius(
         const int *biomes,
         const int bnum,
         const int ignoreMutations);
+
 
 
 /******************************** Seed Filters *********************************

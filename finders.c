@@ -1486,6 +1486,65 @@ int isViableMansionPos(const LayerStack g, int *cache,
 }
 
 
+/* isZombieVillage
+ * ---------------
+ * Checks if the village in the given region would generate as a zombie infested
+ * village. (Minecraft 1.10+)
+ */
+int isZombieVillage(const int use113, const int64_t worldSeed, const int regionX, const int regionZ)
+{
+    Pos pos;
+    int64_t seed = worldSeed;
+
+    // get the chunk position of the village
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + VILLAGE_CONFIG.seed;
+    seed = (seed ^ 0x5DEECE66DLL);// & ((1LL << 48) - 1);
+
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
+    pos.x = (seed >> 17) % VILLAGE_CONFIG.chunkRange;
+
+    seed = (seed * 0x5DEECE66DLL + 0xBLL) & 0xffffffffffff;
+    pos.z = (seed >> 17) % VILLAGE_CONFIG.chunkRange;
+
+    pos.x += regionX * VILLAGE_CONFIG.regionSize;
+    pos.z += regionZ * VILLAGE_CONFIG.regionSize;
+
+    // jump to the random number check that determines whether this is village
+    // is zombie infested
+    int64_t rnd = chunkGenerateRnd(worldSeed, pos.x , pos.z);
+    skipNextN(&rnd, use113 ? 10 : 11);
+
+    return nextInt(&rnd, 50) == 0;
+}
+
+/* isBabyZombieVillage
+ * -------------------
+ * Checks if the village in the given region would generate as a baby zombie
+ * village. (The fact that these exist could be regarded as a bug.)
+ * (Minecraft 1.12+)
+ */
+int isBabyZombieVillage(const int use113, const int64_t worldSeed, const int regionX, const int regionZ)
+{
+    if(!isZombieVillage(use113, worldSeed, regionX, regionZ))
+        return 0;
+
+    // Whether the zombie is a child or not is dependent on the world random
+    // object which is not reset for villages. The last reset is instead
+    // performed during the positioning of Mansions.
+    int64_t rnd = worldSeed;
+    rnd = regionX*341873128712 + regionZ*132897987541 + rnd + MANSION_CONFIG.seed;
+    setSeed(&rnd);
+    skipNextN(&rnd, 5);
+
+    int isChild = nextFloat(&rnd) < 0.05;
+    //int mountNearbyChicken = nextFloat(&rnd) < 0.05;
+    //int spawnNewChicken = nextFloat(&rnd) < 0.05;
+
+    return isChild;
+}
+
+
+
 
 /* getBiomeRadius
  * --------------
