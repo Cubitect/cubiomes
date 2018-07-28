@@ -21,6 +21,7 @@ typedef struct {
     char pngfn[256];
     int width;
     int height;
+    int imageScale;
     int iconScale;
     int hutScale;
     int desertScale;
@@ -52,6 +53,7 @@ void usage() {
     fprintf(stderr, "    --filename=<string>\n");
     fprintf(stderr, "    --width=<integer>\n");
     fprintf(stderr, "    --height=<integer>\n");
+    fprintf(stderr, "    --image_scale=<integer>\n");
     fprintf(stderr, "    --icon_scale=<integer>\n");
     fprintf(stderr, "    --hut_scale=<integer>\n");
     fprintf(stderr, "    --mansion_scale=<integer>\n");
@@ -98,6 +100,7 @@ MapOptions parseOptions(int argc, char *argv[]) {
         .pngfn              = "",
         .width              = DEFAULT_WIDTH,
         .height             = DEFAULT_HEIGHT,
+        .imageScale         = 1,
         .iconScale          = 1,
         .desertScale        = -1,
         .iglooScale         = -1,
@@ -128,6 +131,7 @@ MapOptions parseOptions(int argc, char *argv[]) {
             {"filename",             required_argument, NULL, 'f'},
             {"width",                required_argument, NULL, 'x'},
             {"height",               required_argument, NULL, 'z'},
+            {"image_scale",          required_argument, NULL, 'X'},
             {"icon_scale",           required_argument, NULL, 'i'},
             {"desert_scale",         required_argument, NULL, 'D'},
             {"igloo_scale",          required_argument, NULL, 'I'},
@@ -152,7 +156,7 @@ MapOptions parseOptions(int argc, char *argv[]) {
         };
         int index = 0;
         c = getopt_long(argc, argv,
-                "hs:f:x:z:i:D:I:H:W:M:S:T:V:O:K:3256789gc", longOptions, &index);
+                "hs:f:x:z:X:i:D:I:H:W:M:S:T:V:O:K:3256789gc", longOptions, &index);
         if (c == -1)
             break;
 
@@ -177,6 +181,9 @@ MapOptions parseOptions(int argc, char *argv[]) {
                 break;
             case 'z':
                 opts.height = intArg(optarg, longOptions[index].name);
+                break;
+            case 'X':
+                opts.imageScale = intArg(optarg, longOptions[index].name);
                 break;
             case 'i':
                 opts.iconScale = intArg(optarg, longOptions[index].name);
@@ -269,7 +276,7 @@ MapOptions parseOptions(int argc, char *argv[]) {
     if (opts.mansionScale == -1)
         opts.mansionScale = opts.iconScale*4;
     if (opts.monumentScale == -1)
-        opts.monumentScale = opts.iconScale*3;
+        opts.monumentScale = opts.iconScale*2;
     if (opts.spawnScale == -1)
         opts.spawnScale = opts.iconScale*3;
     if (opts.strongholdScale == -1)
@@ -386,9 +393,13 @@ void biomesToColors(
                 // I think I'm probably a tool for making this colometrically
                 // correct. I should probably make the multiplier a command
                 // line option.
-                r = linearTosRGB(sRGBToLinear(r) * 0.01);
-                g = linearTosRGB(sRGBToLinear(g) * 0.01);
-                b = linearTosRGB(sRGBToLinear(b) * 0.01);
+                float fr = sRGBToLinear(r);
+                float fg = sRGBToLinear(g);
+                float fb = sRGBToLinear(b);
+                float a = fr + fg + fb;
+                r = linearTosRGB((fr + 2*a) * 0.005);
+                g = linearTosRGB((fg + 2*a) * 0.005);
+                b = linearTosRGB((fb + 2*a) * 0.005);
             }
         }
 
@@ -529,7 +540,7 @@ void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
 }
 
 
-int addIcon(char *icon, int width, int height, Pos center, Pos pos,
+int addIcon(char *icon, int width, int height, int imageScale, Pos center, Pos pos,
         int iconWidth, int iconHeight, int scale) {
 
     // Setting scale to 0 can be used to hide an icon category.
@@ -538,12 +549,12 @@ int addIcon(char *icon, int width, int height, Pos center, Pos pos,
 
     int iconW = iconWidth*scale;
     int iconH = iconHeight*scale;
-    int realX = pos.x - center.x + width/2 - iconW/2;
-    int realZ = pos.z - center.z + height/2 - iconH/2;
+    int realX = imageScale * (pos.x - center.x + width/2) - iconW/2;
+    int realZ = imageScale * (pos.z - center.z + height/2) - iconH/2;
 
     // Just ignore icons that are off the edge of the map.
     if (realX < -iconW || realZ < -iconH ||
-            realX > width || realZ > height)
+            realX > width*imageScale || realZ > height*imageScale)
         return 0;
 
     printf("    \\( \"icon/%s.png\" -resize %d00%% \\) "
@@ -583,9 +594,11 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
     fprintf(stderr, "     Quad hut center: %6d, %6d\n", hutCenter.x, hutCenter.z);
 
     printf("convert \"%s\" -filter Point \\\n", opts.ppmfn);
+    if (opts.imageScale != 1)
+        printf("    -resize %d00%% \\\n", opts.imageScale);
     Pos spawn = getSpawn(g, cache, opts.seed);
     fprintf(stderr, "               Spawn: %6d, %6d\n", spawn.x, spawn.z);
-    addIcon("spawn", opts.width, opts.height, center, spawn,
+    addIcon("spawn", opts.width, opts.height, opts.imageScale, center, spawn,
             20, 20, opts.spawnScale);
 
     StructureConfig desertPyramid, igloo, junglePyramid, swampHut;
@@ -606,7 +619,7 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
         for (int x=tl.x; x<=br.x; x++) {
             pos = getLargeStructurePos(MONUMENT_CONFIG, opts.seed, x, z);
             if (isViableOceanMonumentPos(*g, cache, pos.x, pos.z)) {
-                addIcon("ocean_monument", opts.width, opts.height, center, pos,
+                addIcon("ocean_monument", opts.width, opts.height, opts.imageScale, center, pos,
                         20, 20, opts.monumentScale);
                 if ((z == huts.z || z == huts.z+1) && (x == huts.x || x == huts.x+1)) {
                     fprintf(stderr, "     Nearby monument: %6d, %6d (%d, %2d, %2d)\n",
@@ -617,31 +630,31 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
 
             pos = getStructurePos(VILLAGE_CONFIG, opts.seed, x, z);
             if (isViableVillagePos(*g, cache, pos.x, pos.z))
-                addIcon("village", opts.width, opts.height, center, pos,
+                addIcon("village", opts.width, opts.height, opts.imageScale, center, pos,
                         20, 26, opts.villageScale);
 
             pos = getStructurePos(desertPyramid, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == desert || biomeAt == desertHills)
-                addIcon("desert", opts.width, opts.height, center, pos,
+                addIcon("desert", opts.width, opts.height, opts.imageScale, center, pos,
                         20, 20, opts.desertScale);
 
             pos = getStructurePos(igloo, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == icePlains || biomeAt == coldTaiga)
-                addIcon("igloo", opts.width, opts.height, center, pos,
+                addIcon("igloo", opts.width, opts.height, opts.imageScale, center, pos,
                         20, 20, opts.iglooScale);
 
             pos = getStructurePos(junglePyramid, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == jungle || biomeAt == jungleHills)
-                addIcon("jungle", opts.width, opts.height, center, pos,
+                addIcon("jungle", opts.width, opts.height, opts.imageScale, center, pos,
                         20, 20, opts.jungleScale);
 
             pos = getStructurePos(swampHut, opts.seed, x, z);
             biomeAt = getBiomeAt(g, pos, cache);
             if (biomeAt == swampland) {
-                addIcon("witch", opts.width, opts.height, center, pos,
+                addIcon("witch", opts.width, opts.height, opts.imageScale, center, pos,
                         20, 26, opts.hutScale);
                 if ((z == huts.z || z == huts.z+1) && (x == huts.x || x == huts.x+1)) {
                     fprintf(stderr, "      Quad witch hut: %6d, %6d (%d, %2d, %2d)\n",
@@ -659,7 +672,7 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
                 pos = getOceanRuinPos(opts.seed, x, z);
                 biomeAt = getBiomeAt(g, pos, cache);
                 if (isOceanic(biomeAt))
-                    addIcon("ocean_ruins", opts.width, opts.height, center, pos,
+                    addIcon("ocean_ruins", opts.width, opts.height, opts.imageScale, center, pos,
                             20, 20, opts.oceanRuinScale);
             }
         }
@@ -670,7 +683,7 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
                 pos = getStructurePos(SHIPWRECK_CONFIG, opts.seed, x, z);
                 biomeAt = getBiomeAt(g, pos, cache);
                 if (isOceanic(biomeAt))
-                    addIcon("shipwreck", opts.width, opts.height, center, pos,
+                    addIcon("shipwreck", opts.width, opts.height, opts.imageScale, center, pos,
                             20, 20, opts.shipwreckScale);
             }
         }
@@ -681,7 +694,7 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
         for (int x=tl.x; x<=br.x; x++) {
             pos = getLargeStructurePos(MANSION_CONFIG, opts.seed, x, z);
             if (isViableMansionPos(*g, cache, pos.x, pos.z)) {
-                addIcon("woodland_mansion", opts.width, opts.height, center, pos,
+                addIcon("woodland_mansion", opts.width, opts.height, opts.imageScale, center, pos,
                         20, 26, opts.mansionScale);
                 fprintf(stderr, "    Woodland mansion: %6d, %6d (%d)\n",
                         pos.x, pos.z, dist(spawn, pos.x, pos.z));
@@ -693,7 +706,7 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
     findStrongholds(g, cache, strongholds, opts.seed, 0);
     for (int i=0; i<128; i++) {
         pos = strongholds[i];
-        if (addIcon("stronghold", opts.width, opts.height, center, pos,
+        if (addIcon("stronghold", opts.width, opts.height, opts.imageScale, center, pos,
                 20, 20, opts.strongholdScale)) {
             fprintf(stderr, "          Stronghold: %6d, %6d (%d)\n",
                     pos.x, pos.z, dist(spawn, pos.x, pos.z));
