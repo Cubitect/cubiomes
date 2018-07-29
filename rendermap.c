@@ -490,7 +490,7 @@ void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
     Layer *fullRes = &g->layers[g->layerNum-1];
     int *cache = allocCache(fullRes, opts.width, 256);
     unsigned char pixelBuf[opts.width*3];
-    Pos spawn = getSpawn(MC_1_13, g, cache, opts.seed);
+    Pos spawn = getSpawn((opts.use_1_12 ? MC_1_12 : MC_1_13), g, cache, opts.seed);
 
     int distances[256];
     for (int i=0; i<256; i++) distances[i] = INT_MAX;
@@ -595,7 +595,7 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
     printf("convert \"%s\" -filter Point \\\n", opts.ppmfn);
     if (opts.imageScale != 1)
         printf("    -resize %d00%% \\\n", opts.imageScale);
-    Pos spawn = getSpawn(MC_1_13, g, cache, opts.seed);
+    Pos spawn = getSpawn((opts.use_1_12 ? MC_1_12 : MC_1_13), g, cache, opts.seed);
     fprintf(stderr, "               Spawn: %6d, %6d\n", spawn.x, spawn.z);
     addIcon("spawn", opts.width, opts.height, opts.imageScale, center, spawn,
             20, 20, opts.spawnScale);
@@ -702,7 +702,7 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
     }
 
     Pos strongholds[128];
-    findStrongholds(MC_1_13, g, cache, strongholds, opts.seed, 128, 0);
+    findStrongholds((opts.use_1_12 ? MC_1_12 : MC_1_13), g, cache, strongholds, opts.seed, 0, 0);
     for (int i=0; i<128; i++) {
         pos = strongholds[i];
         if (addIcon("stronghold", opts.width, opts.height, opts.imageScale, center, pos,
@@ -744,7 +744,7 @@ int main(int argc, char *argv[]) {
 
     fprintf(stderr, "======================================="
             "======================================\n");
-    fprintf(stderr, "Writing %dx%d map for seed %ld...\n", opts.width, opts.height, opts.seed);
+    fprintf(stderr, "Writing %dx%d map for seed %"PRId64"...\n", opts.width, opts.height, opts.seed);
     fprintf(stderr, "======================================="
             "======================================\n");
 

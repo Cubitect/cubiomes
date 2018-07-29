@@ -16,7 +16,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-
 int DEBUG = 0;
 
 void debug(char *msg) {
@@ -63,7 +62,7 @@ typedef struct {
     int precalculated;
     int threads;
     int verbose;
-    char outputDir[256];
+    char outputDir[240];
     int append;
     char baseSeedsFile[256];
 
@@ -520,8 +519,8 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 break;
             case 's':
                 if (strcmp(optarg, "random") == 0) {
-                    int64_t lower = rand() & 0xffffffff;
-                    int64_t upper = rand() & 0xffff;
+                    int64_t lower = (rand() ^ (rand() << 16)) & 0xffffffff;
+                    int64_t upper = (rand() ^ (rand() << 16)) & 0xffff;
                     opts.startSeed = (upper << 32) + lower;
                 } else {
                     opts.startSeed = parseHumanArgument(
@@ -547,7 +546,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                     fprintf(stderr, "Output path too long.");
                     exit(-1);
                 }
-                strncpy(opts.outputDir, optarg, 256);
+                strncpy(opts.outputDir, optarg, sizeof(opts.outputDir));
                 int len = strlen(opts.outputDir);
                 if (opts.outputDir[len-1] == '/')
                     opts.outputDir[len-1] = 0;
@@ -782,7 +781,7 @@ int hasStronghold(LayerStack *g, int *cache, int64_t seed, int maxDistance, Pos 
     // Quit searching strongholds in outer rings; include a fudge factor.
     int maxRadius = (int)round(sqrt(cx*cx + cz*cz)) + maxDistance + 16;
 
-    int count = findStrongholds(MC_1_13, g, cache, strongholds, seed, 128, maxRadius);
+    int count = findStrongholds(MC_1_13, g, cache, strongholds, seed, 0, maxRadius);
 
     for (int i=0; i<count; i++) {
         int dx = strongholds[i].x - cx;
@@ -917,7 +916,7 @@ int hasPlentifulBiome(int *cache, const SearchOptions *opts) {
 
 
 SearchCaches preallocateCaches(const LayerStack *g, const SearchOptions *opts) {
-    SearchCaches cache = {NULL, NULL, NULL, NULL, NULL, NULL};
+    SearchCaches cache = {NULL, NULL, NULL, NULL, NULL};
 
     // 1:256 and 1:1 layer caches for checking a single value.
     cache.filter = allocCache(&g->layers[L_BIOME_256], 3, 3);
@@ -1103,7 +1102,7 @@ void *searchExistingSeedsThread(void *data) {
                         int elapsed = time(NULL) - start;
                         int seedRate = perBase / (elapsed ? elapsed : 1);
                         fprintf(stderr,
-                                "Base seed %15ld (thread %2d): %5d hits, %d seeds/sec/thread\n",
+                                "Base seed %15"PRId64" (thread %2d): %5d hits, %d seeds/sec/thread\n",
                                 lastbase, info.thread, hits, seedRate);
                     }
                     start = time(NULL);
@@ -1140,9 +1139,9 @@ void *searchExistingSeedsThread(void *data) {
                 continue;
 
             if (opts.verbose)
-                fprintf(fh, "%ld (%d, %d) (base: %ld)\n", seed, hutCenter(rX), hutCenter(rZ), base);
+                fprintf(fh, "%"PRId64" (%d, %d) (base: %"PRId64")\n", seed, hutCenter(rX), hutCenter(rZ), base);
             else
-                fprintf(fh, "%ld\n", seed);
+                fprintf(fh, "%"PRId64"\n", seed);
             hits++;
         }
     }
@@ -1340,9 +1339,9 @@ void *searchQuadHutsThread(void *data) {
                         continue;
 
                     if (opts.verbose)
-                        fprintf(fh, "%ld (%d, %d) (base: %ld)\n", seed, hutCenter(rX), hutCenter(rZ), base);
+                        fprintf(fh, "%"PRId64" (%d, %d) (base: %"PRId64")\n", seed, hutCenter(rX), hutCenter(rZ), base);
                     else
-                        fprintf(fh, "%ld\n", seed);
+                        fprintf(fh, "%"PRId64"\n", seed);
                     hits++;
                     basehits++;
                 }
@@ -1352,7 +1351,7 @@ void *searchQuadHutsThread(void *data) {
         int elapsed = time(NULL) - start;
         int seedRate = perBase / (elapsed ? elapsed : 1);
         fprintf(stderr,
-                "Base seed %15ld (thread %2d): %5d hits, %d seeds/sec/thread\n",
+                "Base seed %15"PRId64" (thread %2d): %5d hits, %d seeds/sec/thread\n",
                 info.qhcandidates[i], info.thread, basehits, seedRate);
     }
 
@@ -1402,7 +1401,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Reading precalculated seeds from files");
     } else {
         fprintf(stderr,
-                "Searching base seeds %ld-%ld", opts.startSeed, opts.endSeed);
+                "Searching base seeds %"PRId64"-%"PRId64, opts.startSeed, opts.endSeed);
     }
     fprintf(stderr, ", radius %d, using %d threads...\n", opts.radius, opts.threads);
     if (*opts.outputDir) {
