@@ -745,7 +745,7 @@ int main(int argc, char *argv[]) {
 
     fprintf(stderr, "======================================="
             "======================================\n");
-    fprintf(stderr, "Writing %dx%d map for seed %ld...\n", opts.width, opts.height, opts.seed);
+    fprintf(stderr, "Writing %dx%d map for seed %"PRId64"...\n", opts.width, opts.height, opts.seed);
     fprintf(stderr, "======================================="
             "======================================\n");
 
