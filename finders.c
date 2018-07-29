@@ -916,12 +916,12 @@ int areBiomesViable(
     int i;
     int *map;
 
-    Layer *layer = &g.layers[L_RIVER_MIX_4];
+    Layer *layer = &g.layers[g.layerNum-2];
 
     if (layer->scale != 4)
     {
         printf("WARN areBiomesViable: The generator has unexpected scale %d at layer %d.\n",
-                layer->scale, L_RIVER_MIX_4);
+                layer->scale, g.layerNum-2);
     }
 
     map = cache ? cache : allocCache(layer, width, height);
