@@ -464,8 +464,8 @@ Pos findQuadRegions(int64_t seed, int radius) {
     for (rZ = -radius-1; rZ < radius; rZ++) {
         for (rX = -radius-1; rX < radius; rX++) {
             int64_t translated = moveStructure(seed, -rX, -rZ);
-            if (isQuadFeatureBase(
-                    SWAMP_HUT_CONFIG.seed, translated, 1, 22))
+            if (isQuadBase(
+                    SWAMP_HUT_CONFIG, translated, 1))
                 return (Pos){rX, rZ};
         }
     }
@@ -491,7 +491,7 @@ void writeMap(MapOptions opts, LayerStack *g, FILE *fp) {
     Layer *fullRes = &g->layers[g->layerNum-1];
     int *cache = allocCache(fullRes, opts.width, 256);
     unsigned char pixelBuf[opts.width*3];
-    Pos spawn = getSpawn(g, cache, opts.seed);
+    Pos spawn = getSpawn((opts.use_1_12 ? MC_1_12 : MC_1_13), g, cache, opts.seed);
 
     int distances[256];
     for (int i=0; i<256; i++) distances[i] = INT_MAX;
@@ -596,7 +596,7 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
     printf("convert \"%s\" -filter Point \\\n", opts.ppmfn);
     if (opts.imageScale != 1)
         printf("    -resize %d00%% \\\n", opts.imageScale);
-    Pos spawn = getSpawn(g, cache, opts.seed);
+    Pos spawn = getSpawn((opts.use_1_12 ? MC_1_12 : MC_1_13), g, cache, opts.seed);
     fprintf(stderr, "               Spawn: %6d, %6d\n", spawn.x, spawn.z);
     addIcon("spawn", opts.width, opts.height, opts.imageScale, center, spawn,
             20, 20, opts.spawnScale);
@@ -669,7 +669,7 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
         regionify(center, opts.width, opts.height, OCEAN_RUIN_CONFIG.regionSize, &tl, &br);
         for (int z=tl.z; z<=br.z; z++) {
             for (int x=tl.x; x<=br.x; x++) {
-                pos = getOceanRuinPos(opts.seed, x, z);
+                pos = getStructurePos(OCEAN_RUIN_CONFIG, opts.seed, x, z);
                 biomeAt = getBiomeAt(g, pos, cache);
                 if (isOceanic(biomeAt))
                     addIcon("ocean_ruins", opts.width, opts.height, opts.imageScale, center, pos,
@@ -703,7 +703,7 @@ void printCompositeCommand(MapOptions opts, LayerStack *g) {
     }
 
     Pos strongholds[128];
-    findStrongholds(g, cache, strongholds, opts.seed, 0);
+    findStrongholds((opts.use_1_12 ? MC_1_12 : MC_1_13), g, cache, strongholds, opts.seed, 0, 0);
     for (int i=0; i<128; i++) {
         pos = strongholds[i];
         if (addIcon("stronghold", opts.width, opts.height, opts.imageScale, center, pos,

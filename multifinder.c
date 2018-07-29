@@ -646,7 +646,7 @@ int64_t* getBaseSeeds(int64_t *qhcount, int threads, const char *seedFileName) {
         fprintf(stderr, "Seed base file does not exist: Creating new one.\n"
                 "This may take a few minutes...\n");
         int quality = 1;
-        search4QuadBases(seedFileName, threads, SWAMP_HUT_CONFIG.seed, quality);
+        search4QuadBases(seedFileName, threads, SWAMP_HUT_CONFIG, quality);
     }
 
     return loadSavedSeeds(seedFileName, qhcount);
@@ -782,7 +782,7 @@ int hasStronghold(LayerStack *g, int *cache, int64_t seed, int maxDistance, Pos 
     // Quit searching strongholds in outer rings; include a fudge factor.
     int maxRadius = (int)round(sqrt(cx*cx + cz*cz)) + maxDistance + 16;
 
-    int count = findStrongholds(g, cache, strongholds, seed, maxRadius);
+    int count = findStrongholds(MC_1_13, g, cache, strongholds, seed, 0, maxRadius);
 
     for (int i=0; i<count; i++) {
         int dx = strongholds[i].x - cx;
@@ -958,7 +958,7 @@ int biomeChecks(const SearchOptions *opts, SearchCaches *cache, Generators *gen,
         return 1;
 
     debug("Biome checks.");
-    Pos spawn = getSpawn(&gen->g, cache->structure, seed);
+    Pos spawn = getSpawn(MC_1_13, &gen->g, cache->structure, seed);
 
     if (opts->spawnBiomes
             && !hasSpawnBiome(gen->layer16, cache->spawnArea, spawn, opts->spawnBiomes))
@@ -1089,8 +1089,8 @@ void *searchExistingSeedsThread(void *data) {
                 for (rZ = -opts.hutRadius-1; rZ < opts.hutRadius; rZ++) {
                     for (rX = -opts.hutRadius-1; rX < opts.hutRadius; rX++) {
                         translated = moveStructure(seed, -rX, -rZ);
-                        if ((foundquad = isQuadFeatureBase(
-                                SWAMP_HUT_CONFIG.seed, translated, 1, 22)))
+                        if ((foundquad = isQuadBase(
+                                SWAMP_HUT_CONFIG, translated, 1)))
                             break;
                     }
                     if (foundquad)
