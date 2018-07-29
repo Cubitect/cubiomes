@@ -917,7 +917,7 @@ int hasPlentifulBiome(int *cache, const SearchOptions *opts) {
 
 
 SearchCaches preallocateCaches(const LayerStack *g, const SearchOptions *opts) {
-    SearchCaches cache = {NULL, NULL, NULL, NULL, NULL, NULL};
+    SearchCaches cache = {NULL, NULL, NULL, NULL, NULL};
 
     // 1:256 and 1:1 layer caches for checking a single value.
     cache.filter = allocCache(&g->layers[L_BIOME_256], 3, 3);
