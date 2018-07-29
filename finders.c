@@ -1079,11 +1079,47 @@ int findStrongholds(const int mcversion, LayerStack *g, int *cache,
 }
 
 
-
-/* TODO: Estimate whether the given positions could be spawn based on biomes. */
-static int canCoordinateBeSpawn(LayerStack *g, int *cache, Pos pos)
+static double getGrassProbability(int64_t seed, int biome, int x, int z)
 {
-    return 1;
+    // TODO: Use ChunkGeneratorOverworld.generateHeightmap for better estimate.
+    // TODO: Try to determine the actual probabilities and build a statistic.
+    switch (biome)
+    {
+    case plains:            return 1.0;
+    case extremeHills:      return 0.8; // height dependent
+    case forest:            return 1.0;
+    case taiga:             return 1.0;
+    case swampland:         return 0.6; // height dependent
+    case river:             return 0.2;
+    case beach:             return 0.1;
+    case forestHills:       return 1.0;
+    case taigaHills:        return 1.0;
+    case extremeHillsEdge:  return 1.0; // height dependent
+    case jungle:            return 1.0;
+    case jungleHills:       return 1.0;
+    case jungleEdge:        return 1.0;
+    case birchForest:       return 1.0;
+    case birchForestHills:  return 1.0;
+    case roofedForest:      return 0.9;
+    case coldTaiga:         return 0.1; // below trees
+    case coldTaigaHills:    return 0.1; // below trees
+    case megaTaiga:         return 0.6;
+    case megaTaigaHills:    return 0.6;
+    case extremeHillsPlus:  return 0.2; // height dependent
+    case savanna:           return 1.0;
+    case savannaPlateau:    return 1.0;
+    case mesaPlateau_F:     return 0.1; // height dependent
+    case mesaPlateau:       return 0.1; // height dependent
+    // NOTE: in rare circumstances you can get also get grass islands that are
+    // completely ocean variants...
+    default: return 0;
+    }
+}
+
+static int canCoordinateBeSpawn(const int64_t seed, LayerStack *g, int *cache, Pos pos)
+{
+    int biome = getBiomeAtPos(*g, pos);
+    return getGrassProbability(seed, biome, pos.x, pos.z) >= 0.5;
 }
 
 static int* getValidSpawnBiomes()
@@ -1140,7 +1176,7 @@ Pos getSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed)
                     for (int i3 = cz; i3 <= cz+15; i3++)
                     {
                         Pos pos = {i2, i3};
-                        if (canCoordinateBeSpawn(g, cache, pos))
+                        if (canCoordinateBeSpawn(worldSeed, g, cache, pos))
                         {
                             return pos;
                         }
@@ -1160,7 +1196,7 @@ Pos getSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed)
     }
     else
     {
-        for (i = 0; i < 1000 && !canCoordinateBeSpawn(g, cache, spawn); i++)
+        for (i = 0; i < 1000 && !canCoordinateBeSpawn(worldSeed, g, cache, spawn); i++)
         {
             spawn.x += nextInt(&worldSeed, 64) - nextInt(&worldSeed, 64);
             spawn.z += nextInt(&worldSeed, 64) - nextInt(&worldSeed, 64);
