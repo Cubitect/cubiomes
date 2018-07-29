@@ -63,7 +63,7 @@ typedef struct {
     int precalculated;
     int threads;
     int verbose;
-    char outputDir[256];
+    char outputDir[240];
     int append;
     char baseSeedsFile[256];
 
@@ -547,7 +547,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                     fprintf(stderr, "Output path too long.");
                     exit(-1);
                 }
-                strncpy(opts.outputDir, optarg, 256);
+                strncpy(opts.outputDir, optarg, sizeof(opts.outputDir));
                 int len = strlen(opts.outputDir);
                 if (opts.outputDir[len-1] == '/')
                     opts.outputDir[len-1] = 0;
