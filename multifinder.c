@@ -781,7 +781,6 @@ int hasStronghold(LayerStack *g, int *cache, int64_t seed, int maxDistance, Pos 
     // Quit searching strongholds in outer rings; include a fudge factor.
     int maxRadius = (int)round(sqrt(cx*cx + cz*cz)) + maxDistance + 16;
 
-    // TODO: Update tests for this change.
     int count = findStrongholds(MC_1_13, g, cache, strongholds, seed, 0, maxRadius);
 
     for (int i=0; i<count; i++) {
@@ -958,7 +957,6 @@ int biomeChecks(const SearchOptions *opts, SearchCaches *cache, Generators *gen,
         return 1;
 
     debug("Biome checks.");
-    // TODO: Update tests for this change.
     Pos spawn = getSpawn(MC_1_13, &gen->g, cache->structure, seed, 1);
 
     if (opts->spawnBiomes
