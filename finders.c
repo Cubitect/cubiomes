@@ -1139,7 +1139,7 @@ static int* getValidSpawnBiomes()
 }
 
 
-Pos getSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed)
+Pos getSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed, int fast)
 {
     const int *isSpawnBiome = getValidSpawnBiomes();
     Pos spawn;
@@ -1155,6 +1155,9 @@ Pos getSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed)
         //printf("Unable to find spawn biome.\n");
         spawn.x = spawn.z = 8;
     }
+
+    if (fast)
+        return spawn;
 
     if (mcversion >= MC_1_13)
     {

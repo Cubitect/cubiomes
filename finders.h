@@ -323,8 +323,9 @@ int findStrongholds(
  * @g         : generator layer stack [worldSeed should be applied before call!]
  * @cache     : biome buffer, set to NULL for temporary allocation
  * @worldSeed : world seed used for the generator
+ * @fast      : skip slow checks if initial efforts to find spawn biomes fails
  */
-Pos getSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed);
+Pos getSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed, int fast);
 
 
 
