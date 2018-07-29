@@ -520,8 +520,8 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 break;
             case 's':
                 if (strcmp(optarg, "random") == 0) {
-                    int64_t lower = rand() & 0xffffffff;
-                    int64_t upper = rand() & 0xffff;
+                    int64_t lower = (rand() ^ (rand() << 16)) & 0xffffffff;
+                    int64_t upper = (rand() ^ (rand() << 16)) & 0xffff;
                     opts.startSeed = (upper << 32) + lower;
                 } else {
                     opts.startSeed = parseHumanArgument(
