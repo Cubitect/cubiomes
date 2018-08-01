@@ -8,6 +8,7 @@
 #include "finders.h"
 #include "generator.h"
 
+
 #define SEED_BUF_LEN 0x10000
 
 
@@ -16,7 +17,12 @@ struct compactinfo_t
     int64_t seedStart, seedEnd;
 };
 
-void *searchCompactBiomesThread(void *data)
+
+#ifdef USE_PTHREAD
+static void *searchCompactBiomesThread(void *data)
+#else
+static DWORD WINAPI searchCompactBiomesThread(LPVOID data)
+#endif
 {
     struct compactinfo_t info = *(struct compactinfo_t *)data;
 
@@ -26,15 +32,15 @@ void *searchCompactBiomesThread(void *data)
     LayerStack g = setupGenerator(MC_1_7);
     int *cache = allocCache(&g.layers[L_BIOME_256], 8, 8);
 
-    for(s = info.seedStart; s < info.seedEnd; s += SEED_BUF_LEN)
+    for (s = info.seedStart; s < info.seedEnd; s += SEED_BUF_LEN)
     {
-        if(s + SEED_BUF_LEN > info.seedEnd)
+        if (s + SEED_BUF_LEN > info.seedEnd)
             scnt = info.seedEnd - s;
         else
             scnt = SEED_BUF_LEN;
 
 
-        for(i = 0; i < scnt; i++)
+        for (i = 0; i < scnt; i++)
         {
             seeds[i] = s + i;
         }
@@ -44,7 +50,7 @@ void *searchCompactBiomesThread(void *data)
         // The biomes really shouldn't be further out than 1024 blocks.
         scnt = filterAllMajorBiomes(&g, cache, seeds, seeds, scnt, -4, -4, 8, 8);
 
-        for(i = 0; i < scnt; i++)
+        for (i = 0; i < scnt; i++)
         {
             printf("%"PRId64"\n", seeds[i]);
         }
@@ -53,7 +59,10 @@ void *searchCompactBiomesThread(void *data)
 
     free(seeds);
 
-    return NULL;
+#ifdef USE_PTHREAD
+    pthread_exit(NULL);
+#endif
+    return 0;
 }
 
 
@@ -64,16 +73,16 @@ int main(int argc, char *argv[])
     int64_t seedStart, seedEnd;
     unsigned int threads, t;
 
-    if(argc <= 1 || sscanf(argv[1], "%"PRId64, &seedStart) != 1) seedStart = 0;
-    if(argc <= 2 || sscanf(argv[2], "%"PRId64, &seedEnd) != 1) seedEnd = 100000000LL;
-    if(argc <= 3 || sscanf(argv[3], "%u", &threads) != 1) threads = 1;
+    if (argc <= 1 || sscanf(argv[1], "%"PRId64, &seedStart) != 1) seedStart = 0;
+    if (argc <= 2 || sscanf(argv[2], "%"PRId64, &seedEnd) != 1) seedEnd = 100000000LL;
+    if (argc <= 3 || sscanf(argv[3], "%u", &threads) != 1) threads = 1;
 
     printf("Starting search through seeds %"PRId64 " to %"PRId64", using %u threads.\n", seedStart, seedEnd, threads);
 
-    pthread_t threadID[threads];
+    thread_id_t threadID[threads];
     struct compactinfo_t info[threads];
 
-    for(t = 0; t < threads; t++)
+    for (t = 0; t < threads; t++)
     {
         int64_t seedCnt = (seedEnd - seedStart) / threads;
         info[t].seedStart = seedStart + seedCnt * t;
@@ -81,15 +90,28 @@ int main(int argc, char *argv[])
     }
     info[threads-1].seedEnd = seedEnd;
 
-    for(t = 0; t < threads; t++)
+#ifdef USE_PTHREAD
+
+    for (t = 0; t < threads; t++)
     {
         pthread_create(&threadID[t], NULL, searchCompactBiomesThread, (void*)&info[t]);
     }
 
-    for(t = 0; t < threads; t++)
+    for (t = 0; t < threads; t++)
     {
         pthread_join(threadID[t], NULL);
     }
+
+#else
+
+    for (t = 0; t < threads; t++)
+    {
+        threadID[t] = CreateThread(NULL, 0, searchCompactBiomesThread, (LPVOID)&info[t], 0, NULL);
+    }
+
+    WaitForMultipleObjects(threads, threadID, TRUE, INFINITE);
+
+#endif
 
     return 0;
 }

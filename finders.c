@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <pthread.h>
 #include <stdlib.h>
 #include <math.h>
 
@@ -488,8 +487,11 @@ int countBlocksInSpawnRange(Pos p[4], const int ax, const int ay, const int az)
     return best;
 }
 
-
+#ifdef USE_PTHREAD
 static void *search4QuadBasesThread(void *data)
+#else
+static DWORD WINAPI search4QuadBasesThread(LPVOID data)
+#endif
 {
     quad_threadinfo_t info = *(quad_threadinfo_t*)data;
 
@@ -595,14 +597,17 @@ static void *search4QuadBasesThread(void *data)
     fclose(fp);
     free(lowerBits);
 
-    return NULL;
+#ifdef USE_PTHREAD
+    pthread_exit(NULL);
+#endif
+    return 0;
 }
 
 
 void search4QuadBases(const char *fnam, const int threads,
         const StructureConfig structureConfig, const int quality)
 {
-    pthread_t threadID[threads];
+    thread_id_t threadID[threads];
     quad_threadinfo_t info[threads];
     int64_t t;
 
@@ -616,6 +621,9 @@ void search4QuadBases(const char *fnam, const int threads,
         info[t].sconf = structureConfig;
     }
 
+
+#ifdef USE_PTHREAD
+
     for (t = 0; t < threads; t++)
     {
         pthread_create(&threadID[t], NULL, search4QuadBasesThread, (void*)&info[t]);
@@ -625,6 +633,19 @@ void search4QuadBases(const char *fnam, const int threads,
     {
         pthread_join(threadID[t], NULL);
     }
+
+#else
+
+    for (t = 0; t < threads; t++)
+    {
+        threadID[t] = CreateThread(NULL, 0, search4QuadBasesThread, (LPVOID)&info[t], 0, NULL);
+    }
+
+    WaitForMultipleObjects(threads, threadID, TRUE, INFINITE);
+
+#endif
+
+
 
     // merge thread parts
 

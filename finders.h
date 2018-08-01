@@ -4,8 +4,20 @@
 #include "generator.h"
 #include <stdio.h>
 #include <string.h>
-#include <pthread.h>
 #include <stdlib.h>
+
+#ifdef _WIN32
+#include <Windows.h>
+
+typedef HANDLE thread_id_t;
+
+#else
+#define USE_PTHREAD
+#include <pthread.h>
+
+typedef pthread_t thread_id_t;
+
+#endif
 
 
 #define SEED_BASE_MAX (1LL << 48)

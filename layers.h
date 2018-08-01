@@ -46,7 +46,7 @@ enum BiomeType
 
 enum BiomeTempCategory
 {
-    Oceanic, Warm, Lush, Cold, Freezing, Unknown
+    Oceanic, Warm, Lush, Cold, Freezing, UnknownTemp
 };
 
 
