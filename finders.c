@@ -1207,6 +1207,25 @@ Pos getSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed)
 }
 
 
+Pos estimateSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed)
+{
+    const int *isSpawnBiome = getValidSpawnBiomes();
+    Pos spawn;
+    int found;
+
+    setSeed(&worldSeed);
+    spawn = findBiomePosition(mcversion, *g, cache, 0, 0, 256, isSpawnBiome,
+            &worldSeed, &found);
+
+    if (!found)
+    {
+        spawn.x = spawn.z = 8;
+    }
+
+    return spawn;
+}
+
+
 
 //==============================================================================
 // Validating Structure Positions
@@ -1362,6 +1381,24 @@ int isBabyZombieVillage(const int mcversion, const int64_t worldSeed,
 }
 
 
+int64_t getHouseList(const int64_t worldSeed, const int chunkX, const int chunkZ,
+        int *out)
+{
+    int64_t rnd = chunkGenerateRnd(worldSeed, chunkX, chunkZ);
+    skipNextN(&rnd, 1);
+
+    out[HouseSmall] = nextInt(&rnd, 4 - 2 + 1) + 2;
+    out[Church]     = nextInt(&rnd, 1 - 0 + 1) + 0;
+    out[Library]    = nextInt(&rnd, 2 - 0 + 1) + 0;
+    out[WoodHut]    = nextInt(&rnd, 5 - 2 + 1) + 2;
+    out[Butcher]    = nextInt(&rnd, 2 - 0 + 1) + 0;
+    out[FarmLarge]  = nextInt(&rnd, 4 - 1 + 1) + 1;
+    out[FarmSmall]  = nextInt(&rnd, 4 - 2 + 1) + 2;
+    out[Blacksmith] = nextInt(&rnd, 1 - 0 + 1) + 0;
+    out[HouseLarge] = nextInt(&rnd, 3 - 0 + 1) + 0;
+
+    return rnd;
+}
 
 //==============================================================================
 // Seed Filters

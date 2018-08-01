@@ -14,12 +14,20 @@
 #define LARGE_STRUCT 1
 #define USE_POW2_RNG 2
 
-enum {
+enum
+{
     Desert_Pyramid, Igloo, Jungle_Pyramid, Swamp_Hut,
     Village, Ocean_Ruin, Shipwreck, Monument, Mansion
 };
 
-STRUCT(StructureConfig) {
+enum
+{
+    HouseSmall, Church, Library, WoodHut, Butcher, FarmLarge, FarmSmall,
+    Blacksmith, HouseLarge, HOUSE_NUM
+};
+
+STRUCT(StructureConfig)
+{
     int64_t seed;
     int regionSize, chunkRange;
     int properties;
@@ -326,6 +334,14 @@ int findStrongholds(
  */
 Pos getSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed);
 
+/* Finds the approximate spawn point in the world.
+ *
+ * @mcversion : Minecraft version (changed in 1.7, 1.13)
+ * @g         : generator layer stack [worldSeed should be applied before call!]
+ * @cache     : biome buffer, set to NULL for temporary allocation
+ * @worldSeed : world seed used for the generator
+ */
+Pos estimateSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed);
 
 
 //==============================================================================
@@ -400,11 +416,21 @@ int isZombieVillage(const int mcversion, const int64_t worldSeed,
 
 /* Checks if the village in the given region would generate as a baby zombie
  * village. (The fact that these exist could be regarded as a bug.)
- * (Minecraft 1.12+)
+ * (Minecraft 1.12)
  */
 int isBabyZombieVillage(const int mcversion, const int64_t worldSeed,
         const int regionX, const int regionZ);
 
+/* Finds the number of each type of house that generate in a village.
+ * @worldSeed      : world seed
+ * @chunkX, chunkZ : 16x16 chunk position of the village origin
+ * @housesOut      : output number of houses for each entry in the house type
+ *                   enum (i.e this should be an array of length HOUSE_NUM)
+ *
+ * Returns the random object seed after finding these numbers.
+ */
+int64_t getHouseList(const int64_t worldSeed, const int chunkX, const int chunkZ,
+        int *housesOut);
 
 
 //==============================================================================
@@ -420,7 +446,7 @@ int isBabyZombieVillage(const int mcversion, const int64_t worldSeed,
  * @seedsIn      : list of seeds to check
  * @seedsOut     : output buffer for the candidate seeds
  * @seedCnt      : number of seeds in 'seedsIn'
- * qcentX, centZ : search origin centre (in 1024 block units)
+ * @centX, centZ : search origin centre (in 1024 block units)
  *
  * Returns the number of found candidates.
  */
