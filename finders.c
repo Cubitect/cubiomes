@@ -1714,6 +1714,8 @@ BiomeFilter setupBiomeFilter(const int *biomeList, int listLen)
             bf.biomesToFind |= (1ULL << id);
             break;
         default:
+            bf.biomesToFind |= (1ULL << id);
+
             if (isOceanic(id))
             {
                 if (id != ocean && id != deepOcean)
@@ -1722,7 +1724,6 @@ BiomeFilter setupBiomeFilter(const int *biomeList, int listLen)
                 if (isShallowOcean(id))
                 {
                     bf.oceansToFind |= (1ULL < id);
-                    bf.biomesToFind |= (1ULL < ocean);
                 }
                 else
                 {
@@ -1736,8 +1737,6 @@ BiomeFilter setupBiomeFilter(const int *biomeList, int listLen)
                         bf.oceansToFind |= (1ULL << coldOcean);
                     else if (id == frozenDeepOcean)
                         bf.oceansToFind |= (1ULL << frozenOcean);
-
-                    bf.biomesToFind |= (1ULL << deepOcean);
                 }
                 bf.tempCat |= (1ULL << Oceanic);
             }
@@ -2056,7 +2055,8 @@ int64_t checkForBiomes(
             else potential |= (1ULL << id);
         }
 
-        if ((potential & filter.biomesToFind) ^ filter.biomesToFind)
+        required = filter.biomesToFind;
+        if ((potential & required) ^ required)
         {
             goto return_zero;
         }
