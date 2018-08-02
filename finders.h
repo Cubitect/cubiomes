@@ -107,10 +107,12 @@ STRUCT(BiomeFilter)
     int doShroomAndTempCheck;
     // early check for 1.13 ocean types (1:256)
     int doOceanTypeCheck;
-
+    //
     int doMajorBiomeCheck;
     // pre-generation biome checks in layer L_BIOME_256
     int checkBiomePotential;
+    //
+    int doScale4Check;
 };
 
 

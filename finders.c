@@ -1762,6 +1762,7 @@ BiomeFilter setupBiomeFilter(const int *biomeList, int listLen)
     bf.doShroomAndTempCheck = bf.requireMushroom && (bf.tempSpecial >= 1 || bf.tempNormal >= 4);
     bf.doMajorBiomeCheck = 1;
     bf.checkBiomePotential = 1;
+    bf.doScale4Check = 1;
 
     return bf;
 }
@@ -1791,11 +1792,13 @@ int64_t checkForBiomes(
 
     int *map = cache ? cache : allocCache(&g->layers[g->layerNum-1], width, height);
 
-    uint64_t potential, required;
+    uint64_t potential, required, modified;
     int64_t ss, cs;
     int id, types[0x100];
-    int i, x, z;    int areaX1024, areaZ1024, areaWidth1024, areaHeight1024;
+    int i, x, z;
+    int areaX1024, areaZ1024, areaWidth1024, areaHeight1024;
     int areaX256, areaZ256, areaWidth256, areaHeight256;
+    int areaX4, areaZ4, areaWidth4, areaHeight4;
 
     // 1:1024 scale
     areaX1024 = blockX >> 10;
@@ -2029,7 +2032,38 @@ int64_t checkForBiomes(
         }
     }
 
-    if (minscale > 64) goto return_one;
+    // TODO: Do a check at the HILLS layer, scale 1:64
+
+    if (minscale > 4) goto return_one;
+
+    if (filter.doScale4Check)
+    {
+        // 1:4 scale
+        areaX4 = blockX >> 2;
+        areaZ4 = blockZ >> 2;
+        areaWidth4 = ((width-1) >> 2) + 2;
+        areaHeight4 = ((height-1) >> 2) + 2;
+
+        applySeed(g, seed);
+        genArea(&g->layers[g->layerNum-2], map, areaX4, areaZ4, areaWidth4, areaHeight4);
+
+        for (i = 0; i < areaWidth256 * areaHeight256; i++)
+        {
+            id = map[i];
+            if (id >= 128) modified |= (1ULL << (id & 0x7f));
+            else potential |= (1ULL << id);
+        }
+
+        if ((potential & filter.biomesToFind) ^ filter.biomesToFind)
+        {
+            goto return_zero;
+        }
+        if ((modified & filter.modifiedToFind) ^ filter.modifiedToFind)
+        {
+            goto return_zero;
+        }
+    }
+
 
     int ret;
 
@@ -2043,7 +2077,7 @@ int64_t checkForBiomes(
         ret = 0;
     }
 
-    if (!cache) free(map);
+    if (cache == NULL) free(map);
 
     return ret;
 }
