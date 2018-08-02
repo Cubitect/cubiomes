@@ -2047,7 +2047,9 @@ int64_t checkForBiomes(
         applySeed(g, seed);
         genArea(&g->layers[g->layerNum-2], map, areaX4, areaZ4, areaWidth4, areaHeight4);
 
-        for (i = 0; i < areaWidth256 * areaHeight256; i++)
+        potential = modified = 0;
+
+        for (i = 0; i < areaWidth4 * areaHeight4; i++)
         {
             id = map[i];
             if (id >= 128) modified |= (1ULL << (id & 0x7f));
