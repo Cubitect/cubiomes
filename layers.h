@@ -46,7 +46,7 @@ enum BiomeType
 
 enum BiomeTempCategory
 {
-    Oceanic, Warm, Lush, Cold, Freezing, UnknownTemp
+    Oceanic, Warm, Lush, Cold, Freezing, Special
 };
 
 
@@ -184,6 +184,34 @@ static inline int mcNextInt(Layer *layer, int mod)
     layer->chunkSeed += layer->worldSeed;
     return ret;
 }
+
+
+
+static inline int64_t processWorldSeed(register int64_t ws, const int64_t bs)
+{
+    ws *= ws * 6364136223846793005LL + 1442695040888963407LL;
+    ws += bs;
+    ws *= ws * 6364136223846793005LL + 1442695040888963407LL;
+    ws += bs;
+    ws *= ws * 6364136223846793005LL + 1442695040888963407LL;
+    ws += bs;
+    ws *= ws * 6364136223846793005LL + 1442695040888963407LL;
+    return ws;
+}
+
+static inline int64_t getChunkSeed(register int64_t ss, const int64_t x, const int64_t z)
+{
+    ss += x;
+    ss *= ss * 6364136223846793005LL + 1442695040888963407LL;
+    ss += z;
+    ss *= ss * 6364136223846793005LL + 1442695040888963407LL;
+    ss += x;
+    ss *= ss * 6364136223846793005LL + 1442695040888963407LL;
+    ss += z;
+    return ss;
+}
+
+
 
 static inline void setChunkSeed(Layer *layer, int64_t chunkX, int64_t chunkZ)
 {

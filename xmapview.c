@@ -181,7 +181,9 @@ void getBiomeColourMap(uint *colbuf, const unsigned char biomeColour[256][3],
             {
                 // This may happen for some intermediate layers
                 containsInvalidBiomes = 1;
-                r = 0; g = 0; b = 0;
+                r = biomeColour[id&0x7f][0]-40; r = (r>0xff) ? 0x00 : r&0xff;
+                g = biomeColour[id&0x7f][1]-40; g = (g>0xff) ? 0x00 : g&0xff;
+                b = biomeColour[id&0x7f][2]-40; b = (b>0xff) ? 0x00 : b&0xff;
             }
             else
             {

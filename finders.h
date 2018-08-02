@@ -60,6 +60,10 @@ static const StructureConfig SHIPWRECK_CONFIG      = {165745295, 15,  7, 0};
 static const StructureConfig MONUMENT_CONFIG       = { 10387313, 32, 27, LARGE_STRUCT};
 static const StructureConfig MANSION_CONFIG        = { 10387319, 80, 60, LARGE_STRUCT};
 
+//==============================================================================
+// Biome Tables
+//==============================================================================
+
 static const int templeBiomeList[] = {desert, desertHills, jungle, jungleHills, swampland, icePlains, coldTaiga};
 static const int biomesToSpawnIn[] = {forest, plains, taiga, taigaHills, forestHills, jungle, jungleHills};
 static const int oceanMonumentBiomeList1[] = {ocean, deepOcean, river, frozenRiver, frozenOcean, frozenDeepOcean, coldOcean, coldDeepOcean, lukewarmOcean, lukewarmDeepOcean, warmOcean, warmDeepOcean};
@@ -67,7 +71,7 @@ static const int oceanMonumentBiomeList2[] = {frozenDeepOcean, coldDeepOcean, de
 static const int villageBiomeList[] = {plains, desert, savanna, taiga};
 static const int mansionBiomeList[] = {roofedForest, roofedForest+128};
 
-static const int achievementBiomes[] =
+static const int achievementBiomes_1_7[] =
 {
         ocean, plains, desert, extremeHills, forest, taiga, swampland, river, /*hell, sky,*/ // 0-9
         /*frozenOcean,*/ frozenRiver, icePlains, iceMountains, mushroomIsland, mushroomIslandShore, beach, desertHills, forestHills, taigaHills,  // 10-19
@@ -80,6 +84,33 @@ static const int achievementBiomes[] =
 STRUCT(Pos)
 {
     int x, z;
+};
+
+STRUCT(BiomeFilter)
+{
+    // bitfield for required temperature categories, including special variants
+    uint64_t tempCat;
+    // bitfield for the required ocean types
+    uint64_t oceansToFind;
+    // bitfield of required biomes without modification bit
+    uint64_t biomesToFind;
+    // bitfield of required modified biomes
+    uint64_t modifiedToFind;
+
+    // check that there is a minimum of both special and normal temperatures
+    int tempNormal, tempSpecial;
+    // check for the temperatures specified by tempCnt (1:1024)
+    int doTempCheck;
+    // check for mushroom potential
+    int requireMushroom;
+    // combine a more detailed mushroom and temperature check (1:256)
+    int doShroomAndTempCheck;
+    // early check for 1.13 ocean types (1:256)
+    int doOceanTypeCheck;
+
+    int doMajorBiomeCheck;
+    // pre-generation biome checks in layer L_BIOME_256
+    int checkBiomePotential;
 };
 
 
@@ -497,6 +528,26 @@ int64_t filterAllMajorBiomes(
         const unsigned int  sX,
         const unsigned int  sZ
         );
+
+/* Creates a biome filter configuration from a given list of biomes.
+ */
+BiomeFilter setupBiomeFilter(const int *biomeList, int listLen);
+
+/* Tries to determine if the biomes configured in the filter will generate in
+ * this seed within the specified area. The smallest layer scale checked is
+ * given by 'minscale'. Lowering this value terminate the search earlier and
+ * yield more false positives.
+ */
+int64_t checkForBiomes(
+        LayerStack *        g,
+        int *               cache,
+        const int64_t       seed,
+        const int           blockX,
+        const int           blockZ,
+        const unsigned int  width,
+        const unsigned int  height,
+        const BiomeFilter   filter,
+        const int           minscale);
 
 
 #endif /* FINDERS_H_ */
