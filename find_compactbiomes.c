@@ -25,7 +25,7 @@ static DWORD WINAPI searchCompactBiomesThread(LPVOID data)
     {
         if(checkForBiomes(&g, cache, s,
                 -info.range, -info.range, 2*info.range, 2*info.range,
-                info.filter, 256))
+                info.filter, 1))
         {
             printf("%ld\n", s);
             fflush(stdout);
