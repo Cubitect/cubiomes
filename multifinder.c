@@ -706,7 +706,7 @@ int getBiomeAt(const LayerStack *g, const Pos pos, int *buf) {
 }
 
 
-int hutCenter(int v) {
+static inline int getHutCenter(int v) {
     // v is the north west hut region (x or z). We convert that to the
     // south east region, conver that to chunks, go north-west by 4 chunks
     // to get to the center of the quad huts, then convert to blocks.
@@ -772,11 +772,10 @@ int verifyMonuments(Generators *gen, int *cache, Monuments *mon, int rX, int rZ)
 }
 
 
-int hasStronghold(LayerStack *g, int *cache, int64_t seed, int maxDistance, Pos qhpos[4]) {
+int hasStronghold(LayerStack *g, int *cache, int64_t seed, int maxDistance, Pos hutCenter) {
     Pos strongholds[128];
-    // Approximateish center of quad hut formation.
-    int cx = (qhpos[0].x + qhpos[1].x + qhpos[2].x + qhpos[3].x) / 4;
-    int cz = (qhpos[0].z + qhpos[1].z + qhpos[2].z + qhpos[3].z) / 4;
+    int cx = hutCenter.x;
+    int cz = hutCenter.z;
 
     // Quit searching strongholds in outer rings; include a fudge factor.
     int maxRadius = (int)round(sqrt(cx*cx + cz*cz)) + maxDistance + 16;
@@ -952,28 +951,32 @@ void freeCaches(SearchCaches *cache) {
 }
 
 
-int biomeChecks(const SearchOptions *opts, SearchCaches *cache, Generators *gen, int64_t seed, int rX, int rZ) {
+int biomeChecks(const SearchOptions *opts, SearchCaches *cache, Generators *gen, int64_t seed, Pos hutCenter) {
     if (!(opts->spawnBiomes || opts->allBiomes || opts->adventureTime || opts->plentifulBiome))
         return 1;
 
     debug("Biome checks.");
-    Pos spawn = getSpawn(MC_1_13, &gen->g, cache->structure, seed, 1);
+    Pos spawn = {0, 0};
 
-    if (opts->spawnBiomes
-            && !hasSpawnBiome(gen->layer16, cache->spawnArea, spawn, opts->spawnBiomes))
-        return 0;
+    if (opts->spawnBiomes) {
+        spawn = getSpawn(MC_1_13, &gen->g, cache->structure, seed, 1);
+        if (!hasSpawnBiome(gen->layer16, cache->spawnArea, spawn, opts->spawnBiomes))
+            return 0;
+    }
 
     if (!(opts->allBiomes || opts->adventureTime || opts->plentifulBiome))
         return 1;
 
-    // These have to get yet more biome area, so very slow.
     Pos center;
     if (opts->centerAtHuts) {
-        center.x = hutCenter(rX);
-        center.z = hutCenter(rZ);
-    } else {
+        center = hutCenter;
+    } else if (opts->spawnBiomes) {
         center = spawn;
+    } else {
+        center = getSpawn(MC_1_13, &gen->g, cache->structure, seed, 1);
     }
+
+    // These have to get yet more biome area, so very slow.
     getAreaBiomes(gen->layer16, cache->res16, center, opts->biomeRadius);
 
     if (opts->plentifulBiome && !hasPlentifulBiome(cache->res16, opts))
@@ -1059,7 +1062,6 @@ void *searchExistingSeedsThread(void *data) {
     }
 
     Generators gen = setupGenerators(opts);
-    Pos qhpos[4];
     SearchCaches cache = preallocateCaches(&gen.g, &opts);
 
     for (int i=info.startIndex; i < info.fileCount; i+=opts.threads) {
@@ -1078,6 +1080,7 @@ void *searchExistingSeedsThread(void *data) {
         int rX = 0, rZ = 0;
         int hits = 0;
         time_t start = time(NULL);
+        Pos center;
         while (1) {
             seed = getNextSeed(infile);
             if (!seed) break;
@@ -1096,6 +1099,8 @@ void *searchExistingSeedsThread(void *data) {
                         break;
                 }
                 base = translated & 0xffffffffffff;
+                center.x = getHutCenter(rX);
+                center.z = getHutCenter(rZ);
 
                 if (base != lastbase) {
                     if (lastbase) {
@@ -1113,6 +1118,7 @@ void *searchExistingSeedsThread(void *data) {
                 last48 = lower48;
                 // TODO: check monument location and other last-48 bit possible
                 // checks, and if no good, just read file until lower48 changes.
+
             }
 
             debug("Other structure checks.");
@@ -1123,12 +1129,11 @@ void *searchExistingSeedsThread(void *data) {
 
             // TODO: Might be able to optimize this by skipping biome
             // checks for strongholds nowhere near the quad huts.
-            // TODO: use hutCenter here
             if (opts.strongholdDistance &&
-                    !hasStronghold(&gen.g, cache.structure, seed, opts.strongholdDistance, qhpos))
+                    !hasStronghold(&gen.g, cache.structure, seed, opts.strongholdDistance, center))
                 continue;
 
-            if (!biomeChecks(&opts, &cache, &gen, seed, rX, rZ))
+            if (!biomeChecks(&opts, &cache, &gen, seed, center))
                 continue;
 
             // This is slower than the above biome checks because they
@@ -1139,7 +1144,7 @@ void *searchExistingSeedsThread(void *data) {
                 continue;
 
             if (opts.verbose)
-                fprintf(fh, "%"PRId64" (%d, %d) (base: %"PRId64")\n", seed, hutCenter(rX), hutCenter(rZ), base);
+                fprintf(fh, "%"PRId64" (%d, %d) (base: %"PRId64")\n", seed, center.x, center.z, base);
             else
                 fprintf(fh, "%"PRId64"\n", seed);
             hits++;
@@ -1254,6 +1259,7 @@ void *searchQuadHutsThread(void *data) {
                 qhpos[2] = getStructurePos(SWAMP_HUT_CONFIG, base, 1+rX, 0+rZ);
                 qhpos[3] = getStructurePos(SWAMP_HUT_CONFIG, base, 1+rX, 1+rZ);
 
+                Pos center = {getHutCenter(rX), getHutCenter(rZ)};
                 int64_t hits = 0;
                 int64_t hutHits = 0;
 
@@ -1323,12 +1329,11 @@ void *searchQuadHutsThread(void *data) {
 
                     // TODO: Might be able to optimize this by skipping biome
                     // checks for strongholds nowhere near the quad huts.
-                    // TODO: use hutCenter here
                     if (opts.strongholdDistance &&
-                            !hasStronghold(&gen.g, cache.structure, seed, opts.strongholdDistance, qhpos))
+                            !hasStronghold(&gen.g, cache.structure, seed, opts.strongholdDistance, center))
                         continue;
 
-                    if (!biomeChecks(&opts, &cache, &gen, seed, rX, rZ))
+                    if (!biomeChecks(&opts, &cache, &gen, seed, center))
                         continue;
 
                     // This is slower than the above biome checks because they
@@ -1339,7 +1344,7 @@ void *searchQuadHutsThread(void *data) {
                         continue;
 
                     if (opts.verbose)
-                        fprintf(fh, "%"PRId64" (%d, %d) (base: %"PRId64")\n", seed, hutCenter(rX), hutCenter(rZ), base);
+                        fprintf(fh, "%"PRId64" (%d, %d) (base: %"PRId64")\n", seed, center.x, center.z, base);
                     else
                         fprintf(fh, "%"PRId64"\n", seed);
                     hits++;

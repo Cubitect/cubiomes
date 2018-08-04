@@ -75,7 +75,6 @@ echo '[91m'
 diff /tmp/multifinder_stronghold.txt test/golden_stronghold.txt
 echo '(B[m'
 
-#rm -r /tmp/multifinder*
+rm -r /tmp/multifinder*
 
-# TODO: file append
-# TODO: radii
+# TODO: precalculated
