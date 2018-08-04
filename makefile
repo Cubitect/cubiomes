@@ -1,6 +1,12 @@
 CC      = gcc
-LDFLAGS = -lm -pthread
+override LDFLAGS = -lm
 override CFLAGS += -Wall -fwrapv -march=native
+
+ifeq ($(OS),Windows_NT)
+	override CFLAGS += -D_WIN32
+else
+	override LDFLAGS += -lX11 -pthread
+endif
 
 .PHONY : all debug clean
 

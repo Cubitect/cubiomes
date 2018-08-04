@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <pthread.h>
 #include <stdlib.h>
 #include <math.h>
 
@@ -488,8 +487,11 @@ int countBlocksInSpawnRange(Pos p[4], const int ax, const int ay, const int az)
     return best;
 }
 
-
+#ifdef USE_PTHREAD
 static void *search4QuadBasesThread(void *data)
+#else
+static DWORD WINAPI search4QuadBasesThread(LPVOID data)
+#endif
 {
     quad_threadinfo_t info = *(quad_threadinfo_t*)data;
 
@@ -595,14 +597,17 @@ static void *search4QuadBasesThread(void *data)
     fclose(fp);
     free(lowerBits);
 
-    return NULL;
+#ifdef USE_PTHREAD
+    pthread_exit(NULL);
+#endif
+    return 0;
 }
 
 
 void search4QuadBases(const char *fnam, const int threads,
         const StructureConfig structureConfig, const int quality)
 {
-    pthread_t threadID[threads];
+    thread_id_t threadID[threads];
     quad_threadinfo_t info[threads];
     int64_t t;
 
@@ -616,6 +621,9 @@ void search4QuadBases(const char *fnam, const int threads,
         info[t].sconf = structureConfig;
     }
 
+
+#ifdef USE_PTHREAD
+
     for (t = 0; t < threads; t++)
     {
         pthread_create(&threadID[t], NULL, search4QuadBasesThread, (void*)&info[t]);
@@ -625,6 +633,19 @@ void search4QuadBases(const char *fnam, const int threads,
     {
         pthread_join(threadID[t], NULL);
     }
+
+#else
+
+    for (t = 0; t < threads; t++)
+    {
+        threadID[t] = CreateThread(NULL, 0, search4QuadBasesThread, (LPVOID)&info[t], 0, NULL);
+    }
+
+    WaitForMultipleObjects(threads, threadID, TRUE, INFINITE);
+
+#endif
+
+
 
     // merge thread parts
 
@@ -1210,6 +1231,25 @@ Pos getSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed, 
 }
 
 
+Pos estimateSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed)
+{
+    const int *isSpawnBiome = getValidSpawnBiomes();
+    Pos spawn;
+    int found;
+
+    setSeed(&worldSeed);
+    spawn = findBiomePosition(mcversion, *g, cache, 0, 0, 256, isSpawnBiome,
+            &worldSeed, &found);
+
+    if (!found)
+    {
+        spawn.x = spawn.z = 8;
+    }
+
+    return spawn;
+}
+
+
 
 //==============================================================================
 // Validating Structure Positions
@@ -1365,6 +1405,24 @@ int isBabyZombieVillage(const int mcversion, const int64_t worldSeed,
 }
 
 
+int64_t getHouseList(const int64_t worldSeed, const int chunkX, const int chunkZ,
+        int *out)
+{
+    int64_t rnd = chunkGenerateRnd(worldSeed, chunkX, chunkZ);
+    skipNextN(&rnd, 1);
+
+    out[HouseSmall] = nextInt(&rnd, 4 - 2 + 1) + 2;
+    out[Church]     = nextInt(&rnd, 1 - 0 + 1) + 0;
+    out[Library]    = nextInt(&rnd, 2 - 0 + 1) + 0;
+    out[WoodHut]    = nextInt(&rnd, 5 - 2 + 1) + 2;
+    out[Butcher]    = nextInt(&rnd, 2 - 0 + 1) + 0;
+    out[FarmLarge]  = nextInt(&rnd, 4 - 1 + 1) + 1;
+    out[FarmSmall]  = nextInt(&rnd, 4 - 2 + 1) + 2;
+    out[Blacksmith] = nextInt(&rnd, 1 - 0 + 1) + 0;
+    out[HouseLarge] = nextInt(&rnd, 3 - 0 + 1) + 0;
+
+    return rnd;
+}
 
 //==============================================================================
 // Seed Filters
@@ -1502,8 +1560,6 @@ int64_t filterAllTempCats(
 }
 
 
-
-
 const int majorBiomes[] = {
         ocean, plains, desert, extremeHills, forest, taiga, swampland,
         icePlains, mushroomIsland, jungle, deepOcean, birchForest, roofedForest,
@@ -1601,3 +1657,444 @@ int64_t filterAllMajorBiomes(
     if (cache == NULL) free(map);
     return hits;
 }
+
+
+
+BiomeFilter setupBiomeFilter(const int *biomeList, int listLen)
+{
+    BiomeFilter bf;
+    int i, id;
+
+    memset(&bf, 0, sizeof(bf));
+
+    for (i = 0; i < listLen; i++)
+    {
+        id = biomeList[i] & 0x7f;
+        switch (id)
+        {
+        case mushroomIsland:
+        case mushroomIslandShore:
+            bf.requireMushroom = 1;
+            bf.tempCat |= (1ULL << Oceanic);
+            bf.biomesToFind |= (1ULL << id);
+        case mesa:
+        case mesaPlateau_F:
+        case mesaPlateau:
+            bf.tempCat |= (1ULL << (Warm+Special));
+            bf.biomesToFind |= (1ULL << id);
+            break;
+        case savanna:
+        case savannaPlateau:
+            bf.tempCat |= (1ULL << Warm);
+            bf.biomesToFind |= (1ULL << id);
+            break;
+        case roofedForest:
+        case birchForest:
+        case birchForestHills:
+        case swampland:
+            bf.tempCat |= (1ULL << Lush);
+            bf.biomesToFind |= (1ULL << id);
+            break;
+        case jungle:
+        case jungleHills:
+            bf.tempCat |= (1ULL << (Lush+Special));
+            bf.biomesToFind |= (1ULL << id);
+            break;
+        /*case jungleEdge:
+            bf.tempCat |= (1ULL << Lush) | (1ULL << Lush+4);
+            bf.biomesToFind |= (1ULL << id);
+            break;*/
+        case megaTaiga:
+        case megaTaigaHills:
+            bf.tempCat |= (1ULL << (Cold+Special));
+            bf.biomesToFind |= (1ULL << id);
+            break;
+        case icePlains:
+        case iceMountains:
+        case coldTaiga:
+        case coldTaigaHills:
+            bf.tempCat |= (1ULL << Freezing);
+            bf.biomesToFind |= (1ULL << id);
+            break;
+        default:
+            bf.biomesToFind |= (1ULL << id);
+
+            if (isOceanic(id))
+            {
+                if (id != ocean && id != deepOcean)
+                    bf.doOceanTypeCheck = 1;
+
+                if (isShallowOcean(id))
+                {
+                    bf.oceansToFind |= (1ULL < id);
+                }
+                else
+                {
+                    if (id == warmDeepOcean)
+                        bf.oceansToFind |= (1ULL << warmOcean);
+                    else if (id == lukewarmDeepOcean)
+                        bf.oceansToFind |= (1ULL << lukewarmOcean);
+                    else if (id == deepOcean)
+                        bf.oceansToFind |= (1ULL << ocean);
+                    else if (id == coldDeepOcean)
+                        bf.oceansToFind |= (1ULL << coldOcean);
+                    else if (id == frozenDeepOcean)
+                        bf.oceansToFind |= (1ULL << frozenOcean);
+                }
+                bf.tempCat |= (1ULL << Oceanic);
+            }
+            else
+            {
+                bf.biomesToFind |= (1ULL << id);
+            }
+            break;
+        }
+    }
+
+    for (i = 0; i < Special; i++)
+    {
+        if (bf.tempCat & (1ULL << i)) bf.tempNormal++;
+    }
+    for (i = Special; i < Freezing+Special; i++)
+    {
+        if (bf.tempCat & (1ULL << i)) bf.tempSpecial++;
+    }
+
+    bf.doTempCheck = (bf.tempSpecial + bf.tempNormal) >= 6;
+    bf.doShroomAndTempCheck = bf.requireMushroom && (bf.tempSpecial >= 1 || bf.tempNormal >= 4);
+    bf.doMajorBiomeCheck = 1;
+    bf.checkBiomePotential = 1;
+    bf.doScale4Check = 1;
+
+    return bf;
+}
+
+
+
+/* Tries to determine if the biomes configured in the filter will generate in
+ * this seed within the specified area. The smallest layer scale checked is
+ * given by 'minscale'. Lowering this value terminate the search earlier and
+ * yield more false positives.
+ */
+int64_t checkForBiomes(
+        LayerStack *        g,
+        int *               cache,
+        const int64_t       seed,
+        const int           blockX,
+        const int           blockZ,
+        const unsigned int  width,
+        const unsigned int  height,
+        const BiomeFilter   filter,
+        const int           minscale)
+{
+    Layer *lspecial = &g->layers[L_SPECIAL_1024];
+    Layer *lmushroom = &g->layers[L_ADD_MUSHROOM_ISLAND_256];
+    Layer *lbiomes = &g->layers[L_BIOME_256];
+    Layer *loceantemp = NULL;
+
+    int *map = cache ? cache : allocCache(&g->layers[g->layerNum-1], width, height);
+
+    uint64_t potential, required, modified;
+    int64_t ss, cs;
+    int id, types[0x100];
+    int i, x, z;
+    int areaX1024, areaZ1024, areaWidth1024, areaHeight1024;
+    int areaX256, areaZ256, areaWidth256, areaHeight256;
+    int areaX4, areaZ4, areaWidth4, areaHeight4;
+
+    // 1:1024 scale
+    areaX1024 = blockX >> 10;
+    areaZ1024 = blockZ >> 10;
+    areaWidth1024 = ((width-1) >> 10) + 2;
+    areaHeight1024 = ((height-1) >> 10) + 2;
+
+    // 1:256 scale
+    areaX256 = blockX >> 8;
+    areaZ256 = blockZ >> 8;
+    areaWidth256 = ((width-1) >> 8) + 2;
+    areaHeight256 = ((height-1) >> 8) + 2;
+
+
+    /*** BIOME CHECKS THAT DON'T NEED OTHER LAYERS ***/
+
+    // Check that there is the necessary minimum of both special and normal
+    // temperature categories present.
+    if (filter.tempNormal || filter.tempSpecial)
+    {
+        ss = processWorldSeed(seed, lspecial->baseSeed);
+
+        types[0] = types[1] = 0;
+        for (z = 0; z < areaHeight1024; z++)
+        {
+            for (x = 0; x < areaWidth1024; x++)
+            {
+                cs = getChunkSeed(ss, (int64_t)(x + areaX1024), (int64_t)(z + areaZ1024));
+                types[(cs >> 24) % 13 == 0]++;
+            }
+        }
+
+        if (types[0] < filter.tempNormal || types[1] < filter.tempSpecial)
+        {
+            goto return_zero;
+        }
+    }
+
+    // Check there is a mushroom island, provided there is an ocean.
+    if (filter.requireMushroom)
+    {
+        ss = processWorldSeed(seed, lmushroom->baseSeed);
+
+        for (z = 0; z < areaHeight256; z++)
+        {
+            for (x = 0; x < areaWidth256; x++)
+            {
+                cs = getChunkSeed(ss, (int64_t)(x + areaX256), (int64_t)(z + areaZ256));
+                if ((cs >> 24) % 100 == 0)
+                {
+                    goto after_protomushroom;
+                }
+            }
+        }
+
+        goto return_zero;
+    }
+    after_protomushroom:
+
+    if (filter.checkBiomePotential)
+    {
+        ss = processWorldSeed(seed, lbiomes->baseSeed);
+
+        potential = 0;
+        required = filter.biomesToFind & (
+                (1ULL << mesaPlateau) | (1ULL << mesaPlateau_F) |
+                (1ULL << savanna)     | (1ULL << roofedForest) |
+                (1ULL << birchForest) | (1ULL << swampland) );
+
+        for (z = 0; z < areaHeight256; z++)
+        {
+            for (x = 0; x < areaWidth256; x++)
+            {
+                cs = getChunkSeed(ss, (int64_t)(x + areaX256), (int64_t)(z + areaZ256));
+                cs >>= 24;
+
+                int cs6 = cs % 6;
+                int cs3 = cs6 & 3;
+
+                if (cs3 == 0) potential |= (1ULL << mesaPlateau);
+                else if (cs3 == 1 || cs3 == 2) potential |= (1ULL << mesaPlateau_F);
+
+                if (cs6 == 1) potential |= (1ULL << roofedForest);
+                else if (cs6 == 3) potential |= (1ULL << savanna);
+                else if (cs6 == 4) potential |= (1ULL << savanna) | (1ULL << birchForest);
+                else if (cs6 == 5) potential |= (1ULL << swampland);
+
+                if (!((potential & required) ^ required))
+                {
+                    goto after_protobiome;
+                }
+            }
+        }
+
+        goto return_zero;
+    }
+    after_protobiome:
+
+
+    /*** BIOME CHECKS ***/
+
+    if (filter.doTempCheck)
+    {
+        setWorldSeed(lspecial, seed);
+        genArea(lspecial, map, areaX1024, areaZ1024, areaWidth1024, areaHeight1024);
+
+        potential = 0;
+
+        for (i = 0; i < areaWidth1024 * areaHeight1024; i++)
+        {
+            id = map[i];
+            if (id >= Special) id = (id & 0xf) + Special;
+            potential |= (1ULL << id);
+        }
+
+        if ((potential & filter.tempCat) ^ filter.tempCat)
+        {
+            goto return_zero;
+        }
+    }
+
+    if (minscale > 256) goto return_one;
+
+    if (filter.doShroomAndTempCheck)
+    {
+        setWorldSeed(lmushroom, seed);
+        genArea(lmushroom, map, areaX256, areaZ256, areaWidth256, areaHeight256);
+
+        potential = 0;
+
+        for (i = 0; i < areaWidth256 * areaHeight256; i++)
+        {
+            id = map[i];
+            if (id >= BIOME_NUM) id = (id & 0xf) + Special;
+            potential |= (1ULL << id);
+        }
+
+        required = filter.tempCat | (1ULL << mushroomIsland);
+
+        if ((potential & required) ^ required)
+        {
+            goto return_zero;
+        }
+    }
+
+    if (filter.doOceanTypeCheck)
+    {
+        loceantemp = &g->layers[L13_OCEAN_TEMP_256];
+        setWorldSeed(loceantemp, seed);
+        genArea(loceantemp, map, areaX256, areaZ256, areaWidth256, areaHeight256);
+
+        potential = 0; // ocean potential
+
+        for (i = 0; i < areaWidth256 * areaHeight256; i++)
+        {
+            id = map[i];
+            if (id == warmOcean)     potential |= (1ULL << warmOcean) | (1ULL << lukewarmOcean);
+            if (id == lukewarmOcean) potential |= (1ULL << lukewarmOcean);
+            if (id == ocean)         potential |= (1ULL << ocean);
+            if (id == coldOcean)     potential |= (1ULL << coldOcean);
+            if (id == frozenOcean)   potential |= (1ULL << frozenOcean) | (1ULL << coldOcean);
+        }
+
+        if ((potential & filter.oceansToFind) ^ filter.oceansToFind)
+        {
+            goto return_zero;
+        }
+    }
+
+    if (filter.doMajorBiomeCheck)
+    {
+        setWorldSeed(lbiomes, seed);
+        genArea(lbiomes, map, areaX256, areaZ256, areaWidth256, areaHeight256);
+
+        // get biomes out of the way that we cannot check for at this layer
+        potential = (1ULL << beach) | (1ULL << stoneBeach) | (1ULL << coldBeach) |
+                (1ULL << river) | (1ULL << frozenRiver);
+
+        for (i = 0; i < areaWidth256 * areaHeight256; i++)
+        {
+            id = map[i];
+            switch (id)
+            {
+            case mesaPlateau_F:
+            case mesaPlateau:
+                potential |= (1ULL << id) | (1ULL << mesa) | (1ULL << desert); break;
+            case megaTaiga:
+                potential |= (1ULL << id) | (1ULL << taiga) | (1ULL << taigaHills) | (1ULL << megaTaigaHills); break;
+            case desert:
+                potential |= (1ULL << id) | (1ULL << extremeHillsPlus) | (1ULL << desertHills); break;
+            case swampland:
+                potential |= (1ULL << id) | (1ULL << jungleEdge) | (1ULL << plains); break;
+            case forest:
+                potential |= (1ULL << id) | (1ULL << forestHills); break;
+            case birchForest:
+                potential |= (1ULL << id) | (1ULL << birchForestHills); break;
+            case roofedForest:
+                potential |= (1ULL << id) | (1ULL << plains); break;
+            case taiga:
+                potential |= (1ULL << id) | (1ULL << taigaHills); break;
+            case coldTaiga:
+                potential |= (1ULL << id) | (1ULL << coldTaigaHills); break;
+            case plains:
+                potential |= (1ULL << id) | (1ULL << forestHills) | (1ULL << forest); break;
+            case icePlains:
+                potential |= (1ULL << id) | (1ULL << iceMountains); break;
+            case jungle:
+                potential |= (1ULL << id) | (1ULL << jungleHills); break;
+            case ocean:
+                potential |= (1ULL << id) | (1ULL << deepOcean);
+                // TODO: buffer possible ocean types at this location
+                potential |= (1ULL << frozenOcean) | (1ULL << coldOcean) | (1ULL << lukewarmOcean) | (1ULL << warmOcean); break;
+            case extremeHills:
+                potential |= (1ULL << id) | (1ULL << extremeHillsPlus); break;
+            case savanna:
+                potential |= (1ULL << id) | (1ULL << savannaPlateau); break;
+            case deepOcean:
+                potential |= (1ULL << id) | (1ULL << plains) | (1ULL << forest);
+                // TODO: buffer possible ocean types at this location
+                potential |= (1ULL << frozenDeepOcean) | (1ULL << coldDeepOcean) | (1ULL << lukewarmDeepOcean); break;
+            case mushroomIsland:
+                potential |= (1ULL << id) | (1ULL << mushroomIslandShore);
+            default:
+                potential |= (1ULL << id);
+            }
+        }
+
+        if ((potential & filter.biomesToFind) ^ filter.biomesToFind)
+        {
+            goto return_zero;
+        }
+    }
+
+    // TODO: Do a check at the HILLS layer, scale 1:64
+
+    if (minscale > 4) goto return_one;
+
+    if (filter.doScale4Check)
+    {
+        // 1:4 scale
+        areaX4 = blockX >> 2;
+        areaZ4 = blockZ >> 2;
+        areaWidth4 = ((width-1) >> 2) + 2;
+        areaHeight4 = ((height-1) >> 2) + 2;
+
+        applySeed(g, seed);
+        genArea(&g->layers[g->layerNum-2], map, areaX4, areaZ4, areaWidth4, areaHeight4);
+
+        potential = modified = 0;
+
+        for (i = 0; i < areaWidth4 * areaHeight4; i++)
+        {
+            id = map[i];
+            if (id >= 128) modified |= (1ULL << (id & 0x7f));
+            else potential |= (1ULL << id);
+        }
+
+        required = filter.biomesToFind;
+        if ((potential & required) ^ required)
+        {
+            goto return_zero;
+        }
+        if ((modified & filter.modifiedToFind) ^ filter.modifiedToFind)
+        {
+            goto return_zero;
+        }
+    }
+
+
+    int ret;
+
+    // clean up and return
+    return_one:
+    ret = 1;
+
+    if (0)
+    {
+        return_zero:
+        ret = 0;
+    }
+
+    if (cache == NULL) free(map);
+
+    return ret;
+}
+
+
+
+
+
+
+
+
+
+
+
+

@@ -4,8 +4,20 @@
 #include "generator.h"
 #include <stdio.h>
 #include <string.h>
-#include <pthread.h>
 #include <stdlib.h>
+
+#ifdef _WIN32
+#include <Windows.h>
+
+typedef HANDLE thread_id_t;
+
+#else
+#define USE_PTHREAD
+#include <pthread.h>
+
+typedef pthread_t thread_id_t;
+
+#endif
 
 
 #define SEED_BASE_MAX (1LL << 48)
@@ -14,12 +26,20 @@
 #define LARGE_STRUCT 1
 #define USE_POW2_RNG 2
 
-enum {
+enum
+{
     Desert_Pyramid, Igloo, Jungle_Pyramid, Swamp_Hut,
     Village, Ocean_Ruin, Shipwreck, Monument, Mansion
 };
 
-STRUCT(StructureConfig) {
+enum
+{
+    HouseSmall, Church, Library, WoodHut, Butcher, FarmLarge, FarmSmall,
+    Blacksmith, HouseLarge, HOUSE_NUM
+};
+
+STRUCT(StructureConfig)
+{
     int64_t seed;
     int regionSize, chunkRange;
     int properties;
@@ -40,6 +60,10 @@ static const StructureConfig SHIPWRECK_CONFIG      = {165745295, 15,  7, 0};
 static const StructureConfig MONUMENT_CONFIG       = { 10387313, 32, 27, LARGE_STRUCT};
 static const StructureConfig MANSION_CONFIG        = { 10387319, 80, 60, LARGE_STRUCT};
 
+//==============================================================================
+// Biome Tables
+//==============================================================================
+
 static const int templeBiomeList[] = {desert, desertHills, jungle, jungleHills, swampland, icePlains, coldTaiga};
 static const int biomesToSpawnIn[] = {forest, plains, taiga, taigaHills, forestHills, jungle, jungleHills};
 static const int oceanMonumentBiomeList1[] = {ocean, deepOcean, river, frozenRiver, frozenOcean, frozenDeepOcean, coldOcean, coldDeepOcean, lukewarmOcean, lukewarmDeepOcean, warmOcean, warmDeepOcean};
@@ -47,7 +71,7 @@ static const int oceanMonumentBiomeList2[] = {frozenDeepOcean, coldDeepOcean, de
 static const int villageBiomeList[] = {plains, desert, savanna, taiga};
 static const int mansionBiomeList[] = {roofedForest, roofedForest+128};
 
-static const int achievementBiomes[] =
+static const int achievementBiomes_1_7[] =
 {
         ocean, plains, desert, extremeHills, forest, taiga, swampland, river, /*hell, sky,*/ // 0-9
         /*frozenOcean,*/ frozenRiver, icePlains, iceMountains, mushroomIsland, mushroomIslandShore, beach, desertHills, forestHills, taigaHills,  // 10-19
@@ -60,6 +84,35 @@ static const int achievementBiomes[] =
 STRUCT(Pos)
 {
     int x, z;
+};
+
+STRUCT(BiomeFilter)
+{
+    // bitfield for required temperature categories, including special variants
+    uint64_t tempCat;
+    // bitfield for the required ocean types
+    uint64_t oceansToFind;
+    // bitfield of required biomes without modification bit
+    uint64_t biomesToFind;
+    // bitfield of required modified biomes
+    uint64_t modifiedToFind;
+
+    // check that there is a minimum of both special and normal temperatures
+    int tempNormal, tempSpecial;
+    // check for the temperatures specified by tempCnt (1:1024)
+    int doTempCheck;
+    // check for mushroom potential
+    int requireMushroom;
+    // combine a more detailed mushroom and temperature check (1:256)
+    int doShroomAndTempCheck;
+    // early check for 1.13 ocean types (1:256)
+    int doOceanTypeCheck;
+    //
+    int doMajorBiomeCheck;
+    // pre-generation biome checks in layer L_BIOME_256
+    int checkBiomePotential;
+    //
+    int doScale4Check;
 };
 
 
@@ -327,6 +380,14 @@ int findStrongholds(
  */
 Pos getSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed, int fast);
 
+/* Finds the approximate spawn point in the world.
+ *
+ * @mcversion : Minecraft version (changed in 1.7, 1.13)
+ * @g         : generator layer stack [worldSeed should be applied before call!]
+ * @cache     : biome buffer, set to NULL for temporary allocation
+ * @worldSeed : world seed used for the generator
+ */
+Pos estimateSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed);
 
 
 //==============================================================================
@@ -401,11 +462,21 @@ int isZombieVillage(const int mcversion, const int64_t worldSeed,
 
 /* Checks if the village in the given region would generate as a baby zombie
  * village. (The fact that these exist could be regarded as a bug.)
- * (Minecraft 1.12+)
+ * (Minecraft 1.12)
  */
 int isBabyZombieVillage(const int mcversion, const int64_t worldSeed,
         const int regionX, const int regionZ);
 
+/* Finds the number of each type of house that generate in a village.
+ * @worldSeed      : world seed
+ * @chunkX, chunkZ : 16x16 chunk position of the village origin
+ * @housesOut      : output number of houses for each entry in the house type
+ *                   enum (i.e this should be an array of length HOUSE_NUM)
+ *
+ * Returns the random object seed after finding these numbers.
+ */
+int64_t getHouseList(const int64_t worldSeed, const int chunkX, const int chunkZ,
+        int *housesOut);
 
 
 //==============================================================================
@@ -421,7 +492,7 @@ int isBabyZombieVillage(const int mcversion, const int64_t worldSeed,
  * @seedsIn      : list of seeds to check
  * @seedsOut     : output buffer for the candidate seeds
  * @seedCnt      : number of seeds in 'seedsIn'
- * qcentX, centZ : search origin centre (in 1024 block units)
+ * @centX, centZ : search origin centre (in 1024 block units)
  *
  * Returns the number of found candidates.
  */
@@ -460,6 +531,26 @@ int64_t filterAllMajorBiomes(
         const unsigned int  sX,
         const unsigned int  sZ
         );
+
+/* Creates a biome filter configuration from a given list of biomes.
+ */
+BiomeFilter setupBiomeFilter(const int *biomeList, int listLen);
+
+/* Tries to determine if the biomes configured in the filter will generate in
+ * this seed within the specified area. The smallest layer scale checked is
+ * given by 'minscale'. Lowering this value terminate the search earlier and
+ * yield more false positives.
+ */
+int64_t checkForBiomes(
+        LayerStack *        g,
+        int *               cache,
+        const int64_t       seed,
+        const int           blockX,
+        const int           blockZ,
+        const unsigned int  width,
+        const unsigned int  height,
+        const BiomeFilter   filter,
+        const int           minscale);
 
 
 #endif /* FINDERS_H_ */
