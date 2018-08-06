@@ -1480,8 +1480,12 @@ int main(int argc, char *argv[])
             fprintf(stderr, "  ...searching biomes within a circular radius.\n");
         if (opts.centerAtHuts)
             fprintf(stderr, "  ...centered around the quad witch huts.\n");
-        else
+        else if (opts.centerAtSpawn)
             fprintf(stderr, "  ...centered at world spawn.\n");
+        else if (opts.centerAtSpawnSlow)
+            fprintf(stderr, "  ...centered at world spawn (accurate/slow).\n");
+        else if (opts.centerAtZero)
+            fprintf(stderr, "  ...centered at 0, 0.\n");
     }
     if (opts.spawnBiomes) {
         fprintf(stderr, "Looking for world spawn in %s biomes.\n",
