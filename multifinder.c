@@ -39,12 +39,13 @@ enum BiomeConfigs {
     megaTaigaCfg,
     mesaCfg,
     mushroomIslandCfg,
+    desertCfg,
     flowerForestCfg,
     iceSpikesCfg,
     mesaBryceCfg,
     sunflowerPlainsCfg,
 };
-#define NUM_BIOME_SEARCH_CONFIGS 13
+#define NUM_BIOME_SEARCH_CONFIGS 14
 
 typedef struct {
     char name[20];
@@ -80,6 +81,9 @@ typedef struct {
     // Search radius options
     int radius;
     int circleRadius;
+    int centerAtZero;
+    int centerAtSpawn;
+    int centerAtSpawnSlow;
     int centerAtHuts;
     int biomeRadius;
     int hutRadius;
@@ -220,6 +224,13 @@ void initSearchConfigs() {
             2, (int[]){mushroomIsland, mushroomIslandShore},
             10, allOceans);
 
+    // Deserts are good for mob farms because of husks. Also sand.
+    initSearchConfig(
+            "desert", &biomeSearchConfigs[desert],
+            0.90f, (4.59+1.27+0.188+0.0)/100.0,
+            4, (int[]){desert, desertHills, desert+128, desertHills+128},
+            10, allOceans);
+
     // These are the interesting M (mutated) biomes. Some other M or "hills"
     // biomes are rare, but are not interesting at all; "Jungle Edge M" is the
     // rarest biome, but who cares?
@@ -301,8 +312,8 @@ void usage() {
     fprintf(stderr, "    --spawn_biomes=<string>\n");
     fprintf(stderr, "      ocean, frozen_ocean, cold_ocean, lukewarm_ocean,\n");
     fprintf(stderr, "      warm_ocean, jungle, mega_taiga, mesa, mushroom_island,\n");
-    fprintf(stderr, "      flower_forest, ice_spikes, mesa_bryce or\n");
-    fprintf(stderr, "      sunflower_plains.\n");
+    fprintf(stderr, "      flower_forest, ice_spikes, mesa_bryce,\n");
+    fprintf(stderr, "      sunflower_plains or desert.\n");
     fprintf(stderr, "    --monument_distance=<integer>\n");
     fprintf(stderr, "      Search for an ocean monument within a number of\n");
     fprintf(stderr, "      chunks of the quad hut perimeter.\n");
@@ -321,9 +332,9 @@ void usage() {
     fprintf(stderr, "      searches, since regions are so chunky, nor spawn\n");
     fprintf(stderr, "      biome searches, because the square spawn chunks\n");
     fprintf(stderr, "      are the thing of interest.\n");
-    fprintf(stderr, "    --center_at_huts\n");
-    fprintf(stderr, "      Center biome searches on the quad witch huts\n");
-    fprintf(stderr, "      instead of world spawn.\n");
+    fprintf(stderr, "    --center=\n");
+    fprintf(stderr, "      Center biome searches at [zero, spawn, spawn_slow,");
+    fprintf(stderr, "      huts]. Defaults to spawn.\n");
     fprintf(stderr, "    --biome_radius=<integer>\n");
     fprintf(stderr, "      Search radius, in blocks, for --all_biomes\n");
     fprintf(stderr, "      option. Defaults to --search_radius.\n");
@@ -412,6 +423,9 @@ BiomeSearchConfig* parseBiome(const char *arg) {
             strcmp(arg, "mushroomIsland")   == 0)
         return &biomeSearchConfigs[mushroomIslandCfg];
 
+    if (strcmp(arg, "desert")               == 0)
+        return &biomeSearchConfigs[desert];
+
     if (strcmp(arg, "flower_forest")        == 0 ||
             strcmp(arg, "flower")           == 0 ||
             strcmp(arg, "flowerForest")     == 0)
@@ -464,6 +478,9 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         .woodlandMansions     = 0,
         .radius               = 2048,
         .circleRadius         = 0,
+        .centerAtZero         = 0,
+        .centerAtSpawn        = 1,
+        .centerAtSpawnSlow    = 0,
         .centerAtHuts         = 0,
         .biomeRadius          = 0,
         .hutRadius            = 0,
@@ -494,7 +511,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             {"woodland_mansions",     required_argument, NULL, 'w'},
             {"radius",                required_argument, NULL, 'r'},
             {"circle_radius",         no_argument,       NULL, 'c'},
-            {"center_at_huts",        no_argument,       NULL, 'C'},
+            {"center",                required_argument, NULL, 'C'},
             {"biome_radius",          required_argument, NULL, 'B'},
             {"hut_radius",            required_argument, NULL, 'H'},
             {"mansion_radius",        required_argument, NULL, 'M'},
@@ -600,7 +617,24 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 opts.circleRadius = 1;
                 break;
             case 'C':
-                opts.centerAtHuts = 1;
+                opts.centerAtZero      = 0;
+                opts.centerAtSpawn     = 0;
+                opts.centerAtSpawnSlow = 0;
+                opts.centerAtHuts      = 0;
+                if (strcmp(optarg, "zero") == 0) {
+                    opts.centerAtZero = 1;
+                } else if (strcmp(optarg, "spawn") == 0) {
+                    opts.centerAtSpawn = 1;
+                } else if (strcmp(optarg, "spawn_slow") == 0 ||
+                        strcmp(optarg, "slow") == 0) {
+                    opts.centerAtSpawnSlow = 1;
+                } else if (strcmp(optarg, "witch_huts") == 0 ||
+                        strcmp(optarg, "huts") == 0) {
+                    opts.centerAtHuts = 1;
+                } else {
+                    fprintf(stderr, "Invalid center location.");
+                    exit(1);
+                }
                 break;
             case 'B':
                 opts.biomeRadius = parseIntArgument(
@@ -959,7 +993,7 @@ int biomeChecks(const SearchOptions *opts, SearchCaches *cache, Generators *gen,
     Pos spawn = {0, 0};
 
     if (opts->spawnBiomes) {
-        spawn = getSpawn(MC_1_13, &gen->g, cache->structure, seed, 1);
+        spawn = getSpawn(MC_1_13, &gen->g, cache->structure, seed, !opts->centerAtSpawnSlow);
         if (!hasSpawnBiome(gen->layer16, cache->spawnArea, spawn, opts->spawnBiomes))
             return 0;
     }
@@ -967,13 +1001,13 @@ int biomeChecks(const SearchOptions *opts, SearchCaches *cache, Generators *gen,
     if (!(opts->allBiomes || opts->adventureTime || opts->plentifulBiome))
         return 1;
 
-    Pos center;
+    Pos center = {0, 0};
     if (opts->centerAtHuts) {
         center = hutCenter;
     } else if (opts->spawnBiomes) {
         center = spawn;
-    } else {
-        center = getSpawn(MC_1_13, &gen->g, cache->structure, seed, 1);
+    } else if (!opts->centerAtZero) {
+        center = getSpawn(MC_1_13, &gen->g, cache->structure, seed, !opts->centerAtSpawnSlow);
     }
 
     // These have to get yet more biome area, so very slow.
