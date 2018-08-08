@@ -33,9 +33,9 @@ To my knowlege, as of the time of writing, this is fastest single-thread quad-hu
 
 #### Finding Compact Biome Seeds
 
-This finder searches for seeds that contain all major biome types within 1024 blocks of the origin. These seeds are very rare and it might take a moment for the finder to yield any. The commandline arguments are:
+This finder searches for seeds that contain all major biome types within a search radius 1024 blocks of the origin. These seeds are very rare and it might take a moment for the finder to yield any. (With the default values for starting and end seed there likely won't be any results at all, so be sure to change those.) The commandline arguments are:
 
-`./find_compactbiomes [starting_seed] [end_seed] [threads]`
+`./find_compactbiomes [starting_seed] [end_seed] [threads] [radius]`
 
 
 # Cool Seeds
