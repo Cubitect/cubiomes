@@ -44,8 +44,12 @@ enum BiomeConfigs {
     iceSpikesCfg,
     mesaBryceCfg,
     sunflowerPlainsCfg,
+    tropicalCfg,
+    aquaticCfg,
+    parchedCfg,
+    winterCfg,
 };
-#define NUM_BIOME_SEARCH_CONFIGS 14
+#define NUM_BIOME_SEARCH_CONFIGS 18
 
 typedef struct {
     char name[20];
@@ -226,7 +230,7 @@ void initSearchConfigs() {
 
     // Deserts are good for mob farms because of husks. Also sand.
     initSearchConfig(
-            "desert", &biomeSearchConfigs[desert],
+            "desert", &biomeSearchConfigs[desertCfg],
             0.90f, (4.59+1.27+0.188+0.0)/100.0,
             4, (int[]){desert, desertHills, desert+128, desertHills+128},
             10, allOceans);
@@ -268,6 +272,45 @@ void initSearchConfigs() {
             0.65f, (0.571)/100.0,
             1, (int[]){plains+128},
             10, allOceans);
+
+    // Themes
+    initSearchConfig(
+            "tropical paradise", &biomeSearchConfigs[tropicalCfg],
+            0.75f, (1.31+0.00+1.03+0.359+0.0853+0.0492+0.000451+2.92+0.430)/100.0,
+            9, (int[]){warmOcean, warmDeepOcean,
+                       jungle, jungleHills, jungleEdge,
+                       jungle+128, jungleEdge+128,
+                       beach, forest+128},
+            0, (int[]){});
+
+    initSearchConfig(
+            "aquatic update", &biomeSearchConfigs[aquaticCfg],
+            0.75f, (0.56+0.77+3.48+2.53+3.40+2.50+1.31+0.00)/100.0,
+            8, (int[]){frozenOcean, frozenDeepOcean,
+                       coldOcean, coldDeepOcean,
+                       lukewarmOcean, lukewarmDeepOcean,
+                       warmOcean, warmDeepOcean},
+            0, (int[]){});
+
+    initSearchConfig(
+            "parched expanse", &biomeSearchConfigs[parchedCfg],
+            0.75f, (4.59+1.27+0.188+0.0+
+                    0.469+0.242+0.103+0.0236+0.0121+0.00566+
+                    3.00+0.751+0.129+0.0885)/100.0,
+            14, (int[]){desert, desertHills, desert+128, desertHills+128,
+                        mesa, mesaPlateau_F, mesaPlateau,
+                        mesa+128, mesaPlateau_F+128, mesaPlateau+128,
+                        savanna, savannaPlateau, savanna+128, savannaPlateau+128},
+            0, (int[]){});
+
+    initSearchConfig(
+            "winter wonderland", &biomeSearchConfigs[winterCfg],
+            0.75f, (0.157+0.56+0.77+0.118+0.428+0.0984+0.181)/100.0,
+            7, (int[]){icePlains+128, frozenOcean, frozenDeepOcean, coldBeach,
+                       coldTaiga, coldTaigaHills, coldTaiga+128},
+            6, (int[]){icePlains, iceMountains,
+                       extremeHills, extremeHillsPlus,
+                       extremeHills+128, extremeHillsPlus+128});
 
 }
 
@@ -313,7 +356,8 @@ void usage() {
     fprintf(stderr, "      ocean, frozen_ocean, cold_ocean, lukewarm_ocean,\n");
     fprintf(stderr, "      warm_ocean, jungle, mega_taiga, mesa, mushroom_island,\n");
     fprintf(stderr, "      flower_forest, ice_spikes, mesa_bryce,\n");
-    fprintf(stderr, "      sunflower_plains or desert.\n");
+    fprintf(stderr, "      sunflower_plains, desert, tropical, aquatic,\n");
+    fprintf(stderr, "      parched and winter.\n");
     fprintf(stderr, "    --monument_distance=<integer>\n");
     fprintf(stderr, "      Search for an ocean monument within a number of\n");
     fprintf(stderr, "      chunks of the quad hut perimeter.\n");
@@ -424,7 +468,7 @@ BiomeSearchConfig* parseBiome(const char *arg) {
         return &biomeSearchConfigs[mushroomIslandCfg];
 
     if (strcmp(arg, "desert")               == 0)
-        return &biomeSearchConfigs[desert];
+        return &biomeSearchConfigs[desertCfg];
 
     if (strcmp(arg, "flower_forest")        == 0 ||
             strcmp(arg, "flower")           == 0 ||
@@ -444,6 +488,18 @@ BiomeSearchConfig* parseBiome(const char *arg) {
             strcmp(arg, "sunflower_plains") == 0 ||
             strcmp(arg, "sunflowerPlains")  == 0)
         return &biomeSearchConfigs[sunflowerPlainsCfg];
+
+    if (strcmp(arg, "tropical")             == 0)
+        return &biomeSearchConfigs[tropicalCfg];
+
+    if (strcmp(arg, "aquatic")              == 0)
+        return &biomeSearchConfigs[aquaticCfg];
+
+    if (strcmp(arg, "parched")              == 0)
+        return &biomeSearchConfigs[parchedCfg];
+
+    if (strcmp(arg, "winter")               == 0)
+        return &biomeSearchConfigs[winterCfg];
 
     fprintf(stderr, "Unknown biome group \"%s\".\n", arg);
     exit(-1);
