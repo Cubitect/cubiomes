@@ -53,8 +53,6 @@ enum BiomeConfigs {
 
 typedef struct {
     char name[20];
-    float spawnFraction;
-    float naturalFraction;
     int lookup[256];
 } BiomeSearchConfig;
 BiomeSearchConfig biomeSearchConfigs[NUM_BIOME_SEARCH_CONFIGS];
@@ -76,8 +74,7 @@ typedef struct {
     int adventureTime;
     int includeOceans;
     BiomeSearchConfig *plentifulBiome;
-    int plentifulness;
-    BiomeSearchConfig *spawnBiomes;
+    float plentifulness;
     int monumentDistance;
     int strongholdDistance;
     int woodlandMansions;
@@ -109,7 +106,6 @@ typedef struct {
     int *filter;
     int *lastLayer;
     int *structure;
-    int *spawnArea;
     int *res16;
 } SearchCaches;
 
@@ -120,6 +116,7 @@ typedef struct {
 } Generators;
 
 #define INT_ERROR "An integer argument is required with --%s\n"
+#define FLOAT_ERROR "An float argument is required with --%s\n"
 
 
 const int adventureBiomes[] = {
@@ -138,12 +135,9 @@ const int adventureBiomes[] = {
 
 void initSearchConfig(
         char *name, BiomeSearchConfig *config,
-        float spawnFraction, float naturalFraction,
         int includedCount, int *includedBiomes,
         int ignoredCount, int *ignoredBiomes) {
     snprintf(config->name, 20, "%s", name);
-    config->spawnFraction = spawnFraction;
-    config->naturalFraction = naturalFraction;
 
     memset(config->lookup, 0, 256*sizeof(int));
     for (int i=0; i<includedCount; i++) {
@@ -169,31 +163,26 @@ void initSearchConfigs() {
 
     initSearchConfig(
             "ocean", &biomeSearchConfigs[oceanCfg],
-            0.85f, (15.7+15.7)/100.0,
             10, allOceans,
             0, (int[]){});
 
     initSearchConfig(
             "frozen ocean", &biomeSearchConfigs[frozenOceanCfg],
-            0.70f, (0.56+0.77)/100.0,
             2, (int[]){frozenOcean, frozenDeepOcean},
             0, (int[]){});
 
     initSearchConfig(
             "cold ocean", &biomeSearchConfigs[coldOceanCfg],
-            0.80f, (3.48+2.53)/100.0,
             2, (int[]){coldOcean, coldDeepOcean},
             0, (int[]){});
 
     initSearchConfig(
             "lukewarm ocean", &biomeSearchConfigs[lukewarmOceanCfg],
-            0.80f, (3.40+2.50)/100.0,
             2, (int[]){lukewarmOcean, lukewarmDeepOcean},
             0, (int[]){});
 
     initSearchConfig(
             "warm ocean", &biomeSearchConfigs[warmOceanCfg],
-            0.70f, (1.31+0.00)/100.0,
             2, (int[]){warmOcean, warmDeepOcean},
             0, (int[]){});
 
@@ -202,21 +191,18 @@ void initSearchConfigs() {
     // and they have unique items.
     initSearchConfig(
             "jungle", &biomeSearchConfigs[jungleCfg],
-            0.95f, (1.03+0.359+0.0853+0.0492+0.000451)/100.0,
             5, (int[]){jungle, jungleHills, jungleEdge,
                        jungle+128, jungleEdge+128},
             10, allOceans);
 
     initSearchConfig(
             "mega taiga", &biomeSearchConfigs[megaTaigaCfg],
-            0.90f, (0.691+0.313+0.0358+0.0354)/100.0,
             4, (int[]){megaTaiga, megaTaigaHills,
                        megaTaiga+128, megaTaigaHills+128},
             10, allOceans);
 
     initSearchConfig(
             "mesa", &biomeSearchConfigs[mesaCfg],
-            0.90f, (0.469+0.242+0.103+0.0236+0.0121+0.00566)/100.0,
             6, (int[]){mesa, mesaPlateau_F, mesaPlateau,
                        mesa+128, mesaPlateau_F+128, mesaPlateau+128},
             10, allOceans);
@@ -224,14 +210,12 @@ void initSearchConfigs() {
     // Mushroom islands are treated uniquely by the biome generator.
     initSearchConfig(
             "mushroom island", &biomeSearchConfigs[mushroomIslandCfg],
-            0.50f, (0.0370+0.0208)/100.0,
             2, (int[]){mushroomIsland, mushroomIslandShore},
             10, allOceans);
 
     // Deserts are good for mob farms because of husks. Also sand.
     initSearchConfig(
             "desert", &biomeSearchConfigs[desertCfg],
-            0.90f, (4.59+1.27+0.188+0.0)/100.0,
             4, (int[]){desert, desertHills, desert+128, desertHills+128},
             10, allOceans);
 
@@ -240,13 +224,11 @@ void initSearchConfigs() {
     // rarest biome, but who cares?
     initSearchConfig(
             "flower forest", &biomeSearchConfigs[flowerForestCfg],
-            0.65f, (0.430)/100.0,
             1, (int[]){forest+128},
             10, allOceans);
 
     initSearchConfig(
             "ice spikes", &biomeSearchConfigs[iceSpikesCfg],
-            0.75f, (0.157)/100.0,
             1, (int[]){icePlains+128},
             12, (int[]){icePlains, iceMountains,
                         ocean, deepOcean,
@@ -257,7 +239,6 @@ void initSearchConfigs() {
 
     initSearchConfig(
             "mesa bryce", &biomeSearchConfigs[mesaBryceCfg],
-            0.75f, (0.0236)/100.0,
             1, (int[]){mesa+128},
             15, (int[]){mesa, mesaPlateau_F, mesaPlateau,
                         mesaPlateau_F+128, mesaPlateau+128,
@@ -269,14 +250,12 @@ void initSearchConfigs() {
 
     initSearchConfig(
             "sunflower plains", &biomeSearchConfigs[sunflowerPlainsCfg],
-            0.65f, (0.571)/100.0,
             1, (int[]){plains+128},
             10, allOceans);
 
     // Themes
     initSearchConfig(
             "tropical paradise", &biomeSearchConfigs[tropicalCfg],
-            0.75f, (1.31+0.00+1.03+0.359+0.0853+0.0492+0.000451+2.92+0.430)/100.0,
             9, (int[]){warmOcean, warmDeepOcean,
                        jungle, jungleHills, jungleEdge,
                        jungle+128, jungleEdge+128,
@@ -285,7 +264,6 @@ void initSearchConfigs() {
 
     initSearchConfig(
             "aquatic update", &biomeSearchConfigs[aquaticCfg],
-            0.75f, (0.56+0.77+3.48+2.53+3.40+2.50+1.31+0.00)/100.0,
             8, (int[]){frozenOcean, frozenDeepOcean,
                        coldOcean, coldDeepOcean,
                        lukewarmOcean, lukewarmDeepOcean,
@@ -294,9 +272,6 @@ void initSearchConfigs() {
 
     initSearchConfig(
             "parched expanse", &biomeSearchConfigs[parchedCfg],
-            0.75f, (4.59+1.27+0.188+0.0+
-                    0.469+0.242+0.103+0.0236+0.0121+0.00566+
-                    3.00+0.751+0.129+0.0885)/100.0,
             14, (int[]){desert, desertHills, desert+128, desertHills+128,
                         mesa, mesaPlateau_F, mesaPlateau,
                         mesa+128, mesaPlateau_F+128, mesaPlateau+128,
@@ -305,7 +280,6 @@ void initSearchConfigs() {
 
     initSearchConfig(
             "winter wonderland", &biomeSearchConfigs[winterCfg],
-            0.75f, (0.157+0.56+0.77+0.118+0.428+0.0984+0.181)/100.0,
             7, (int[]){icePlains+128, frozenOcean, frozenDeepOcean, coldBeach,
                        coldTaiga, coldTaigaHills, coldTaiga+128},
             6, (int[]){icePlains, iceMountains,
@@ -350,14 +324,13 @@ void usage() {
     fprintf(stderr, "      in January.\n");
     fprintf(stderr, "    --plentiful_biome=<string>\n");
     fprintf(stderr, "      Find seeds with lots of a particular biome.\n");
-    fprintf(stderr, "    --plentifulness=<integer>\n");
-    fprintf(stderr, "      Biome is N times more common than usual.\n");
-    fprintf(stderr, "    --spawn_biomes=<string>\n");
     fprintf(stderr, "      ocean, frozen_ocean, cold_ocean, lukewarm_ocean,\n");
     fprintf(stderr, "      warm_ocean, jungle, mega_taiga, mesa, mushroom_island,\n");
     fprintf(stderr, "      flower_forest, ice_spikes, mesa_bryce,\n");
     fprintf(stderr, "      sunflower_plains, desert, tropical, aquatic,\n");
     fprintf(stderr, "      parched and winter.\n");
+    fprintf(stderr, "    --plentifulness=<float>\n");
+    fprintf(stderr, "      Biome represents this percentage of the search area.\n");
     fprintf(stderr, "    --monument_distance=<integer>\n");
     fprintf(stderr, "      Search for an ocean monument within a number of\n");
     fprintf(stderr, "      chunks of the quad hut perimeter.\n");
@@ -373,9 +346,7 @@ void usage() {
     fprintf(stderr, "      Use an approximately circular radius when doing\n");
     fprintf(stderr, "      searches for --all_biomes or --plentiful_bomes.\n");
     fprintf(stderr, "      A circular radius is not used for structure\n");
-    fprintf(stderr, "      searches, since regions are so chunky, nor spawn\n");
-    fprintf(stderr, "      biome searches, because the square spawn chunks\n");
-    fprintf(stderr, "      are the thing of interest.\n");
+    fprintf(stderr, "      searches, since regions are so chunky.\n");
     fprintf(stderr, "    --center=\n");
     fprintf(stderr, "      Center biome searches at [zero, spawn, spawn_slow,");
     fprintf(stderr, "      huts]. Defaults to spawn.\n");
@@ -429,6 +400,19 @@ int parseIntArgument(const char *arg, const char *flagName) {
     int val = strtol(arg, &endptr, 10);
     if (errno != 0) {
         fprintf(stderr, INT_ERROR, flagName);
+        exit(-1);
+    }
+
+    return val;
+}
+
+
+int parseFloatArgument(const char *arg, const char *flagName) {
+    char *endptr;
+
+    float val = strtof(arg, &endptr);
+    if (errno != 0) {
+        fprintf(stderr, FLOAT_ERROR, flagName);
         exit(-1);
     }
 
@@ -527,8 +511,7 @@ SearchOptions parseOptions(int argc, char *argv[]) {
         .adventureTime        = 0,
         .includeOceans        = 0,
         .plentifulBiome       = NULL,
-        .plentifulness        = 25,
-        .spawnBiomes          = NULL,
+        .plentifulness        = 0.05,
         .monumentDistance     = 0,
         .strongholdDistance   = 0,
         .woodlandMansions     = 0,
@@ -561,7 +544,6 @@ SearchOptions parseOptions(int argc, char *argv[]) {
             {"include_oceans",        no_argument,       NULL, 'O'},
             {"plentiful_biome",       required_argument, NULL, 'p'},
             {"plentifulness",         required_argument, NULL, 'P'},
-            {"spawn_biomes",          required_argument, NULL, 'b'},
             {"monument_distance",     required_argument, NULL, 'm'},
             {"stronghold_distance",   required_argument, NULL, 'z'},
             {"woodland_mansions",     required_argument, NULL, 'w'},
@@ -647,11 +629,8 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 opts.plentifulBiome = parseBiome(optarg);
                 break;
             case 'P':
-                opts.plentifulness = parseIntArgument(
-                        optarg, longOptions[index].name);
-                break;
-            case 'b':
-                opts.spawnBiomes = parseBiome(optarg);
+                opts.plentifulness = parseFloatArgument(
+                        optarg, longOptions[index].name)/100.0;
                 break;
             case 'm':
                 opts.monumentDistance = parseIntArgument(
@@ -900,37 +879,10 @@ int hasMansions(const LayerStack *g, int *cache, int64_t seed, int radius, int m
 }
 
 
-int hasSpawnBiome(Layer *layer16, int *cache, Pos spawn, BiomeSearchConfig *config) {
-    int areaX = spawn.x >> 4;
-    int areaZ = spawn.z >> 4;
-    float ignoreFraction = 0;
-    float includeFraction = 0;
-
-    genArea(layer16, cache, areaX-9, areaZ-9, 18, 18);
-
-    for (int i=0; i<18*18; i++) {
-        switch (config->lookup[cache[i]]) {
-            case 1:
-                includeFraction += 1;
-                break;
-            case -1:
-                ignoreFraction += 1;
-                break;
-        }
-    }
-
-    includeFraction /= (18*18);
-    ignoreFraction /= (18*18);
-    if (ignoreFraction > 0.80f) { ignoreFraction = 0.80f; }
-
-    return includeFraction / (1.0 - ignoreFraction) >= config->spawnFraction;
-}
-
-
-void getAreaBiomes(Layer *layer16, int *cache, Pos spawn, int radius) {
+void getAreaBiomes(Layer *layer16, int *cache, Pos pos, int radius) {
     int width = radius >> 3;  // 1:16 resolution layer, *2 for a radius.
-    int left = (spawn.x - radius) >> 4;
-    int top  = (spawn.z - radius) >> 4;
+    int left = (pos.x - radius) >> 4;
+    int top  = (pos.z - radius) >> 4;
     genArea(layer16, cache, left, top, width, width);
 }
 
@@ -1000,7 +952,7 @@ int hasPlentifulBiome(int *cache, const SearchOptions *opts) {
         }
     }
 
-    return fraction / area >= opts->plentifulBiome->naturalFraction * opts->plentifulness;
+    return fraction / area >= opts->plentifulness;
 }
 
 
@@ -1013,11 +965,6 @@ SearchCaches preallocateCaches(const LayerStack *g, const SearchOptions *opts) {
 
     // Just make a cache big enough to accomodate all structures.
     cache.structure = allocCache(&g->layers[L_RIVER_MIX_4], 256, 256);
-
-    // Shore layer is 16:1, and spawn is 256x256, and we want to include
-    // the neighboring areas which blend into it -> 18.
-    if (opts->spawnBiomes)
-        cache.spawnArea = allocCache(&g->layers[L_SHORE_16], 18, 18);
 
     // A 1:16 resolution layer, but x2 because it's a radius.
     if (opts->allBiomes || opts->adventureTime || opts->plentifulBiome) {
@@ -1034,34 +981,18 @@ void freeCaches(SearchCaches *cache) {
     free(cache->filter);
     free(cache->lastLayer);
     free(cache->structure);
-    if (cache->spawnArea)
-        free(cache->spawnArea);
     if (cache->res16)
         free(cache->res16);
 }
 
 
 int biomeChecks(const SearchOptions *opts, SearchCaches *cache, Generators *gen, int64_t seed, Pos hutCenter) {
-    if (!(opts->spawnBiomes || opts->allBiomes || opts->adventureTime || opts->plentifulBiome))
-        return 1;
-
-    debug("Biome checks.");
-    Pos spawn = {0, 0};
-
-    if (opts->spawnBiomes) {
-        spawn = getSpawn(MC_1_13, &gen->g, cache->structure, seed, !opts->centerAtSpawnSlow);
-        if (!hasSpawnBiome(gen->layer16, cache->spawnArea, spawn, opts->spawnBiomes))
-            return 0;
-    }
-
     if (!(opts->allBiomes || opts->adventureTime || opts->plentifulBiome))
         return 1;
 
     Pos center = {0, 0};
     if (opts->centerAtHuts) {
         center = hutCenter;
-    } else if (opts->spawnBiomes) {
-        center = spawn;
     } else if (!opts->centerAtZero) {
         center = getSpawn(MC_1_13, &gen->g, cache->structure, seed, !opts->centerAtSpawnSlow);
     }
@@ -1522,8 +1453,8 @@ int main(int argc, char *argv[])
                 opts.biomeRadius);
     }
     if (opts.plentifulBiome) {
-        fprintf(stderr, "Looking for %dx more than usual %s biomes within %d blocks.\n",
-                opts.plentifulness, opts.plentifulBiome->name, opts.biomeRadius);
+        fprintf(stderr, "Looking for %.2f%% %s biomes within %d blocks.\n",
+                opts.plentifulness*100.0, opts.plentifulBiome->name, opts.biomeRadius);
     }
     if (opts.allBiomes) {
         fprintf(stderr, "Looking for all biomes within %d blocks.\n",
@@ -1542,10 +1473,6 @@ int main(int argc, char *argv[])
             fprintf(stderr, "  ...centered at world spawn (accurate/slow).\n");
         else if (opts.centerAtZero)
             fprintf(stderr, "  ...centered at 0, 0.\n");
-    }
-    if (opts.spawnBiomes) {
-        fprintf(stderr, "Looking for world spawn in %s biomes.\n",
-                opts.spawnBiomes->name);
     }
     if (opts.disableOptimizations) {
         fprintf(stderr, "WARNING: Optimizations disabled. Will be slow as snot.\n");
