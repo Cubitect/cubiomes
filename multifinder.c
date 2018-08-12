@@ -407,7 +407,7 @@ int parseIntArgument(const char *arg, const char *flagName) {
 }
 
 
-int parseFloatArgument(const char *arg, const char *flagName) {
+float parseFloatArgument(const char *arg, const char *flagName) {
     char *endptr;
 
     float val = strtof(arg, &endptr);
@@ -420,21 +420,29 @@ int parseFloatArgument(const char *arg, const char *flagName) {
 }
 
 
-BiomeSearchConfig* parseBiome(const char *arg) {
+BiomeSearchConfig* parseBiome(const char *arg, int *includeOceans) {
     if (strcmp(arg, "ocean")                == 0)
         return &biomeSearchConfigs[oceanCfg];
 
-    if (strcmp(arg, "frozen_ocean")          == 0)
+    if (strcmp(arg, "frozen_ocean")          == 0) {
+        *includeOceans = 1;
         return &biomeSearchConfigs[frozenOceanCfg];
+    }
 
-    if (strcmp(arg, "cold_ocean")           == 0)
+    if (strcmp(arg, "cold_ocean")           == 0) {
+        *includeOceans = 1;
         return &biomeSearchConfigs[coldOceanCfg];
+    }
 
-    if (strcmp(arg, "lukewarm_ocean")       == 0)
+    if (strcmp(arg, "lukewarm_ocean")       == 0) {
+        *includeOceans = 1;
         return &biomeSearchConfigs[lukewarmOceanCfg];
+    }
 
-    if (strcmp(arg, "warm_ocean")           == 0)
+    if (strcmp(arg, "warm_ocean")           == 0) {
+        *includeOceans = 1;
         return &biomeSearchConfigs[warmOceanCfg];
+    }
 
     if (strcmp(arg, "jungle")               == 0)
         return &biomeSearchConfigs[jungleCfg];
@@ -473,17 +481,23 @@ BiomeSearchConfig* parseBiome(const char *arg) {
             strcmp(arg, "sunflowerPlains")  == 0)
         return &biomeSearchConfigs[sunflowerPlainsCfg];
 
-    if (strcmp(arg, "tropical")             == 0)
+    if (strcmp(arg, "tropical")             == 0) {
+        *includeOceans = 1;
         return &biomeSearchConfigs[tropicalCfg];
+    }
 
-    if (strcmp(arg, "aquatic")              == 0)
+    if (strcmp(arg, "aquatic")              == 0) {
+        *includeOceans = 1;
         return &biomeSearchConfigs[aquaticCfg];
+    }
 
     if (strcmp(arg, "parched")              == 0)
         return &biomeSearchConfigs[parchedCfg];
 
-    if (strcmp(arg, "winter")               == 0)
+    if (strcmp(arg, "winter")               == 0) {
+        *includeOceans = 1;
         return &biomeSearchConfigs[winterCfg];
+    }
 
     fprintf(stderr, "Unknown biome group \"%s\".\n", arg);
     exit(-1);
@@ -621,12 +635,13 @@ SearchOptions parseOptions(int argc, char *argv[]) {
                 break;
             case 'v':
                 opts.adventureTime = 1;
+                opts.includeOceans = 1;  // Must have for new ocean biomes.
                 break;
             case 'O':
                 opts.includeOceans = 1;
                 break;
             case 'p':
-                opts.plentifulBiome = parseBiome(optarg);
+                opts.plentifulBiome = parseBiome(optarg, &opts.includeOceans);
                 break;
             case 'P':
                 opts.plentifulness = parseFloatArgument(
@@ -1025,7 +1040,7 @@ Generators setupGenerators(const SearchOptions opts) {
     gen.g.layers[L_HILLS_64].getMap = mapHills113;
 
     // Setup a 1:16 resolution layer, depending on generator version.
-    if (opts.includeOceans || opts.adventureTime) {
+    if (opts.includeOceans) {
         // If we're including new ocean biome features in our search, the full,
         // slower 1.13 biome generation is required, but we have a cheat...
         gen.layer16 = (Layer *)malloc(sizeof(Layer));
