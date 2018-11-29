@@ -454,6 +454,7 @@ void mapSpecial(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapAddMushroomIsland(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapDeepOcean(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapBiome(Layer *l, int * __restrict out, int x, int z, int w, int h);
+void mapBiomeBE(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapRiverInit(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapBiomeEdge(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapHills(Layer *l, int * __restrict out, int x, int z, int w, int h);

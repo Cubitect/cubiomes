@@ -815,6 +815,54 @@ void mapBiome(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
 }
 
 
+const int lushBiomesBE[] = {forest, roofedForest, extremeHills, plains, plains, plains, birchForest, swampland};
+
+void mapBiomeBE(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
+{
+    l->p->getMap(l->p, out, areaX, areaZ, areaWidth, areaHeight);
+
+    int x, z;
+    for (z = 0; z < areaHeight; z++)
+    {
+        for (x = 0; x < areaWidth; x++)
+        {
+            int idx = x + z*areaWidth;
+            int id = out[idx];
+            int hasHighBit = (id & 0xf00) >> 8;
+            id &= -0xf01;
+
+            if (getBiomeType(id) == Ocean || id == mushroomIsland)
+            {
+                out[idx] = id;
+                continue;
+            }
+
+            setChunkSeed(l, (int64_t)(x + areaX), (int64_t)(z + areaZ));
+
+            switch(id){
+                case Warm:
+                    if (hasHighBit) out[idx] = (mcNextInt(l, 3) == 0) ? mesaPlateau : mesaPlateau_F;
+                    else out[idx] = warmBiomes[mcNextInt(l, 6)];
+                    break;
+                case Lush:
+                    if (hasHighBit) out[idx] = jungle;
+                    else out[idx] = lushBiomesBE[mcNextInt(l, 6)];
+                    break;
+                case Cold:
+                    if (hasHighBit) out[idx] = megaTaiga;
+                    else out[idx] = coldBiomes[mcNextInt(l, 4)];
+                    break;
+                case Freezing:
+                    out[idx] = snowBiomes[mcNextInt(l, 4)];
+                    break;
+                default:
+                    out[idx] = mushroomIsland;
+            }
+        }
+    }
+}
+
+
 void mapRiverInit(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {
     l->p->getMap(l->p, out, areaX, areaZ, areaWidth, areaHeight);
