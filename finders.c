@@ -200,8 +200,11 @@ int isLargeQuadBase(const StructureConfig sconf, const int64_t seed, const int q
     const int64_t reg10base = 132897987541 + sconf.seed;
     const int64_t reg11base = 341873128712 + 132897987541 + sconf.seed;
 
+    // p1 = nextInt(range); p2 = nextInt(range); pos = (p1+p2)>>1
     const int range = sconf.chunkRange;
-    const int rmin1 = range - 1;
+    const int rmax  = (qual << 1) + 1;         // p1 <= rmax && p1+p2 <= rmax
+    const int rmin2 = (range - qual - 1) << 1; // p1+p2 >= rmin2
+    const int rmin1 = rmin2 - range + 1;       // p1 >= rmin1
 
     int64_t s;
     int p;
@@ -209,58 +212,58 @@ int isLargeQuadBase(const StructureConfig sconf, const int64_t seed, const int q
     s = (reg00base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p = (int)(s >> 17) % range;
-    if (p < rmin1-qual) return 0;
+    if (p < rmin1) return 0;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p += (int)(s >> 17) % range;
-    if (p < 2*rmin1-qual) return 0;
+    if (p < rmin2) return 0;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p = (int)(s >> 17) % range;
-    if (p < rmin1-qual) return 0;
+    if (p < rmin1) return 0;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p += (int)(s >> 17) % range;
-    if (p < 2*rmin1-qual) return 0;
+    if (p < rmin2) return 0;
 
     s = (reg01base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p = (int)(s >> 17) % range;
-    if (p > qual) return 0;
+    if (p > rmax) return 0;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p += (int)(s >> 17) % range;
-    if (p > qual) return 0;
+    if (p > rmax) return 0;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p = (int)(s >> 17) % range;
-    if (p < rmin1-qual) return 0;
+    if (p < rmin1) return 0;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p += (int)(s >> 17) % range;
-    if (p < 2*rmin1-qual) return 0;
+    if (p < rmin2) return 0;
 
     s = (reg10base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p = (int)(s >> 17) % range;
-    if (p < rmin1-qual) return 0;
+    if (p < rmin1) return 0;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p += (int)(s >> 17) % range;
-    if (p < 2*rmin1-qual) return 0;
+    if (p < rmin2) return 0;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p = (int)(s >> 17) % range;
-    if (p > qual) return 0;
+    if (p > rmax) return 0;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p += (int)(s >> 17) % range;
-    if (p > qual) return 0;
+    if (p > rmax) return 0;
 
     s = (reg11base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p = (int)(s >> 17) % range;
-    if (p > qual) return 0;
+    if (p > rmax) return 0;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p += (int)(s >> 17) % range;
-    if (p > qual) return 0;
+    if (p > rmax) return 0;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p = (int)(s >> 17) % range;
-    if (p > qual) return 0;
+    if (p > rmax) return 0;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p += (int)(s >> 17) % range;
-    if (p > qual) return 0;
+    if (p > rmax) return 0;
 
     return 1;
 }
@@ -274,8 +277,11 @@ int isLargeTriBase(const StructureConfig sconf, const int64_t seed, const int qu
     const int64_t reg10base = 132897987541 + sconf.seed;
     const int64_t reg11base = 341873128712 + 132897987541 + sconf.seed;
 
+    // p1 = nextInt(range); p2 = nextInt(range); pos = (p1+p2)>>1
     const int range = sconf.chunkRange;
-    const int rmin1 = range - 1;
+    const int rmax  = (qual << 1) + 1;         // p1 <= rmax && p1+p2 <= rmax
+    const int rmin2 = (range - qual - 1) << 1; // p1+p2 >= rmin2
+    const int rmin1 = rmin2 - range + 1;       // p1 >= rmin1
 
     int64_t s;
     int p;
@@ -285,16 +291,16 @@ int isLargeTriBase(const StructureConfig sconf, const int64_t seed, const int qu
     s = (reg00base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p = (int)(s >> 17) % range;
-    if (p < rmin1-qual) goto incomp11;
+    if (p < rmin1) goto incomp11;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p += (int)(s >> 17) % range;
-    if (p < 2*rmin1-qual) goto incomp11;
+    if (p < rmin2) goto incomp11;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p = (int)(s >> 17) % range;
-    if (p < rmin1-qual) goto incomp11;
+    if (p < rmin1) goto incomp11;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p += (int)(s >> 17) % range;
-    if (p < 2*rmin1-qual) goto incomp11;
+    if (p < rmin2) goto incomp11;
 
     if (0)
     {
@@ -305,16 +311,16 @@ int isLargeTriBase(const StructureConfig sconf, const int64_t seed, const int qu
     s = (reg01base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p = (int)(s >> 17) % range;
-    if (p > qual) goto incomp01;
+    if (p > rmax) goto incomp01;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p += (int)(s >> 17) % range;
-    if (p > qual) goto incomp01;
+    if (p > rmax) goto incomp01;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p = (int)(s >> 17) % range;
-    if (p < rmin1-qual) goto incomp01;
+    if (p < rmin1) goto incomp01;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p += (int)(s >> 17) % range;
-    if (p < 2*rmin1-qual) goto incomp01;
+    if (p < rmin2) goto incomp01;
 
     if (0)
     {
@@ -326,16 +332,16 @@ int isLargeTriBase(const StructureConfig sconf, const int64_t seed, const int qu
     s = (reg10base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p = (int)(s >> 17) % range;
-    if (p < rmin1-qual) goto incomp10;
+    if (p < rmin1) goto incomp10;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p += (int)(s >> 17) % range;
-    if (p < 2*rmin1-qual) goto incomp10;
+    if (p < rmin2) goto incomp10;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p = (int)(s >> 17) % range;
-    if (p > qual) goto incomp10;
+    if (p > rmax) goto incomp10;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p += (int)(s >> 17) % range;
-    if (p > qual) goto incomp10;
+    if (p > rmax) goto incomp10;
 
     if (0)
     {
@@ -347,16 +353,16 @@ int isLargeTriBase(const StructureConfig sconf, const int64_t seed, const int qu
     s = (reg11base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p = (int)(s >> 17) % range;
-    if (p > qual) goto incomp00;
+    if (p > rmax) goto incomp00;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p += (int)(s >> 17) % range;
-    if (p > qual) goto incomp00;
+    if (p > rmax) goto incomp00;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p = (int)(s >> 17) % range;
-    if (p > qual) goto incomp00;
+    if (p > rmax) goto incomp00;
     s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
     p += (int)(s >> 17) % range;
-    if (p > qual) goto incomp00;
+    if (p > rmax) goto incomp00;
 
     if (0)
     {
@@ -495,9 +501,9 @@ static DWORD WINAPI search4QuadBasesThread(LPVOID data)
 {
     quad_threadinfo_t info = *(quad_threadinfo_t*)data;
 
-    const int64_t start = info.start;
-    const int64_t end   = info.end;
-    const int64_t structureSeed = info.sconf.seed;
+    const int64_t start       = info.start;
+    const int64_t end         = info.end;
+    const StructureConfig stc = info.sconf;
 
     int64_t seed;
 
@@ -508,27 +514,27 @@ static DWORD WINAPI search4QuadBasesThread(LPVOID data)
 
     lowerBits = (int64_t *) malloc(0x10000 * sizeof(int64_t));
 
-    if (info.quality == 1)
+    if (stc.properties == 0 && stc.chunkRange == 24 && info.quality == 1)
     {
         lowerBitsCnt = sizeof(lowerBaseBitsQ1) / sizeof(lowerBaseBitsQ1[0]);
         for (i = 0; i < lowerBitsCnt; i++)
         {
-            lowerBits[i] = (lowerBaseBitsQ1[i] - structureSeed) & 0xffff;
+            lowerBits[i] = (lowerBaseBitsQ1[i] - stc.seed) & 0xffff;
         }
     }
-    else if (info.quality == 2)
+    else if (stc.properties == 0 && stc.chunkRange == 24 && info.quality == 2)
     {
         lowerBitsCnt = sizeof(lowerBaseBitsQ2) / sizeof(lowerBaseBitsQ2[0]);
         for (i = 0; i < lowerBitsCnt; i++)
         {
-            lowerBits[i] = (lowerBaseBitsQ2[i] - structureSeed) & 0xffff;
+            lowerBits[i] = (lowerBaseBitsQ2[i] - stc.seed) & 0xffff;
         }
     }
     else
     {
         printf("WARN search4QuadBasesThread: "
-               "Lower bits for quality %d have not been defined => "
-               "will try all combinations.\n", info.quality);
+               "Lower bits for this quality and property have not been defined"
+               " => trying all combinations.\n");
 
         lowerBitsCnt = 0x10000;
         for (i = 0; i < lowerBitsCnt; i++) lowerBits[i] = i;
@@ -549,26 +555,30 @@ static DWORD WINAPI search4QuadBasesThread(LPVOID data)
 
     // Check the last entry in the file and use it as a starting point if it
     // exists. (I.e. loading the saved progress.)
-    if (!fseek(fp, -31, SEEK_END))
+    int c, nnl = 0;
+    char buf[32];
+    for (i = 1; i < 32; i++)
     {
-        char buf[32];
-        if (fread(buf, 30, 1, fp) > 0)
+        if (fseek(fp, -i, SEEK_END)) break;
+        c = fgetc(fp);
+        if (c <= 0 || (nnl && c == '\n')) break;
+        nnl |= (c != '\n');
+    }
+
+    if (i < 32 && !fseek(fp, 1-i, SEEK_END) && fread(buf, i-1, 1, fp) > 0)
+    {
+        if (sscanf(buf, "%"PRId64, &seed) == 1)
         {
-            char *last_newline = strrchr(buf, '\n');
+            while (lowerBits[lowerBitsIdx] <= (seed & 0xffff))
+                lowerBitsIdx++;
 
-            if (sscanf(last_newline, "%"PRId64, &seed) == 1)
-            {
-                while (lowerBits[lowerBitsIdx] <= (seed & 0xffff))
-                    lowerBitsIdx++;
+            seed = (seed & 0x0000ffffffff0000) + lowerBits[lowerBitsIdx];
 
-                seed = (seed & 0x0000ffffffff0000) + lowerBits[lowerBitsIdx];
-
-                printf("Thread %d starting from: %"PRId64"\n", info.threadID, seed);
-            }
-            else
-            {
-                seed = start;
-            }
+            printf("Thread %d starting from: %"PRId64"\n", info.threadID, seed);
+        }
+        else
+        {
+            seed = start;
         }
     }
 
