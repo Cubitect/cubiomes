@@ -380,21 +380,19 @@ int isLargeTriBase(const StructureConfig sconf, const int64_t seed, const int qu
  */
 int isQuadBase(const StructureConfig sconf, const int64_t seed, const int64_t qual)
 {
+    if ((sconf.chunkRange & (sconf.chunkRange-1)) == 0)
+    {
+        fprintf(stderr,
+                "Quad-finder using power of 2 RNG is not implemented yet.\n");
+        exit(-1);
+    }
+
     switch(sconf.properties)
     {
     case 0:
         return isQuadFeatureBase(sconf, seed, qual);
     case LARGE_STRUCT:
         return isLargeQuadBase(sconf, seed, qual);
-    case USE_POW2_RNG:
-        fprintf(stderr,
-                "Quad-finder using power of 2 RNG is not implemented yet.\n");
-        exit(-1);
-    case LARGE_STRUCT | USE_POW2_RNG:
-        fprintf(stderr,
-                "Quad-finder for large structures using power of 2 RNG"
-                " is not implemented yet.\n");
-        exit(-1);
     default:
         fprintf(stderr,
                 "Unknown properties field for structure: 0x%04X\n",
@@ -408,21 +406,19 @@ int isQuadBase(const StructureConfig sconf, const int64_t seed, const int64_t qu
  */
 int isTriBase(const StructureConfig sconf, const int64_t seed, const int64_t qual)
 {
+    if ((sconf.chunkRange & (sconf.chunkRange-1)) == 0)
+    {
+        fprintf(stderr,
+                "Tri-finder using power of 2 RNG is not implemented yet.\n");
+        exit(-1);
+    }
+
     switch(sconf.properties)
     {
     case 0:
         return isTriFeatureBase(sconf, seed, qual);
     case LARGE_STRUCT:
         return isLargeTriBase(sconf, seed, qual);
-    case USE_POW2_RNG:
-        fprintf(stderr,
-                "Quad-finder using power of 2 RNG is not implemented yet.\n");
-        exit(-1);
-    case LARGE_STRUCT | USE_POW2_RNG:
-        fprintf(stderr,
-                "Quad-finder for large structures using power of 2 RNG"
-                " is not implemented yet.\n");
-        exit(-1);
     default:
         fprintf(stderr,
                 "Unknown properties field for structure: 0x%04X\n",
@@ -717,7 +713,14 @@ Pos getStructurePos(const StructureConfig config, int64_t seed,
 
     seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
 
-    if (config.properties & USE_POW2_RNG)
+    if (config.chunkRange & (config.chunkRange-1))
+    {
+        pos.x = (int)(seed >> 17) % config.chunkRange;
+
+        seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
+        pos.z = (int)(seed >> 17) % config.chunkRange;
+    }
+    else
     {
         // Java RNG treats powers of 2 as a special case.
         pos.x = (config.chunkRange * (seed >> 17)) >> 31;
@@ -725,16 +728,11 @@ Pos getStructurePos(const StructureConfig config, int64_t seed,
         seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
         pos.z = (config.chunkRange * (seed >> 17)) >> 31;
     }
-    else
-    {
-        pos.x = (int)(seed >> 17) % config.chunkRange;
 
-        seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-        pos.z = (int)(seed >> 17) % config.chunkRange;
-    }
-
-    pos.x = ((regionX*config.regionSize + pos.x) << 4) + 8;
-    pos.z = ((regionZ*config.regionSize + pos.z) << 4) + 8;
+    // Structure is positioned at chunk origin but the biome check is performed
+    // at block position (9,9) within chunk. [CHECK: maybe (8,8) in 1.7]
+    pos.x = ((regionX*config.regionSize + pos.x) << 4) + 9;
+    pos.z = ((regionZ*config.regionSize + pos.z) << 4) + 9;
     return pos;
 }
 
@@ -757,20 +755,20 @@ Pos getStructureChunkInRegion(const StructureConfig config, int64_t seed,
 
     seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
 
-    if (config.properties & USE_POW2_RNG)
+    if (config.chunkRange & (config.chunkRange-1))
+    {
+        pos.x = (int)(seed >> 17) % config.chunkRange;
+
+        seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
+        pos.z = (int)(seed >> 17) % config.chunkRange;
+    }
+    else
     {
         // Java RNG treats powers of 2 as a special case.
         pos.x = (config.chunkRange * (seed >> 17)) >> 31;
 
         seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
         pos.z = (config.chunkRange * (seed >> 17)) >> 31;
-    }
-    else
-    {
-        pos.x = (int)(seed >> 17) % config.chunkRange;
-
-        seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-        pos.z = (int)(seed >> 17) % config.chunkRange;
     }
 
     return pos;
@@ -782,7 +780,7 @@ Pos getLargeStructurePos(StructureConfig config, int64_t seed,
 {
     Pos pos;
 
-    //TODO: if (config.properties & USE_POW2_RNG)...
+    //TODO: power of two chunk ranges...
 
     // set seed
     seed = regionX*341873128712 + regionZ*132897987541 + seed + config.seed;
@@ -800,8 +798,8 @@ Pos getLargeStructurePos(StructureConfig config, int64_t seed,
 
     pos.x = regionX*config.regionSize + (pos.x >> 1);
     pos.z = regionZ*config.regionSize + (pos.z >> 1);
-    pos.x = pos.x*16 + 8;
-    pos.z = pos.z*16 + 8;
+    pos.x = pos.x*16 + 9;
+    pos.z = pos.z*16 + 9;
     return pos;
 }
 
@@ -811,7 +809,7 @@ Pos getLargeStructureChunkInRegion(StructureConfig config, int64_t seed,
 {
     Pos pos;
 
-    //TODO: if (config.properties & USE_POW2_RNG)...
+    //TODO: power of two chunk ranges...
 
     // set seed
     seed = regionX*341873128712 + regionZ*132897987541 + seed + config.seed;

@@ -24,12 +24,11 @@ typedef pthread_t thread_id_t;
 #define PI 3.141592653589793
 
 #define LARGE_STRUCT 1
-#define USE_POW2_RNG 2
 
 enum
 {
     Desert_Pyramid, Igloo, Jungle_Pyramid, Swamp_Hut,
-    Village, Ocean_Ruin, Shipwreck, Monument, Mansion
+    Village, Ocean_Ruin, Shipwreck, Monument, Mansion, Outpost
 };
 
 enum
@@ -54,8 +53,9 @@ static const StructureConfig IGLOO_CONFIG          = { 14357618, 32, 24, 0};
 static const StructureConfig JUNGLE_PYRAMID_CONFIG = { 14357619, 32, 24, 0};
 static const StructureConfig SWAMP_HUT_CONFIG      = { 14357620, 32, 24, 0};
 
+static const StructureConfig OUTPOST_CONFIG        = {165745296, 32, 24, 0};
 static const StructureConfig VILLAGE_CONFIG        = { 10387312, 32, 24, 0};
-static const StructureConfig OCEAN_RUIN_CONFIG     = { 14357621, 16,  8, USE_POW2_RNG};
+static const StructureConfig OCEAN_RUIN_CONFIG     = { 14357621, 16,  8, 0};
 static const StructureConfig SHIPWRECK_CONFIG      = {165745295, 15,  7, 0};
 static const StructureConfig MONUMENT_CONFIG       = { 10387313, 32, 27, LARGE_STRUCT};
 static const StructureConfig MANSION_CONFIG        = { 10387319, 80, 60, LARGE_STRUCT};

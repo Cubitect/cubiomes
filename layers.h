@@ -125,7 +125,7 @@ static inline int equalOrPlateau(int id1, int id2)
     if (id1 >= 128 || id2 >= 128) {
         // skip biomes that did not overload the isEqualTo() method
         if (id2 == 130 || id2 == 133 || id2 == 134 || id2 == 149 || id2 == 151 || id2 == 155 ||
-           id2 == 156 || id2 == 157 || id2 == 158 || id2 == 163 || id2 == 164) return 0;
+            id2 == 156 || id2 == 157 || id2 == 158 || id2 == 163 || id2 == 164) return 0;
     }
     return getBiomeType(id1) == getBiomeType(id2);
 }
