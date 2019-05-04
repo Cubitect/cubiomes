@@ -6,7 +6,8 @@
 /* Minecraft versions */
 enum
 {
-    MC_1_7, MC_1_8, MC_1_9, MC_1_10, MC_1_11, MC_1_12, MC_1_13
+    MC_1_7, MC_1_8, MC_1_9, MC_1_10, MC_1_11, MC_1_12, MC_1_13,
+    MCBE_1_7 = 256
 };
 
 /* Enumeration of the layer indices in the generator. */
@@ -191,6 +192,7 @@ STRUCT(LayerStack)
 LayerStack setupGenerator(const int mcversion);
 LayerStack setupGeneratorMC17();
 LayerStack setupGeneratorMC113();
+LayerStack setupGeneratorMCBE17();
 
 /* Cleans up and frees the generator layers */
 void freeGenerator(LayerStack g);
