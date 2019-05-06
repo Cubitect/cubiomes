@@ -839,8 +839,8 @@ Pos getLargeStructureChunkInRegion(StructureConfig config, int64_t seed,
 
 int getBiomeAtPos(const LayerStack g, const Pos pos)
 {
-    int *map = allocCache(&g.layers[g.layerNum-1], 1, 1);
-    genArea(&g.layers[g.layerNum-1], map, pos.x, pos.z, 1, 1);
+    int *map = allocCache(&g.layers[L_VORONOI_ZOOM_1], 1, 1);
+    genArea(&g.layers[L_VORONOI_ZOOM_1], map, pos.x, pos.z, 1, 1);
     int biomeID = map[0];
     free(map);
     return biomeID;
@@ -1139,8 +1139,8 @@ static double getGrassProbability(int64_t seed, int biome, int x, int z)
     case savannaPlateau:    return 1.0;
     case mesaPlateau_F:     return 0.1; // height dependent
     case mesaPlateau:       return 0.1; // height dependent
-    // NOTE: in rare circumstances you can get also get grass islands that are
-    // completely ocean variants...
+    // NOTE: in rare circumstances you can get also get grassy islands that are
+    // completely in ocean variants...
     default: return 0;
     }
 }
@@ -1264,8 +1264,8 @@ Pos estimateSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldS
 int isViableFeaturePos(const int structureType, const LayerStack g, int *cache,
         const int blockX, const int blockZ)
 {
-    int *map = cache ? cache : allocCache(&g.layers[g.layerNum-1], 1, 1);
-    genArea(&g.layers[g.layerNum-1], map, blockX, blockZ, 1, 1);
+    int *map = cache ? cache : allocCache(&g.layers[L_VORONOI_ZOOM_1], 1, 1);
+    genArea(&g.layers[L_VORONOI_ZOOM_1], map, blockX, blockZ, 1, 1);
     int biomeID = map[0];
     if (!cache) free(map);
 
@@ -1381,8 +1381,7 @@ int isZombieVillage(const int mcversion, const int64_t worldSeed,
     // jump to the random number check that determines whether this is village
     // is zombie infested
     int64_t rnd = chunkGenerateRnd(worldSeed, pos.x , pos.z);
-    // TODO: check for versions <= 1.11
-    skipNextN(&rnd, mcversion >= MC_1_13 ? 10 : 11);
+    skipNextN(&rnd, mcversion == MC_1_13 ? 10 : 11);
 
     return nextInt(&rnd, 50) == 0;
 }
@@ -1582,7 +1581,7 @@ int64_t filterAllMajorBiomes(
         const unsigned int  sX,
         const unsigned int  sZ)
 {
-    Layer *lFilterMushroom = &g->layers[L_ADD_MUSHROOM_ISLAND_256];
+    Layer *lFilterMushroom = &g->layers[L_ADD_MUSHROOM_256];
     Layer *lFilterBiomes = &g->layers[L_BIOME_256];
 
     int *map;
@@ -1793,11 +1792,11 @@ int64_t checkForBiomes(
         const int           minscale)
 {
     Layer *lspecial = &g->layers[L_SPECIAL_1024];
-    Layer *lmushroom = &g->layers[L_ADD_MUSHROOM_ISLAND_256];
+    Layer *lmushroom = &g->layers[L_ADD_MUSHROOM_256];
     Layer *lbiomes = &g->layers[L_BIOME_256];
     Layer *loceantemp = NULL;
 
-    int *map = cache ? cache : allocCache(&g->layers[g->layerNum-1], width, height);
+    int *map = cache ? cache : allocCache(&g->layers[L_VORONOI_ZOOM_1], width, height);
 
     uint64_t potential, required, modified;
     int64_t ss, cs;
@@ -2052,7 +2051,10 @@ int64_t checkForBiomes(
         areaHeight4 = ((height-1) >> 2) + 2;
 
         applySeed(g, seed);
-        genArea(&g->layers[g->layerNum-2], map, areaX4, areaZ4, areaWidth4, areaHeight4);
+        if (filter.doOceanTypeCheck)
+            genArea(&g->layers[L13_OCEAN_MIX_4], map, areaX4, areaZ4, areaWidth4, areaHeight4);
+        else
+            genArea(&g->layers[L_RIVER_MIX_4], map, areaX4, areaZ4, areaWidth4, areaHeight4);
 
         potential = modified = 0;
 

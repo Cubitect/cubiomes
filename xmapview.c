@@ -111,6 +111,9 @@ void initBiomeColours(unsigned char biomeColours[256][3])
     setBiomeColour(biomeColours, mesa+128, 217, 69, 21);
     setBiomeColour(biomeColours, mesaPlateau_F+128, 176, 151, 101);
     setBiomeColour(biomeColours, mesaPlateau+128, 202, 140, 101);
+
+    setBiomeColour(biomeColours, bamboo_jungle, 118, 142, 20);
+    setBiomeColour(biomeColours, bamboo_jungle_hills, 59, 71, 10);
 }
 
 void initBiomeTypeColours(unsigned char biomeColours[256][3])

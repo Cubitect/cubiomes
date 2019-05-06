@@ -4,10 +4,10 @@
 #include "layers.h"
 
 /* Minecraft versions */
-enum
+enum MCversion
 {
-    MC_1_7, MC_1_8, MC_1_9, MC_1_10, MC_1_11, MC_1_12, MC_1_13,
-    MCBE_1_7 = 256
+    MC_1_7, MC_1_8, MC_1_9, MC_1_10, MC_1_11, MC_1_12, MC_1_13, MC_1_14,
+    MCBE = 256
 };
 
 /* Enumeration of the layer indices in the generator. */
@@ -20,7 +20,7 @@ enum
     L_ADD_ISLAND_1024A,
     L_ADD_ISLAND_1024B,
     L_ADD_ISLAND_1024C,
-    L_REMOVE_TOO_MUCH_OCEAN_1024,
+    L_REMOVE_OCEAN_1024,
     L_ADD_SNOW_1024,
     L_ADD_ISLAND_1024D,
     L_COOL_WARM_1024,
@@ -29,7 +29,7 @@ enum
     L_ZOOM_512,
     L_ZOOM_256,
     L_ADD_ISLAND_256,
-    L_ADD_MUSHROOM_ISLAND_256, /* Good entry for: mushroom biomes */
+    L_ADD_MUSHROOM_256, /* Good entry for: mushroom biomes */
     L_DEEP_OCEAN_256,
     L_BIOME_256, /* Good entry for: major biome types */
     L_ZOOM_128,
@@ -58,10 +58,8 @@ enum
     L_RIVER_MIX_4,
     L_VORONOI_ZOOM_1,
 
-    L_NUM,
-
     // 1.13 layers
-    L13_OCEAN_TEMP_256 = 43,
+    L13_OCEAN_TEMP_256,
     L13_ZOOM_128,
     L13_ZOOM_64,
     L13_ZOOM_32,
@@ -69,9 +67,11 @@ enum
     L13_ZOOM_8,
     L13_ZOOM_4,
     L13_OCEAN_MIX_4,
-    L13_VORONOI_ZOOM_1,
 
-    L13_NUM
+    // 1.14 layers
+    L14_BAMBOO_256,
+
+    L_NUM
 };
 
 
@@ -185,14 +185,11 @@ static const int BIOMES_L_RIVER_MIX_4[] =
 STRUCT(LayerStack)
 {
     Layer *layers;
-    int layerNum;
+    int layerCnt;
 };
 
 /* Initialise an instance of a generator. */
 LayerStack setupGenerator(const int mcversion);
-LayerStack setupGeneratorMC17();
-LayerStack setupGeneratorMC113();
-LayerStack setupGeneratorMCBE17();
 
 /* Cleans up and frees the generator layers */
 void freeGenerator(LayerStack g);

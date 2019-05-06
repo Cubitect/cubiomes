@@ -55,6 +55,7 @@ static const StructureConfig SWAMP_HUT_CONFIG      = { 14357620, 32, 24, 0};
 
 static const StructureConfig OUTPOST_CONFIG        = {165745296, 32, 24, 0};
 static const StructureConfig VILLAGE_CONFIG        = { 10387312, 32, 24, 0};
+static const StructureConfig TREASURE_CONFIG       = { 10387320, 16,  7, 0};
 static const StructureConfig OCEAN_RUIN_CONFIG     = { 14357621, 16,  8, 0};
 static const StructureConfig SHIPWRECK_CONFIG      = {165745295, 15,  7, 0};
 static const StructureConfig MONUMENT_CONFIG       = { 10387313, 32, 27, LARGE_STRUCT};
@@ -64,12 +65,21 @@ static const StructureConfig MANSION_CONFIG        = { 10387319, 80, 60, LARGE_S
 // Biome Tables
 //==============================================================================
 
-static const int templeBiomeList[] = {desert, desertHills, jungle, jungleHills, swampland, icePlains, coldTaiga};
-static const int biomesToSpawnIn[] = {forest, plains, taiga, taigaHills, forestHills, jungle, jungleHills};
-static const int oceanMonumentBiomeList1[] = {ocean, deepOcean, river, frozenRiver, frozenOcean, frozenDeepOcean, coldOcean, coldDeepOcean, lukewarmOcean, lukewarmDeepOcean, warmOcean, warmDeepOcean};
-static const int oceanMonumentBiomeList2[] = {frozenDeepOcean, coldDeepOcean, deepOcean, lukewarmDeepOcean, warmDeepOcean};
+static const int templeBiomeList[] = {desert, desert_hills, jungle, jungle_hills, swamp, snowy_tundra, snowy_taiga};
+static const int biomesToSpawnIn[] = {forest, plains, taiga, taiga_hills, wooded_hills, jungle, jungle_hills};
 static const int villageBiomeList[] = {plains, desert, savanna, taiga};
-static const int mansionBiomeList[] = {roofedForest, roofedForest+128};
+static const int villageBiomeListBE[] = {plains, desert, savanna, taiga, snowy_tundra, snowy_taiga};
+static const int mansionBiomeList[] = {dark_forest, dark_forest+128};
+static const int oceanMonumentBiomeList1[] =
+{
+        ocean, deep_ocean, river, frozen_river,
+        frozen_ocean, deep_frozen_ocean, cold_ocean, deep_cold_ocean,
+        lukewarm_ocean, deep_lukewarm_ocean, warm_ocean, deep_warm_ocean
+};
+static const int oceanMonumentBiomeList2[] =
+{
+        deep_frozen_ocean, deep_cold_ocean, deep_ocean, deep_lukewarm_ocean, deep_warm_ocean
+};
 
 static const int achievementBiomes_1_7[] =
 {

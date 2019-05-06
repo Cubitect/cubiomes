@@ -7,6 +7,9 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+#ifndef NULL
+#define NULL ((void*)0)
+#endif
 
 #if defined USE_SIMD && __AVX2__
 #include <emmintrin.h>
@@ -29,19 +32,99 @@
 enum BiomeID
 {
     none = -1,
-    ocean = 0, plains, desert, extremeHills, forest, taiga, swampland, river, hell, sky, // 0-9
-    frozenOcean, frozenRiver, icePlains, iceMountains, mushroomIsland, mushroomIslandShore, beach, desertHills, forestHills, taigaHills,  // 10-19
-    extremeHillsEdge, jungle, jungleHills, jungleEdge, deepOcean, stoneBeach, coldBeach, birchForest, birchForestHills, roofedForest, // 20-29
-    coldTaiga, coldTaigaHills, megaTaiga, megaTaigaHills, extremeHillsPlus, savanna, savannaPlateau, mesa, mesaPlateau_F, mesaPlateau, // 30-39
-    // 1.13
-    skyIslandLow, skyIslandMedium, skyIslandHigh, skyIslandBarren, warmOcean, lukewarmOcean, coldOcean, warmDeepOcean, lukewarmDeepOcean, coldDeepOcean, // 40-49
-    frozenDeepOcean,
-    BIOME_NUM
+    // 0
+    ocean = 0,
+    plains,
+    desert,
+    mountains,                  extremeHills = mountains,
+    forest,
+    taiga,
+    swamp,                      swampland = swamp,
+    river,
+    nether,                     hell = nether,
+    the_end,                    sky = the_end,
+    // 10
+    frozen_ocean,               frozenOcean = frozen_ocean,
+    frozen_river,               frozenRiver = frozen_river,
+    snowy_tundra,               icePlains = snowy_tundra,
+    snowy_mountains,            iceMountains = snowy_mountains,
+    mushroom_fields,            mushroomIsland = mushroom_fields,
+    mushroom_field_shore,       mushroomIslandShore = mushroom_field_shore,
+    beach,
+    desert_hills,               desertHills = desert_hills,
+    wooded_hills,               forestHills = wooded_hills,
+    taiga_hills,                taigaHills = taiga_hills,
+    // 20
+    mountain_edge,              extremeHillsEdge = mountain_edge,
+    jungle,
+    jungle_hills,               jungleHills = jungle_hills,
+    jungle_edge,                jungleEdge = jungle_edge,
+    deep_ocean,                 deepOcean = deep_ocean,
+    stone_shore,                stoneBeach = stone_shore,
+    snowy_beach,                coldBeach = snowy_beach,
+    birch_forest,               birchForest = birch_forest,
+    birch_forest_hills,         birchForestHills = birch_forest_hills,
+    dark_forest,                roofedForest = dark_forest,
+    // 30
+    snowy_taiga,                coldTaiga = snowy_taiga,
+    snowy_taiga_hills,          coldTaigaHills = snowy_taiga_hills,
+    giant_tree_taiga,           megaTaiga = giant_tree_taiga,
+    giant_tree_taiga_hills,     megaTaigaHills = giant_tree_taiga_hills,
+    wooded_mountains,           extremeHillsPlus = wooded_mountains,
+    savanna,
+    savanna_plateau,            savannaPlateau = savanna_plateau,
+    badlands,                   mesa = badlands, 
+    wooded_badlands_plateau,    mesaPlateau_F = wooded_badlands_plateau, 
+    badlands_plateau,           mesaPlateau = badlands_plateau,
+    // 40  --  1.13
+    small_end_islands,
+    end_midlands,
+    end_highlands,
+    end_barrens,
+    warm_ocean,                 warmOcean = warm_ocean,
+    lukewarm_ocean,             lukewarmOcean = lukewarm_ocean,
+    cold_ocean,                 coldOcean = cold_ocean,
+    deep_warm_ocean,            warmDeepOcean = deep_warm_ocean,
+    deep_lukewarm_ocean,        lukewarmDeepOcean = deep_lukewarm_ocean,
+    deep_cold_ocean,            coldDeepOcean = deep_cold_ocean,
+    // 50
+    deep_frozen_ocean,          frozenDeepOcean = deep_frozen_ocean,
+    BIOME_NUM,
+    
+    the_void = 127,
+    
+    // mutated variants
+    sunflower_plains                = plains+128,
+    desert_lakes                    = desert+128,
+    gravelly_mountains              = mountains+128,
+    flower_forest                   = forest+128,
+    taiga_mountains                 = taiga+128,
+    swamp_hills                     = swamp+128,
+    ice_spikes                      = snowy_tundra+128,
+    modified_jungle                 = jungle+128,
+    modified_jungle_edge            = jungle_edge+128,
+    tall_birch_forest               = birch_forest+128,
+    tall_birch_hills                = birch_forest_hills+128,
+    dark_forest_hills               = dark_forest+128,
+    snowy_taiga_mountains           = snowy_taiga+128,
+    giant_spruce_taiga              = giant_tree_taiga+128,
+    giant_spruce_taiga_hills        = giant_tree_taiga_hills+128,
+    modified_gravelly_mountains     = wooded_mountains+128,
+    shattered_savanna               = savanna+128,
+    shattered_savanna_plateau       = savanna_plateau+128,
+    eroded_badlands                 = badlands+128,
+    modified_wooded_badlands_plateau = wooded_badlands_plateau+128,
+    modified_badlands_plateau       = badlands_plateau+128,
+    // 1.14
+    bamboo_jungle                   = 168,
+    bamboo_jungle_hills             = 169
 };
 
 enum BiomeType
 {
-    Ocean, Plains, Desert, Hills, Forest, Taiga, Swamp, River, Hell, Sky, Snow, MushroomIsland, Beach, Jungle, StoneBeach, Savanna, Mesa, BTYPE_NUM
+    Void = -1,
+    Ocean, Plains, Desert, Hills, Forest, Taiga, Swamp, River, Hell, Sky, Snow, MushroomIsland, Beach, Jungle, StoneBeach, Savanna, Mesa,
+    BTYPE_NUM
 };
 
 enum BiomeTempCategory
@@ -141,8 +224,8 @@ static inline int canBeNeighbors(int id1, int id2)
 
 static inline int isShallowOcean(int id)
 {
-    return id == ocean || id == frozenOcean ||
-           id == warmOcean || id == lukewarmOcean || id == coldOcean;
+    return id == ocean || id == frozen_ocean ||
+           id == warm_ocean || id == lukewarm_ocean || id == cold_ocean;
 }
 
 static inline int isOceanic(int id)
@@ -150,15 +233,15 @@ static inline int isOceanic(int id)
     switch(id)
     {
     case ocean:
-    case deepOcean:
-    case warmOcean:
-    case warmDeepOcean:
-    case lukewarmOcean:
-    case lukewarmDeepOcean:
-    case coldOcean:
-    case coldDeepOcean:
-    case frozenOcean:
-    case frozenDeepOcean:
+    case deep_ocean:
+    case warm_ocean:
+    case deep_warm_ocean:
+    case lukewarm_ocean:
+    case deep_lukewarm_ocean:
+    case cold_ocean:
+    case deep_cold_ocean:
+    case frozen_ocean:
+    case deep_frozen_ocean:
         return 1;
     default:
         return 0;
@@ -455,6 +538,7 @@ void mapAddMushroomIsland(Layer *l, int * __restrict out, int x, int z, int w, i
 void mapDeepOcean(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapBiome(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapBiomeBE(Layer *l, int * __restrict out, int x, int z, int w, int h);
+void mapAddBamboo(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapRiverInit(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapBiomeEdge(Layer *l, int * __restrict out, int x, int z, int w, int h);
 void mapHills(Layer *l, int * __restrict out, int x, int z, int w, int h);
