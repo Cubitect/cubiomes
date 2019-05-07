@@ -105,7 +105,7 @@ STRUCT(BiomeFilter)
     // bitfield of required biomes without modification bit
     uint64_t biomesToFind;
     // bitfield of required modified biomes
-    uint64_t modifiedToFind;
+    uint64_t modifiedToFind; // TODO: add checks for bamboo_jungle*
 
     // check that there is a minimum of both special and normal temperatures
     int tempNormal, tempSpecial;

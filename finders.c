@@ -1114,31 +1114,31 @@ static double getGrassProbability(int64_t seed, int biome, int x, int z)
     // TODO: Try to determine the actual probabilities and build a statistic.
     switch (biome)
     {
-    case plains:            return 1.0;
-    case extremeHills:      return 0.8; // height dependent
-    case forest:            return 1.0;
-    case taiga:             return 1.0;
-    case swampland:         return 0.6; // height dependent
-    case river:             return 0.2;
-    case beach:             return 0.1;
-    case forestHills:       return 1.0;
-    case taigaHills:        return 1.0;
-    case extremeHillsEdge:  return 1.0; // height dependent
-    case jungle:            return 1.0;
-    case jungleHills:       return 1.0;
-    case jungleEdge:        return 1.0;
-    case birchForest:       return 1.0;
-    case birchForestHills:  return 1.0;
-    case roofedForest:      return 0.9;
-    case coldTaiga:         return 0.1; // below trees
-    case coldTaigaHills:    return 0.1; // below trees
-    case megaTaiga:         return 0.6;
-    case megaTaigaHills:    return 0.6;
-    case extremeHillsPlus:  return 0.2; // height dependent
-    case savanna:           return 1.0;
-    case savannaPlateau:    return 1.0;
-    case mesaPlateau_F:     return 0.1; // height dependent
-    case mesaPlateau:       return 0.1; // height dependent
+    case plains:                    return 1.0;
+    case mountains:                 return 0.8; // height dependent
+    case forest:                    return 1.0;
+    case taiga:                     return 1.0;
+    case swamp:                     return 0.6; // height dependent
+    case river:                     return 0.2;
+    case beach:                     return 0.1;
+    case wooded_hills:              return 1.0;
+    case taiga_hills:               return 1.0;
+    case mountain_edge:             return 1.0; // height dependent
+    case jungle:                    return 1.0;
+    case jungle_hills:              return 1.0;
+    case jungleEdge:                return 1.0;
+    case birch_forest:              return 1.0;
+    case birch_forest_hills:        return 1.0;
+    case dark_forest:               return 0.9;
+    case snowy_taiga:               return 0.1; // below trees
+    case snowy_taiga_hills:         return 0.1; // below trees
+    case giant_tree_taiga:          return 0.6;
+    case giant_tree_taiga_hills:    return 0.6;
+    case wooded_mountains:          return 0.2; // height dependent
+    case savanna:                   return 1.0;
+    case savanna_plateau:           return 1.0;
+    case wooded_badlands_plateau:   return 0.1; // height dependent
+    case badlands_plateau:          return 0.1; // height dependent
     // NOTE: in rare circumstances you can get also get grassy islands that are
     // completely in ocean variants...
     default: return 0;
@@ -1272,13 +1272,13 @@ int isViableFeaturePos(const int structureType, const LayerStack g, int *cache,
     switch(structureType)
     {
     case Desert_Pyramid:
-        return biomeID == desert || biomeID == desertHills;
+        return biomeID == desert || biomeID == desert_hills;
     case Igloo:
-        return biomeID == icePlains || biomeID == coldTaiga;
+        return biomeID == snowy_tundra || biomeID == snowy_taiga;
     case Jungle_Pyramid:
-        return biomeID == jungle || biomeID == jungleHills;
+        return biomeID == jungle || biomeID == jungle_hills;
     case Swamp_Hut:
-        return biomeID == swampland;
+        return biomeID == swamp;
     case Ocean_Ruin:
     case Shipwreck:
         return isOceanic(biomeID);
@@ -1565,9 +1565,9 @@ int64_t filterAllTempCats(
 
 
 const int majorBiomes[] = {
-        ocean, plains, desert, extremeHills, forest, taiga, swampland,
-        icePlains, mushroomIsland, jungle, deepOcean, birchForest, roofedForest,
-        coldTaiga, megaTaiga, savanna, mesaPlateau_F, mesaPlateau
+        ocean, plains, desert, mountains, forest, taiga, swamp,
+        snowy_tundra, mushroom_fields, jungle, deep_ocean, birch_forest, dark_forest,
+        snowy_taiga, giant_tree_taiga, savanna, wooded_badlands_plateau, badlands_plateau
 };
 
 int64_t filterAllMajorBiomes(
@@ -1596,7 +1596,7 @@ int64_t filterAllMajorBiomes(
 
     for (sidx = 0; sidx < seedCnt; sidx++)
     {
-        /* We can use the Mushroom layer both to check for mushroomIsland biomes
+        /* We can use the Mushroom layer both to check for mushroom_fields biomes
          * and to make sure all temperature categories are present in the area.
          */
         seed = seedsIn[sidx];
@@ -1614,7 +1614,7 @@ int64_t filterAllMajorBiomes(
         if ( types[Ocean] < 1  || types[Warm] < 1     || types[Lush] < 1 ||
          /* types[Cold] < 1   || */ types[Freezing] < 1 ||
             types[Warm+4] < 1 || types[Lush+4] < 1   || types[Cold+4] < 1 ||
-            types[mushroomIsland] < 1)
+            types[mushroom_fields] < 1)
         {
             continue;
         }
@@ -1633,12 +1633,12 @@ int64_t filterAllMajorBiomes(
         hasAll = 1;
         for (i = 0; i < sizeof(majorBiomes) / sizeof(*majorBiomes); i++)
         {
-            // plains, taiga and deepOcean can be generated in later layers.
-            // Also small islands of Forests can be generated in deepOcean
+            // plains, taiga and deep_ocean can be generated in later layers.
+            // Also small islands of Forests can be generated in deep_ocean
             // biomes, but we are going to ignore those.
             if (majorBiomes[i] == plains ||
-               majorBiomes[i] == taiga ||
-               majorBiomes[i] == deepOcean)
+                majorBiomes[i] == taiga ||
+                majorBiomes[i] == deep_ocean)
             {
                 continue;
             }
@@ -1676,31 +1676,31 @@ BiomeFilter setupBiomeFilter(const int *biomeList, int listLen)
         id = biomeList[i] & 0x7f;
         switch (id)
         {
-        case mushroomIsland:
-        case mushroomIslandShore:
+        case mushroom_fields:
+        case mushroom_field_shore:
             bf.requireMushroom = 1;
             bf.tempCat |= (1ULL << Oceanic);
             bf.biomesToFind |= (1ULL << id);
-        case mesa:
-        case mesaPlateau_F:
-        case mesaPlateau:
+        case badlands:
+        case wooded_badlands_plateau:
+        case badlands_plateau:
             bf.tempCat |= (1ULL << (Warm+Special));
             bf.biomesToFind |= (1ULL << id);
             break;
         case savanna:
-        case savannaPlateau:
+        case savanna_plateau:
             bf.tempCat |= (1ULL << Warm);
             bf.biomesToFind |= (1ULL << id);
             break;
-        case roofedForest:
-        case birchForest:
-        case birchForestHills:
-        case swampland:
+        case dark_forest:
+        case birch_forest:
+        case birch_forest_hills:
+        case swamp:
             bf.tempCat |= (1ULL << Lush);
             bf.biomesToFind |= (1ULL << id);
             break;
         case jungle:
-        case jungleHills:
+        case jungle_hills:
             bf.tempCat |= (1ULL << (Lush+Special));
             bf.biomesToFind |= (1ULL << id);
             break;
@@ -1708,15 +1708,15 @@ BiomeFilter setupBiomeFilter(const int *biomeList, int listLen)
             bf.tempCat |= (1ULL << Lush) | (1ULL << Lush+4);
             bf.biomesToFind |= (1ULL << id);
             break;*/
-        case megaTaiga:
-        case megaTaigaHills:
+        case giant_tree_taiga:
+        case giant_tree_taiga_hills:
             bf.tempCat |= (1ULL << (Cold+Special));
             bf.biomesToFind |= (1ULL << id);
             break;
-        case icePlains:
-        case iceMountains:
-        case coldTaiga:
-        case coldTaigaHills:
+        case snowy_tundra:
+        case snowy_mountains:
+        case snowy_taiga:
+        case snowy_taiga_hills:
             bf.tempCat |= (1ULL << Freezing);
             bf.biomesToFind |= (1ULL << id);
             break;
@@ -1725,7 +1725,7 @@ BiomeFilter setupBiomeFilter(const int *biomeList, int listLen)
 
             if (isOceanic(id))
             {
-                if (id != ocean && id != deepOcean)
+                if (id != ocean && id != deep_ocean)
                     bf.doOceanTypeCheck = 1;
 
                 if (isShallowOcean(id))
@@ -1734,16 +1734,16 @@ BiomeFilter setupBiomeFilter(const int *biomeList, int listLen)
                 }
                 else
                 {
-                    if (id == warmDeepOcean)
-                        bf.oceansToFind |= (1ULL << warmOcean);
-                    else if (id == lukewarmDeepOcean)
-                        bf.oceansToFind |= (1ULL << lukewarmOcean);
-                    else if (id == deepOcean)
+                    if (id == deep_warm_ocean)
+                        bf.oceansToFind |= (1ULL << warm_ocean);
+                    else if (id == deep_lukewarm_ocean)
+                        bf.oceansToFind |= (1ULL << lukewarm_ocean);
+                    else if (id == deep_ocean)
                         bf.oceansToFind |= (1ULL << ocean);
-                    else if (id == coldDeepOcean)
-                        bf.oceansToFind |= (1ULL << coldOcean);
-                    else if (id == frozenDeepOcean)
-                        bf.oceansToFind |= (1ULL << frozenOcean);
+                    else if (id == deep_cold_ocean)
+                        bf.oceansToFind |= (1ULL << cold_ocean);
+                    else if (id == deep_frozen_ocean)
+                        bf.oceansToFind |= (1ULL << frozen_ocean);
                 }
                 bf.tempCat |= (1ULL << Oceanic);
             }
@@ -1870,9 +1870,9 @@ int64_t checkForBiomes(
 
         potential = 0;
         required = filter.biomesToFind & (
-                (1ULL << mesaPlateau) | (1ULL << mesaPlateau_F) |
-                (1ULL << savanna)     | (1ULL << roofedForest) |
-                (1ULL << birchForest) | (1ULL << swampland) );
+                (1ULL << badlands_plateau) | (1ULL << wooded_badlands_plateau) |
+                (1ULL << savanna)          | (1ULL << dark_forest) |
+                (1ULL << birch_forest)     | (1ULL << swamp));
 
         for (z = 0; z < areaHeight256; z++)
         {
@@ -1884,13 +1884,13 @@ int64_t checkForBiomes(
                 int cs6 = cs % 6;
                 int cs3 = cs6 & 3;
 
-                if (cs3 == 0) potential |= (1ULL << mesaPlateau);
-                else if (cs3 == 1 || cs3 == 2) potential |= (1ULL << mesaPlateau_F);
+                if (cs3 == 0) potential |= (1ULL << badlands_plateau);
+                else if (cs3 == 1 || cs3 == 2) potential |= (1ULL << wooded_badlands_plateau);
 
-                if (cs6 == 1) potential |= (1ULL << roofedForest);
+                if (cs6 == 1) potential |= (1ULL << dark_forest);
                 else if (cs6 == 3) potential |= (1ULL << savanna);
-                else if (cs6 == 4) potential |= (1ULL << savanna) | (1ULL << birchForest);
-                else if (cs6 == 5) potential |= (1ULL << swampland);
+                else if (cs6 == 4) potential |= (1ULL << savanna) | (1ULL << birch_forest);
+                else if (cs6 == 5) potential |= (1ULL << swamp);
 
                 if (!((potential & required) ^ required))
                 {
@@ -1942,7 +1942,7 @@ int64_t checkForBiomes(
             potential |= (1ULL << id);
         }
 
-        required = filter.tempCat | (1ULL << mushroomIsland);
+        required = filter.tempCat | (1ULL << mushroom_fields);
 
         if ((potential & required) ^ required)
         {
@@ -1961,11 +1961,11 @@ int64_t checkForBiomes(
         for (i = 0; i < areaWidth256 * areaHeight256; i++)
         {
             id = map[i];
-            if (id == warmOcean)     potential |= (1ULL << warmOcean) | (1ULL << lukewarmOcean);
-            if (id == lukewarmOcean) potential |= (1ULL << lukewarmOcean);
-            if (id == ocean)         potential |= (1ULL << ocean);
-            if (id == coldOcean)     potential |= (1ULL << coldOcean);
-            if (id == frozenOcean)   potential |= (1ULL << frozenOcean) | (1ULL << coldOcean);
+            if (id == warm_ocean)     potential |= (1ULL << warm_ocean) | (1ULL << lukewarm_ocean);
+            if (id == lukewarm_ocean) potential |= (1ULL << lukewarm_ocean);
+            if (id == ocean)          potential |= (1ULL << ocean);
+            if (id == cold_ocean)     potential |= (1ULL << cold_ocean);
+            if (id == frozen_ocean)   potential |= (1ULL << frozen_ocean) | (1ULL << cold_ocean);
         }
 
         if ((potential & filter.oceansToFind) ^ filter.oceansToFind)
@@ -1980,53 +1980,53 @@ int64_t checkForBiomes(
         genArea(lbiomes, map, areaX256, areaZ256, areaWidth256, areaHeight256);
 
         // get biomes out of the way that we cannot check for at this layer
-        potential = (1ULL << beach) | (1ULL << stoneBeach) | (1ULL << coldBeach) |
-                (1ULL << river) | (1ULL << frozenRiver);
+        potential = (1ULL << beach) | (1ULL << stone_shore) |
+                (1ULL << snowy_beach) | (1ULL << river) | (1ULL << frozen_river);
 
         for (i = 0; i < areaWidth256 * areaHeight256; i++)
         {
             id = map[i];
             switch (id)
             {
-            case mesaPlateau_F:
-            case mesaPlateau:
-                potential |= (1ULL << id) | (1ULL << mesa) | (1ULL << desert); break;
-            case megaTaiga:
-                potential |= (1ULL << id) | (1ULL << taiga) | (1ULL << taigaHills) | (1ULL << megaTaigaHills); break;
+            case wooded_badlands_plateau:
+            case badlands_plateau:
+                potential |= (1ULL << id) | (1ULL << badlands) | (1ULL << desert); break;
+            case giant_tree_taiga:
+                potential |= (1ULL << id) | (1ULL << taiga) | (1ULL << taiga_hills) | (1ULL << giant_tree_taiga_hills); break;
             case desert:
-                potential |= (1ULL << id) | (1ULL << extremeHillsPlus) | (1ULL << desertHills); break;
-            case swampland:
+                potential |= (1ULL << id) | (1ULL << wooded_mountains) | (1ULL << desert_hills); break;
+            case swamp:
                 potential |= (1ULL << id) | (1ULL << jungleEdge) | (1ULL << plains); break;
             case forest:
-                potential |= (1ULL << id) | (1ULL << forestHills); break;
-            case birchForest:
-                potential |= (1ULL << id) | (1ULL << birchForestHills); break;
-            case roofedForest:
+                potential |= (1ULL << id) | (1ULL << wooded_hills); break;
+            case birch_forest:
+                potential |= (1ULL << id) | (1ULL << birch_forest_hills); break;
+            case dark_forest:
                 potential |= (1ULL << id) | (1ULL << plains); break;
             case taiga:
-                potential |= (1ULL << id) | (1ULL << taigaHills); break;
-            case coldTaiga:
-                potential |= (1ULL << id) | (1ULL << coldTaigaHills); break;
+                potential |= (1ULL << id) | (1ULL << taiga_hills); break;
+            case snowy_taiga:
+                potential |= (1ULL << id) | (1ULL << snowy_taiga_hills); break;
             case plains:
-                potential |= (1ULL << id) | (1ULL << forestHills) | (1ULL << forest); break;
-            case icePlains:
-                potential |= (1ULL << id) | (1ULL << iceMountains); break;
+                potential |= (1ULL << id) | (1ULL << wooded_hills) | (1ULL << forest); break;
+            case snowy_tundra:
+                potential |= (1ULL << id) | (1ULL << snowy_mountains); break;
             case jungle:
-                potential |= (1ULL << id) | (1ULL << jungleHills); break;
+                potential |= (1ULL << id) | (1ULL << jungle_hills); break;
             case ocean:
-                potential |= (1ULL << id) | (1ULL << deepOcean);
+                potential |= (1ULL << id) | (1ULL << deep_ocean);
                 // TODO: buffer possible ocean types at this location
-                potential |= (1ULL << frozenOcean) | (1ULL << coldOcean) | (1ULL << lukewarmOcean) | (1ULL << warmOcean); break;
-            case extremeHills:
-                potential |= (1ULL << id) | (1ULL << extremeHillsPlus); break;
+                potential |= (1ULL << frozen_ocean) | (1ULL << cold_ocean) | (1ULL << lukewarm_ocean) | (1ULL << warm_ocean); break;
+            case mountains:
+                potential |= (1ULL << id) | (1ULL << wooded_mountains); break;
             case savanna:
-                potential |= (1ULL << id) | (1ULL << savannaPlateau); break;
-            case deepOcean:
+                potential |= (1ULL << id) | (1ULL << savanna_plateau); break;
+            case deep_ocean:
                 potential |= (1ULL << id) | (1ULL << plains) | (1ULL << forest);
                 // TODO: buffer possible ocean types at this location
-                potential |= (1ULL << frozenDeepOcean) | (1ULL << coldDeepOcean) | (1ULL << lukewarmDeepOcean); break;
-            case mushroomIsland:
-                potential |= (1ULL << id) | (1ULL << mushroomIslandShore);
+                potential |= (1ULL << deep_frozen_ocean) | (1ULL << deep_cold_ocean) | (1ULL << deep_lukewarm_ocean); break;
+            case mushroom_fields:
+                potential |= (1ULL << id) | (1ULL << mushroom_field_shore);
             default:
                 potential |= (1ULL << id);
             }

@@ -124,12 +124,12 @@ int main(int argc, char *argv[])
 
         // This little magic code checks if there is a meaningful chance for
         // this seed base to generate swamps in the area.
-        // The idea is that the conversion from Lush temperature to swampland is
+        // The idea is that the conversion from Lush temperature to swamp is
         // independent of surroundings, so we can test the conversion
         // beforehand. Furthermore biomes tend to leak into the negative
         // coordinates because of the Zoom layers, so the majority of hits will
         // occur when SouthEast corner (at a 1:256 scale) of the quad-hut has a
-        // swampland. (This assumption misses about 1 in 500 quad-hut seeds.)
+        // swamp. (This assumption misses about 1 in 500 quad-hut seeds.)
         // Finally, here we also exploit that the minecraft random number
         // generator is quite bad, such that for the "mcNextRand() mod 6" check
         // it has a period pattern of ~3 on the high seed-bits.
@@ -179,14 +179,14 @@ int main(int argc, char *argv[])
             setWorldSeed(lFilterBiome, seed);
             genArea(lFilterBiome, biomeCache, (regPosX<<1)+2, (regPosZ<<1)+2, 1, 1);
 
-            if(biomeCache[0] != swampland)
+            if(biomeCache[0] != swamp)
                 continue;
 
             applySeed(&g, seed);
-            if(getBiomeAtPos(g, qhpos[0]) != swampland) continue;
-            if(getBiomeAtPos(g, qhpos[1]) != swampland) continue;
-            if(getBiomeAtPos(g, qhpos[2]) != swampland) continue;
-            if(getBiomeAtPos(g, qhpos[3]) != swampland) continue;
+            if(getBiomeAtPos(g, qhpos[0]) != swamp) continue;
+            if(getBiomeAtPos(g, qhpos[1]) != swamp) continue;
+            if(getBiomeAtPos(g, qhpos[2]) != swamp) continue;
+            if(getBiomeAtPos(g, qhpos[3]) != swamp) continue;
 
             printf("%"PRId64 "\n", seed);
             hits++;

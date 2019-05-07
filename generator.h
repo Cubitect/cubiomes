@@ -87,21 +87,21 @@ enum
 
 static const int BIOMES_L13_OCEAN_TEMP_256[] =
 {
-        ocean, frozenOcean, warmOcean, lukewarmOcean, coldOcean
+        ocean, frozen_ocean, warm_ocean, lukewarm_ocean, cold_ocean
 };
 
 static const int BIOMES_L13_OCEAN_MIX_4[] =
 {
-        ocean, plains, desert, extremeHills, forest, taiga, swampland, river, /*hell, sky,*/ // 0-9
-        frozenOcean, frozenRiver, icePlains, iceMountains, mushroomIsland, mushroomIslandShore, beach, desertHills, forestHills, taigaHills,  // 10-19
-        /*extremeHillsEdge,*/ jungle, jungleHills, jungleEdge, deepOcean, stoneBeach, coldBeach, birchForest, birchForestHills, roofedForest, // 20-29
-        coldTaiga, coldTaigaHills, megaTaiga, megaTaigaHills, extremeHillsPlus, savanna, savannaPlateau, mesa, mesaPlateau_F, mesaPlateau, // 30-39
-        /*skyIslandLow, skyIslandMedium, skyIslandHigh, skyIslandBarren,*/ warmOcean, lukewarmOcean, coldOcean, /*warmDeepOcean,*/ lukewarmDeepOcean, coldDeepOcean, // 40-49
-        frozenDeepOcean,
+        ocean, plains, desert, mountains, forest, taiga, swamp, river, /*hell, sky,*/ // 0-9
+        frozen_ocean, frozen_river, snowy_tundra, snowy_mountains, mushroom_fields, mushroom_field_shore, beach, desert_hills, wooded_hills, taiga_hills,  // 10-19
+        /*mountain_edge,*/ jungle, jungle_hills, jungleEdge, deep_ocean, stone_shore, snowy_beach, birch_forest, birch_forest_hills, dark_forest, // 20-29
+        snowy_taiga, snowy_taiga_hills, giant_tree_taiga, giant_tree_taiga_hills, wooded_mountains, savanna, savanna_plateau, badlands, wooded_badlands_plateau, badlands_plateau, // 30-39
+        /*skyIslandLow, skyIslandMedium, skyIslandHigh, skyIslandBarren,*/ warm_ocean, lukewarm_ocean, cold_ocean, /*deep_warm_ocean,*/ deep_lukewarm_ocean, deep_cold_ocean, // 40-49
+        deep_frozen_ocean,
         // Modified variants...
-        plains+128, desert+128, extremeHills+128, forest+128, taiga+128, swampland+128,
-        icePlains+128, jungle+128, jungleEdge+128, birchForest+128, birchForestHills+128, roofedForest+128,
-        coldTaiga+128, megaTaiga+128, megaTaigaHills+128, extremeHillsPlus+128, savanna+128, savannaPlateau+128, mesa+128, mesaPlateau_F+128, mesaPlateau+128
+        plains+128, desert+128, mountains+128, forest+128, taiga+128, swamp+128,
+        snowy_tundra+128, jungle+128, jungleEdge+128, birch_forest+128, birch_forest_hills+128, dark_forest+128,
+        snowy_taiga+128, giant_tree_taiga+128, giant_tree_taiga_hills+128, wooded_mountains+128, savanna+128, savanna_plateau+128, badlands+128, wooded_badlands_plateau+128, badlands_plateau+128
 };
 
 
@@ -110,75 +110,75 @@ static const int BIOMES_L13_OCEAN_MIX_4[] =
 //==============================================================================
 
 /* L_ADD_MUSHROOM_ISLAND_256 and L_DEEP_OCEAN_256
- * add the mushroomIsland and deepOcean biomes respectively, however the rest of
+ * add the mushroom_fields and deep_ocean biomes respectively, however the rest of
  * the biomes are incomplete and are better described by temperature categories
  * with special modifications bits.
  */
 
 // BIOMES_L_BIOME_256: Changes temperature to weighted biomes:
 // Warm         -> [desert, desert, desert, savanna, savanna, plains]
-// Warm,special -> [mesaPlateau, mesaPlateau_F, mesaPlateau_F]
-// Lush         -> [forest, roofedForest, extremeHills, plains, birchForest, swampland]
+// Warm,special -> [badlands_plateau, wooded_badlands_plateau, wooded_badlands_plateau]
+// Lush         -> [forest, dark_forest, mountains, plains, birch_forest, swamp]
 // Lush,special -> [jungle]
-// Cold         -> [forest, extremeHills, taiga, plains]
-// Cold,special -> [megaTaiga]
-// Freezing     -> [icePlains, icePlains, icePlains, coldTaiga]
+// Cold         -> [forest, mountains, taiga, plains]
+// Cold,special -> [giant_tree_taiga]
+// Freezing     -> [snowy_tundra, snowy_tundra, snowy_tundra, snowy_taiga]
 static const int BIOMES_L_BIOME_256[] =
 {
-        ocean, plains, desert, extremeHills, forest, taiga, swampland, /*river, hell, sky,*/ // 0-9
-        /*frozenOcean, frozenRiver,*/ icePlains, /*iceMountains,*/ mushroomIsland, /*mushroomIslandShore, beach, desertHills, forestHills, taigaHills,*/  // 10-19
-        /*extremeHillsEdge,*/ jungle, /*jungleHills, jungleEdge,*/ deepOcean, /*stoneBeach, coldBeach,*/ birchForest, /*birchForestHills,*/ roofedForest, // 20-29
-        coldTaiga, /*coldTaigaHills,*/ megaTaiga, /*megaTaigaHills, extremeHillsPlus,*/ savanna, /*savannaPlateau, mesa,*/ mesaPlateau_F, mesaPlateau, // 30-39
+        ocean, plains, desert, mountains, forest, taiga, swamp, /*river, hell, sky,*/ // 0-9
+        /*frozen_ocean, frozen_river,*/ snowy_tundra, /*snowy_mountains,*/ mushroom_fields, /*mushroom_field_shore, beach, desert_hills, wooded_hills, taiga_hills,*/  // 10-19
+        /*mountain_edge,*/ jungle, /*jungle_hills, jungleEdge,*/ deep_ocean, /*stone_shore, snowy_beach,*/ birch_forest, /*birch_forest_hills,*/ dark_forest, // 20-29
+        snowy_taiga, /*snowy_taiga_hills,*/ giant_tree_taiga, /*giant_tree_taiga_hills, wooded_mountains,*/ savanna, /*savanna_plateau, badlands,*/ wooded_badlands_plateau, badlands_plateau, // 30-39
 };
 
-// Introduces biomes: jungleEdge, extremeHillsPlus, mesa
+// Introduces biomes: jungleEdge, wooded_mountains, badlands
 static const int BIOMES_L_BIOME_EDGE_64[] =
 {
-        ocean, plains, desert, extremeHills, forest, taiga, swampland, /*river, hell, sky,*/ // 0-9
-        /*frozenOcean, frozenRiver,*/ icePlains, /*iceMountains,*/ mushroomIsland, /*mushroomIslandShore, beach, desertHills, forestHills, taigaHills,*/  // 10-19
-        /*extremeHillsEdge,*/ jungle, /*jungleHills,*/ jungleEdge, deepOcean, /*stoneBeach, coldBeach,*/ birchForest, /*birchForestHills,*/ roofedForest, // 20-29
-        coldTaiga, /*coldTaigaHills,*/ megaTaiga, /*megaTaigaHills,*/ extremeHillsPlus, savanna, /*savannaPlateau,*/ mesa, mesaPlateau_F, mesaPlateau, // 30-39
+        ocean, plains, desert, mountains, forest, taiga, swamp, /*river, hell, sky,*/ // 0-9
+        /*frozen_ocean, frozen_river,*/ snowy_tundra, /*snowy_mountains,*/ mushroom_fields, /*mushroom_field_shore, beach, desert_hills, wooded_hills, taiga_hills,*/  // 10-19
+        /*mountain_edge,*/ jungle, /*jungle_hills,*/ jungleEdge, deep_ocean, /*stone_shore, snowy_beach,*/ birch_forest, /*birch_forest_hills,*/ dark_forest, // 20-29
+        snowy_taiga, /*snowy_taiga_hills,*/ giant_tree_taiga, /*giant_tree_taiga_hills,*/ wooded_mountains, savanna, /*savanna_plateau,*/ badlands, wooded_badlands_plateau, badlands_plateau, // 30-39
 };
 
-// Introduces biomes: iceMountains, desertHills, forestHills, taigaHills,
-// jungleHills, birchForestHills, coldTaigaHills, megaTaigaHills, savannaPlateau
+// Introduces biomes: snowy_mountains, desert_hills, wooded_hills, taiga_hills,
+// jungle_hills, birch_forest_hills, snowy_taiga_hills, giant_tree_taiga_hills, savanna_plateau
 // and all 21 mutated biomes
 static const int BIOMES_L_HILLS_64[] =
 {
-        ocean, plains, desert, extremeHills, forest, taiga, swampland, /*river, hell, sky,*/ // 0-9
-        /*frozenOcean, frozenRiver,*/ icePlains, iceMountains, mushroomIsland, /*mushroomIslandShore, beach,*/ desertHills, forestHills, taigaHills,  // 10-19
-        /*extremeHillsEdge,*/ jungle, jungleHills, jungleEdge, deepOcean, /*stoneBeach, coldBeach,*/ birchForest, birchForestHills, roofedForest, // 20-29
-        coldTaiga, coldTaigaHills, megaTaiga, megaTaigaHills, extremeHillsPlus, savanna, savannaPlateau, mesa, mesaPlateau_F, mesaPlateau, // 30-39
+        ocean, plains, desert, mountains, forest, taiga, swamp, /*river, hell, sky,*/ // 0-9
+        /*frozen_ocean, frozen_river,*/ snowy_tundra, snowy_mountains, mushroom_fields, /*mushroom_field_shore, beach,*/ desert_hills, wooded_hills, taiga_hills,  // 10-19
+        /*mountain_edge,*/ jungle, jungle_hills, jungleEdge, deep_ocean, /*stone_shore, snowy_beach,*/ birch_forest, birch_forest_hills, dark_forest, // 20-29
+        snowy_taiga, snowy_taiga_hills, giant_tree_taiga, giant_tree_taiga_hills, wooded_mountains, savanna, savanna_plateau, badlands, wooded_badlands_plateau, badlands_plateau, // 30-39
         // Modified variants...
-        plains+128, desert+128, extremeHills+128, forest+128, taiga+128, swampland+128,
-        icePlains+128, jungle+128, jungleEdge+128, birchForest+128, birchForestHills+128, roofedForest+128,
-        coldTaiga+128, megaTaiga+128, megaTaigaHills+128, extremeHillsPlus+128, savanna+128, savannaPlateau+128, mesa+128, mesaPlateau_F+128, mesaPlateau+128
+        plains+128, desert+128, mountains+128, forest+128, taiga+128, swamp+128,
+        snowy_tundra+128, jungle+128, jungleEdge+128, birch_forest+128, birch_forest_hills+128, dark_forest+128,
+        snowy_taiga+128, giant_tree_taiga+128, giant_tree_taiga_hills+128, wooded_mountains+128, savanna+128, savanna_plateau+128, badlands+128, wooded_badlands_plateau+128, badlands_plateau+128
 };
 
-// Introduces biomes: mushroomIslandShore, beach, stoneBeach, coldBeach
+// Introduces biomes: mushroom_field_shore, beach, stone_shore, snowy_beach
 static const int BIOMES_L_SHORE_16[] =
 {
-        ocean, plains, desert, extremeHills, forest, taiga, swampland, /*river, hell, sky,*/ // 0-9
-        /*frozenOcean, frozenRiver,*/ icePlains, iceMountains, mushroomIsland, mushroomIslandShore, beach, desertHills, forestHills, taigaHills,  // 10-19
-        /*extremeHillsEdge,*/ jungle, jungleHills, jungleEdge, deepOcean, stoneBeach, coldBeach, birchForest, birchForestHills, roofedForest, // 20-29
-        coldTaiga, coldTaigaHills, megaTaiga, megaTaigaHills, extremeHillsPlus, savanna, savannaPlateau, mesa, mesaPlateau_F, mesaPlateau, // 30-39
+        ocean, plains, desert, mountains, forest, taiga, swamp, /*river, hell, sky,*/ // 0-9
+        /*frozen_ocean, frozen_river,*/ snowy_tundra, snowy_mountains, mushroom_fields, mushroom_field_shore, beach, desert_hills, wooded_hills, taiga_hills,  // 10-19
+        /*mountain_edge,*/ jungle, jungle_hills, jungleEdge, deep_ocean, stone_shore, snowy_beach, birch_forest, birch_forest_hills, dark_forest, // 20-29
+        snowy_taiga, snowy_taiga_hills, giant_tree_taiga, giant_tree_taiga_hills, wooded_mountains, savanna, savanna_plateau, badlands, wooded_badlands_plateau, badlands_plateau, // 30-39
         // Modified variants...
-        plains+128, desert+128, extremeHills+128, forest+128, taiga+128, swampland+128,
-        icePlains+128, jungle+128, jungleEdge+128, birchForest+128, birchForestHills+128, roofedForest+128,
-        coldTaiga+128, megaTaiga+128, megaTaigaHills+128, extremeHillsPlus+128, savanna+128, savannaPlateau+128, mesa+128, mesaPlateau_F+128, mesaPlateau+128
+        plains+128, desert+128, mountains+128, forest+128, taiga+128, swamp+128,
+        snowy_tundra+128, jungle+128, jungleEdge+128, birch_forest+128, birch_forest_hills+128, dark_forest+128,
+        snowy_taiga+128, giant_tree_taiga+128, giant_tree_taiga_hills+128, wooded_mountains+128, savanna+128, savanna_plateau+128, badlands+128, wooded_badlands_plateau+128, badlands_plateau+128
 };
 
-// Merges the river branch and adds frozenRiver biome
+// Merges the river branch and adds frozen_river biome
 static const int BIOMES_L_RIVER_MIX_4[] =
 {
-        ocean, plains, desert, extremeHills, forest, taiga, swampland, river, /*hell, sky,*/ // 0-9
-        /*frozenOcean,*/ frozenRiver, icePlains, iceMountains, mushroomIsland, mushroomIslandShore, beach, desertHills, forestHills, taigaHills,  // 10-19
-        /*extremeHillsEdge,*/ jungle, jungleHills, jungleEdge, deepOcean, stoneBeach, coldBeach, birchForest, birchForestHills, roofedForest, // 20-29
-        coldTaiga, coldTaigaHills, megaTaiga, megaTaigaHills, extremeHillsPlus, savanna, savannaPlateau, mesa, mesaPlateau_F, mesaPlateau, // 30-39
+        ocean, plains, desert, mountains, forest, taiga, swamp, river, /*hell, sky,*/ // 0-9
+        /*frozen_ocean,*/ frozen_river, snowy_tundra, snowy_mountains, mushroom_fields, mushroom_field_shore, beach, desert_hills, wooded_hills, taiga_hills,  // 10-19
+        /*mountain_edge,*/ jungle, jungle_hills, jungleEdge, deep_ocean, stone_shore, snowy_beach, birch_forest, birch_forest_hills, dark_forest, // 20-29
+        snowy_taiga, snowy_taiga_hills, giant_tree_taiga, giant_tree_taiga_hills, wooded_mountains, savanna, savanna_plateau, badlands, wooded_badlands_plateau, badlands_plateau, // 30-39
         // Modified variants...
-        plains+128, desert+128, extremeHills+128, forest+128, taiga+128, swampland+128,
-        icePlains+128, jungle+128, jungleEdge+128, birchForest+128, birchForestHills+128, roofedForest+128,
-        coldTaiga+128, megaTaiga+128, megaTaigaHills+128, extremeHillsPlus+128, savanna+128, savannaPlateau+128, mesa+128, mesaPlateau_F+128, mesaPlateau+128
+        plains+128, desert+128, mountains+128, forest+128, taiga+128, swamp+128,
+        snowy_tundra+128, jungle+128, jungleEdge+128, birch_forest+128, birch_forest_hills+128, dark_forest+128,
+        snowy_taiga+128, giant_tree_taiga+128, giant_tree_taiga_hills+128, wooded_mountains+128, savanna+128, savanna_plateau+128, badlands+128, wooded_badlands_plateau+128, badlands_plateau+128
 };
 
 

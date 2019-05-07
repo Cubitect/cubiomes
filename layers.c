@@ -777,9 +777,9 @@ void mapDeepOcean(Layer *l, int * __restrict out, int areaX, int areaZ, int area
 
 
 const int warmBiomes[] = {desert, desert, desert, savanna, savanna, plains};
-const int lushBiomes[] = {forest, roofedForest, mountains, plains, birchForest, swamp};
+const int lushBiomes[] = {forest, dark_forest, mountains, plains, birch_forest, swamp};
 const int coldBiomes[] = {forest, mountains, taiga, plains};
-const int snowBiomes[] = {snowy_tundra, snowy_tundra, snowy_tundra, coldTaiga};
+const int snowBiomes[] = {snowy_tundra, snowy_tundra, snowy_tundra, snowy_taiga};
 
 void mapBiome(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {
@@ -805,7 +805,7 @@ void mapBiome(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
 
             switch(id){
             case Warm:
-                if (hasHighBit) out[idx] = (mcNextInt(l, 3) == 0) ? mesaPlateau : mesaPlateau_F;
+                if (hasHighBit) out[idx] = (mcNextInt(l, 3) == 0) ? badlands_plateau : wooded_badlands_plateau;
                 else out[idx] = warmBiomes[mcNextInt(l, 6)];
                 break;
             case Lush:
@@ -813,7 +813,7 @@ void mapBiome(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
                 else out[idx] = lushBiomes[mcNextInt(l, 6)];
                 break;
             case Cold:
-                if (hasHighBit) out[idx] = megaTaiga;
+                if (hasHighBit) out[idx] = giant_tree_taiga;
                 else out[idx] = coldBiomes[mcNextInt(l, 4)];
                 break;
             case Freezing:
@@ -827,7 +827,7 @@ void mapBiome(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
 }
 
 
-const int lushBiomesBE[] = {forest, roofedForest, mountains, plains, plains, plains, birchForest, swamp};
+const int lushBiomesBE[] = {forest, dark_forest, mountains, plains, plains, plains, birch_forest, swamp};
 
 void mapBiomeBE(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {
@@ -853,7 +853,7 @@ void mapBiomeBE(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWi
 
             switch(id){
                 case Warm:
-                    if (hasHighBit) out[idx] = (mcNextInt(l, 3) == 0) ? mesaPlateau : mesaPlateau_F;
+                    if (hasHighBit) out[idx] = (mcNextInt(l, 3) == 0) ? badlands_plateau : wooded_badlands_plateau;
                     else out[idx] = warmBiomes[mcNextInt(l, 6)];
                     break;
                 case Lush:
@@ -861,7 +861,7 @@ void mapBiomeBE(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWi
                     else out[idx] = lushBiomesBE[mcNextInt(l, 6)];
                     break;
                 case Cold:
-                    if (hasHighBit) out[idx] = megaTaiga;
+                    if (hasHighBit) out[idx] = giant_tree_taiga;
                     else out[idx] = coldBiomes[mcNextInt(l, 4)];
                     break;
                 case Freezing:
@@ -920,22 +920,6 @@ void mapAddBamboo(Layer *l, int * __restrict out, int areaX, int areaZ, int area
 }
 
 
-// replaceEdgeIfNecessary() always returns 0 in the only place it is used in
-// Minecraft, making it redundant.
-/*
-static inline int replaceEdgeIfNecessary(int *out, int idx, int v10, int v21, int v01, int v12, int id, int baseID, int edgeID)
-{
-    if (!equalOrPlateau(id, baseID)) return 0;
-
-    if (canBeNeighbors(v10, baseID) && canBeNeighbors(v21, baseID) && canBeNeighbors(v01, baseID) && canBeNeighbors(v12, baseID))
-        out[idx] = id;
-    else
-        out[idx] = edgeID;
-
-    return 1;
-}
-*/
-
 static inline int replaceEdge(int *out, int idx, int v10, int v21, int v01, int v12, int id, int baseID, int edgeID)
 {
     if (id != baseID) return 0;
@@ -970,9 +954,9 @@ void mapBiomeEdge(Layer *l, int * __restrict out, int areaX, int areaZ, int area
             int v12 = out[x+1 + (z+2)*pWidth];
 
             if (/*!replaceEdgeIfNecessary(out, x + z*areaWidth, v10, v21, v01, v12, v11, mountains, mountain_edge) &&*/
-               !replaceEdge(out, x + z*areaWidth, v10, v21, v01, v12, v11, mesaPlateau_F, mesa) &&
-               !replaceEdge(out, x + z*areaWidth, v10, v21, v01, v12, v11, mesaPlateau, mesa) &&
-               !replaceEdge(out, x + z*areaWidth, v10, v21, v01, v12, v11, megaTaiga, taiga))
+               !replaceEdge(out, x + z*areaWidth, v10, v21, v01, v12, v11, wooded_badlands_plateau, badlands) &&
+               !replaceEdge(out, x + z*areaWidth, v10, v21, v01, v12, v11, badlands_plateau, badlands) &&
+               !replaceEdge(out, x + z*areaWidth, v10, v21, v01, v12, v11, giant_tree_taiga, taiga))
             {
                 if (v11 == desert)
                 {
@@ -982,13 +966,13 @@ void mapBiomeEdge(Layer *l, int * __restrict out, int areaX, int areaZ, int area
                     }
                     else
                     {
-                        out[x + z*areaWidth] = extremeHillsPlus;
+                        out[x + z*areaWidth] = wooded_mountains;
                     }
                 }
                 else if (v11 == swamp)
                 {
                     if (v10 != desert && v21 != desert && v01 != desert && v12 != desert &&
-                        v10 != coldTaiga && v21 != coldTaiga && v01 != coldTaiga && v12 != coldTaiga &&
+                        v10 != snowy_taiga && v21 != snowy_taiga && v01 != snowy_taiga && v12 != snowy_taiga &&
                         v10 != snowy_tundra && v21 != snowy_tundra && v01 != snowy_tundra && v12 != snowy_tundra)
                     {
                         if (v10 != jungle && v12 != jungle && v21 != jungle && v01 != jungle &&
@@ -1064,32 +1048,32 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
                     hillID = desert_hills; break;
                 case forest:
                     hillID = wooded_hills; break;
-                case birchForest:
-                    hillID = birchForestHills; break;
-                case roofedForest:
+                case birch_forest:
+                    hillID = birch_forest_hills; break;
+                case dark_forest:
                     hillID = plains; break;
                 case taiga:
                     hillID = taiga_hills; break;
-                case megaTaiga:
-                    hillID = megaTaigaHills; break;
-                case coldTaiga:
-                    hillID = coldTaigaHills; break;
+                case giant_tree_taiga:
+                    hillID = giant_tree_taiga_hills; break;
+                case snowy_taiga:
+                    hillID = snowy_taiga_hills; break;
                 case plains:
                     hillID = (mcNextInt(l, 3) == 0) ? wooded_hills : forest; break;
                 case snowy_tundra:
                     hillID = snowy_mountains; break;
                 case jungle:
-                    hillID = jungleHills; break;
+                    hillID = jungle_hills; break;
                 case ocean:
-                    hillID = deepOcean; break;
+                    hillID = deep_ocean; break;
                 case mountains:
-                    hillID = extremeHillsPlus; break;
+                    hillID = wooded_mountains; break;
                 case savanna:
-                    hillID = savannaPlateau; break;
+                    hillID = savanna_plateau; break;
                 default:
-                    if (equalOrPlateau(a11, mesaPlateau_F))
-                        hillID = mesa;
-                    else if (a11 == deepOcean && mcNextInt(l, 3) == 0)
+                    if (equalOrPlateau(a11, wooded_badlands_plateau))
+                        hillID = badlands;
+                    else if (a11 == deep_ocean && mcNextInt(l, 3) == 0)
                         hillID = (mcNextInt(l, 2) == 0) ? plains : forest;
                     break;
                 }
@@ -1179,33 +1163,33 @@ void mapHills113(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
                     hillID = desert_hills; break;
                 case forest:
                     hillID = wooded_hills; break;
-                case birchForest:
-                    hillID = birchForestHills; break;
-                case roofedForest:
+                case birch_forest:
+                    hillID = birch_forest_hills; break;
+                case dark_forest:
                     hillID = plains; break;
                 case taiga:
                     hillID = taiga_hills; break;
-                case megaTaiga:
-                    hillID = megaTaigaHills; break;
-                case coldTaiga:
-                    hillID = coldTaigaHills; break;
+                case giant_tree_taiga:
+                    hillID = giant_tree_taiga_hills; break;
+                case snowy_taiga:
+                    hillID = snowy_taiga_hills; break;
                 case plains:
                     hillID = (mcNextInt(l, 3) == 0) ? wooded_hills : forest; break;
                 case snowy_tundra:
                     hillID = snowy_mountains; break;
                 case jungle:
-                    hillID = jungleHills; break;
+                    hillID = jungle_hills; break;
                 case bamboo_jungle:
                     hillID = bamboo_jungle_hills; break;
                 case ocean:
-                    hillID = deepOcean; break;
+                    hillID = deep_ocean; break;
                 case mountains:
-                    hillID = extremeHillsPlus; break;
+                    hillID = wooded_mountains; break;
                 case savanna:
-                    hillID = savannaPlateau; break;
+                    hillID = savanna_plateau; break;
                 default:
-                    if (equalOrPlateau(a11, mesaPlateau_F))
-                        hillID = mesa;
+                    if (equalOrPlateau(a11, wooded_badlands_plateau))
+                        hillID = badlands;
                     else if ((a11 == deep_ocean || a11 == deep_lukewarm_ocean || a11 == deep_cold_ocean || a11 == deep_frozen_ocean) &&
                             mcNextInt(l, 3) == 0)
                         hillID = (mcNextInt(l, 2) == 0) ? plains : forest;
@@ -1425,15 +1409,15 @@ void mapShore(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
                     out[x + z*areaWidth] = jungleEdge;
                 }
             }
-            else if (v11 != mountains && v11 != extremeHillsPlus && v11 != mountain_edge)
+            else if (v11 != mountains && v11 != wooded_mountains && v11 != mountain_edge)
             {
                 if (isBiomeSnowy(biome))
                 {
-                    replaceOcean(out, x + z*areaWidth, v10, v21, v01, v12, v11, coldBeach);
+                    replaceOcean(out, x + z*areaWidth, v10, v21, v01, v12, v11, snowy_beach);
                 }
-                else if (v11 != mesa && v11 != mesaPlateau_F)
+                else if (v11 != badlands && v11 != wooded_badlands_plateau)
                 {
-                    if (v11 != ocean && v11 != deepOcean && v11 != river && v11 != swamp)
+                    if (v11 != ocean && v11 != deep_ocean && v11 != river && v11 != swamp)
                     {
                         if (!isOceanic(v10) && !isOceanic(v21) && !isOceanic(v01) && !isOceanic(v12))
                             out[x + z*areaWidth] = v11;
@@ -1462,7 +1446,7 @@ void mapShore(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
             }
             else
             {
-                replaceOcean(out, x + z*areaWidth, v10, v21, v01, v12, v11, stoneBeach);
+                replaceOcean(out, x + z*areaWidth, v10, v21, v01, v12, v11, stone_shore);
             }
         }
     }
@@ -1691,7 +1675,7 @@ void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
                 }
             }
 
-            if (landID == deepOcean)
+            if (landID == deep_ocean)
             {
                 switch (oceanID)
                 {

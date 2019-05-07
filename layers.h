@@ -202,7 +202,8 @@ static inline int getTempCategory(int id)
 static inline int equalOrPlateau(int id1, int id2)
 {
     if (id1 == id2) return 1;
-    if (id1 == mesaPlateau_F || id1 == mesaPlateau) return id2 == mesaPlateau_F || id2 == mesaPlateau;
+    if (id1 == wooded_badlands_plateau || id1 == badlands_plateau)
+        return id2 == wooded_badlands_plateau || id2 == badlands_plateau;
     if (!biomeExists(id1) || !biomeExists(id2)) return 0;
     // adjust for asymmetric equality (workaround to simulate a bug in the MC java code)
     if (id1 >= 128 || id2 >= 128) {
@@ -224,28 +225,40 @@ static inline int canBeNeighbors(int id1, int id2)
 
 static inline int isShallowOcean(int id)
 {
-    return id == ocean || id == frozen_ocean ||
-           id == warm_ocean || id == lukewarm_ocean || id == cold_ocean;
+    const uint64_t shallow_bits =
+            (1ULL << ocean) |
+            (1ULL << frozen_ocean) |
+            (1ULL << warm_ocean) |
+            (1ULL << lukewarm_ocean) |
+            (1ULL << cold_ocean);
+    return id < 64 && ((1ULL << id) & shallow_bits);
+}
+
+static inline int isDeepOcean(int id)
+{
+    const uint64_t deep_bits =
+            (1ULL << deep_ocean) |
+            (1ULL << deep_warm_ocean) |
+            (1ULL << deep_lukewarm_ocean) |
+            (1ULL << deep_cold_ocean) |
+            (1ULL << deep_frozen_ocean);
+    return id < 64 && ((1ULL << id) & deep_bits);
 }
 
 static inline int isOceanic(int id)
 {
-    switch(id)
-    {
-    case ocean:
-    case deep_ocean:
-    case warm_ocean:
-    case deep_warm_ocean:
-    case lukewarm_ocean:
-    case deep_lukewarm_ocean:
-    case cold_ocean:
-    case deep_cold_ocean:
-    case frozen_ocean:
-    case deep_frozen_ocean:
-        return 1;
-    default:
-        return 0;
-    }
+    const uint64_t ocean_bits =
+            (1ULL << ocean) |
+            (1ULL << frozen_ocean) |
+            (1ULL << warm_ocean) |
+            (1ULL << lukewarm_ocean) |
+            (1ULL << cold_ocean) |
+            (1ULL << deep_ocean) |
+            (1ULL << deep_warm_ocean) |
+            (1ULL << deep_lukewarm_ocean) |
+            (1ULL << deep_cold_ocean) |
+            (1ULL << deep_frozen_ocean);
+    return id < 64 && ((1ULL << id) & ocean_bits);
 }
 
 
