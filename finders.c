@@ -832,6 +832,26 @@ Pos getLargeStructureChunkInRegion(StructureConfig config, int64_t seed,
 }
 
 
+int isMineshaftChunk(int64_t seed, const int chunkX, const int chunkZ)
+{
+    int64_t s = seed;
+    setSeed(&s);
+    int64_t i = nextLong(&s);
+    int64_t j = nextLong(&s);
+    s = chunkX * i ^ chunkZ * j ^ seed;
+    setSeed(&s);
+    return nextDouble(&s) < 0.004;
+}
+
+int isTreasureChunk(int64_t seed, const int chunkX, const int chunkZ)
+{
+    seed = chunkX*341873128712 + chunkZ*132897987541 + seed + TREASURE_CONFIG.seed;
+    setSeed(&seed);
+    return nextFloat(&seed) < 0.01;
+}
+
+
+
 //==============================================================================
 // Checking Biomes & Biome Helper Functions
 //==============================================================================

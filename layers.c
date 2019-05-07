@@ -1190,8 +1190,7 @@ void mapHills113(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
                 default:
                     if (equalOrPlateau(a11, wooded_badlands_plateau))
                         hillID = badlands;
-                    else if ((a11 == deep_ocean || a11 == deep_lukewarm_ocean || a11 == deep_cold_ocean || a11 == deep_frozen_ocean) &&
-                            mcNextInt(l, 3) == 0)
+                    else if (isDeepOcean(a11) && mcNextInt(l, 3) == 0)
                         hillID = (mcNextInt(l, 2) == 0) ? plains : forest;
                     break;
                 }

@@ -24,6 +24,7 @@ typedef pthread_t thread_id_t;
 #define PI 3.141592653589793
 
 #define LARGE_STRUCT 1
+#define CHUNK_STRUCT 2
 
 enum
 {
@@ -55,11 +56,13 @@ static const StructureConfig SWAMP_HUT_CONFIG      = { 14357620, 32, 24, 0};
 
 static const StructureConfig OUTPOST_CONFIG        = {165745296, 32, 24, 0};
 static const StructureConfig VILLAGE_CONFIG        = { 10387312, 32, 24, 0};
-static const StructureConfig TREASURE_CONFIG       = { 10387320, 16,  7, 0};
 static const StructureConfig OCEAN_RUIN_CONFIG     = { 14357621, 16,  8, 0};
 static const StructureConfig SHIPWRECK_CONFIG      = {165745295, 15,  7, 0};
 static const StructureConfig MONUMENT_CONFIG       = { 10387313, 32, 27, LARGE_STRUCT};
 static const StructureConfig MANSION_CONFIG        = { 10387319, 80, 60, LARGE_STRUCT};
+
+// structures that check each chunk individually
+static const StructureConfig TREASURE_CONFIG       = { 10387320,  1,  0, CHUNK_STRUCT};
 
 //==============================================================================
 // Biome Tables
@@ -269,6 +272,11 @@ Pos getLargeStructurePos(const StructureConfig config, int64_t seed,
 Pos getLargeStructureChunkInRegion(const StructureConfig config, int64_t seed,
         const int regionX, const int regionZ);
 
+/* Some structures check each chunk individually for viability.
+ * The placement and biome check within a valid chunk is at block position (9,9).
+ */
+int isMineshaftChunk(int64_t seed, const int chunkX, const int chunkZ);
+int isTreasureChunk(int64_t seed, const int chunkX, const int chunkZ);
 
 
 //==============================================================================
