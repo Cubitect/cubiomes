@@ -4,20 +4,130 @@ Cubiomes is a standalone library, written in C, that mimics the Minecraft biome 
 It is intended as a powerful tool to devise very fast, custom seed finding applications and large scale map viewers.
 
 
-### Audience
+#### Audience
 
-You should be familiar with the C programming language, also a basic understanding of the Minecraft biome generation process would be helpful. 
-A POSIX environment is required to compile the finders library and examples, but the core generator library may also work on other platforms.
+You should be familiar with the C programming language, also a basic understanding of the Minecraft biome generation process would be helpful.
 
 
-### Documentation
+## Getting Started
+
+This section is meant to give you a quick starting point if you want to use this library to find your own biome dependent features.
+
+### Biome Generator
+
+Let's create a simple program called `find_jedge.c` which tests seeds for a Junge Edge biome at a predefined location.
+
+```
+#include "finders.h"
+#include <stdio.h>
+
+int main()
+{
+    // First initialize the global biome table 'int biomes[256]'. This sets up
+    // properties such as the category and temperature of each biome.
+    initBiomes();
+
+    // Allocate and initialize a stack of biome layers that reflects the biome
+    // generation of Minecraft 1.14
+    LayerStack g = setupGenerator(MC_1_14);
+
+    int64_t seed;
+    Pos pos = {0,0}; // block position to be checked
+
+    for (seed = 0; ; seed++)
+    {
+        // Go through the layers in the layer stack and initialize the seed
+        // dependent aspects of the generator.
+        applySeed(&g, seed);
+
+        // To get the biome at single block position we can use getBiomeAtPos().
+        int biomeID = getBiomeAtPos(g, pos);
+        if (biomeID == jungle_edge)
+            break;
+    }
+
+    printf("Seed %" PRId64 " has a Junge Edge biome at block position "
+        "(%d, %d).\n", seed, pos.x, pos.z);
+
+    // Clean up.
+    freeGenerator(g);
+
+    return 0;
+}
+```
+
+You can compile this code either by directly adding a target to the makefile, or you can compile and link to a cubiomes archive:
+```
+$ cd cubiomes
+$ make libcubiomes
+```
+To compile, and link the cubiomes library you can use one of
+```
+$ cc find_jedge.c libcubiomes.a -lm   # static
+$ cc find_jedge.c -L. -lcubiomes -lm  # dynamic
+```
+Both options assume that your source code is saved as `find_jedge.c` in the cubiomes working directory. If your makefile is configured to use pthreads you also may need to add the `-lpthread` option to the compiler. Running the program should output:
+```
+$ ./a.out
+Seed 615 has a Junge Edge biome at block position (0, 0).
+```
+
+We can also generate the biomes for a rectangular region using `getArea()` which also offers control over the entry layer, see the layer documentation for more information.
+
+```
+#include "generator.h"
+#include "util.h"
+
+int main()
+{
+    unsigned char biomeColours[256][3];
+
+    // Initialize global biome table.
+    initBiomes();
+    // Initialize a colour map for biomes.
+    initBiomeColours(biomeColours);
+
+    // Allocate and initialize a stack of biome layers.
+    LayerStack g = setupGenerator(MC_1_14);
+    // Extract the desired layer.
+    Layer *layer = &g.layers[L_SHORE_16];
+
+    int64_t seed = 1661454332289;
+    int areaX = -60, areaZ = -60;
+    unsigned int areaWidth = 120, areaHeight = 120;
+    unsigned int scale = 4;
+    unsigned int imgWidth = areaWidth*scale, imgHeight = areaHeight*scale;
+
+    // Allocate a sufficient buffer for the biomes and for the image pixels.
+    int *biomes = allocCache(layer, areaWidth, areaHeight);
+    unsigned char *rgb = (unsigned char *) malloc(3*imgWidth*imgHeight);
+
+    // Apply the seed only for the required layers and generate the area.
+    setWorldSeed(layer, seed);
+    genArea(layer, biomes, areaX, areaZ, areaWidth, areaHeight);
+
+    // Map the biomes to a color buffer and save to an image.
+    biomesToImage(rgb, biomeColours, biomes, areaWidth, areaHeight, scale, 2);
+    savePPM("biomes_at_layer.ppm", rgb, imgWidth, imgHeight);
+
+    // Clean up.
+    freeGenerator(g);
+    free(biomes);
+    free(rgb);
+
+    return 0;
+}
+```
+
+
+### Layer Documentation
 
 There is a reference document for the generator layers which contains a summary for most generator layers and their function within the generation process.
 
 
 ### Examples
 
-There are two example programs in this repository which can be compiled using the makefile provided.
+There are two example programs in this repository which can be compiled using the makefile.
 
 
 #### Finding Quad-Witch-Huts at a Specific Location
@@ -125,20 +235,20 @@ If you are looking to get the "Adventuring Time" achievment you might consider o
 
 | Seed          | All biome radius |
 |---------------|------------------|
-| -880424771806 | 644              | 
-| 48382691805   | 633              | 
-| 480800992945  | 649              | 
-| 1065757415811 | 612              | 
-| 1509124018794 | 645              | 
-| 1550633690354 | 616              | 
-| 1571479851306 | 631              | 
-| 1925837979058 | 621              | 
-| 2082386353360 | 649              | 
-| 2087339213306 | 632              | 
-| 2810140768300 | 637              | 
-| 3053313529066 | 648              | 
-| 3457626356584 | 649              | 
-| 3548624619264 | 646              | 
+| -880424771806 | 644              |
+| 48382691805   | 633              |
+| 480800992945  | 649              |
+| 1065757415811 | 612              |
+| 1509124018794 | 645              |
+| 1550633690354 | 616              |
+| 1571479851306 | 631              |
+| 1925837979058 | 621              |
+| 2082386353360 | 649              |
+| 2087339213306 | 632              |
+| 2810140768300 | 637              |
+| 3053313529066 | 648              |
+| 3457626356584 | 649              |
+| 3548624619264 | 646              |
 
 
 

@@ -20,11 +20,6 @@ typedef struct xwin_t
 
 } xwin_t;
 
-
-void initBiomeColours(unsigned char biomeColours[256][3]);
-void initBiomeTypeColours(unsigned char biomeColours[256][3]);
-
-
 xwin_t init_x(uint sx, uint sy, const char *titel);
 void close_x(xwin_t w);
 

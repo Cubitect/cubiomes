@@ -6,7 +6,8 @@
 /* Minecraft versions */
 enum MCversion
 {
-    MC_1_7, MC_1_8, MC_1_9, MC_1_10, MC_1_11, MC_1_12, MC_1_13, MC_1_14,
+    MC_1_7, MC_1_8, MC_1_9, MC_1_10, MC_1_11, MC_1_12, MC_1_13, MC_1_14, 
+    MC_1_15, MC_1_16,
     MCBE = 256
 };
 
@@ -188,6 +189,11 @@ STRUCT(LayerStack)
     int layerCnt;
 };
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 /* Initialise an instance of a generator. */
 LayerStack setupGenerator(const int mcversion);
 
@@ -222,6 +228,10 @@ void applySeed(LayerStack *g, int64_t seed);
  */
 void genArea(Layer *layer, int *out, int areaX, int areaZ, int areaWidth, int areaHeight);
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* GENERATOR_H_ */
 

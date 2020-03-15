@@ -128,14 +128,10 @@ STRUCT(BiomeFilter)
     int doScale4Check;
 };
 
-
-//==============================================================================
-// Globals
-//==============================================================================
-
-extern Biome biomes[256];
-
-
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 /******************************** SEED FINDING *********************************
  *
@@ -569,5 +565,8 @@ int64_t checkForBiomes(
         const BiomeFilter   filter,
         const int           minscale);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* FINDERS_H_ */

@@ -73,7 +73,7 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt)
 
     while (!feof(fp))
     {
-        if (fscanf(fp, "%"PRId64, &seed) == 1) (*scnt)++;
+        if (fscanf(fp, "%" PRId64, &seed) == 1) (*scnt)++;
         else while (!feof(fp) && fgetc(fp) != '\n');
     }
 
@@ -83,7 +83,7 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt)
 
     for (int64_t i = 0; i < *scnt && !feof(fp);)
     {
-        if (fscanf(fp, "%"PRId64, &baseSeeds[i]) == 1) i++;
+        if (fscanf(fp, "%" PRId64, &baseSeeds[i]) == 1) i++;
         else while (!feof(fp) && fgetc(fp) != '\n');
     }
 
@@ -563,14 +563,14 @@ static DWORD WINAPI search4QuadBasesThread(LPVOID data)
 
     if (i < 32 && !fseek(fp, 1-i, SEEK_END) && fread(buf, i-1, 1, fp) > 0)
     {
-        if (sscanf(buf, "%"PRId64, &seed) == 1)
+        if (sscanf(buf, "%" PRId64, &seed) == 1)
         {
             while (lowerBits[lowerBitsIdx] <= (seed & 0xffff))
                 lowerBitsIdx++;
 
             seed = (seed & 0x0000ffffffff0000) + lowerBits[lowerBitsIdx];
 
-            printf("Thread %d starting from: %"PRId64"\n", info.threadID, seed);
+            printf("Thread %d starting from: %" PRId64"\n", info.threadID, seed);
         }
         else
         {
@@ -586,9 +586,9 @@ static DWORD WINAPI search4QuadBasesThread(LPVOID data)
     {
         if (isQuadBase(info.sconf, seed, info.quality))
         {
-            fprintf(fp, "%"PRId64"\n", seed);
+            fprintf(fp, "%" PRId64"\n", seed);
             fflush(fp);
-            //printf("Thread %d: %"PRId64"\n", info.threadID, seed);
+            //printf("Thread %d: %" PRId64"\n", info.threadID, seed);
         }
 
         lowerBitsIdx++;
@@ -849,7 +849,6 @@ int isTreasureChunk(int64_t seed, const int chunkX, const int chunkZ)
     setSeed(&seed);
     return nextFloat(&seed) < 0.01;
 }
-
 
 
 //==============================================================================
@@ -1134,31 +1133,50 @@ static double getGrassProbability(int64_t seed, int biome, int x, int z)
     // TODO: Try to determine the actual probabilities and build a statistic.
     switch (biome)
     {
-    case plains:                    return 1.0;
-    case mountains:                 return 0.8; // height dependent
-    case forest:                    return 1.0;
-    case taiga:                     return 1.0;
-    case swamp:                     return 0.6; // height dependent
-    case river:                     return 0.2;
-    case beach:                     return 0.1;
-    case wooded_hills:              return 1.0;
-    case taiga_hills:               return 1.0;
-    case mountain_edge:             return 1.0; // height dependent
-    case jungle:                    return 1.0;
-    case jungle_hills:              return 1.0;
-    case jungleEdge:                return 1.0;
-    case birch_forest:              return 1.0;
-    case birch_forest_hills:        return 1.0;
-    case dark_forest:               return 0.9;
-    case snowy_taiga:               return 0.1; // below trees
-    case snowy_taiga_hills:         return 0.1; // below trees
-    case giant_tree_taiga:          return 0.6;
-    case giant_tree_taiga_hills:    return 0.6;
-    case wooded_mountains:          return 0.2; // height dependent
-    case savanna:                   return 1.0;
-    case savanna_plateau:           return 1.0;
-    case wooded_badlands_plateau:   return 0.1; // height dependent
-    case badlands_plateau:          return 0.1; // height dependent
+    case plains:                        return 1.0;
+    case mountains:                     return 0.8; // height dependent
+    case forest:                        return 1.0;
+    case taiga:                         return 1.0;
+    case swamp:                         return 0.6; // height dependent
+    case river:                         return 0.5;
+    case beach:                         return 0.1;
+    case wooded_hills:                  return 1.0;
+    case taiga_hills:                   return 1.0;
+    case mountain_edge:                 return 1.0; // height dependent
+    case jungle:                        return 1.0;
+    case jungle_hills:                  return 1.0;
+    case jungle_edge:                   return 1.0;
+    case birch_forest:                  return 1.0;
+    case birch_forest_hills:            return 1.0;
+    case dark_forest:                   return 0.9;
+    case snowy_taiga:                   return 0.2; // below trees
+    case snowy_taiga_hills:             return 0.2; // below trees
+    case giant_tree_taiga:              return 0.6;
+    case giant_tree_taiga_hills:        return 0.6;
+    case wooded_mountains:              return 0.2; // height dependent
+    case savanna:                       return 1.0;
+    case savanna_plateau:               return 1.0;
+    case wooded_badlands_plateau:       return 0.1; // height dependent
+    case badlands_plateau:              return 0.1; // height dependent
+
+    case sunflower_plains:              return 1.0;
+    case gravelly_mountains:            return 0.2;
+    case flower_forest:                 return 1.0;
+    case taiga_mountains:               return 1.0;
+    case swamp_hills:                   return 0.9;
+    case modified_jungle:               return 1.0;
+    case modified_jungle_edge:          return 1.0;
+    case tall_birch_forest:             return 1.0;
+    case tall_birch_hills:              return 1.0;
+    case dark_forest_hills:             return 0.9;
+    case snowy_taiga_mountains:         return 0.2;
+    case giant_spruce_taiga:            return 0.6;
+    case giant_spruce_taiga_hills:      return 0.6;
+    case modified_gravelly_mountains:   return 0.2;
+    case shattered_savanna:             return 1.0;
+    case shattered_savanna_plateau:     return 1.0;
+    case bamboo_jungle:                 return 0.4;
+    case bamboo_jungle_hills:           return 0.4;
     // NOTE: in rare circumstances you can get also get grassy islands that are
     // completely in ocean variants...
     default: return 0;
@@ -1750,7 +1768,7 @@ BiomeFilter setupBiomeFilter(const int *biomeList, int listLen)
 
                 if (isShallowOcean(id))
                 {
-                    bf.oceansToFind |= (1ULL < id);
+                    bf.oceansToFind |= (1ULL << id);
                 }
                 else
                 {

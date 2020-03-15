@@ -3,6 +3,8 @@
 
 #include "javarnd.h"
 
+#define __STDC_FORMAT_MACROS 1
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <inttypes.h>
@@ -11,15 +13,21 @@
 #define NULL ((void*)0)
 #endif
 
+#define SIMD_NOTIFY 0
+
 #if defined USE_SIMD && __AVX2__
 #include <emmintrin.h>
 #include <smmintrin.h>
 #include <immintrin.h>
+#if SIMD_NOTIFY
 #warning "Using AVX2 extensions."
+#endif
 #elif defined USE_SIMD && defined __SSE4_2__
 #include <emmintrin.h>
 #include <smmintrin.h>
+#if SIMD_NOTIFY
 #warning "Using SSE4.2 extensions."
+#endif
 #else
 //#warning "Using no SIMD extensions."
 #endif
@@ -164,6 +172,10 @@ STRUCT(Layer)
     Layer *p, *p2;      // parent layers
 };
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 //==============================================================================
 // Essentials
@@ -352,10 +364,10 @@ static inline __m256i set8ChunkSeeds(int ws, __m256i xs, __m256i zs)
 
 static inline __m256i mc8NextInt(__m256i* cs, int ws, int mask)
 {
-    __m256i and = _mm256_set1_epi32(mask);
-    __m256i ret = _mm256_and_si256(and, _mm256_srli_epi32(*cs, 24));
+    __m256i andm = _mm256_set1_epi32(mask);
+    __m256i ret = _mm256_and_si256(andm, _mm256_srli_epi32(*cs, 24));
     *cs = _mm256_add_epi32(_mm256_set1_epi32(ws), _mm256_mullo_epi32(*cs, _mm256_add_epi32(_mm256_set1_epi32(4150755663), _mm256_mullo_epi32(*cs, _mm256_set1_epi32(1284865837)))));
-    return _mm256_add_epi32(ret, _mm256_and_si256(and, _mm256_cmpgt_epi32(_mm256_set1_epi32(0), ret)));;
+    return _mm256_add_epi32(ret, _mm256_and_si256(andm, _mm256_cmpgt_epi32(_mm256_set1_epi32(0), ret)));
 }
 
 static inline __m256i select8Random2(__m256i* cs, int ws, __m256i a1, __m256i a2)
@@ -431,10 +443,10 @@ static inline __m128i set4ChunkSeeds(int ws, __m128i xs, __m128i zs)
 
 static inline __m128i mc4NextInt(__m128i* cs, int ws, int mask)
 {
-    __m128i and = _mm_set1_epi32(mask);
-    __m128i ret = _mm_and_si128(and, _mm_srli_epi32(*cs, 24));
+    __m128i andm = _mm_set1_epi32(mask);
+    __m128i ret = _mm_and_si128(andm, _mm_srli_epi32(*cs, 24));
     *cs = _mm_add_epi32( _mm_set1_epi32(ws), _mm_mullo_epi32(*cs, _mm_add_epi32(_mm_set1_epi32(4150755663), _mm_mullo_epi32(*cs, _mm_set1_epi32(1284865837)))));
-    return _mm_add_epi32(ret, _mm_and_si128(and, _mm_cmplt_epi32(ret, _mm_set1_epi32(0))));;
+    return _mm_add_epi32(ret, _mm_and_si128(andm, _mm_cmplt_epi32(ret, _mm_set1_epi32(0))));
 }
 
 static inline __m128i select4Random2(__m128i* cs, int ws, __m128i a1, __m128i a2)
@@ -567,5 +579,10 @@ void mapOceanTemp(Layer *l, int * __restrict out, int areaX, int areaZ, int area
 void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight);
 
 void mapVoronoiZoom(Layer *l, int * __restrict out, int x, int z, int w, int h);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* LAYER_H_ */

@@ -61,8 +61,8 @@ int main(int argc, char *argv[])
                 "  range         search range (in blocks) [uint, default=1024]\n");
         exit(1);
     }
-    if (argc <= 1 || sscanf(argv[1], "%"PRId64, &seedStart) != 1) seedStart = 0;
-    if (argc <= 2 || sscanf(argv[2], "%"PRId64, &seedEnd) != 1) seedEnd = 100000000LL;
+    if (argc <= 1 || sscanf(argv[1], "%" PRId64, &seedStart) != 1) seedStart = 0;
+    if (argc <= 2 || sscanf(argv[2], "%" PRId64, &seedEnd) != 1) seedEnd = 100000000LL;
     if (argc <= 3 || sscanf(argv[3], "%u", &threads) != 1) threads = 1;
     if (argc <= 4 || sscanf(argv[4], "%u", &range) != 1) range = 1024;
 
@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
     filter = setupBiomeFilter(BIOMES_L13_OCEAN_MIX_4,
                 sizeof(BIOMES_L13_OCEAN_MIX_4)/sizeof(int));
 
-    printf("Starting search through seeds %"PRId64 " to %"PRId64", using %u threads.\n"
+    printf("Starting search through seeds %" PRId64 " to %" PRId64", using %u threads.\n"
            "Search radius = %u.\n", seedStart, seedEnd, threads, range);
 
     thread_id_t threadID[threads];

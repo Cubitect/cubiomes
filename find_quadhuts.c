@@ -28,14 +28,14 @@ int main(int argc, char *argv[])
     const char *seedFileName;
     StructureConfig featureConfig;
 
-    if(argc > 2)
+    if (argc > 2)
     {
-        if(sscanf(argv[1], "%d", &regPosX) != 1) regPosX = 0;
-        if(sscanf(argv[2], "%d", &regPosZ) != 1) regPosZ = 0;
+        if (sscanf(argv[1], "%d", &regPosX) != 1) regPosX = 0;
+        if (sscanf(argv[2], "%d", &regPosZ) != 1) regPosZ = 0;
 
-        if(argc > 3)
+        if (argc > 3)
         {
-            if(sscanf(argv[3], "%d", &mcversion) != 1) mcversion = 0;
+            if (sscanf(argv[3], "%d", &mcversion) != 1) mcversion = 0;
         }
         else
         {
@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
     regPosX -= 1;
     regPosZ -= 1;
 
-    if(mcversion == 113)
+    if (mcversion >= 113)
     {
         featureConfig = SWAMP_HUT_CONFIG;
         seedFileName = "./seeds/quadhutbases_1_13_Q1.txt";
@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
         g = setupGenerator(MC_1_7);
     }
 
-    if(access(seedFileName, F_OK))
+    if (access(seedFileName, F_OK))
     {
         printf("Seed base file does not exist: Creating new one.\n"
                "This may take a few minutes...\n");
@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
     // so we can test the biome at these positions.
     Pos qhpos[4];
 
-    // Setup a dummy layer for Layer 19: Biome.
+    // Setup a dummy layer for Layer 19: Biome, to make preliminary seed tests.
     Layer layerBiomeDummy;
     setupLayer(256, &layerBiomeDummy, NULL, 200, NULL);
 
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 
 
     // Search for a swamp at the structure positions
-    for(i = 0; i < qhcnt; i++)
+    for (i = 0; i < qhcnt; i++)
     {
         base = moveStructure(qhcandidates[i], regPosX, regPosZ);
 
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
         qhpos[3] = getStructurePos(featureConfig, base, 1+regPosX, 1+regPosZ);
 
         /*
-        for(j = 0; j < 4; j++)
+        for (j = 0; j < 4; j++)
         {
             printf("(%d,%d) ", qhpos[j].x, qhpos[j].z);
         }
@@ -124,29 +124,31 @@ int main(int argc, char *argv[])
 
         // This little magic code checks if there is a meaningful chance for
         // this seed base to generate swamps in the area.
-        // The idea is that the conversion from Lush temperature to swamp is
-        // independent of surroundings, so we can test the conversion
-        // beforehand. Furthermore biomes tend to leak into the negative
+        // The idea is, that the conversion from Lush temperature to swamp is
+        // independent of surroundings, so we can test for this conversion
+        // beforehand. Furthermore, biomes tend to leak into the negative
         // coordinates because of the Zoom layers, so the majority of hits will
         // occur when SouthEast corner (at a 1:256 scale) of the quad-hut has a
         // swamp. (This assumption misses about 1 in 500 quad-hut seeds.)
         // Finally, here we also exploit that the minecraft random number
-        // generator is quite bad, such that for the "mcNextRand() mod 6" check
-        // it has a period pattern of ~3 on the high seed-bits.
-        for(j = 0; j < 5; j++)
+        // generator is quite bad, the "mcNextRand() mod 6" check has a period
+        // pattern of ~3 on the high seed-bits, which means we can avoid
+        // checking all 16 high-bit combinations.
+        for (j = 0; j < 5; j++)
         {
             seed = base + ((j+0x53) << 48);
             setWorldSeed(&layerBiomeDummy, seed);
             setChunkSeed(&layerBiomeDummy, areaX+1, areaZ+1);
-            if(mcNextInt(&layerBiomeDummy, 6) == 5)
+            if (mcNextInt(&layerBiomeDummy, 6) == 5)
                 break;
         }
-        if(j >= 5) continue;
+        if (j >= 5)
+            continue;
 
 
         int64_t hits = 0, swpc;
 
-        for(j = 0; j < 0x10000; j++)
+        for (j = 0; j < 0x10000; j++)
         {
             seed = base + (j << 48);
 
@@ -156,13 +158,13 @@ int main(int argc, char *argv[])
             setWorldSeed(&layerBiomeDummy, seed);
 
             setChunkSeed(&layerBiomeDummy, areaX+1, areaZ+1);
-            if(mcNextInt(&layerBiomeDummy, 6) != 5)
+            if (mcNextInt(&layerBiomeDummy, 6) != 5)
                 continue;
 
             // This seed base does not seem to contain many quad huts, so make
             // a more detailed analysis of the surroundings and see if there is
             // enough potential for more swamps to justify searching further.
-            if(hits == 0 && (j & 0xfff) == 0xfff)
+            if (hits == 0 && (j & 0xfff) == 0xfff)
             {
                 swpc = 0;
                 setChunkSeed(&layerBiomeDummy, areaX, areaZ+1);
@@ -172,23 +174,24 @@ int main(int argc, char *argv[])
                 setChunkSeed(&layerBiomeDummy, areaX, areaZ);
                 swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
 
-                if(swpc < (j > 0x1000 ? 2 : 1)) break;
+                if (swpc < (j > 0x1000 ? 2 : 1))
+                    break;
             }
 
             // Dismiss seeds that don't have a swamp near the quad temple.
             setWorldSeed(lFilterBiome, seed);
             genArea(lFilterBiome, biomeCache, (regPosX<<1)+2, (regPosZ<<1)+2, 1, 1);
 
-            if(biomeCache[0] != swamp)
+            if (biomeCache[0] != swamp)
                 continue;
 
             applySeed(&g, seed);
-            if(getBiomeAtPos(g, qhpos[0]) != swamp) continue;
-            if(getBiomeAtPos(g, qhpos[1]) != swamp) continue;
-            if(getBiomeAtPos(g, qhpos[2]) != swamp) continue;
-            if(getBiomeAtPos(g, qhpos[3]) != swamp) continue;
+            if (getBiomeAtPos(g, qhpos[0]) != swamp) continue;
+            if (getBiomeAtPos(g, qhpos[1]) != swamp) continue;
+            if (getBiomeAtPos(g, qhpos[2]) != swamp) continue;
+            if (getBiomeAtPos(g, qhpos[3]) != swamp) continue;
 
-            printf("%"PRId64 "\n", seed);
+            printf("%" PRId64 "\n", seed);
             hits++;
         }
     }

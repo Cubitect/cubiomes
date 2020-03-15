@@ -183,6 +183,7 @@ void mapIsland(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWid
     }
 }
 
+// FIXME: currently SIMD only works properly for certain sizes
 #if defined USE_SIMD && defined __AVX2__
 
 void mapZoom(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth, int areaHeight)
@@ -200,7 +201,7 @@ void mapZoom(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth,
     int pX = areaX&0xFFFFFFFE;
     __m256i xs = _mm256_set_epi32(pX+14, pX+12, pX+10, pX+8, pX+6, pX+4, pX+2, pX), zs;
     __m256i v2 = _mm256_set1_epi32(2), v16 = _mm256_set1_epi32(16);
-    int* buf = malloc((newWidth+1)*((areaHeight+2)|1)*sizeof(*buf));
+    int* buf = (int*) malloc((newWidth+1)*((areaHeight+2)|1)*sizeof(*buf));
     int* idx = buf;
     int* outIdx = out;    
     //z first!
@@ -262,7 +263,7 @@ void mapZoom(Layer *l, int* __restrict out, int areaX, int areaZ, int areaWidth,
     int pX = areaX&0xFFFFFFFE;
     __m128i xs = _mm_set_epi32(pX+6, pX+4, pX+2, pX), zs;
     __m128i v2 = _mm_set1_epi32(2), v8 = _mm_set1_epi32(8);
-    int* buf = malloc((newWidth+1)*(areaHeight+2|1)*sizeof(*buf));
+    int* buf = (int*) malloc((newWidth+1)*(areaHeight+2|1)*sizeof(*buf));
     int* idx = buf;
     int* outIdx = out;
     //z first!
@@ -314,27 +315,28 @@ void mapZoom(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidth
 {
     int pX = areaX >> 1;
     int pZ = areaZ >> 1;
-    int pWidth =  (areaWidth >> 1) + 2;
-    int pHeight = (areaHeight >> 1) + 2;
+    int pWidth  = ((areaX + areaWidth ) >> 1) - pX + 1;
+    int pHeight = ((areaZ + areaHeight) >> 1) - pZ + 1;
     int x, z;
 
+    //printf("[%d %d] [%d %d]\n", pX, pZ, pWidth, pHeight);
     l->p->getMap(l->p, out, pX, pZ, pWidth, pHeight);
 
-    int newWidth = (pWidth-1) << 1;
-    int newHeight = (pHeight-1) << 1;
+    int newWidth  = (pWidth) << 1;
+    int newHeight = (pHeight) << 1;
     int idx, a, b;
     int *buf = (int *)malloc((newWidth+1)*(newHeight+1)*sizeof(*buf));
 
     const int ws = (int)l->worldSeed;
     const int ss = ws * (ws * 1284865837 + 4150755663);
 
-    for (z = 0; z < pHeight - 1; z++)
+    for (z = 0; z < pHeight; z++)
     {
         idx = (z << 1) * newWidth;
         a = out[(z+0)*pWidth];
         b = out[(z+1)*pWidth];
 
-        for (x = 0; x < pWidth - 1; x++)
+        for (x = 0; x < pWidth; x++)
         {
             int a1 = out[x+1 + (z+0)*pWidth];
             int b1 = out[x+1 + (z+1)*pWidth];
