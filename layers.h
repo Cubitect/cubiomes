@@ -202,7 +202,7 @@ static inline int getBiomeType(int id)
 
 static inline int biomeExists(int id)
 {
-    return !(biomes[id & 0xff].id & (~0xff));
+    return id <= 0xff && !(biomes[id].id & (~0xff));
 }
 
 static inline int getTempCategory(int id)
