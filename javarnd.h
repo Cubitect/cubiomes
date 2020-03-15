@@ -29,7 +29,7 @@ static inline int nextInt(int64_t *seed, const int n)
         bits = next(seed, 31);
         val = bits % n;
     }
-    while(bits - val + m < 0);
+    while (bits - val + m < 0);
     return val;
 }
 
@@ -75,7 +75,8 @@ static inline int secondInt24(int64_t seed)
  */
 static inline void skipNextN(int64_t *seed, const int n)
 {
-    for(int i = 0; i < n; i++) *seed = (*seed * 0x5deece66d + 0xb);
+    int i;
+    for (i = 0; i < n; i++) *seed = (*seed * 0x5deece66d + 0xb);
     *seed &= 0xffffffffffff;
 }
 
@@ -93,17 +94,18 @@ static inline int64_t invSeed48(int64_t nseed)
 
     int64_t a = nseed >> 32;
     int64_t b = nseed & 0xffffffffLL;
-    if(b & 0x80000000LL) a++;
+    if (b & 0x80000000LL) a++;
 
     int64_t q = ((b << 16) - y - (a << 16)*x) & m48;
-    for(int64_t k = 0; k <= 5; k++)
+    int64_t k;
+    for (k = 0; k <= 5; k++)
     {
         int64_t d = (x - (q + (k << 48))) % x;
         d = (d + x) % x; // force the modulo and keep it positive
-        if(d < 65536)
+        if (d < 65536)
         {
             int64_t c = ((q + d) * xinv) & m48;
-            if(c < 65536)
+            if (c < 65536)
             {
                 return ((((a << 16) + c) - y) * xinv) & m48;
             }

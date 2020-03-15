@@ -60,7 +60,7 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt)
 {
     FILE *fp = fopen(fnam, "r");
 
-    int64_t seed;
+    int64_t seed, i;
     int64_t *baseSeeds;
 
     if (fp == NULL)
@@ -81,7 +81,7 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt)
 
     rewind(fp);
 
-    for (int64_t i = 0; i < *scnt && !feof(fp);)
+    for (i = 0; i < *scnt && !feof(fp);)
     {
         if (fscanf(fp, "%" PRId64, &baseSeeds[i]) == 1) i++;
         else while (!feof(fp) && fgetc(fp) != '\n');
@@ -437,11 +437,11 @@ int isTriBase(const StructureConfig sconf, const int64_t seed, const int64_t qua
 int countBlocksInSpawnRange(Pos p[4], const int ax, const int ay, const int az)
 {
     int minX = 3e7, minZ = 3e7, maxX = -3e7, maxZ = -3e7;
-    int best;
+    int best, i, x, z, px, pz;
 
 
     // Find corners
-    for (int i = 0; i < 4; i++)
+    for (i = 0; i < 4; i++)
     {
         if (p[i].x < minX) minX = p[i].x;
         if (p[i].z < minZ) minZ = p[i].z;
@@ -457,20 +457,20 @@ int countBlocksInSpawnRange(Pos p[4], const int ax, const int ay, const int az)
 
     double thsq = 128.0*128.0 - az*az/4.0;
 
-    for (int x = minX; x < maxX; x++)
+    for (x = minX; x < maxX; x++)
     {
-        for (int z = minZ; z < maxZ; z++)
+        for (z = minZ; z < maxZ; z++)
         {
             int inrange = 0;
 
-            for (int i = 0; i < 4; i++)
+            for (i = 0; i < 4; i++)
             {
                 double dx = p[i].x - (x+0.5);
                 double dz = p[i].z - (z+0.5);
 
-                for (int px = 0; px < ax; px++)
+                for (px = 0; px < ax; px++)
                 {
-                    for (int pz = 0; pz < az; pz++)
+                    for (pz = 0; pz < az; pz++)
                     {
                         double ddx = px + dx;
                         double ddz = pz + dz;
@@ -1237,10 +1237,11 @@ Pos getSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed)
             {
                 int cx = ((spawn.x >> 4) + n2) << 4;
                 int cz = ((spawn.z >> 4) + n3) << 4;
+                int i2, i3;
 
-                for (int i2 = cx; i2 <= cx+15; i2++)
+                for (i2 = cx; i2 <= cx+15; i2++)
                 {
-                    for (int i3 = cz; i3 <= cz+15; i3++)
+                    for (i3 = cz; i3 <= cz+15; i3++)
                     {
                         Pos pos = {i2, i3};
                         if (canCoordinateBeSpawn(worldSeed, g, cache, pos))

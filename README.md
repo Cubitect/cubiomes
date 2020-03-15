@@ -17,7 +17,7 @@ This section is meant to give you a quick starting point if you want to use this
 
 Let's create a simple program called `find_jedge.c` which tests seeds for a Junge Edge biome at a predefined location.
 
-```
+```C
 #include "finders.h"
 #include <stdio.h>
 
@@ -63,8 +63,8 @@ $ make libcubiomes
 ```
 To compile, and link the cubiomes library you can use one of
 ```
-$ cc find_jedge.c libcubiomes.a -lm   # static
-$ cc find_jedge.c -L. -lcubiomes -lm  # dynamic
+$ gcc find_jedge.c libcubiomes.a -lm   # static
+$ gcc find_jedge.c -L. -lcubiomes -lm  # dynamic
 ```
 Both options assume that your source code is saved as `find_jedge.c` in the cubiomes working directory. If your makefile is configured to use pthreads you also may need to add the `-lpthread` option to the compiler. Running the program should output:
 ```
@@ -74,7 +74,7 @@ Seed 615 has a Junge Edge biome at block position (0, 0).
 
 We can also generate the biomes for a rectangular region using `getArea()` which also offers control over the entry layer, see the layer documentation for more information.
 
-```
+```C
 #include "generator.h"
 #include "util.h"
 

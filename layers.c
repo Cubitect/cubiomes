@@ -1639,7 +1639,7 @@ void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
     memcpy(map2, out, areaWidth*areaHeight*sizeof(int));
 
 
-    int x, z;
+    int x, z, i, j;
 
     for (z = 0; z < areaHeight; z++)
     {
@@ -1654,9 +1654,9 @@ void mapOceanMix(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
                 continue;
             }
 
-            for (int i = -8; i <= 8; i += 4)
+            for (i = -8; i <= 8; i += 4)
             {
-                for (int j = -8; j <= 8; j += 4)
+                for (j = -8; j <= 8; j += 4)
                 {
                     int nearbyID = map1[(x+i+8) + (z+j+8)*landWidth];
 
