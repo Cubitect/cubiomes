@@ -23,7 +23,7 @@ static inline int nextInt(int64_t *seed, const int n)
     int bits, val;
     const int m = n - 1;
 
-    if((m & n) == 0) return (int) ((n * (long)next(seed, 31)) >> 31);
+    if((m & n) == 0) return (int) ((n * (int64_t)next(seed, 31)) >> 31);
 
     do {
         bits = next(seed, 31);
