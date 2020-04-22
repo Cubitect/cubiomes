@@ -29,10 +29,11 @@ typedef pthread_t thread_id_t;
 enum
 {
     Desert_Pyramid, Igloo, Jungle_Pyramid, Swamp_Hut,
-    Village, Ocean_Ruin, Shipwreck, Monument, Mansion, Outpost
+    Village, Ocean_Ruin, Shipwreck, Monument, Mansion, Outpost,
+    Ruined_Portal
 };
 
-enum
+enum // village house types prior to 1.14
 {
     HouseSmall, Church, Library, WoodHut, Butcher, FarmLarge, FarmSmall,
     Blacksmith, HouseLarge, HOUSE_NUM
@@ -45,8 +46,12 @@ STRUCT(StructureConfig)
     int properties;
 };
 
-/* For desert temples, igloos, jungle temples and witch huts prior to 1.13. */
+/* for desert temples, igloos, jungle temples and witch huts prior to 1.13 */
 static const StructureConfig FEATURE_CONFIG        = { 14357617, 32, 24, 0};
+
+/* ocean features before 1.16 */
+static const StructureConfig OCEAN_RUIN_CONFIG_113 = { 14357621, 16,  8, 0};
+static const StructureConfig SHIPWRECK_CONFIG_113  = {165745295, 15,  7, 0};
 
 /* 1.13 separated feature seeds by type */
 static const StructureConfig DESERT_PYRAMID_CONFIG = { 14357617, 32, 24, 0};
@@ -56,10 +61,11 @@ static const StructureConfig SWAMP_HUT_CONFIG      = { 14357620, 32, 24, 0};
 
 static const StructureConfig OUTPOST_CONFIG        = {165745296, 32, 24, 0};
 static const StructureConfig VILLAGE_CONFIG        = { 10387312, 32, 24, 0};
-static const StructureConfig OCEAN_RUIN_CONFIG     = { 14357621, 16,  8, 0};
-static const StructureConfig SHIPWRECK_CONFIG      = {165745295, 15,  7, 0};
+static const StructureConfig OCEAN_RUIN_CONFIG     = { 14357621, 20, 12, 0};
+static const StructureConfig SHIPWRECK_CONFIG      = {165745295, 24, 20, 0};
 static const StructureConfig MONUMENT_CONFIG       = { 10387313, 32, 27, LARGE_STRUCT};
 static const StructureConfig MANSION_CONFIG        = { 10387319, 80, 60, LARGE_STRUCT};
+static const StructureConfig RUINED_PORTAL_CONFIG  = { 34222645, 40, 25, 0}; // overworld variant
 
 // structures that check each chunk individually
 static const StructureConfig TREASURE_CONFIG       = { 10387320,  1,  0, CHUNK_STRUCT};
@@ -233,7 +239,7 @@ int isTriBase(const StructureConfig sconf, const int64_t seed, const int64_t qua
 void search4QuadBases(const char *fnam, int threads,
         const StructureConfig structureConfig, int quality);
 
-
+void checkVec4QuadBases(const StructureConfig sconf, int64_t seeds[256]);
 
 //==============================================================================
 // Finding Structure Positions

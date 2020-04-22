@@ -49,7 +49,7 @@ enum BiomeID
     taiga,
     swamp,                      swampland = swamp,
     river,
-    nether,                     hell = nether,
+    nether_wastes,              hell = nether_wastes,
     the_end,                    sky = the_end,
     // 10
     frozen_ocean,               frozenOcean = frozen_ocean,
@@ -125,13 +125,18 @@ enum BiomeID
     modified_badlands_plateau       = badlands_plateau+128,
     // 1.14
     bamboo_jungle                   = 168,
-    bamboo_jungle_hills             = 169
+    bamboo_jungle_hills             = 169,
+    // 1.16
+    soul_sand_valley                = 170,
+    crimson_forest                  = 171,
+    warped_forest                   = 172,
+    basalt_deltas                   = 173,
 };
 
 enum BiomeType
 {
     Void = -1,
-    Ocean, Plains, Desert, Hills, Forest, Taiga, Swamp, River, Hell, Sky, Snow, MushroomIsland, Beach, Jungle, StoneBeach, Savanna, Mesa,
+    Ocean, Plains, Desert, Hills, Forest, Taiga, Swamp, River, Nether, Sky, Snow, MushroomIsland, Beach, Jungle, StoneBeach, Savanna, Mesa,
     BTYPE_NUM
 };
 

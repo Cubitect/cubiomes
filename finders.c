@@ -139,6 +139,68 @@ int isQuadFeatureBase(const StructureConfig sconf, const int64_t seed, const int
 }
 
 
+void checkVec4QuadBases(const StructureConfig sconf, int64_t seeds[256])
+{
+    const int64_t reg00base = sconf.seed;
+    const int64_t reg01base = 341873128712 + sconf.seed;
+    const int64_t reg10base = 132897987541 + sconf.seed;
+    const int64_t reg11base = 341873128712 + 132897987541 + sconf.seed;
+
+    int i;
+    for (i = 0; i < 256; i++)
+    {
+        int64_t seed = seeds[i];
+        int64_t s;
+        int dx, dz;
+
+        s = (reg00base + seed) ^ 0x5deece66dLL;
+        s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
+        int x00 = (int)(s >> 17) % sconf.chunkRange;
+        if (x00 <= 16) { seeds[i] = 0; continue; }
+        s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
+        int z00 = (int)(s >> 17) % sconf.chunkRange;
+        if (z00 <= 16) { seeds[i] = 0; continue; }
+        x00 -= 32; z00 -= 32;
+
+        s = (reg11base + seed) ^ 0x5deece66dLL;
+        s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
+        int x11 = (int)(s >> 17) % sconf.chunkRange;
+        dx = x11 - x00;
+        if (dx >= 16) { seeds[i] = 0; continue; }
+        s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
+        int z11 = (int)(s >> 17) % sconf.chunkRange;
+        dz = z11 - z00;
+        if (dz >= 16) { seeds[i] = 0; continue; }
+        if (dx*dx + dz*dz >= 16*16) { seeds[i] = 0; continue; }
+
+        s = (reg01base + seed) ^ 0x5deece66dLL;
+        s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
+        int x01 = (int)(s >> 17) % sconf.chunkRange;
+        dx = x01 - x00;
+        if (dx >= 16) { seeds[i] = 0; continue; }
+        s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
+        int z01 = (int)(s >> 17) % sconf.chunkRange;
+        z01 -= 32;
+        dz = z11 - z01;
+        if (dz >= 16) { seeds[i] = 0; continue; }
+
+        s = (reg10base + seed) ^ 0x5deece66dLL;
+        s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
+        int x10 = (int)(s >> 17) % sconf.chunkRange;
+        x10 -= 32;
+        dx = x01 - x10;
+        if (dx >= 16) { seeds[i] = 0; continue; }
+        s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
+        int z10 = (int)(s >> 17) % sconf.chunkRange;
+        dz = z10 - z01;
+        if (dz >= 16) { seeds[i] = 0; continue; }
+
+        dx = (x11 > x01 ? x11 : x01) - (x10 < x00 ? x10 : x00);
+        dz = (z11 > z10 ? z11 : z10) - (z01 < z00 ? z01 : z00);
+        if (dx*dx + dz*dz >= 256) { seeds[i] = 0; continue; } // 15.5 chunks
+    }
+}
+
 int isTriFeatureBase(const StructureConfig sconf, const int64_t seed, const int qual)
 {
     // seed offsets for the regions (0,0) to (1,1)
@@ -526,6 +588,11 @@ static DWORD WINAPI search4QuadBasesThread(LPVOID data)
             lowerBits[i] = (lowerBaseBitsQ2[i] - stc.seed) & 0xffff;
         }
     }
+    else if (stc.properties == 0 && stc.chunkRange == 24 && info.quality == -1)
+    {
+        lowerBitsCnt = 0x100;
+        for (i = 0; i < lowerBitsCnt; i++) lowerBits[i] = i << 8;
+    }
     else
     {
         printf("WARN search4QuadBasesThread: "
@@ -584,11 +651,30 @@ static DWORD WINAPI search4QuadBasesThread(LPVOID data)
 
     while (seed < end)
     {
-        if (isQuadBase(info.sconf, seed, info.quality))
+        if (info.quality >= 0)
         {
-            fprintf(fp, "%" PRId64"\n", seed);
-            fflush(fp);
-            //printf("Thread %d: %" PRId64"\n", info.threadID, seed);
+            if (isQuadBase(info.sconf, seed, info.quality))
+            {
+                fprintf(fp, "%" PRId64"\n", seed);
+                fflush(fp);
+            }
+        }
+        else
+        {
+            int64_t st[0x100];
+            int i;
+            for (i = 0; i < 0x100; i++)
+                st[i] = seed + i;
+            checkVec4QuadBases(info.sconf, st);
+            for (i = 0; i < 0x100; i++)
+            {
+                int64_t base = st[i];
+                if (base)
+                {
+                    fprintf(fp, "%" PRId64"\n", base);
+                    fflush(fp);
+                }
+            }
         }
 
         lowerBitsIdx++;
@@ -1321,6 +1407,8 @@ int isViableFeaturePos(const int structureType, const LayerStack g, int *cache,
     case Ocean_Ruin:
     case Shipwreck:
         return isOceanic(biomeID);
+    case Ruined_Portal:
+        return 1;
     default:
         fprintf(stderr, "Structure type is not valid for the scattered feature biome check.\n");
         exit(1);

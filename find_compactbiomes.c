@@ -16,17 +16,36 @@ static DWORD WINAPI searchCompactBiomesThread(LPVOID data)
 #endif
 {
     struct compactinfo_t info = *(struct compactinfo_t *)data;
+    int ax = -info.range, az = -info.range;
+    int w = 2*info.range, h = 2*info.range;
     int64_t s;
 
-    LayerStack g = setupGenerator(MC_1_13);
-    int *cache = allocCache(&g.layers[L_VORONOI_ZOOM_1], info.range, info.range);
+    LayerStack g = setupGenerator(MC_1_14);
+    int *cache = allocCache(&g.layers[L_VORONOI_ZOOM_1], w, h);
 
     for (s = info.seedStart; s < info.seedEnd; s++)
     {
-        if(checkForBiomes(&g, cache, s,
-                -info.range, -info.range, 2*info.range, 2*info.range,
-                info.filter, 1))
+        if (checkForBiomes(&g, cache, s, ax, az, w, h, info.filter, 1))
         {
+            int x, z;
+            int has_hut = 0, has_monument = 0;
+            for (z = -2; z < 2; z++)
+            {
+                for (x = -2; x < 2; x++)
+                {
+                    Pos p;
+                    p = getStructurePos(SWAMP_HUT_CONFIG, s, x, z);
+                    if (isViableFeaturePos(Swamp_Hut, g, cache, p.x, p.z))
+                        has_hut = 1;
+                    p = getLargeStructurePos(MONUMENT_CONFIG, s, x, z);
+                    if (isViableOceanMonumentPos(g, cache, p.x, p.z))
+                        has_monument = 1;
+                }
+            }
+
+            if (!has_hut || !has_monument)
+                continue;
+
             printf("%ld\n", s);
             fflush(stdout);
         }

@@ -41,7 +41,7 @@ void initBiomes()
     initAddBiome(taiga, Lush, Taiga, 0.25, hMidPlains);
     initAddBiome(swamp, Lush, Swamp, 0.8, hPartiallySubmerged);
     initAddBiome(river, Lush, River, 0.5, hShallowWaters);
-    initAddBiome(nether, Warm, Hell, 2.0, hDefault);
+    initAddBiome(nether_wastes, Warm, Nether, 2.0, hDefault);
     initAddBiome(the_end, Lush, Sky, 0.5, hDefault);
     initAddBiome(frozen_ocean, Oceanic, Ocean, 0.0, hOceans);
     initAddBiome(frozen_river, Cold, River, 0.0, hShallowWaters);
@@ -112,6 +112,11 @@ void initBiomes()
 
     initAddBiome(bamboo_jungle, Lush, Jungle, 0.95, hDefault);
     initAddBiome(bamboo_jungle_hills, Lush, Jungle, 0.95, hLowHills);
+
+    initAddBiome(soul_sand_valley, Warm, Nether, 2.0, hDefault);
+    initAddBiome(crimson_forest, Warm, Nether, 2.0, hDefault);
+    initAddBiome(warped_forest, Warm, Nether, 2.0, hDefault);
+    initAddBiome(basalt_deltas, Warm, Nether, 2.0, hDefault);
 }
 
 

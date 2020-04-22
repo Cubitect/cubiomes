@@ -73,6 +73,8 @@ int main(int argc, char *argv[])
         g = setupGenerator(MC_1_7);
     }
 
+    //seedFileName = "./seeds/quadbases_Q1b.txt";
+
     if (access(seedFileName, F_OK))
     {
         printf("Seed base file does not exist: Creating new one.\n"
