@@ -7,7 +7,10 @@ struct compactinfo_t
     int64_t seedStart, seedEnd;
     unsigned int range;
     BiomeFilter filter;
+    int withHut, withMonument;
+    int minscale;
 };
+
 
 #ifdef USE_PTHREAD
 static void *searchCompactBiomesThread(void *data)
@@ -23,28 +26,43 @@ static DWORD WINAPI searchCompactBiomesThread(LPVOID data)
     LayerStack g = setupGenerator(MC_1_14);
     int *cache = allocCache(&g.layers[L_VORONOI_ZOOM_1], w, h);
 
-    for (s = info.seedStart; s < info.seedEnd; s++)
+    for (s = info.seedStart; s != info.seedEnd; s++)
     {
-        if (checkForBiomes(&g, cache, s, ax, az, w, h, info.filter, 1))
+        if (checkForBiomes(&g, cache, s, ax, az, w, h, info.filter, info.minscale))
         {
             int x, z;
-            int has_hut = 0, has_monument = 0;
-            for (z = -2; z < 2; z++)
+            if (info.withHut)
             {
-                for (x = -2; x < 2; x++)
+                int r = info.range / SWAMP_HUT_CONFIG.regionSize;
+                for (z = -r; z < r; z++)
                 {
-                    Pos p;
-                    p = getStructurePos(SWAMP_HUT_CONFIG, s, x, z);
-                    if (isViableFeaturePos(Swamp_Hut, g, cache, p.x, p.z))
-                        has_hut = 1;
-                    p = getLargeStructurePos(MONUMENT_CONFIG, s, x, z);
-                    if (isViableOceanMonumentPos(g, cache, p.x, p.z))
-                        has_monument = 1;
+                    for (x = -r; x < r; x++)
+                    {
+                        Pos p;
+                        p = getStructurePos(SWAMP_HUT_CONFIG, s, x, z);
+                        if (isViableFeaturePos(Swamp_Hut, g, cache, p.x, p.z))
+                            goto L_hut_found;
+                    }
                 }
-            }
-
-            if (!has_hut || !has_monument)
                 continue;
+                L_hut_found:;
+            }
+            if (info.withMonument)
+            {
+                int r = info.range / MONUMENT_CONFIG.regionSize;
+                for (z = -r; z < r; z++)
+                {
+                    for (x = -r; x < r; x++)
+                    {
+                        Pos p;
+                        p = getLargeStructurePos(MONUMENT_CONFIG, s, x, z);
+                        if (isViableOceanMonumentPos(g, cache, p.x, p.z))
+                            goto L_monument_found;
+                    }
+                }
+                continue;
+                L_monument_found:;
+            }
 
             printf("%ld\n", s);
             fflush(stdout);
@@ -68,6 +86,8 @@ int main(int argc, char *argv[])
     int64_t seedStart, seedEnd;
     unsigned int threads, t, range;
     BiomeFilter filter;
+    int withHut, withMonument;
+    int minscale;
 
     // arguments
     if (argc <= 0)
@@ -75,19 +95,23 @@ int main(int argc, char *argv[])
         printf( "find_compactbiomes [seed_start] [seed_end] [threads] [range]\n"
                 "\n"
                 "  seed_start    starting seed for search [long, default=0]\n"
-                "  end_start     end seed for search [long, default=1e8]\n"
+                "  end_start     end seed for search [long, default=-1]\n"
                 "  threads       number of threads to use [uint, default=1]\n"
                 "  range         search range (in blocks) [uint, default=1024]\n");
         exit(1);
     }
     if (argc <= 1 || sscanf(argv[1], "%" PRId64, &seedStart) != 1) seedStart = 0;
-    if (argc <= 2 || sscanf(argv[2], "%" PRId64, &seedEnd) != 1) seedEnd = 100000000LL;
+    if (argc <= 2 || sscanf(argv[2], "%" PRId64, &seedEnd) != 1) seedEnd = -1;
     if (argc <= 3 || sscanf(argv[3], "%u", &threads) != 1) threads = 1;
     if (argc <= 4 || sscanf(argv[4], "%u", &range) != 1) range = 1024;
 
     // TODO: set up a customisable biome filter
     filter = setupBiomeFilter(BIOMES_L13_OCEAN_MIX_4,
                 sizeof(BIOMES_L13_OCEAN_MIX_4)/sizeof(int));
+    minscale = 1; // terminate search at this layer scale
+    // TODO: simple structure filter
+    withHut = 0;
+    withMonument = 0;
 
     printf("Starting search through seeds %" PRId64 " to %" PRId64", using %u threads.\n"
            "Search radius = %u.\n", seedStart, seedEnd, threads, range);
@@ -96,13 +120,16 @@ int main(int argc, char *argv[])
     struct compactinfo_t info[threads];
 
     // store thread information
+    uint64_t seedCnt = ((uint64_t)seedEnd - (uint64_t)seedStart) / threads;
     for (t = 0; t < threads; t++)
     {
-        int64_t seedCnt = (seedEnd - seedStart) / threads;
-        info[t].seedStart = seedStart + seedCnt * t;
-        info[t].seedEnd = seedStart + seedCnt * (t+1) + 1;
+        info[t].seedStart = (int64_t)(seedStart + seedCnt * t);
+        info[t].seedEnd = (int64_t)(seedStart + seedCnt * (t+1));
         info[t].range = range;
         info[t].filter = filter;
+        info[t].withHut = withHut;
+        info[t].withMonument = withMonument;
+        info[t].minscale = minscale;
     }
     info[threads-1].seedEnd = seedEnd;
 
