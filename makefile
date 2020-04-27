@@ -5,7 +5,7 @@ override CFLAGS += -Wall -fwrapv -march=native
 .PHONY : all debug clean
 
 all: CFLAGS += -O3
-all: find_quadhuts find_compactbiomes multifinder rendermap benchmark clean
+all: find_quadhuts find_compactbiomes god multifinder rendermap benchmark clean
 
 benchmark: benchmark.o layers.o generator.o finders.o
 	$(CC) -o $@ $^ $(LDFLAGS)
@@ -34,10 +34,16 @@ find_compactbiomes: find_compactbiomes.o layers.o generator.o finders.o
 find_compactbiomes.o: find_compactbiomes.c
 	$(CC) -c $(CFLAGS) $<
 
-find_quadhuts: find_quadhuts.o layers.o generator.o finders.o 
+find_quadhuts: find_quadhuts.o layers.o generator.o finders.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 find_quadhuts.o: find_quadhuts.c
+	$(CC) -c $(CFLAGS) $<
+
+god: Gods_seedfinder.o layers.o generator.o finders.o
+	$(CC) -o $@ $^ $(LDFLAGS)
+
+Gods_seedfinder.o: Gods_seedfinder.c
 	$(CC) -c $(CFLAGS) $<
 
 
