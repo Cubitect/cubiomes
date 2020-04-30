@@ -19,6 +19,7 @@ void initAddBiome(int id, int tempCat, int biometype, float temp, float height)
 
 void createMutation(int id)
 {
+    biomes[id].mutated = id + 128;
     biomes[id+128] = biomes[id];
     biomes[id+128].id = id+128;
 }
@@ -27,7 +28,15 @@ void createMutation(int id)
 void initBiomes()
 {
     int i;
-    for (i = 0; i < 256; i++) biomes[i].id = none;
+    for (i = 0; i < 256; i++)
+    {
+        biomes[i].id = none;
+        biomes[i].type = Void;
+        biomes[i].temp = 0.5;
+        biomes[i].height = 0;
+        biomes[i].tempCat = Void;
+        biomes[i].mutated = -1;
+    }
 
     const double hDefault = 0.1, hShallowWaters = -0.5, hOceans = -1.0, hDeepOceans = -1.8, hLowPlains = 0.125;
     const double hMidPlains = 0.2, hLowHills = 0.45, hHighPlateaus = 1.5, hMidHills = 1.0, hShores = 0.0;
@@ -931,7 +940,9 @@ static inline int replaceEdge(int *out, int idx, int v10, int v21, int v01, int 
 {
     if (id != baseID) return 0;
 
-    if (equalOrPlateau(v10, baseID) && equalOrPlateau(v21, baseID) && equalOrPlateau(v01, baseID) && equalOrPlateau(v12, baseID))
+    // areSimilar() has not changed behaviour for ids < 128, so use the faster variant
+    if (areSimilar113(v10, baseID) && areSimilar113(v21, baseID) &&
+        areSimilar113(v01, baseID) && areSimilar113(v12, baseID))
         out[idx] = id;
     else
         out[idx] = edgeID;
@@ -960,10 +971,9 @@ void mapBiomeEdge(Layer *l, int * __restrict out, int areaX, int areaZ, int area
             int v01 = out[x+0 + (z+1)*pWidth];
             int v12 = out[x+1 + (z+2)*pWidth];
 
-            if (/*!replaceEdgeIfNecessary(out, x + z*areaWidth, v10, v21, v01, v12, v11, mountains, mountain_edge) &&*/
-               !replaceEdge(out, x + z*areaWidth, v10, v21, v01, v12, v11, wooded_badlands_plateau, badlands) &&
-               !replaceEdge(out, x + z*areaWidth, v10, v21, v01, v12, v11, badlands_plateau, badlands) &&
-               !replaceEdge(out, x + z*areaWidth, v10, v21, v01, v12, v11, giant_tree_taiga, taiga))
+            if (!replaceEdge(out, x + z*areaWidth, v10, v21, v01, v12, v11, wooded_badlands_plateau, badlands) &&
+                !replaceEdge(out, x + z*areaWidth, v10, v21, v01, v12, v11, badlands_plateau, badlands) &&
+                !replaceEdge(out, x + z*areaWidth, v10, v21, v01, v12, v11, giant_tree_taiga, taiga))
             {
                 if (v11 == desert)
                 {
@@ -1078,7 +1088,7 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
                 case savanna:
                     hillID = savanna_plateau; break;
                 default:
-                    if (equalOrPlateau(a11, wooded_badlands_plateau))
+                    if (areSimilar(a11, wooded_badlands_plateau))
                         hillID = badlands;
                     else if (a11 == deep_ocean && mcNextInt(l, 3) == 0)
                         hillID = (mcNextInt(l, 2) == 0) ? plains : forest;
@@ -1105,10 +1115,10 @@ void mapHills(Layer *l, int * __restrict out, int areaX, int areaZ, int areaWidt
                     int a12 = buf[x+1 + (z+2)*pWidth];
                     int equals = 0;
 
-                    if (equalOrPlateau(a10, a11)) equals++;
-                    if (equalOrPlateau(a21, a11)) equals++;
-                    if (equalOrPlateau(a01, a11)) equals++;
-                    if (equalOrPlateau(a12, a11)) equals++;
+                    if (areSimilar(a10, a11)) equals++;
+                    if (areSimilar(a21, a11)) equals++;
+                    if (areSimilar(a01, a11)) equals++;
+                    if (areSimilar(a12, a11)) equals++;
 
                     if (equals >= 3)
                         out[idx] = hillID;
@@ -1156,9 +1166,13 @@ void mapHills113(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
 
             int bn = (b11 - 2) % 29;
 
-            if (!(isOceanic(a11) || b11 < 2 || bn != 1 || a11 >= 128))
+            if (!isShallowOcean(a11) && b11 >= 2 && bn == 1)
             {
-                out[idx] = (biomeExists(a11 + 128)) ? a11 + 128 : a11;
+                int m = biomes[a11].mutated;
+                if (m > 0)
+                    out[idx] = m;
+                else
+                    out[idx] = a11;
             }
             else if (mcNextInt(l, 3) == 0 || bn == 0)
             {
@@ -1195,7 +1209,7 @@ void mapHills113(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
                 case savanna:
                     hillID = savanna_plateau; break;
                 default:
-                    if (equalOrPlateau(a11, wooded_badlands_plateau))
+                    if (areSimilar113(a11, wooded_badlands_plateau))
                         hillID = badlands;
                     else if (isDeepOcean(a11) && mcNextInt(l, 3) == 0)
                         hillID = (mcNextInt(l, 2) == 0) ? plains : forest;
@@ -1204,9 +1218,8 @@ void mapHills113(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
 
                 if (bn == 0 && hillID != a11)
                 {
-                    if (biomeExists(hillID + 128))
-                        hillID += 128;
-                    else
+                    hillID = biomes[hillID].mutated;
+                    if (hillID < 0)
                         hillID = a11;
                 }
 
@@ -1218,10 +1231,10 @@ void mapHills113(Layer *l, int * __restrict out, int areaX, int areaZ, int areaW
                     int a12 = buf[x+1 + (z+2)*pWidth];
                     int equals = 0;
 
-                    if (equalOrPlateau(a10, a11)) equals++;
-                    if (equalOrPlateau(a21, a11)) equals++;
-                    if (equalOrPlateau(a01, a11)) equals++;
-                    if (equalOrPlateau(a12, a11)) equals++;
+                    if (areSimilar113(a10, a11)) equals++;
+                    if (areSimilar113(a21, a11)) equals++;
+                    if (areSimilar113(a01, a11)) equals++;
+                    if (areSimilar113(a12, a11)) equals++;
 
                     if (equals >= 3)
                         out[idx] = hillID;

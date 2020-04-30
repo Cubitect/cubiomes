@@ -151,7 +151,7 @@ int biomesToImage(unsigned char *pixels,
             }
             else
             {
-                if (id < 128) {
+                if (id < 128 || 1) {
                     r = biomeColours[id][0];
                     g = biomeColours[id][1];
                     b = biomeColours[id][2];

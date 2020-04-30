@@ -153,6 +153,7 @@ STRUCT(Biome)
     double height;
     double temp;
     int tempCat;
+    int mutated;
 };
 
 STRUCT(OceanRnd)
@@ -202,21 +203,20 @@ void setWorldSeed(Layer *layer, int64_t seed);
 
 static inline int getBiomeType(int id)
 {
-    return biomes[id & 0xff].type;
+    return (id & (~0xff)) ? Void : biomes[id].type;
 }
 
 static inline int biomeExists(int id)
 {
-    return id <= 0xff && !(biomes[id].id & (~0xff));
+    return !(id & (~0xff)) && !(biomes[id].id & (~0xff));
 }
 
 static inline int getTempCategory(int id)
 {
-    return biomes[id & 0xff].tempCat;
+    return (id & (~0xff)) ? Void : biomes[id].tempCat;
 }
 
-
-static inline int equalOrPlateau(int id1, int id2)
+static inline int areSimilar(int id1, int id2)
 {
     if (id1 == id2) return 1;
     if (id1 == wooded_badlands_plateau || id1 == badlands_plateau)
@@ -231,13 +231,13 @@ static inline int equalOrPlateau(int id1, int id2)
     return getBiomeType(id1) == getBiomeType(id2);
 }
 
-static inline int canBeNeighbors(int id1, int id2)
+static inline int areSimilar113(int id1, int id2)
 {
-    if (equalOrPlateau(id1, id2)) return 1;
+    if (id1 == id2) return 1;
+    if (id1 == wooded_badlands_plateau || id1 == badlands_plateau)
+        return id2 == wooded_badlands_plateau || id2 == badlands_plateau;
     if (!biomeExists(id1) || !biomeExists(id2)) return 0;
-    int tempCat1 = getTempCategory(id1); if (tempCat1 == Lush) return 1;
-    int tempCat2 = getTempCategory(id2); if (tempCat2 == Lush) return 1;
-    return tempCat1 == tempCat2;
+    return getBiomeType(id1) == getBiomeType(id2);
 }
 
 static inline int isShallowOcean(int id)
@@ -281,7 +281,7 @@ static inline int isOceanic(int id)
 
 static inline int isBiomeSnowy(int id)
 {
-    return biomeExists(id) && biomes[id&0xff].temp < 0.1;
+    return biomeExists(id) && biomes[id].temp < 0.1;
 }
 
 static inline int mcNextInt(Layer *layer, int mod)
