@@ -1401,14 +1401,17 @@ int isViableFeaturePos(const int structureType, const LayerStack g, int *cache,
     case Igloo:
         return biomeID == snowy_tundra || biomeID == snowy_taiga;
     case Jungle_Pyramid:
-        return biomeID == jungle || biomeID == jungle_hills;
+        return biomeID == jungle || biomeID == jungle_hills || biomeID == bamboo_jungle || biomeID == bamboo_jungle_hills;
     case Swamp_Hut:
         return biomeID == swamp;
     case Ocean_Ruin:
-    case Shipwreck:
         return isOceanic(biomeID);
+    case Shipwreck:
+        return isOceanic(biomeID) || biomeID == beach || biomeID == snowy_beach;
     case Ruined_Portal:
         return 1;
+    case Outpost:
+        return biomeID == plains || biomeID == desert || biomeID == taiga || biomeID == snowy_tundra || biomeID == savanna;
     default:
         fprintf(stderr, "Structure type is not valid for the scattered feature biome check.\n");
         exit(1);
