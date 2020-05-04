@@ -1408,6 +1408,8 @@ int isViableFeaturePos(const int structureType, const LayerStack g, int *cache,
         return isOceanic(biomeID);
     case Shipwreck:
         return isOceanic(biomeID) || biomeID == beach || biomeID == snowy_beach;
+    case Ruined_Portal:
+        return 1;
     case Outpost:
         return biomeID == plains || biomeID == desert || biomeID == taiga || biomeID == snowy_tundra || biomeID == savanna;
     default:
