@@ -1603,7 +1603,8 @@ int64_t filterAllTempCats(
 
     // Construct a dummy Edge,Special layer.
     Layer layerSpecial;
-    setupLayer(1024, &layerSpecial, NULL, 3, NULL);
+    layerSpecial.scale = 1024;
+    setupLayer(&layerSpecial, NULL, 3, NULL);
 
     int64_t sidx, hits, seed;
     int types[9];

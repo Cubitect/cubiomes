@@ -217,8 +217,8 @@ int *allocCache(Layer *layer, int sizeX, int sizeZ);
 
 
 /* Set up custom layers. */
-void setupLayer(int scale, Layer *l, Layer *p, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h));
-void setupMultiLayer(int scale, Layer *l, Layer *p1, Layer *p2, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h));
+void setupLayer(Layer *l, Layer *p, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h));
+void setupMultiLayer(Layer *l, Layer *p1, Layer *p2, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h));
 
 
 /* Sets the world seed for the generator */

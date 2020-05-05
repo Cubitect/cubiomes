@@ -29,7 +29,8 @@ int main()
 
     // Allocate and initialize a stack of biome layers that reflects the biome
     // generation of Minecraft 1.14
-    LayerStack g = setupGenerator(MC_1_14);
+    int largeBiome = 0;
+    LayerStack g = setupGenerator(MC_1_14, largeBiome);
 
     int64_t seed;
     Pos pos = {0,0}; // block position to be checked
@@ -88,7 +89,8 @@ int main()
     initBiomeColours(biomeColours);
 
     // Allocate and initialize a stack of biome layers.
-    LayerStack g = setupGenerator(MC_1_14);
+    int largeBiome = 0;
+    LayerStack g = setupGenerator(MC_1_14, largeBiome);
     // Extract the desired layer.
     Layer *layer = &g.layers[L_SHORE_16];
 
