@@ -28,7 +28,7 @@ void setupMultiLayer(int scale, Layer *l, Layer *p1, Layer *p2, int s, void (*ge
 
 
 
-LayerStack setupGenerator(const int mcversion)
+LayerStack setupGenerator(const int mcversion, const int large_biome)
 {
     if (biomes[plains].id == 0)
     {
@@ -90,7 +90,15 @@ LayerStack setupGenerator(const int mcversion)
     setupLayer(16,   &l[L_SHORE_16],            &l[L_ZOOM_16],              1000, mapShore);
     setupLayer(8,    &l[L_ZOOM_8],              &l[L_SHORE_16],             1002, mapZoom);
     setupLayer(4,    &l[L_ZOOM_4],              &l[L_ZOOM_8],               1003, mapZoom);
-    setupLayer(4,    &l[L_SMOOTH_4],            &l[L_ZOOM_4],               1000, mapSmooth);
+
+    if (large_biome != 0) {
+        //TODO: scale?
+        setupLayer(4, &l[L_ZOOM_LARGE_BIOME_A], &l[L_ZOOM_4],               1004, mapZoom);
+        setupLayer(4, &l[L_ZOOM_LARGE_BIOME_B], &l[L_ZOOM_LARGE_BIOME_A],   1005, mapZoom);
+        setupLayer(4, &l[L_SMOOTH_4],           &l[L_ZOOM_LARGE_BIOME_B],   1000, mapSmooth);
+    } else {
+        setupLayer(4, &l[L_SMOOTH_4],           &l[L_ZOOM_4],               1000, mapSmooth);
+    }
 
     // river layer chain
     setupLayer(128,  &l[L_ZOOM_128_RIVER],      &l[L_RIVER_INIT_256],       1000, mapZoom);

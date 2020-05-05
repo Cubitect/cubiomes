@@ -72,6 +72,10 @@ enum
     // 1.14 layers
     L14_BAMBOO_256,
 
+    // largeBiomes layers
+    L_ZOOM_LARGE_BIOME_A,
+    L_ZOOM_LARGE_BIOME_B,
+
     L_NUM
 };
 
@@ -195,7 +199,7 @@ extern "C"
 #endif
 
 /* Initialise an instance of a generator. */
-LayerStack setupGenerator(const int mcversion);
+LayerStack setupGenerator(const int mcversion, const int largeBiomes);
 
 /* Cleans up and frees the generator layers */
 void freeGenerator(LayerStack g);
