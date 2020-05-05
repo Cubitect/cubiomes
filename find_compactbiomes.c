@@ -23,7 +23,7 @@ static DWORD WINAPI searchCompactBiomesThread(LPVOID data)
     int w = 2*info.range, h = 2*info.range;
     int64_t s;
 
-    LayerStack g = setupGenerator(MC_1_14, 0);
+    LayerStack g = setupGenerator(MC_1_14);
     int *cache = allocCache(&g.layers[L_VORONOI_ZOOM_1], w, h);
 
     for (s = info.seedStart; s != info.seedEnd; s++)

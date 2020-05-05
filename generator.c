@@ -42,7 +42,7 @@ static void setupScale(Layer *l, int scale)
     }
 }
 
-LayerStack setupGenerator(const int mcversion, const int large_biome)
+static LayerStack setupGeneratorImpl(const int mcversion, const int largeBiomes)
 {
     if (biomes[plains].id == 0)
     {
@@ -105,7 +105,7 @@ LayerStack setupGenerator(const int mcversion, const int large_biome)
     setupLayer(&l[L_ZOOM_8],              &l[L_SHORE_16],             1002, mapZoom);
     setupLayer(&l[L_ZOOM_4],              &l[L_ZOOM_8],               1003, mapZoom);
 
-    if (large_biome != 0) {
+    if (largeBiomes != 0) {
         setupLayer(&l[L_ZOOM_LARGE_BIOME_A], &l[L_ZOOM_4],               1004, mapZoom);
         setupLayer(&l[L_ZOOM_LARGE_BIOME_B], &l[L_ZOOM_LARGE_BIOME_A],   1005, mapZoom);
         setupLayer(&l[L_SMOOTH_4],           &l[L_ZOOM_LARGE_BIOME_B],   1000, mapSmooth);
@@ -151,6 +151,15 @@ LayerStack setupGenerator(const int mcversion, const int large_biome)
     return g;
 }
 
+LayerStack setupGenerator(const int mcversion)
+{
+    return setupGeneratorImpl(mcversion, 0);
+}
+
+LayerStack setupLargeBiomesGenerator(const int mcversion)
+{
+    return setupGeneratorImpl(mcversion, 1);
+}
 
 void freeGenerator(LayerStack g)
 {

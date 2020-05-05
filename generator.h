@@ -199,7 +199,10 @@ extern "C"
 #endif
 
 /* Initialise an instance of a generator. */
-LayerStack setupGenerator(const int mcversion, const int largeBiomes);
+LayerStack setupGenerator(const int mcversion);
+
+/* Initialise an instance of a generator with largeBiomes configuration. */
+LayerStack setupLargeBiomesGenerator(const int mcversion);
 
 /* Cleans up and frees the generator layers */
 void freeGenerator(LayerStack g);
