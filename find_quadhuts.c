@@ -99,7 +99,8 @@ int main(int argc, char *argv[])
 
     // Setup a dummy layer for Layer 19: Biome, to make preliminary seed tests.
     Layer layerBiomeDummy;
-    setupLayer(256, &layerBiomeDummy, NULL, 200, NULL);
+    layerBiomeDummy.scale = 256;
+    setupLayer(&layerBiomeDummy, NULL, 200, NULL);
 
 
     int areaX = (regPosX << 1) + 1;

@@ -72,6 +72,10 @@ enum
     // 1.14 layers
     L14_BAMBOO_256,
 
+    // largeBiomes layers
+    L_ZOOM_LARGE_BIOME_A,
+    L_ZOOM_LARGE_BIOME_B,
+
     L_NUM
 };
 
@@ -197,6 +201,9 @@ extern "C"
 /* Initialise an instance of a generator. */
 LayerStack setupGenerator(const int mcversion);
 
+/* Initialise an instance of a generator with largeBiomes configuration. */
+LayerStack setupLargeBiomesGenerator(const int mcversion);
+
 /* Cleans up and frees the generator layers */
 void freeGenerator(LayerStack g);
 
@@ -213,8 +220,8 @@ int *allocCache(Layer *layer, int sizeX, int sizeZ);
 
 
 /* Set up custom layers. */
-void setupLayer(int scale, Layer *l, Layer *p, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h));
-void setupMultiLayer(int scale, Layer *l, Layer *p1, Layer *p2, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h));
+void setupLayer(Layer *l, Layer *p, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h));
+void setupMultiLayer(Layer *l, Layer *p1, Layer *p2, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h));
 
 
 /* Sets the world seed for the generator */
