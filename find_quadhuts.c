@@ -97,10 +97,8 @@ int main(int argc, char *argv[])
     // so we can test the biome at these positions.
     Pos qhpos[4];
 
-    // Setup a dummy layer for Layer 19: Biome, to make preliminary seed tests.
-    Layer layerBiomeDummy;
-    layerBiomeDummy.scale = 256;
-    setupLayer(&layerBiomeDummy, NULL, 200, NULL);
+    // layerSeed for Layer 19: Biome, to make preliminary seed tests.
+    int64_t lsBiome = g.layers[L_BIOME_256].layerSeed;
 
 
     int areaX = (regPosX << 1) + 1;
@@ -137,12 +135,13 @@ int main(int argc, char *argv[])
         // generator is quite bad, the "mcNextRand() mod 6" check has a period
         // pattern of ~3 on the high seed-bits, which means we can avoid
         // checking all 16 high-bit combinations.
+        int64_t ss, cs;
         for (j = 0; j < 5; j++)
         {
             seed = base + ((j+0x53) << 48);
-            setWorldSeed(&layerBiomeDummy, seed);
-            setChunkSeed(&layerBiomeDummy, areaX+1, areaZ+1);
-            if (mcNextInt(&layerBiomeDummy, 6) == 5)
+            ss = getStartSeed(seed, lsBiome);
+            cs = getChunkSeed(ss, areaX+1, areaZ+1);
+            if (mcFirstInt(cs, 6) == 5)
                 break;
         }
         if (j >= 5)
@@ -158,10 +157,9 @@ int main(int argc, char *argv[])
             /** Pre-Generation Checks **/
             // We can check that at least one swamp could generate in this area
             // before doing the biome generator checks.
-            setWorldSeed(&layerBiomeDummy, seed);
-
-            setChunkSeed(&layerBiomeDummy, areaX+1, areaZ+1);
-            if (mcNextInt(&layerBiomeDummy, 6) != 5)
+            ss = getStartSeed(seed, lsBiome);
+            cs = getChunkSeed(ss, areaX+1, areaZ+1);
+            if (mcFirstInt(cs, 6) != 5)
                 continue;
 
             // This seed base does not seem to contain many quad huts, so make
@@ -170,12 +168,12 @@ int main(int argc, char *argv[])
             if (hits == 0 && (j & 0xfff) == 0xfff)
             {
                 swpc = 0;
-                setChunkSeed(&layerBiomeDummy, areaX, areaZ+1);
-                swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
-                setChunkSeed(&layerBiomeDummy, areaX+1, areaZ);
-                swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
-                setChunkSeed(&layerBiomeDummy, areaX, areaZ);
-                swpc += mcNextInt(&layerBiomeDummy, 6) == 5;
+                cs = getChunkSeed(ss, areaX, areaZ+1);
+                swpc += mcFirstInt(cs, 6) == 5;
+                cs = getChunkSeed(ss, areaX+1, areaZ);
+                swpc += mcFirstInt(cs, 6) == 5;
+                cs = getChunkSeed(ss, areaX, areaZ);
+                swpc += mcFirstInt(cs, 6) == 5;
 
                 if (swpc < (j > 0x1000 ? 2 : 1))
                     break;

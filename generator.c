@@ -6,22 +6,25 @@
 #include <string.h>
 
 
-void setupLayer(Layer *l, Layer *p, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h))
+
+void setupLayer(Layer *l, Layer *p, int s,
+        void (*getMap)(const Layer * RESTRICT, int *, int, int, int, int))
 {
-    setBaseSeed(l, s);
+    l->layerSeed = getLayerSeed(s);
+    l->startSalt = 0;
+    l->startSeed = 0;
     l->p = p;
     l->p2 = NULL;
+    l->scale = 0;
     l->getMap = getMap;
     l->oceanRnd = NULL;
 }
 
-void setupMultiLayer(Layer *l, Layer *p1, Layer *p2, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h))
+void setupMultiLayer(Layer *l, Layer *p1, Layer *p2, int s,
+        void (*getMap)(const Layer * RESTRICT, int *, int, int, int, int))
 {
-    setBaseSeed(l, s);
-    l->p = p1;
+    setupLayer(l, p1, s, getMap);
     l->p2 = p2;
-    l->getMap = getMap;
-    l->oceanRnd = NULL;
 }
 
 
@@ -54,7 +57,7 @@ static LayerStack setupGeneratorImpl(const int mcversion, const int largeBiomes)
     g.layers = (Layer *) calloc(g.layerCnt, sizeof(Layer));
     Layer *l = g.layers;
 
-    //         LAYER                      PARENT                      SEED  LAYER_FUNCTION
+    //         LAYER                      PARENT                      SALT  LAYER_FUNCTION
     setupLayer(&l[L_ISLAND_4096],         NULL,                       1,    mapIsland);
     setupLayer(&l[L_ZOOM_2048],           &l[L_ISLAND_4096],          2000, mapZoom);
     setupLayer(&l[L_ADD_ISLAND_2048],     &l[L_ZOOM_2048],            1,    mapAddIsland);
@@ -79,11 +82,11 @@ static LayerStack setupGeneratorImpl(const int mcversion, const int largeBiomes)
             mcversion != MCBE ? mapBiome : mapBiomeBE);
 
     if (mcversion <= MC_1_13)
-        setupLayer(&l[L_ZOOM_128],         &l[L_BIOME_256],            1000, mapZoom);
+        setupLayer(&l[L_ZOOM_128],        &l[L_BIOME_256],            1000, mapZoom);
     else
     {
-        setupLayer(&l[L14_BAMBOO_256],     &l[L_BIOME_256],            1001, mapAddBamboo);
-        setupLayer(&l[L_ZOOM_128],         &l[L14_BAMBOO_256],         1000, mapZoom);
+        setupLayer(&l[L14_BAMBOO_256],    &l[L_BIOME_256],            1001, mapAddBamboo);
+        setupLayer(&l[L_ZOOM_128],        &l[L14_BAMBOO_256],         1000, mapZoom);
     }
 
     setupLayer(&l[L_ZOOM_64],             &l[L_ZOOM_128],             1001, mapZoom);
@@ -204,6 +207,7 @@ static void getMaxArea(Layer *layer, int areaX, int areaZ, int *maxX, int *maxZ)
             layer->getMap != mapIsland &&
             layer->getMap != mapSpecial &&
             layer->getMap != mapBiome &&
+            layer->getMap != mapRareBiome &&
             layer->getMap != mapRiverInit &&
             layer->getMap != mapRiverMix &&
             layer->getMap != mapOceanTemp)
@@ -245,7 +249,7 @@ void applySeed(LayerStack *g, int64_t seed)
     setWorldSeed(&g->layers[L_VORONOI_ZOOM_1], seed);
 }
 
-void genArea(Layer *layer, int *out, int areaX, int areaZ, int areaWidth, int areaHeight)
+void genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {
     memset(out, 0, areaWidth*areaHeight*sizeof(*out));
     layer->getMap(layer, out, areaX, areaZ, areaWidth, areaHeight);

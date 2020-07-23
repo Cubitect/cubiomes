@@ -993,7 +993,7 @@ Pos findBiomePosition(
     {
         for (i = 0, j = 2; i < width*height; i++)
         {
-            if (!isValid[map[i] & 0xff]) continue;
+            if (!biomeExists(map[i]) || !isValid[map[i]]) continue;
             if ((found == 0 || nextInt(seed, j++) == 0))
             {
                 out.x = (x1 + i%width) << 2;
@@ -1007,7 +1007,7 @@ Pos findBiomePosition(
     {
         for (i = 0; i < width*height; i++)
         {
-            if (isValid[map[i] & 0xff] &&
+            if (biomeExists(map[i]) && isValid[map[i]] &&
                 (found == 0 || nextInt(seed, found + 1) == 0))
             {
                 out.x = (x1 + i%width) << 2;
@@ -1063,7 +1063,7 @@ int areBiomesViable(
 
     for (i = 0; i < width*height; i++)
     {
-        if (!isValid[ map[i] & 0xff ])
+        if (!biomeExists(map[i]) || !isValid[ map[i] ])
         {
             if (cache == NULL) free(map);
             return 0;
@@ -1601,11 +1601,6 @@ int64_t filterAllTempCats(
 
     map = cache ? cache : allocCache(lFilterSpecial, sX, sZ);
 
-    // Construct a dummy Edge,Special layer.
-    Layer layerSpecial;
-    layerSpecial.scale = 1024;
-    setupLayer(&layerSpecial, NULL, 3, NULL);
-
     int64_t sidx, hits, seed;
     int types[9];
     int specialCnt;
@@ -1623,14 +1618,14 @@ int64_t filterAllTempCats(
         // tested for without going through the previous layers. (We'll get
         // false positives due to Oceans, but this works fine to rule out some
         // seeds early on.)
-        setWorldSeed(&layerSpecial, seed);
+        int64_t ss = getStartSeed(seed, lFilterSpecial->layerSeed);
         specialCnt = 0;
         for (i = 0; i < sX; i++)
         {
             for (j = 0; j < sZ; j++)
             {
-                setChunkSeed(&layerSpecial, (int64_t)(i+pX), (int64_t)(j+pZ));
-                if (mcNextInt(&layerSpecial, 13) == 0)
+                int64_t cs = getChunkSeed(ss, i+pX, j+pZ);
+                if (mcFirstInt(cs, 13) == 0)
                     specialCnt++;
             }
         }
@@ -1956,15 +1951,15 @@ int64_t checkForBiomes(
     // temperature categories present.
     if (filter.tempNormal || filter.tempSpecial)
     {
-        ss = processWorldSeed(seed, lspecial->baseSeed);
+        ss = getStartSeed(seed, lspecial->layerSeed);
 
         types[0] = types[1] = 0;
         for (z = 0; z < areaHeight1024; z++)
         {
             for (x = 0; x < areaWidth1024; x++)
             {
-                cs = getChunkSeed(ss, (int64_t)(x + areaX1024), (int64_t)(z + areaZ1024));
-                types[(cs >> 24) % 13 == 0]++;
+                cs = getChunkSeed(ss, x + areaX1024, z + areaZ1024);
+                types[mcFirstInt(cs, 13) == 0]++;
             }
         }
 
@@ -1977,14 +1972,14 @@ int64_t checkForBiomes(
     // Check there is a mushroom island, provided there is an ocean.
     if (filter.requireMushroom)
     {
-        ss = processWorldSeed(seed, lmushroom->baseSeed);
+        ss = getStartSeed(seed, lmushroom->layerSeed);
 
         for (z = 0; z < areaHeight256; z++)
         {
             for (x = 0; x < areaWidth256; x++)
             {
                 cs = getChunkSeed(ss, (int64_t)(x + areaX256), (int64_t)(z + areaZ256));
-                if ((cs >> 24) % 100 == 0)
+                if (mcFirstInt(cs, 100) == 0)
                 {
                     goto after_protomushroom;
                 }
@@ -1997,7 +1992,7 @@ int64_t checkForBiomes(
 
     if (filter.checkBiomePotential)
     {
-        ss = processWorldSeed(seed, lbiomes->baseSeed);
+        ss = getStartSeed(seed, lbiomes->layerSeed);
 
         potential = 0;
         required = filter.biomesToFind & (
