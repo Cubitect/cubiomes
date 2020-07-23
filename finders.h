@@ -76,7 +76,7 @@ static const StructureConfig TREASURE_CONFIG       = { 10387320,  1,  0, CHUNK_S
 
 static const int templeBiomeList[] = {desert, desert_hills, jungle, jungle_hills, swamp, snowy_tundra, snowy_taiga};
 static const int biomesToSpawnIn[] = {forest, plains, taiga, taiga_hills, wooded_hills, jungle, jungle_hills};
-static const int villageBiomeList[] = {plains, desert, savanna, taiga};
+static const int villageBiomeList[] = {plains, desert, savanna, taiga, snowy_tundra};
 static const int villageBiomeListBE[] = {plains, desert, savanna, taiga, snowy_tundra, snowy_taiga};
 static const int mansionBiomeList[] = {dark_forest, dark_forest+128};
 static const int oceanMonumentBiomeList1[] =
