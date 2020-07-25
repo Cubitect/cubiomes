@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
     int regPosX = 0;
     int regPosZ = 0;
 
-    int mcversion = 0;
+    int mcversion = MC_1_16;
     const char *seedFileName;
     StructureConfig featureConfig;
 
@@ -35,14 +35,25 @@ int main(int argc, char *argv[])
 
         if (argc > 3)
         {
-            if (sscanf(argv[3], "%d", &mcversion) != 1) mcversion = 0;
+            int mcarg1 = 0, mcarg2 = 0;
+            int ac = sscanf(argv[3], "%d.%d", &mcarg1, &mcarg2);
+            if (ac < 1)
+            {
+                printf("Bad version format\n");
+                exit(1);
+            }
+            if (ac > 1)
+                mcarg1 = 100 * mcarg1 + mcarg2;
+            if (mcarg1 < 113)
+                mcversion = MC_1_7;
+            else if (mcarg1 < 116)
+                mcversion = MC_1_13;
+            else
+                mcversion = MC_1_16;
         }
         else
         {
-            printf("MC version not specified. Set using 'mcversion' argument:\n"
-                   "17  for MC1.7 - MC1.12\n113 for MC1.13+\n"
-                   "Defaulting to MC 1.7.\n\n");
-            mcversion = 17;
+            printf("MC version not specified. Defaulting to 1.16\n");
         }
     }
     else
@@ -55,7 +66,7 @@ int main(int argc, char *argv[])
     regPosX -= 1;
     regPosZ -= 1;
 
-    if (mcversion >= 113)
+    if (mcversion >= MC_1_13)
     {
         featureConfig = SWAMP_HUT_CONFIG;
         seedFileName = "./seeds/quadhutbases_1_13_Q1.txt";
@@ -186,11 +197,10 @@ int main(int argc, char *argv[])
             if (biomeCache[0] != swamp)
                 continue;
 
-            applySeed(&g, seed);
-            if (getBiomeAtPos(g, qhpos[0]) != swamp) continue;
-            if (getBiomeAtPos(g, qhpos[1]) != swamp) continue;
-            if (getBiomeAtPos(g, qhpos[2]) != swamp) continue;
-            if (getBiomeAtPos(g, qhpos[3]) != swamp) continue;
+            if (!isViableStructurePos(SWAMP_HUT_CONFIG, mcversion, &g, seed, qhpos[0].x, qhpos[0].z)) continue;
+            if (!isViableStructurePos(SWAMP_HUT_CONFIG, mcversion, &g, seed, qhpos[1].x, qhpos[1].z)) continue;
+            if (!isViableStructurePos(SWAMP_HUT_CONFIG, mcversion, &g, seed, qhpos[2].x, qhpos[2].z)) continue;
+            if (!isViableStructurePos(SWAMP_HUT_CONFIG, mcversion, &g, seed, qhpos[3].x, qhpos[3].z)) continue;
 
             printf("%" PRId64 "\n", seed);
             hits++;

@@ -8,7 +8,7 @@
 
 
 void setupLayer(Layer *l, Layer *p, int s,
-        void (*getMap)(const Layer * RESTRICT, int *, int, int, int, int))
+        void (*getMap)(const Layer *, int *, int, int, int, int))
 {
     l->layerSeed = getLayerSeed(s);
     l->startSalt = 0;
@@ -21,7 +21,7 @@ void setupLayer(Layer *l, Layer *p, int s,
 }
 
 void setupMultiLayer(Layer *l, Layer *p1, Layer *p2, int s,
-        void (*getMap)(const Layer * RESTRICT, int *, int, int, int, int))
+        void (*getMap)(const Layer *, int *, int, int, int, int))
 {
     setupLayer(l, p1, s, getMap);
     l->p2 = p2;
@@ -79,7 +79,7 @@ static LayerStack setupGeneratorImpl(const int mcversion, const int largeBiomes)
     setupLayer(&l[L_DEEP_OCEAN_256],      &l[L_ADD_MUSHROOM_256],     4,    mapDeepOcean);
     // biome layer chain
     setupLayer(&l[L_BIOME_256],           &l[L_DEEP_OCEAN_256],       200,
-            mcversion != MCBE ? mapBiome : mapBiomeBE);
+            mcversion != MC_BE ? mapBiome : mapBiomeBE);
 
     if (mcversion <= MC_1_13)
         setupLayer(&l[L_ZOOM_128],        &l[L_BIOME_256],            1000, mapZoom);
@@ -180,7 +180,7 @@ void freeGenerator(LayerStack g)
 /* Recursively calculates the minimum buffer size required to generate an area
  * of the specified size from the current layer onwards.
  */
-static void getMaxArea(Layer *layer, int areaX, int areaZ, int *maxX, int *maxZ)
+static void getMaxArea(const Layer *layer, int areaX, int areaZ, int *maxX, int *maxZ)
 {
     if (layer == NULL)
         return;
@@ -224,7 +224,7 @@ static void getMaxArea(Layer *layer, int areaX, int areaZ, int *maxX, int *maxZ)
     getMaxArea(layer->p2, areaX, areaZ, maxX, maxZ);
 }
 
-int calcRequiredBuf(Layer *layer, int areaX, int areaZ)
+int calcRequiredBuf(const Layer *layer, int areaX, int areaZ)
 {
     int maxX = areaX, maxZ = areaZ;
     getMaxArea(layer, areaX, areaZ, &maxX, &maxZ);
@@ -232,7 +232,7 @@ int calcRequiredBuf(Layer *layer, int areaX, int areaZ)
     return maxX * maxZ;
 }
 
-int *allocCache(Layer *layer, int sizeX, int sizeZ)
+int *allocCache(const Layer *layer, int sizeX, int sizeZ)
 {
     int size = calcRequiredBuf(layer, sizeX, sizeZ);
 

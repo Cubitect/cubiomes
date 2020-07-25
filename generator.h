@@ -8,7 +8,7 @@ enum MCversion
 {
     MC_1_7, MC_1_8, MC_1_9, MC_1_10, MC_1_11, MC_1_12, MC_1_13, MC_1_14, 
     MC_1_15, MC_1_16,
-    MCBE = 256
+    MC_BE = 128
 };
 
 /* Enumeration of the layer indices in the generator. */
@@ -211,18 +211,17 @@ void freeGenerator(LayerStack g);
 /* Calculates the minimum size of the buffers required to generate an area of
  * dimensions 'sizeX' by 'sizeZ' at the specified layer.
  */
-int calcRequiredBuf(Layer *layer, int areaX, int areaZ);
+int calcRequiredBuf(const Layer *layer, int areaX, int areaZ);
 
 /* Allocates an amount of memory required to generate an area of dimensions
  * 'sizeX' by 'sizeZ' for the magnification of the current top layer.
  */
-int *allocCache(Layer *layer, int sizeX, int sizeZ);
+int *allocCache(const Layer *layer, int sizeX, int sizeZ);
 
 
 /* Set up custom layers. */
-void setupLayer(Layer *l, Layer *p, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h));
-void setupMultiLayer(Layer *l, Layer *p1, Layer *p2, int s, void (*getMap)(Layer *layer, int *out, int x, int z, int w, int h));
-
+void setupLayer(Layer *l, Layer *p, int s, void (*getMap)(const Layer *, int *, int, int, int, int));
+void setupMultiLayer(Layer *l, Layer *p1, Layer *p2, int s, void (*getMap)(const Layer *, int *, int, int, int, int));
 
 /* Sets the world seed for the generator */
 void applySeed(LayerStack *g, int64_t seed);
@@ -233,7 +232,7 @@ void applySeed(LayerStack *g, int64_t seed);
  * It is recommended that 'out' is allocated using allocCache() for the correct
  * buffer size.
  */
-void genArea(Layer *layer, int *out, int areaX, int areaZ, int areaWidth, int areaHeight);
+void genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, int areaHeight);
 
 
 #ifdef __cplusplus

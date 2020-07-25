@@ -16,7 +16,7 @@ endif
 .PHONY : all debug libcubiomes clean
 
 all: CFLAGS += -O3 -march=native
-all: find_quadhuts find_compactbiomes clean
+all: libcubiomes find_quadhuts find_compactbiomes clean
 
 debug: CFLAGS += -DDEBUG -O0 -ggdb3
 debug: find_quadhuts find_compactbiomes clean
@@ -54,5 +54,5 @@ util.o: util.c util.h
 	$(CC) -c $(CFLAGS) $<
 
 clean:
-	$(RM) *.o
+	$(RM) *.o libcubiomes.a find_quadhuts find_compactbiomes
 

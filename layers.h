@@ -13,8 +13,6 @@
 #define NULL ((void*)0)
 #endif
 
-#define RESTRICT __restrict
-#define REGISTER register
 
 #define STRUCT(S) typedef struct S S; struct S
 
@@ -147,14 +145,14 @@ STRUCT(OceanRnd)
 STRUCT(Layer)
 {
     int64_t layerSeed;  // (depends only on layer salt)
-    int64_t startSalt;  // (world seed dependent) for RND ints beyond the first
+    int64_t startSalt;  // (world seed dependent) = worldGenSeed, used for RND beyond the first
     int64_t startSeed;  // (world seed dependent) starting point for chunk seeds
 
     OceanRnd *oceanRnd; // world seed dependent data for ocean temperatures
 
     int scale;          // map scale of this layer (map entry = scale x scale blocks)
 
-    void (*getMap)(const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
+    void (*getMap)(const Layer *, int *, int, int, int, int);
 
     Layer *p, *p2;      // parent layers
 };
@@ -175,7 +173,7 @@ extern Biome biomes[256];
 void initBiomes();
 
 /* Applies the given world seed to the layer and all dependent layers. */
-void setWorldSeed(Layer *layer, int64_t seed);
+void setWorldSeed(Layer *layer, int64_t worldSeed);
 
 
 //==============================================================================
@@ -270,8 +268,8 @@ static inline int isBiomeSnowy(int id)
  * The seed pipeline:
  *
  * Salt of Layer                   -> layerSeed (ls)
- * layerSeed (ls) + worldSeed (ws) -> startSalt (st) + startSeed (ss)
- * startSeed (ls) + coords (x,z)   -> chunkSeed (cs)
+ * layerSeed (ls) & worldSeed (ws) -> startSalt (st) & startSeed (ss)
+ * startSeed (ls) & coords (x,z)   -> chunkSeed (cs)
  *
  * The chunkSeed alone is enough to generate the first RND integer with:
  *   mcFirstInt(cs, mod)
@@ -293,7 +291,7 @@ static inline int mcFirstInt(int64_t s, int mod)
     return ret;
 }
 
-static inline int mcIsFirstZero(int64_t s, int mod)
+static inline int mcFirstIsZero(int64_t s, int mod)
 {
     return (int)((s >> 24) % mod) == 0;
 }
@@ -332,40 +330,40 @@ static inline int64_t getStartSeed(int64_t ws, int64_t ls)
 //==============================================================================
 
 // A null layer does nothing, and can be used to apply a layer to existing data.
-void mapNull                (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
+void mapNull                (const Layer *, int *, int, int, int, int);
 // A skip layer simply calls its first parent without modification.
 // This can be used as an easy way to skip a layer in a generator.
-void mapSkip                (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
+void mapSkip                (const Layer *, int *, int, int, int, int);
 
-void mapIsland              (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapZoom                (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapAddIsland           (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapRemoveTooMuchOcean  (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapAddSnow             (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapCoolWarm            (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapHeatIce             (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapSpecial             (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapAddMushroomIsland   (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapDeepOcean           (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapBiome               (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapBiomeBE             (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapAddBamboo           (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapRiverInit           (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapBiomeEdge           (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapHills               (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapRiver               (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapSmooth              (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapRareBiome           (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapShore               (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapRiverMix            (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
+void mapIsland              (const Layer *, int *, int, int, int, int);
+void mapZoom                (const Layer *, int *, int, int, int, int);
+void mapAddIsland           (const Layer *, int *, int, int, int, int);
+void mapRemoveTooMuchOcean  (const Layer *, int *, int, int, int, int);
+void mapAddSnow             (const Layer *, int *, int, int, int, int);
+void mapCoolWarm            (const Layer *, int *, int, int, int, int);
+void mapHeatIce             (const Layer *, int *, int, int, int, int);
+void mapSpecial             (const Layer *, int *, int, int, int, int);
+void mapAddMushroomIsland   (const Layer *, int *, int, int, int, int);
+void mapDeepOcean           (const Layer *, int *, int, int, int, int);
+void mapBiome               (const Layer *, int *, int, int, int, int);
+void mapBiomeBE             (const Layer *, int *, int, int, int, int);
+void mapAddBamboo           (const Layer *, int *, int, int, int, int);
+void mapRiverInit           (const Layer *, int *, int, int, int, int);
+void mapBiomeEdge           (const Layer *, int *, int, int, int, int);
+void mapHills               (const Layer *, int *, int, int, int, int);
+void mapRiver               (const Layer *, int *, int, int, int, int);
+void mapSmooth              (const Layer *, int *, int, int, int, int);
+void mapRareBiome           (const Layer *, int *, int, int, int, int);
+void mapShore               (const Layer *, int *, int, int, int, int);
+void mapRiverMix            (const Layer *, int *, int, int, int, int);
 
 // 1.13 layers
-void mapHills113            (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapOceanTemp           (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
-void mapOceanMix            (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
+void mapHills113            (const Layer *, int *, int, int, int, int);
+void mapOceanTemp           (const Layer *, int *, int, int, int, int);
+void mapOceanMix            (const Layer *, int *, int, int, int, int);
 
 // final layer 1:1
-void mapVoronoiZoom         (const Layer * RESTRICT, int * RESTRICT, int, int, int, int);
+void mapVoronoiZoom         (const Layer *, int *, int, int, int, int);
 
 
 #ifdef __cplusplus

@@ -26,11 +26,14 @@ typedef pthread_t thread_id_t;
 #define LARGE_STRUCT 1
 #define CHUNK_STRUCT 2
 
-enum
+enum StructureType
 {
+    // scattered features
     Desert_Pyramid, Igloo, Jungle_Pyramid, Swamp_Hut,
+    //
     Village, Ocean_Ruin, Shipwreck, Monument, Mansion, Outpost,
-    Ruined_Portal
+    Ruined_Portal,
+    Treasure
 };
 
 enum // village house types prior to 1.14
@@ -41,54 +44,40 @@ enum // village house types prior to 1.14
 
 STRUCT(StructureConfig)
 {
-    int64_t seed;
-    int regionSize, chunkRange;
-    int properties;
+    int             salt;
+    char            regionSize;
+    char            chunkRange;
+    unsigned char   structType;
+    unsigned char   properties;
 };
 
 /* for desert temples, igloos, jungle temples and witch huts prior to 1.13 */
-static const StructureConfig FEATURE_CONFIG        = { 14357617, 32, 24, 0};
+static const StructureConfig FEATURE_CONFIG        = { 14357617, 32, 24, Desert_Pyramid, 0};
 
 /* ocean features before 1.16 */
-static const StructureConfig OCEAN_RUIN_CONFIG_113 = { 14357621, 16,  8, 0};
-static const StructureConfig SHIPWRECK_CONFIG_113  = {165745295, 15,  7, 0};
+static const StructureConfig OCEAN_RUIN_CONFIG_113 = { 14357621, 16,  8, Ocean_Ruin, 0};
+static const StructureConfig SHIPWRECK_CONFIG_113  = {165745295, 15,  7, Shipwreck, 0};
 
 /* 1.13 separated feature seeds by type */
-static const StructureConfig DESERT_PYRAMID_CONFIG = { 14357617, 32, 24, 0};
-static const StructureConfig IGLOO_CONFIG          = { 14357618, 32, 24, 0};
-static const StructureConfig JUNGLE_PYRAMID_CONFIG = { 14357619, 32, 24, 0};
-static const StructureConfig SWAMP_HUT_CONFIG      = { 14357620, 32, 24, 0};
+static const StructureConfig DESERT_PYRAMID_CONFIG = { 14357617, 32, 24, Desert_Pyramid, 0};
+static const StructureConfig IGLOO_CONFIG          = { 14357618, 32, 24, Igloo, 0};
+static const StructureConfig JUNGLE_PYRAMID_CONFIG = { 14357619, 32, 24, Jungle_Pyramid, 0};
+static const StructureConfig SWAMP_HUT_CONFIG      = { 14357620, 32, 24, Swamp_Hut, 0};
 
-static const StructureConfig OUTPOST_CONFIG        = {165745296, 32, 24, 0};
-static const StructureConfig VILLAGE_CONFIG        = { 10387312, 32, 24, 0};
-static const StructureConfig OCEAN_RUIN_CONFIG     = { 14357621, 20, 12, 0};
-static const StructureConfig SHIPWRECK_CONFIG      = {165745295, 24, 20, 0};
-static const StructureConfig MONUMENT_CONFIG       = { 10387313, 32, 27, LARGE_STRUCT};
-static const StructureConfig MANSION_CONFIG        = { 10387319, 80, 60, LARGE_STRUCT};
-static const StructureConfig RUINED_PORTAL_CONFIG  = { 34222645, 40, 25, 0}; // overworld variant
+static const StructureConfig OUTPOST_CONFIG        = {165745296, 32, 24, Outpost, 0};
+static const StructureConfig VILLAGE_CONFIG        = { 10387312, 32, 24, Village, 0};
+static const StructureConfig OCEAN_RUIN_CONFIG     = { 14357621, 20, 12, Ocean_Ruin, 0};
+static const StructureConfig SHIPWRECK_CONFIG      = {165745295, 24, 20, Shipwreck, 0};
+static const StructureConfig MONUMENT_CONFIG       = { 10387313, 32, 27, Monument, LARGE_STRUCT};
+static const StructureConfig MANSION_CONFIG        = { 10387319, 80, 60, Mansion, LARGE_STRUCT};
+static const StructureConfig RUINED_PORTAL_CONFIG  = { 34222645, 40, 25, Ruined_Portal, 0}; // overworld variant
 
 // structures that check each chunk individually
-static const StructureConfig TREASURE_CONFIG       = { 10387320,  1,  0, CHUNK_STRUCT};
+static const StructureConfig TREASURE_CONFIG       = { 10387320,  1,  0, Treasure, CHUNK_STRUCT};
 
 //==============================================================================
 // Biome Tables
 //==============================================================================
-
-static const int templeBiomeList[] = {desert, desert_hills, jungle, jungle_hills, swamp, snowy_tundra, snowy_taiga};
-static const int biomesToSpawnIn[] = {forest, plains, taiga, taiga_hills, wooded_hills, jungle, jungle_hills};
-static const int villageBiomeList[] = {plains, desert, savanna, taiga};
-static const int villageBiomeListBE[] = {plains, desert, savanna, taiga, snowy_tundra, snowy_taiga};
-static const int mansionBiomeList[] = {dark_forest, dark_forest+128};
-static const int oceanMonumentBiomeList1[] =
-{
-        ocean, deep_ocean, river, frozen_river,
-        frozen_ocean, deep_frozen_ocean, cold_ocean, deep_cold_ocean,
-        lukewarm_ocean, deep_lukewarm_ocean, warm_ocean, deep_warm_ocean
-};
-static const int oceanMonumentBiomeList2[] =
-{
-        deep_frozen_ocean, deep_cold_ocean, deep_ocean, deep_lukewarm_ocean, deep_warm_ocean
-};
 
 static const int achievementBiomes_1_7[] =
 {
@@ -295,7 +284,7 @@ int getBiomeAtPos(const LayerStack g, const Pos pos);
  * Warning: accurate, but slow!
  *
  * @mcversion        : Minecraft version (changed in: 1.7, 1.13)
- * @g                : generator layer stack
+ * @l                : entry layer with scale = 4
  * @cache            : biome buffer, set to NULL for temporary allocation
  * @centreX, centreZ : origin for the search
  * @range            : square 'radius' of the search
@@ -306,12 +295,12 @@ int getBiomeAtPos(const LayerStack g, const Pos pos);
  */
 Pos findBiomePosition(
         const int           mcversion,
-        const LayerStack    g,
+        const Layer *       l,
         int *               cache,
         const int           centerX,
         const int           centerZ,
         const int           range,
-        const int *         isValid,
+        const char *        isValid,
         int64_t *           seed,
         int *               passes
         );
@@ -321,19 +310,19 @@ Pos findBiomePosition(
  * and mansions.
  * Warning: accurate, but slow!
  *
- * @g          : generator layer stack
+ * @l          : entry layer with scale = 4: (L_RIVER_MIX_4, L13_OCEAN_MIX_4)
  * @cache      : biome buffer, set to NULL for temporary allocation
  * @posX, posZ : centre for the check
  * @radius     : 'radius' of the check area
  * @isValid    : boolean array of valid biome ids (size = 256)
  */
 int areBiomesViable(
-        const LayerStack    g,
+        const Layer *       l,
         int *               cache,
         const int           posX,
         const int           posZ,
         const int           radius,
-        const int *         isValid
+        const char *        isValid
         );
 
 /* Finds the smallest radius (by square around the origin) at which all the
@@ -380,7 +369,7 @@ int getBiomeRadius(
  */
 int findStrongholds(
         const int           mcversion,
-        LayerStack *        g,
+        const LayerStack *  g,
         int *               cache,
         Pos *               locations,
         int64_t             worldSeed,
@@ -397,7 +386,7 @@ int findStrongholds(
  * @cache     : biome buffer, set to NULL for temporary allocation
  * @worldSeed : world seed used for the generator
  */
-Pos getSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed);
+Pos getSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t worldSeed);
 
 /* Finds the approximate spawn point in the world.
  *
@@ -406,54 +395,32 @@ Pos getSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed);
  * @cache     : biome buffer, set to NULL for temporary allocation
  * @worldSeed : world seed used for the generator
  */
-Pos estimateSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed);
+Pos estimateSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t worldSeed);
 
 
 //==============================================================================
 // Validating Structure Positions
 //==============================================================================
 
-/************************ Biome Checks for Structures **************************
- *
- * Scattered features only do a simple check of the biome at the block position
- * of the structure origin (i.e. the north-west corner). Before 1.13 the type of
- * structure was determined by the biome, while in 1.13 the scattered feature
- * positions are calculated separately for each type. However, the biome
- * requirements remain the same:
- *
- *  Desert Pyramid: desert or desertHills
- *  Igloo         : icePlains or coldTaiga
- *  Jungle Pyramid: jungle or jungleHills
- *  Swamp Hut     : swampland
- *
- * Similarly, Ocean Ruins and Shipwrecks require any oceanic biome at their
- * block position.
- *
- * Villages, Monuments and Mansions on the other hand require a certain area to
- * be of a valid biome and the check is performed at a 1:4 scale instead of 1:1.
- * (Actually the area for villages has a radius zero, which means it is a simple
- * biome check at a 1:4 scale.)
- */
 
-
-/* These functions perform a biome check at the specified block coordinates to
+/* This function performs a biome check at the specified block coordinates to
  * determine whether the corresponding structure would spawn there. You can get
  * the block positions using the appropriate getXXXPos() function.
  *
- * @g              : generator layer stack [set seed using applySeed()]
- * @cache          : biome buffer, set to NULL for temporary allocation
+ * @sconf          : structure config for the type to be checked
+ * @mcversion      : minecraft version
+ * @g              : generator layer stack, seed will be applied to layers
+ * @seed           : world seed, will be applied to generator
  * @blockX, blockZ : block coordinates
- *
- * In the case of isViableFeaturePos() the 'type' argument specifies the type of
- * scattered feature (as an enum) for which the check is performed.
  *
  * The return value is non-zero if the position is valid.
  */
-int isViableFeaturePos(const int type, const LayerStack g, int *cache, const int blockX, const int blockZ);
-int isViableVillagePos(const LayerStack g, int *cache, const int blockX, const int blockZ);
-int isViableOceanMonumentPos(const LayerStack g, int *cache, const int blockX, const int blockZ);
-int isViableMansionPos(const LayerStack g, int *cache, const int blockX, const int blockZ);
+int isViableStructurePos(const StructureConfig sconf, int mcversion,
+        LayerStack *g, int64_t seed, int blockX, int blockZ);
 
+/* Checks if the specified structure type could generate in the given biome.
+ */
+int isViableFeatureBiome(int structureType, int biomeID);
 
 
 //==============================================================================
@@ -479,12 +446,6 @@ inline static int64_t chunkGenerateRnd(const int64_t worldSeed, const int chunkX
 int isZombieVillage(const int mcversion, const int64_t worldSeed,
         const int regionX, const int regionZ);
 
-/* Checks if the village in the given region would generate as a baby zombie
- * village. (The fact that these exist could be regarded as a bug.)
- * (Minecraft 1.12)
- */
-int isBabyZombieVillage(const int mcversion, const int64_t worldSeed,
-        const int regionX, const int regionZ);
 
 /* Finds the number of each type of house that generate in a village.
  * @worldSeed      : world seed
@@ -502,54 +463,6 @@ int64_t getHouseList(const int64_t worldSeed, const int chunkX, const int chunkZ
 // Seed Filters
 //==============================================================================
 
-/* Looks through the seeds in 'seedsIn' and copies those for which all
- * temperature categories are present in the 3x3 area centred on the specified
- * coordinates into 'seedsOut'. The map scale at this layer is 1:1024.
- *
- * @g            : generator layer stack, (NOTE: seed will be modified)
- * @cache        : biome buffer, set to NULL for temporary allocation
- * @seedsIn      : list of seeds to check
- * @seedsOut     : output buffer for the candidate seeds
- * @seedCnt      : number of seeds in 'seedsIn'
- * @centX, centZ : search origin centre (in 1024 block units)
- *
- * Returns the number of found candidates.
- */
-int64_t filterAllTempCats(
-        LayerStack *        g,
-        int *               cache,
-        const int64_t *     seedsIn,
-        int64_t *           seedsOut,
-        const int64_t       seedCnt,
-        const int           centX,
-        const int           centZ
-        );
-
-/* Looks through the list of seeds in 'seedsIn' and copies those that have all
- * major overworld biomes in the specified area into 'seedsOut'. These checks
- * are done at a scale of 1:256.
- *
- * @g           : generator layer stack, (NOTE: seed will be modified)
- * @cache       : biome buffer, set to NULL for temporary allocation
- * @seedsIn     : list of seeds to check
- * @seedsOut    : output buffer for the candidate seeds
- * @seedCnt     : number of seeds in 'seedsIn'
- * @pX, pZ      : search starting coordinates (in 256 block units)
- * @sX, sZ      : size of the searching area (in 256 block units)
- *
- * Returns the number of seeds found.
- */
-int64_t filterAllMajorBiomes(
-        LayerStack *        g,
-        int *               cache,
-        const int64_t *     seedsIn,
-        int64_t *           seedsOut,
-        const int64_t       seedCnt,
-        const int           pX,
-        const int           pZ,
-        const unsigned int  sX,
-        const unsigned int  sZ
-        );
 
 /* Creates a biome filter configuration from a given list of biomes.
  */

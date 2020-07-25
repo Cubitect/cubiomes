@@ -100,10 +100,10 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt)
 int isQuadFeatureBase(const StructureConfig sconf, const int64_t seed, const int qual)
 {
     // seed offsets for the regions (0,0) to (1,1)
-    const int64_t reg00base = sconf.seed;
-    const int64_t reg01base = 341873128712 + sconf.seed;
-    const int64_t reg10base = 132897987541 + sconf.seed;
-    const int64_t reg11base = 341873128712 + 132897987541 + sconf.seed;
+    const int64_t reg00base = sconf.salt;
+    const int64_t reg01base = 341873128712 + sconf.salt;
+    const int64_t reg10base = 132897987541 + sconf.salt;
+    const int64_t reg11base = 341873128712 + 132897987541 + sconf.salt;
 
     const int range = sconf.chunkRange;
     const int upper = range - qual - 1;
@@ -141,10 +141,10 @@ int isQuadFeatureBase(const StructureConfig sconf, const int64_t seed, const int
 
 void checkVec4QuadBases(const StructureConfig sconf, int64_t seeds[256])
 {
-    const int64_t reg00base = sconf.seed;
-    const int64_t reg01base = 341873128712 + sconf.seed;
-    const int64_t reg10base = 132897987541 + sconf.seed;
-    const int64_t reg11base = 341873128712 + 132897987541 + sconf.seed;
+    const int64_t reg00base = sconf.salt;
+    const int64_t reg01base = 341873128712 + sconf.salt;
+    const int64_t reg10base = 132897987541 + sconf.salt;
+    const int64_t reg11base = 341873128712 + 132897987541 + sconf.salt;
 
     int i;
     for (i = 0; i < 256; i++)
@@ -204,10 +204,10 @@ void checkVec4QuadBases(const StructureConfig sconf, int64_t seeds[256])
 int isTriFeatureBase(const StructureConfig sconf, const int64_t seed, const int qual)
 {
     // seed offsets for the regions (0,0) to (1,1)
-    const int64_t reg00base = sconf.seed;
-    const int64_t reg01base = 341873128712 + sconf.seed;
-    const int64_t reg10base = 132897987541 + sconf.seed;
-    const int64_t reg11base = 341873128712 + 132897987541 + sconf.seed;
+    const int64_t reg00base = sconf.salt;
+    const int64_t reg01base = 341873128712 + sconf.salt;
+    const int64_t reg10base = 132897987541 + sconf.salt;
+    const int64_t reg11base = 341873128712 + 132897987541 + sconf.salt;
 
     const int range = sconf.chunkRange;
     const int upper = range - qual - 1;
@@ -257,10 +257,10 @@ int isTriFeatureBase(const StructureConfig sconf, const int64_t seed, const int 
 int isLargeQuadBase(const StructureConfig sconf, const int64_t seed, const int qual)
 {
     // seed offsets for the regions (0,0) to (1,1)
-    const int64_t reg00base = sconf.seed;
-    const int64_t reg01base = 341873128712 + sconf.seed;
-    const int64_t reg10base = 132897987541 + sconf.seed;
-    const int64_t reg11base = 341873128712 + 132897987541 + sconf.seed;
+    const int64_t reg00base = sconf.salt;
+    const int64_t reg01base = 341873128712 + sconf.salt;
+    const int64_t reg10base = 132897987541 + sconf.salt;
+    const int64_t reg11base = 341873128712 + 132897987541 + sconf.salt;
 
     // p1 = nextInt(range); p2 = nextInt(range); pos = (p1+p2)>>1
     const int range = sconf.chunkRange;
@@ -334,10 +334,10 @@ int isLargeQuadBase(const StructureConfig sconf, const int64_t seed, const int q
 int isLargeTriBase(const StructureConfig sconf, const int64_t seed, const int qual)
 {
     // seed offsets for the regions (0,0) to (1,1)
-    const int64_t reg00base = sconf.seed;
-    const int64_t reg01base = 341873128712 + sconf.seed;
-    const int64_t reg10base = 132897987541 + sconf.seed;
-    const int64_t reg11base = 341873128712 + 132897987541 + sconf.seed;
+    const int64_t reg00base = sconf.salt;
+    const int64_t reg01base = 341873128712 + sconf.salt;
+    const int64_t reg10base = 132897987541 + sconf.salt;
+    const int64_t reg11base = 341873128712 + 132897987541 + sconf.salt;
 
     // p1 = nextInt(range); p2 = nextInt(range); pos = (p1+p2)>>1
     const int range = sconf.chunkRange;
@@ -577,7 +577,7 @@ static DWORD WINAPI search4QuadBasesThread(LPVOID data)
         lowerBitsCnt = sizeof(lowerBaseBitsQ1) / sizeof(lowerBaseBitsQ1[0]);
         for (i = 0; i < lowerBitsCnt; i++)
         {
-            lowerBits[i] = (lowerBaseBitsQ1[i] - stc.seed) & 0xffff;
+            lowerBits[i] = (lowerBaseBitsQ1[i] - stc.salt) & 0xffff;
         }
     }
     else if (stc.properties == 0 && stc.chunkRange == 24 && info.quality == 2)
@@ -585,7 +585,7 @@ static DWORD WINAPI search4QuadBasesThread(LPVOID data)
         lowerBitsCnt = sizeof(lowerBaseBitsQ2) / sizeof(lowerBaseBitsQ2[0]);
         for (i = 0; i < lowerBitsCnt; i++)
         {
-            lowerBits[i] = (lowerBaseBitsQ2[i] - stc.seed) & 0xffff;
+            lowerBits[i] = (lowerBaseBitsQ2[i] - stc.salt) & 0xffff;
         }
     }
     else if (stc.properties == 0 && stc.chunkRange == 24 && info.quality == -1)
@@ -794,7 +794,7 @@ Pos getStructurePos(const StructureConfig config, int64_t seed,
     Pos pos;
 
     // set seed
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + config.seed;
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + config.salt;
     seed = (seed ^ 0x5deece66dLL);// & ((1LL << 48) - 1);
 
     seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
@@ -836,7 +836,7 @@ Pos getStructureChunkInRegion(const StructureConfig config, int64_t seed,
     */
     Pos pos;
 
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + config.seed;
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + config.salt;
     seed = (seed ^ 0x5deece66dLL);// & ((1LL << 48) - 1);
 
     seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
@@ -869,7 +869,7 @@ Pos getLargeStructurePos(StructureConfig config, int64_t seed,
     //TODO: power of two chunk ranges...
 
     // set seed
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + config.seed;
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + config.salt;
     seed = (seed ^ 0x5deece66dLL) & ((1LL << 48) - 1);
 
     seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
@@ -898,7 +898,7 @@ Pos getLargeStructureChunkInRegion(StructureConfig config, int64_t seed,
     //TODO: power of two chunk ranges...
 
     // set seed
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + config.seed;
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + config.salt;
     seed = (seed ^ 0x5deece66dLL) & ((1LL << 48) - 1);
 
     seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
@@ -931,7 +931,7 @@ int isMineshaftChunk(int64_t seed, const int chunkX, const int chunkZ)
 
 int isTreasureChunk(int64_t seed, const int chunkX, const int chunkZ)
 {
-    seed = chunkX*341873128712 + chunkZ*132897987541 + seed + TREASURE_CONFIG.seed;
+    seed = chunkX*341873128712 + chunkZ*132897987541 + seed + TREASURE_CONFIG.salt;
     setSeed(&seed);
     return nextFloat(&seed) < 0.01;
 }
@@ -953,12 +953,12 @@ int getBiomeAtPos(const LayerStack g, const Pos pos)
 
 Pos findBiomePosition(
         const int mcversion,
-        const LayerStack g,
+        const Layer *l,
         int *cache,
         const int centerX,
         const int centerZ,
         const int range,
-        const int *isValid,
+        const char *isValid,
         int64_t *seed,
         int *passes
         )
@@ -972,18 +972,17 @@ Pos findBiomePosition(
     int *map;
     int i, j, found;
 
-    Layer *layer = &g.layers[L_RIVER_MIX_4];
     Pos out;
 
-    if (layer->scale != 4)
+    if (l->scale != 4)
     {
-        printf("WARN findBiomePosition: The generator has unexpected scale %d at layer %d.\n",
-                layer->scale, L_RIVER_MIX_4);
+        printf("WARN findBiomePosition: require scale = 4, but have %d.\n",
+                l->scale);
     }
 
-    map = cache ? cache : allocCache(layer, width, height);
+    map = cache ? cache : allocCache(l, width, height);
 
-    genArea(layer, map, x1, z1, width, height);
+    genArea(l, map, x1, z1, width, height);
 
     out.x = centerX;
     out.z = centerZ;
@@ -1033,12 +1032,12 @@ Pos findBiomePosition(
 
 
 int areBiomesViable(
-        const LayerStack    g,
+        const Layer *       l,
         int *               cache,
         const int           posX,
         const int           posZ,
         const int           radius,
-        const int *         isValid
+        const char *        isValid
         )
 {
     int x1 = (posX - radius) >> 2;
@@ -1050,16 +1049,14 @@ int areBiomesViable(
     int i;
     int *map;
 
-    Layer *layer = &g.layers[L_RIVER_MIX_4];
-
-    if (layer->scale != 4)
+    if (l->scale != 4)
     {
-        printf("WARN areBiomesViable: The generator has unexpected scale %d at layer %d.\n",
-                layer->scale, L_RIVER_MIX_4);
+        printf("WARN areBiomesViable: require scale = 4, but have %d.\n",
+                l->scale);
     }
 
-    map = cache ? cache : allocCache(layer, width, height);
-    genArea(layer, map, x1, z1, width, height);
+    map = cache ? cache : allocCache(l, width, height);
+    genArea(l, map, x1, z1, width, height);
 
     for (i = 0; i < width*height; i++)
     {
@@ -1121,9 +1118,9 @@ int getBiomeRadius(
 //==============================================================================
 
 
-int* getValidStrongholdBiomes()
+const char* getValidStrongholdBiomes()
 {
-    static int validStrongholdBiomes[256];
+    static char validStrongholdBiomes[256];
 
     if (!validStrongholdBiomes[plains])
     {
@@ -1139,10 +1136,10 @@ int* getValidStrongholdBiomes()
 }
 
 
-int findStrongholds(const int mcversion, LayerStack *g, int *cache,
+int findStrongholds(const int mcversion, const LayerStack *g, int *cache,
         Pos *locations, int64_t worldSeed, int maxSH, const int maxRadius)
 {
-    const int *validStrongholdBiomes = getValidStrongholdBiomes();
+    const char *validStrongholdBiomes = getValidStrongholdBiomes();
     int i, x, z;
     double distance;
 
@@ -1152,6 +1149,8 @@ int findStrongholds(const int mcversion, LayerStack *g, int *cache,
 
     setSeed(&worldSeed);
     double angle = nextDouble(&worldSeed) * PI * 2.0;
+
+    const Layer *l = &g->layers[L_RIVER_MIX_4];
 
     if (mcversion >= MC_1_9)
     {
@@ -1168,7 +1167,7 @@ int findStrongholds(const int mcversion, LayerStack *g, int *cache,
             x = (int)round(cos(angle) * distance);
             z = (int)round(sin(angle) * distance);
 
-            locations[i] = findBiomePosition(mcversion, *g, cache,
+            locations[i] = findBiomePosition(mcversion, l, cache,
                     (x << 4) + 8, (z << 4) + 8, 112, validStrongholdBiomes,
                     &worldSeed, NULL);
 
@@ -1201,7 +1200,7 @@ int findStrongholds(const int mcversion, LayerStack *g, int *cache,
             x = (int)round(cos(angle) * distance);
             z = (int)round(sin(angle) * distance);
 
-            locations[i] = findBiomePosition(mcversion, *g, cache,
+            locations[i] = findBiomePosition(mcversion, l, cache,
                     (x << 4) + 8, (z << 4) + 8, 112, validStrongholdBiomes,
                     &worldSeed, NULL);
 
@@ -1269,38 +1268,38 @@ static double getGrassProbability(int64_t seed, int biome, int x, int z)
     }
 }
 
-static int canCoordinateBeSpawn(const int64_t seed, LayerStack *g, int *cache, Pos pos)
+static int canCoordinateBeSpawn(const int64_t seed, const LayerStack *g, int *cache, Pos pos)
 {
     int biome = getBiomeAtPos(*g, pos);
     return getGrassProbability(seed, biome, pos.x, pos.z) >= 0.5;
 }
 
-static int* getValidSpawnBiomes()
+
+static const char* getValidSpawnBiomes()
 {
-    static int isSpawnBiome[256];
+    static const int biomesToSpawnIn[] = {forest, plains, taiga, taiga_hills, wooded_hills, jungle, jungle_hills};
+    static char isValid[256];
     unsigned int i;
 
-    if (!isSpawnBiome[biomesToSpawnIn[0]])
-    {
+    if (!isValid[biomesToSpawnIn[0]])
         for (i = 0; i < sizeof(biomesToSpawnIn) / sizeof(int); i++)
-        {
-            isSpawnBiome[ biomesToSpawnIn[i] ] = 1;
-        }
-    }
+            isValid[ biomesToSpawnIn[i] ] = 1;
 
-    return isSpawnBiome;
+    return isValid;
 }
 
 
-Pos getSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed)
+Pos getSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t worldSeed)
 {
-    const int *isSpawnBiome = getValidSpawnBiomes();
+    const char *isSpawnBiome = getValidSpawnBiomes();
     Pos spawn;
     int found;
     int i;
 
+    const Layer *l = &g->layers[L_RIVER_MIX_4];
+
     setSeed(&worldSeed);
-    spawn = findBiomePosition(mcversion, *g, cache, 0, 0, 256, isSpawnBiome,
+    spawn = findBiomePosition(mcversion, l, cache, 0, 0, 256, isSpawnBiome,
             &worldSeed, &found);
 
     if (!found)
@@ -1361,14 +1360,16 @@ Pos getSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed)
 }
 
 
-Pos estimateSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldSeed)
+Pos estimateSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t worldSeed)
 {
-    const int *isSpawnBiome = getValidSpawnBiomes();
+    const char *isSpawnBiome = getValidSpawnBiomes();
     Pos spawn;
     int found;
 
+    Layer *l = &g->layers[L_RIVER_MIX_4];
+
     setSeed(&worldSeed);
-    spawn = findBiomePosition(mcversion, *g, cache, 0, 0, 256, isSpawnBiome,
+    spawn = findBiomePosition(mcversion, l, cache, 0, 0, 256, isSpawnBiome,
             &worldSeed, &found);
 
     if (!found)
@@ -1386,15 +1387,9 @@ Pos estimateSpawn(const int mcversion, LayerStack *g, int *cache, int64_t worldS
 //==============================================================================
 
 
-int isViableFeaturePos(const int structureType, const LayerStack g, int *cache,
-        const int blockX, const int blockZ)
+int isViableFeatureBiome(int structureType, int biomeID)
 {
-    int *map = cache ? cache : allocCache(&g.layers[L_VORONOI_ZOOM_1], 1, 1);
-    genArea(&g.layers[L_VORONOI_ZOOM_1], map, blockX, blockZ, 1, 1);
-    int biomeID = map[0];
-    if (!cache) free(map);
-
-    switch(structureType)
+    switch (structureType)
     {
     case Desert_Pyramid:
         return biomeID == desert || biomeID == desert_hills;
@@ -1410,73 +1405,193 @@ int isViableFeaturePos(const int structureType, const LayerStack g, int *cache,
         return isOceanic(biomeID) || biomeID == beach || biomeID == snowy_beach;
     case Ruined_Portal:
         return 1;
-    case Outpost:
-        return biomeID == plains || biomeID == desert || biomeID == taiga || biomeID == snowy_tundra || biomeID == savanna;
+    case Treasure:
+        return biomeID == beach || biomeID == snowy_beach || biomeID == stone_shore || biomeID == mushroom_field_shore;
     default:
-        fprintf(stderr, "Structure type is not valid for the scattered feature biome check.\n");
+        fprintf(stderr, "ERR isViableFeatureBiome: not implemented for structure type.\n");
         exit(1);
     }
+    return 0;
 }
 
-int isViableVillagePos(const LayerStack g, int *cache,
-        const int blockX, const int blockZ)
+static const char *getValidMonumentBiomes1()
 {
-    static int isVillageBiome[0x100];
-
-    if (!isVillageBiome[villageBiomeList[0]])
+    static const int oceanMonumentBiomeList1[] =
     {
-        unsigned int i;
-        for (i = 0; i < sizeof(villageBiomeList) / sizeof(int); i++)
-        {
-            isVillageBiome[ villageBiomeList[i] ] = 1;
-        }
-    }
+            ocean, deep_ocean, river, frozen_river,
+            frozen_ocean, deep_frozen_ocean, cold_ocean, deep_cold_ocean,
+            lukewarm_ocean, deep_lukewarm_ocean, warm_ocean, deep_warm_ocean
+    };
+    static char isValid[256];
+    unsigned int i;
 
-    return areBiomesViable(g, cache, blockX, blockZ, 0, isVillageBiome);
-}
-
-int isViableOceanMonumentPos(const LayerStack g, int *cache,
-        const int blockX, const int blockZ)
-{
-    static int isWaterBiome[0x100];
-    static int isDeepOcean[0x100];
-
-    if (!isWaterBiome[oceanMonumentBiomeList1[1]])
-    {
-        unsigned int i;
+    if (!isValid[oceanMonumentBiomeList1[0]])
         for (i = 0; i < sizeof(oceanMonumentBiomeList1) / sizeof(int); i++)
-        {
-            isWaterBiome[ oceanMonumentBiomeList1[i] ] = 1;
-        }
+            isValid[ oceanMonumentBiomeList1[i] ] = 1;
 
-        for (i = 0; i < sizeof(oceanMonumentBiomeList2) / sizeof(int); i++)
-        {
-            isDeepOcean[ oceanMonumentBiomeList2[i] ] = 1;
-        }
-    }
-
-    return areBiomesViable(g, cache, blockX, blockZ, 16, isDeepOcean) &&
-            areBiomesViable(g, cache, blockX, blockZ, 29, isWaterBiome);
+    return isValid;
 }
 
-int isViableMansionPos(const LayerStack g, int *cache,
-        const int blockX, const int blockZ)
+static const char *getValidMonumentBiomes2()
 {
-    static int isMansionBiome[0x100];
-
-    if (!isMansionBiome[mansionBiomeList[0]])
+    static const int oceanMonumentBiomeList2[] =
     {
-        unsigned int i;
-        for (i = 0; i < sizeof(mansionBiomeList) / sizeof(int); i++)
-        {
-            isMansionBiome[ mansionBiomeList[i] ] = 1;
-        }
-    }
+            deep_frozen_ocean, deep_cold_ocean, deep_ocean,
+            deep_lukewarm_ocean, deep_warm_ocean
+    };
+    static char isValid[256];
+    unsigned int i;
 
-    return areBiomesViable(g, cache, blockX, blockZ, 32, isMansionBiome);
+    if (!isValid[oceanMonumentBiomeList2[0]])
+        for (i = 0; i < sizeof(oceanMonumentBiomeList2) / sizeof(int); i++)
+            isValid[ oceanMonumentBiomeList2[i] ] = 1;
+
+    return isValid;
+}
+
+static const char *getValidMansionBiomes()
+{
+    static const int mansionBiomeList[] = {dark_forest, dark_forest+128};
+    static char isValid[256];
+    unsigned int i;
+
+    if (!isValid[mansionBiomeList[0]])
+        for (i = 0; i < sizeof(mansionBiomeList) / sizeof(int); i++)
+            isValid[ mansionBiomeList[i] ] = 1;
+
+    return isValid;
 }
 
 
+int isViableStructurePos(const StructureConfig sconf, int mcversion,
+        LayerStack *g, int64_t seed, int blockX, int blockZ)
+{
+    int biomeID;
+    int *map = NULL;
+    Layer *l;
+
+    int64_t chunkX = blockX >> 4;
+    int64_t chunkZ = blockZ >> 4;
+
+    // TODO: where possible perform cheaper biome checks before full validation
+
+    switch (sconf.structType)
+    {
+    case Desert_Pyramid:
+    case Igloo:
+    case Jungle_Pyramid:
+    case Swamp_Hut:
+    case Ocean_Ruin:
+    case Shipwreck:
+    case Ruined_Portal:
+    case Treasure:
+        if (mcversion < MC_1_16)
+        {
+            l = &g->layers[L_VORONOI_ZOOM_1];
+            setWorldSeed(l, seed);
+            map = allocCache(l, 1, 1);
+            genArea(l, map, blockX, blockZ, 1, 1);
+        }
+        else // position and layer check changed position in 1.16
+        {
+            l = &g->layers[L_RIVER_MIX_4]; // oceanic checks should be fine here
+            setWorldSeed(l, seed);
+            map = allocCache(l, 1, 1);
+            genArea(l, map, (chunkX << 2) + 2, (chunkZ << 2) + 2, 1, 1);
+        }
+        biomeID = map[0];
+        free(map);
+        return isViableFeatureBiome(sconf.structType, biomeID);
+
+    case Village:
+        l = &g->layers[L_RIVER_MIX_4];
+        setWorldSeed(l, seed);
+        map = allocCache(l, 1, 1);
+        if (mcversion < MC_1_16) // TODO: check this (and if it makes a difference)
+            genArea(l, map, blockX >> 2, blockZ >> 2, 1, 1);
+        else
+            genArea(l, map, (chunkX << 2) + 2, (chunkZ << 2) + 2, 1, 1);
+        biomeID = map[0];
+        free(map);
+        if (biomeID == plains || biomeID == desert || biomeID == savanna || biomeID == taiga)
+            return 1;
+        if (mcversion >= MC_1_14 && biomeID == snowy_tundra)
+            return 1;
+        if (mcversion == MC_BE && biomeID == snowy_taiga)
+            return 1;
+        return 0;
+
+    case Outpost:
+    {
+        int64_t rnds = seed;
+        rnds ^= ((chunkX >> 4) ^ (chunkZ >> 4)) << 4;
+        setSeed(&rnds);
+        next(&rnds, 32);
+        if (nextInt(&rnds, 5) != 0)
+            return 0;
+        if (mcversion < MC_1_16)
+        {
+            l = &g->layers[L_VORONOI_ZOOM_1];
+            setWorldSeed(l, seed);
+            map = allocCache(l, 1, 1);
+            genArea(l, map, blockX, blockZ, 1, 1);
+        }
+        else
+        {
+            l = &g->layers[L_RIVER_MIX_4]; // oceanic checks should be fine here
+            setWorldSeed(l, seed);
+            map = allocCache(l, 1, 1);
+            genArea(l, map, (chunkX << 2) + 2, (chunkZ << 2) + 2, 1, 1);
+        }
+        biomeID = map[0];
+        free(map);
+        // TODO: support for MC_BE
+        if (biomeID != plains && biomeID != desert && biomeID != taiga && biomeID != snowy_tundra && biomeID != savanna)
+            return 0;
+        // look for villages within 10 chunks
+        int cx0 = (chunkX-10), cx1 = (chunkX+10);
+        int cz0 = (chunkZ-10), cz1 = (chunkZ+10);
+        int rx, rz;
+        for (rz = cz0 >> 5; rz <= cz1 >> 5; rz++)
+        {
+            for (rx = cx0 >> 5; rx <= cx1 >> 5; rx++)
+            {
+                Pos p = getStructurePos(VILLAGE_CONFIG, seed, rx, rz);
+                int cx = p.x >> 4, cz = p.z >> 4;
+                if (cx >= cx0 && cx <= cx1 && cz >= cz0 && cz <= cz1)
+                {
+                    if (mcversion >= MC_1_16)
+                        return 0;
+                    if (isViableStructurePos(VILLAGE_CONFIG, mcversion, g, seed, p.x, p.z))
+                        return 0;
+                    return 1;
+                }
+            }
+        }
+        return 1;
+    }
+
+    case Monument:
+        if (mcversion >= MC_1_13)
+            l = &g->layers[L13_OCEAN_MIX_4];
+        else
+            l = &g->layers[L_RIVER_MIX_4];
+        setWorldSeed(l, seed);
+        if (areBiomesViable(l, NULL, blockX, blockZ, 16, getValidMonumentBiomes1()))
+            if (areBiomesViable(l, NULL, blockX, blockZ, 29, getValidMonumentBiomes2()))
+                return 1;
+        return 0;
+
+    case Mansion:
+        l = &g->layers[L_RIVER_MIX_4];
+        setWorldSeed(l, seed);
+        return areBiomesViable(l, NULL, blockX, blockZ, 32, getValidMansionBiomes());
+
+    default:
+        fprintf(stderr, "ERR isViableStructurePos: validation for structure type not implemented");
+        return 0;
+    }
+}
 
 
 //==============================================================================
@@ -1496,7 +1611,7 @@ int isZombieVillage(const int mcversion, const int64_t worldSeed,
     }
 
     // get the chunk position of the village
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + VILLAGE_CONFIG.seed;
+    seed = regionX*341873128712 + regionZ*132897987541 + seed + VILLAGE_CONFIG.salt;
     seed = (seed ^ 0x5deece66dLL);// & ((1LL << 48) - 1);
 
     seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
@@ -1514,28 +1629,6 @@ int isZombieVillage(const int mcversion, const int64_t worldSeed,
     skipNextN(&rnd, mcversion == MC_1_13 ? 10 : 11);
 
     return nextInt(&rnd, 50) == 0;
-}
-
-
-int isBabyZombieVillage(const int mcversion, const int64_t worldSeed,
-        const int regionX, const int regionZ)
-{
-    if (!isZombieVillage(mcversion, worldSeed, regionX, regionZ))
-        return 0;
-
-    // Whether the zombie is a child or not is dependent on the world random
-    // object which is not reset for villages. The last reset is instead
-    // performed during the positioning of Mansions.
-    int64_t rnd = worldSeed;
-    rnd = regionX*341873128712 + regionZ*132897987541 + rnd + MANSION_CONFIG.seed;
-    setSeed(&rnd);
-    skipNextN(&rnd, 5);
-
-    int isChild = nextFloat(&rnd) < 0.05;
-    //int mountNearbyChicken = nextFloat(&rnd) < 0.05;
-    //int spawnNewChicken = nextFloat(&rnd) < 0.05;
-
-    return isChild;
 }
 
 
@@ -1561,233 +1654,6 @@ int64_t getHouseList(const int64_t worldSeed, const int chunkX, const int chunkZ
 //==============================================================================
 // Seed Filters
 //==============================================================================
-
-
-int64_t filterAllTempCats(
-        LayerStack *        g,
-        int *               cache,
-        const int64_t *     seedsIn,
-        int64_t *           seedsOut,
-        const int64_t       seedCnt,
-        const int           centX,
-        const int           centZ)
-{
-    /* We require all temperature categories, including the special variations
-     * in order to get all main biomes. This gives 8 required values:
-     * Oceanic, Warm, Lush, Cold, Freezing,
-     * Special Warm, Special Lush, Special Cold
-     * These categories generate at Layer 13: Edge, Special.
-     *
-     * Note: The scale at this layer is 1:1024 and each element can "leak" its
-     * biome values up to 1024 blocks outwards into the negative coordinates
-     * (due to the Zoom layers).
-     *
-     * The plan is to check if the 3x3 area contains all 8 temperature types.
-     * For this, we can check even earlier at Layer 10: Add Island, that each of
-     * the Warm, Cold and Freezing categories are present.
-     */
-
-    /* Edit:
-     * All the biomes that are generated by a simple Cold climate can actually
-     * be generated later on. So I have commented out the Cold requirements.
-     */
-
-    const int pX = centX-1, pZ = centZ-1;
-    const int sX = 3, sZ = 3;
-    int *map;
-
-    Layer *lFilterSnow = &g->layers[L_ADD_SNOW_1024];
-    Layer *lFilterSpecial = &g->layers[L_SPECIAL_1024];
-
-    map = cache ? cache : allocCache(lFilterSpecial, sX, sZ);
-
-    int64_t sidx, hits, seed;
-    int types[9];
-    int specialCnt;
-    int i, j;
-
-    hits = 0;
-
-    for (sidx = 0; sidx < seedCnt; sidx++)
-    {
-        seed = seedsIn[sidx];
-
-        /***  Pre-Generation Checks  ***/
-
-        // We require at least 3 special temperature categories which can be
-        // tested for without going through the previous layers. (We'll get
-        // false positives due to Oceans, but this works fine to rule out some
-        // seeds early on.)
-        int64_t ss = getStartSeed(seed, lFilterSpecial->layerSeed);
-        specialCnt = 0;
-        for (i = 0; i < sX; i++)
-        {
-            for (j = 0; j < sZ; j++)
-            {
-                int64_t cs = getChunkSeed(ss, i+pX, j+pZ);
-                if (mcFirstInt(cs, 13) == 0)
-                    specialCnt++;
-            }
-        }
-
-        if (specialCnt < 3)
-        {
-            continue;
-        }
-
-        /***  Cold/Warm Check  ***/
-
-        // Continue by checking if enough cold and warm categories are present.
-        setWorldSeed(lFilterSnow, seed);
-        genArea(lFilterSnow, map, pX,pZ, sX,sZ);
-
-        memset(types, 0, sizeof(types));
-        for (i = 0; i < sX*sZ; i++)
-            types[map[i]]++;
-
-        // 1xOcean needs to be present
-        // 4xWarm need to turn into Warm, Lush, Special Warm and Special Lush
-        // 1xFreezing that needs to stay Freezing
-        // 3x(Cold + Freezing) for Cold, Special Cold and Freezing
-        if ( types[Ocean] < 1 || types[Warm] < 4 || types[Freezing] < 1 ||
-            types[Cold]+types[Freezing] < 2)
-        {
-            continue;
-        }
-
-        /***  Complete Temperature Category Check  ***/
-
-        // Check that all temperature variants are present.
-        setWorldSeed(lFilterSpecial, seed);
-        genArea(lFilterSpecial, map, pX,pZ, sX,sZ);
-
-        memset(types, 0, sizeof(types));
-        for (i = 0; i < sX*sZ; i++)
-            types[ map[i] > 4 ? (map[i]&0xf) + 4 : map[i] ]++;
-
-        if ( types[Ocean] < 1  || types[Warm] < 1     || types[Lush] < 1 ||
-            /*types[Cold] < 1   ||*/ types[Freezing] < 1 ||
-            types[Warm+4] < 1 || types[Lush+4] < 1   || types[Cold+4] < 1)
-        {
-            continue;
-        }
-
-        /*
-        for (i = 0; i < sX*sZ; i++)
-        {
-            printf("%c%d ", " s"[cache[i] > 4], cache[i]&0xf);
-            if (i % sX == sX-1) printf("\n");
-        }
-        printf("\n");*/
-
-        // Save the candidate.
-        seedsOut[hits] = seed;
-        hits++;
-    }
-
-    if (cache == NULL) free(map);
-    return hits;
-}
-
-
-const int majorBiomes[] = {
-        ocean, plains, desert, mountains, forest, taiga, swamp,
-        snowy_tundra, mushroom_fields, jungle, deep_ocean, birch_forest, dark_forest,
-        snowy_taiga, giant_tree_taiga, savanna, wooded_badlands_plateau, badlands_plateau
-};
-
-int64_t filterAllMajorBiomes(
-        LayerStack *        g,
-        int *               cache,
-        const int64_t *     seedsIn,
-        int64_t *           seedsOut,
-        const int64_t       seedCnt,
-        const int           pX,
-        const int           pZ,
-        const unsigned int  sX,
-        const unsigned int  sZ)
-{
-    Layer *lFilterMushroom = &g->layers[L_ADD_MUSHROOM_256];
-    Layer *lFilterBiomes = &g->layers[L_BIOME_256];
-
-    int *map;
-    int64_t sidx, seed, hits;
-    unsigned int i, id, hasAll;
-
-    int types[BIOME_NUM];
-
-    map = cache ? cache : allocCache(lFilterBiomes, sX, sZ);
-
-    hits = 0;
-
-    for (sidx = 0; sidx < seedCnt; sidx++)
-    {
-        /* We can use the Mushroom layer both to check for mushroom_fields biomes
-         * and to make sure all temperature categories are present in the area.
-         */
-        seed = seedsIn[sidx];
-        setWorldSeed(lFilterMushroom, seed);
-        genArea(lFilterMushroom, map, pX,pZ, sX,sZ);
-
-        memset(types, 0, sizeof(types));
-        for (i = 0; i < sX*sZ; i++)
-        {
-            id = map[i];
-            if (id >= BIOME_NUM) id = (id & 0xf) + 4;
-            types[id]++;
-        }
-
-        if ( types[Ocean] < 1  || types[Warm] < 1     || types[Lush] < 1 ||
-         /* types[Cold] < 1   || */ types[Freezing] < 1 ||
-            types[Warm+4] < 1 || types[Lush+4] < 1   || types[Cold+4] < 1 ||
-            types[mushroom_fields] < 1)
-        {
-            continue;
-        }
-
-        /***  Find all major biomes  ***/
-
-        setWorldSeed(lFilterBiomes, seed);
-        genArea(lFilterBiomes, map, pX,pZ, sX,sZ);
-
-        memset(types, 0, sizeof(types));
-        for (i = 0; i < sX*sZ; i++)
-        {
-            types[map[i]]++;
-        }
-
-        hasAll = 1;
-        for (i = 0; i < sizeof(majorBiomes) / sizeof(*majorBiomes); i++)
-        {
-            // plains, taiga and deep_ocean can be generated in later layers.
-            // Also small islands of Forests can be generated in deep_ocean
-            // biomes, but we are going to ignore those.
-            if (majorBiomes[i] == plains ||
-                majorBiomes[i] == taiga ||
-                majorBiomes[i] == deep_ocean)
-            {
-                continue;
-            }
-
-            if (types[majorBiomes[i]] < 1)
-            {
-                hasAll = 0;
-                break;
-            }
-        }
-        if (!hasAll)
-        {
-            continue;
-        }
-
-        seedsOut[hits] = seed;
-        hits++;
-    }
-
-    if (cache == NULL) free(map);
-    return hits;
-}
-
 
 
 BiomeFilter setupBiomeFilter(const int *biomeList, int listLen)
@@ -1978,7 +1844,7 @@ int64_t checkForBiomes(
         {
             for (x = 0; x < areaWidth256; x++)
             {
-                cs = getChunkSeed(ss, (int64_t)(x + areaX256), (int64_t)(z + areaZ256));
+                cs = getChunkSeed(ss, x + areaX256, z + areaZ256);
                 if (mcFirstInt(cs, 100) == 0)
                 {
                     goto after_protomushroom;
@@ -2004,7 +1870,7 @@ int64_t checkForBiomes(
         {
             for (x = 0; x < areaWidth256; x++)
             {
-                cs = getChunkSeed(ss, (int64_t)(x + areaX256), (int64_t)(z + areaZ256));
+                cs = getChunkSeed(ss, x + areaX256, z + areaZ256);
                 cs >>= 24;
 
                 int cs6 = cs % 6;

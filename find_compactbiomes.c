@@ -23,7 +23,8 @@ static DWORD WINAPI searchCompactBiomesThread(LPVOID data)
     int w = 2*info.range, h = 2*info.range;
     int64_t s;
 
-    LayerStack g = setupGenerator(MC_1_14);
+    int mcversion = MC_1_14;
+    LayerStack g = setupGenerator(mcversion);
     int *cache = allocCache(&g.layers[L_VORONOI_ZOOM_1], w, h);
 
     for (s = info.seedStart; s != info.seedEnd; s++)
@@ -40,7 +41,7 @@ static DWORD WINAPI searchCompactBiomesThread(LPVOID data)
                     {
                         Pos p;
                         p = getStructurePos(SWAMP_HUT_CONFIG, s, x, z);
-                        if (isViableFeaturePos(Swamp_Hut, g, cache, p.x, p.z))
+                        if (isViableStructurePos(SWAMP_HUT_CONFIG, mcversion, &g, s, p.x, p.z))
                             goto L_hut_found;
                     }
                 }
@@ -56,7 +57,7 @@ static DWORD WINAPI searchCompactBiomesThread(LPVOID data)
                     {
                         Pos p;
                         p = getLargeStructurePos(MONUMENT_CONFIG, s, x, z);
-                        if (isViableOceanMonumentPos(g, cache, p.x, p.z))
+                        if (isViableStructurePos(MONUMENT_CONFIG, mcversion, &g, s, p.x, p.z))
                             goto L_monument_found;
                     }
                 }
