@@ -23,6 +23,10 @@
 #endif
 
 
+#define PREFETCH(PTR)       __builtin_prefetch(PTR)
+#define EXPECT(COND,VAL)    __builtin_expect(COND,VAL)
+
+
 static void oceanRndInit(OceanRnd *rnd, int64_t seed);
 
 
@@ -1845,12 +1849,12 @@ void mapOceanTemp(const Layer * l, int * out, int x, int z, int w, int h)
     }
 }
 
-/* Warning: this function is horribly slow compared to other layers! */
+
 void mapOceanMix(const Layer * l, int * out, int x, int z, int w, int h)
 {
-    int landX = x -  8, landZ = z -  8;
-    int landW = w + 17, landH = h + 17;
-    int *map1, *map2;
+    int *land, *otyp;
+    int i, j;
+    int lx0, lx1, lz0, lz1, lw, lh;
 
     if (l->p2 == NULL)
     {
@@ -1858,23 +1862,46 @@ void mapOceanMix(const Layer * l, int * out, int x, int z, int w, int h)
         exit(1);
     }
 
-    l->p->getMap(l->p, out, landX, landZ, landW, landH);
-    map1 = (int *) malloc(landW*landH*sizeof(int));
-    memcpy(map1, out, landW*landH*sizeof(int));
-
     l->p2->getMap(l->p2, out, x, z, w, h);
-    map2 = (int *) malloc(w*h*sizeof(int));
-    memcpy(map2, out, w*h*sizeof(int));
 
+    otyp = (int *) malloc(w*h*sizeof(int));
+    memcpy(otyp, out, w*h*sizeof(int));
 
-    int i, j;
+    // determine the minimum required land area
+    lx0 = 0; lx1 = w;
+    lz0 = 0; lz1 = h;
 
     for (j = 0; j < h; j++)
     {
         for (i = 0; i < w; i++)
         {
-            int landID = map1[(i+8) + (j+8)*landW];
-            int oceanID = map2[i + j*w];
+            int oceanID = otyp[i + j*w];
+            if (oceanID == warm_ocean || oceanID == frozen_ocean)
+            {
+                if (i-8 < lx0) lx0 = i-8;
+                if (i+9 > lx1) lx1 = i+9;
+                if (j-8 < lz0) lz0 = j-8;
+                if (j+9 > lz1) lz1 = j+9;
+            }
+        }
+    }
+
+    lw = lx1 - lx0;
+    lh = lz1 - lz0;
+    l->p->getMap(l->p, out, x+lx0, z+lz0, lw, lh);
+
+    land = (int *) malloc(lw*lh*sizeof(int));
+    memcpy(land, out, lw*lh*sizeof(int));
+
+
+    for (j = 0; j < h; j++)
+    {
+        for (i = 0; i < w; i++)
+        {
+            int landID, oceanID, replaceID;
+
+            landID = land[(i-lx0) + (j-lz0)*lw];
+            int ii, jj;
 
             if (!isOceanic(landID))
             {
@@ -1882,25 +1909,22 @@ void mapOceanMix(const Layer * l, int * out, int x, int z, int w, int h)
                 continue;
             }
 
-            int ii, jj;
-            for (ii = -8; ii <= 8; ii += 4)
+            oceanID = otyp[i + j*w];
+            if      (oceanID == warm_ocean  ) replaceID = lukewarm_ocean;
+            else if (oceanID == frozen_ocean) replaceID = cold_ocean;
+            else replaceID = -1;
+
+            if (replaceID > 0)
             {
-                for (jj = -8; jj <= 8; jj += 4)
+                for (ii = -8; ii <= 8; ii += 4)
                 {
-                    int nearbyID = map1[(i+ii+8) + (j+jj+8)*landW];
-
-                    if (isOceanic(nearbyID)) continue;
-
-                    if (oceanID == warm_ocean)
+                    for (jj = -8; jj <= 8; jj += 4)
                     {
-                        out[i + j*w] = lukewarm_ocean;
-                        goto loop_x;
-                    }
-
-                    if (oceanID == frozen_ocean)
-                    {
-                        out[i + j*w] = cold_ocean;
-                        goto loop_x;
+                        if (!isOceanic(land[(i+ii-lx0) + (j+jj-lz0)*lw]))
+                        {
+                            out[i + j*w] = replaceID;
+                            goto loop_x;
+                        }
                     }
                 }
             }
@@ -1930,8 +1954,8 @@ void mapOceanMix(const Layer * l, int * out, int x, int z, int w, int h)
         }
     }
 
-    free(map1);
-    free(map2);
+    free(land);
+    free(otyp);
 }
 
 
@@ -1941,12 +1965,12 @@ void mapVoronoiZoom(const Layer * l, int * out, int x, int z, int w, int h)
     z -= 2;
     int pX = x >> 2;
     int pZ = z >> 2;
-    int pW = (w >> 2) + 2;
-    int pH = (h >> 2) + 2;
-    int newW = (pW-1) << 2;
-    int newH = (pH-1) << 2;
+    int pW = ((x + w) >> 2) - pX + 2;
+    int pH = ((z + h) >> 2) - pZ + 2;
+    int newW = pW << 2;
+    int newH = pH << 2;
     int i, j;
-    int *buf = (int *)malloc((newW+1)*(newH+1)*sizeof(*buf));
+    int *buf = (int *) malloc((newW+1)*(newH+1)*sizeof(*buf));
 
     l->p->getMap(l->p, out, pX, pZ, pW, pH);
 
@@ -1954,13 +1978,22 @@ void mapVoronoiZoom(const Layer * l, int * out, int x, int z, int w, int h)
     int64_t ss = l->startSeed;
     int64_t cs;
 
-    for (j = 0; j < pH - 1; j++)
+    for (j = 0; j < pH-1; j++)
     {
         int v00 = out[(j+0)*pW];
         int v01 = out[(j+1)*pW];
 
-        for (i = 0; i < pW - 1; i++)
+        for (i = 0; i < pW-1; i++)
         {
+            int ii, jj;
+            int *pbuf = buf + (j << 2) * newW + (i << 2);
+
+            // try to prefetch the relevant rows to help prevent cache misses
+            PREFETCH( pbuf + newW*0 );
+            PREFETCH( pbuf + newW*1 );
+            PREFETCH( pbuf + newW*2 );
+            PREFETCH( pbuf + newW*3 );
+
             cs = getChunkSeed(ss, (i+pX) << 2, (j+pZ) << 2);
             int64_t da1 = (mcFirstInt(cs, 1024) - 512) * 36;
             cs = mcStepSeed(cs, st);
@@ -1981,41 +2014,37 @@ void mapVoronoiZoom(const Layer * l, int * out, int x, int z, int w, int h)
             cs = mcStepSeed(cs, st);
             int64_t dd2 = (mcFirstInt(cs, 1024) - 512) * 36 + 40*1024;
 
-            int v10 = out[i+1 + (j+0)*pW] & 255;
-            int v11 = out[i+1 + (j+1)*pW] & 255;
-
-            int ii, jj;
+            int v10 = out[i+1 + (j+0)*pW];
+            int v11 = out[i+1 + (j+1)*pW];
 
             for (jj = 0; jj < 4; jj++)
             {
-                int idx = ((j << 2) + jj) * newW + (i << 2);
+                int mj = 10240*jj;
+                int64_t sja = (mj-da2) * (mj-da2);
+                int64_t sjb = (mj-db2) * (mj-db2);
+                int64_t sjc = (mj-dc2) * (mj-dc2);
+                int64_t sjd = (mj-dd2) * (mj-dd2);
+                int *p = pbuf + jj*newW;
 
                 for (ii = 0; ii < 4; ii++)
                 {
                     int mi = 10240*ii;
-                    int mj = 10240*jj;
+                    int64_t da = (mi-da1) * (mi-da1) + sja;
+                    int64_t db = (mi-db1) * (mi-db1) + sjb;
+                    int64_t dc = (mi-dc1) * (mi-dc1) + sjc;
+                    int64_t dd = (mi-dd1) * (mi-dd1) + sjd;
 
-                    int64_t da = (mj-da2)*(mj-da2) + (mi-da1)*(mi-da1);
-                    int64_t db = (mj-db2)*(mj-db2) + (mi-db1)*(mi-db1);
-                    int64_t dc = (mj-dc2)*(mj-dc2) + (mi-dc1)*(mi-dc1);
-                    int64_t dd = (mj-dd2)*(mj-dd2) + (mi-dd1)*(mi-dd1);
-
-                    if (da < db && da < dc && da < dd)
-                    {
-                        buf[idx++] = v00;
-                    }
-                    else if (db < da && db < dc && db < dd)
-                    {
-                        buf[idx++] = v10;
-                    }
-                    else if (dc < da && dc < db && dc < dd)
-                    {
-                        buf[idx++] = v01;
-                    }
+                    int v;
+                    if      (EXPECT( (da < db) && (da < dc) && (da < dd), 0 ))
+                        v = v00;
+                    else if (EXPECT( (db < da) && (db < dc) && (db < dd), 0 ))
+                        v = v10;
+                    else if (EXPECT( (dc < da) && (dc < db) && (dc < dd), 0 ))
+                        v = v01;
                     else
-                    {
-                        buf[idx++] = v11;
-                    }
+                        v = v11;
+
+                    p[ii] = v;
                 }
             }
 

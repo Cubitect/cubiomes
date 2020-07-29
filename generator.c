@@ -192,8 +192,8 @@ static void getMaxArea(const Layer *layer, int areaX, int areaZ, int *maxX, int 
     }
     else if (layer->getMap == mapVoronoiZoom)
     {
-        areaX = (areaX >> 2) + 2;
-        areaZ = (areaZ >> 2) + 2;
+        areaX = (areaX >> 2) + 3;
+        areaZ = (areaZ >> 2) + 3;
     }
     else if (layer->getMap == mapOceanMix)
     {
