@@ -3,29 +3,13 @@
 #include <string.h>
 #include <stdio.h>
 
-#define SIMD_NOTIFY 0
-
-#if defined USE_SIMD && __AVX2__
-#include <emmintrin.h>
-#include <smmintrin.h>
-#include <immintrin.h>
-#if SIMD_NOTIFY
-#warning "Using AVX2 extensions."
-#endif
-#elif defined USE_SIMD && defined __SSE4_2__
-#include <emmintrin.h>
-#include <smmintrin.h>
-#if SIMD_NOTIFY
-#warning "Using SSE4.2 extensions."
-#endif
-#else
-//#warning "Using no SIMD extensions."
-#endif
-
-
+#if __GNUC__
 #define PREFETCH(PTR)       __builtin_prefetch(PTR)
 #define EXPECT(COND,VAL)    __builtin_expect(COND,VAL)
-
+#else
+#define PREFETCH(PTR)
+#define EXPECT(COND,VAL)    (COND)
+#endif
 
 static void oceanRndInit(OceanRnd *rnd, int64_t seed);
 
@@ -190,10 +174,9 @@ void mapSkip(const Layer * l, int * out, int x, int z, int w, int h)
 
 void mapIsland(const Layer * l, int * out, int x, int z, int w, int h)
 {
-    register int i, j;
-
     int64_t ss = l->startSeed;
     int64_t cs;
+    int i, j;
 
     for (j = 0; j < h; j++)
     {
@@ -210,294 +193,9 @@ void mapIsland(const Layer * l, int * out, int x, int z, int w, int h)
     }
 }
 
-// FIXME: currently SIMD only works properly for certain sizes
-#if defined USE_SIMD && defined __AVX2__
 
-static inline __m256i set8ChunkSeeds(int ws, __m256i xs, __m256i zs)
-{
-    __m256i out = _mm256_set1_epi32(ws);
-    __m256i mul = _mm256_set1_epi32(1284865837);
-    __m256i add = _mm256_set1_epi32(4150755663);
-    out = _mm256_add_epi32(xs, _mm256_mullo_epi32(out, _mm256_add_epi32(add, _mm256_mullo_epi32(out, mul))));
-    out = _mm256_add_epi32(zs, _mm256_mullo_epi32(out, _mm256_add_epi32(add, _mm256_mullo_epi32(out, mul))));
-    out = _mm256_add_epi32(xs, _mm256_mullo_epi32(out, _mm256_add_epi32(add, _mm256_mullo_epi32(out, mul))));
-    return _mm256_add_epi32(zs, _mm256_mullo_epi32(out, _mm256_add_epi32(add, _mm256_mullo_epi32(out, mul))));
-}
-
-static inline __m256i mc8NextInt(__m256i* cs, int ws, int mask)
-{
-    __m256i andm = _mm256_set1_epi32(mask);
-    __m256i ret = _mm256_and_si256(andm, _mm256_srli_epi32(*cs, 24));
-    *cs = _mm256_add_epi32(_mm256_set1_epi32(ws), _mm256_mullo_epi32(*cs, _mm256_add_epi32(_mm256_set1_epi32(4150755663), _mm256_mullo_epi32(*cs, _mm256_set1_epi32(1284865837)))));
-    return _mm256_add_epi32(ret, _mm256_and_si256(andm, _mm256_cmpgt_epi32(_mm256_set1_epi32(0), ret)));
-}
-
-static inline __m256i select8Random2(__m256i* cs, int ws, __m256i a1, __m256i a2)
-{
-    __m256i cmp = _mm256_cmpeq_epi32(_mm256_set1_epi32(0), mc8NextInt(cs, ws, 0x1));
-    return _mm256_or_si256(_mm256_and_si256(cmp, a1), _mm256_andnot_si256(cmp, a2));
-}
-
-static inline __m256i select8Random4(__m256i* cs, int ws, __m256i a1, __m256i a2, __m256i a3, __m256i a4)
-{
-    __m256i val = mc8NextInt(cs, ws, 0x3);
-    __m256i v2 = _mm256_set1_epi32(2);
-    __m256i cmp1 = _mm256_cmpeq_epi32(val, _mm256_set1_epi32(0));
-    __m256i cmp2 = _mm256_cmpeq_epi32(v2, val);
-    __m256i cmp3 = _mm256_cmpgt_epi32(v2, val);
-    return _mm256_or_si256(
-        _mm256_and_si256(cmp3, _mm256_or_si256(_mm256_and_si256(cmp1, a1), _mm256_andnot_si256(cmp1, a2))),
-        _mm256_andnot_si256(cmp3, _mm256_or_si256(_mm256_and_si256(cmp2, a3), _mm256_andnot_si256(cmp2, a4)))
-    );
-}
-
-static inline __m256i select8ModeOrRandom(__m256i* cs, int ws, __m256i a1, __m256i a2, __m256i a3, __m256i a4)
-{
-    __m256i cmp1 = _mm256_cmpeq_epi32(a1, a2);
-    __m256i cmp2 = _mm256_cmpeq_epi32(a1, a3);
-    __m256i cmp3 = _mm256_cmpeq_epi32(a1, a4);
-    __m256i cmp4 = _mm256_cmpeq_epi32(a2, a3);
-    __m256i cmp5 = _mm256_cmpeq_epi32(a2, a4);
-    __m256i cmp6 = _mm256_cmpeq_epi32(a3, a4);
-    __m256i isa1 = _mm256_or_si256(
-                       _mm256_andnot_si256(cmp6, cmp1),
-                       _mm256_or_si256 (
-                           _mm256_andnot_si256(cmp5, cmp2),
-                           _mm256_andnot_si256(cmp4, cmp3)
-                       )
-                   );
-    __m256i isa2 = _mm256_or_si256(
-                       _mm256_andnot_si256(cmp3, cmp4),
-                       _mm256_andnot_si256(cmp2, cmp5)
-                   );
-    __m256i isa3 = _mm256_andnot_si256(cmp1, cmp6);
-
-    return _mm256_or_si256(
-        _mm256_andnot_si256(
-            _mm256_or_si256(
-                isa1,
-                _mm256_or_si256(isa2, isa3)
-            ),
-            select8Random4(cs, ws, a1, a2, a3, a4)
-        ),
-        _mm256_or_si256(
-            _mm256_and_si256(isa1, a1),
-            _mm256_or_si256(
-                _mm256_and_si256(isa2, a2),
-                _mm256_and_si256(isa3, a3)
-            )
-        )
-    );
-}
-
-#elif defined USE_SIMD && defined __SSE4_2__
-
-static inline __m128i set4ChunkSeeds(int ws, __m128i xs, __m128i zs)
-{
-    __m128i out = _mm_set1_epi32(ws);
-    __m128i mul = _mm_set1_epi32(1284865837);
-    __m128i add = _mm_set1_epi32(4150755663);
-    out = _mm_add_epi32(xs, _mm_mullo_epi32(out, _mm_add_epi32(add, _mm_mullo_epi32(out, mul))));
-    out = _mm_add_epi32(zs, _mm_mullo_epi32(out, _mm_add_epi32(add, _mm_mullo_epi32(out, mul))));
-    out = _mm_add_epi32(xs, _mm_mullo_epi32(out, _mm_add_epi32(add, _mm_mullo_epi32(out, mul))));
-    return _mm_add_epi32(zs, _mm_mullo_epi32(out, _mm_add_epi32(add, _mm_mullo_epi32(out, mul))));
-}
-
-static inline __m128i mc4NextInt(__m128i* cs, int ws, int mask)
-{
-    __m128i andm = _mm_set1_epi32(mask);
-    __m128i ret = _mm_and_si128(andm, _mm_srli_epi32(*cs, 24));
-    *cs = _mm_add_epi32( _mm_set1_epi32(ws), _mm_mullo_epi32(*cs, _mm_add_epi32(_mm_set1_epi32(4150755663), _mm_mullo_epi32(*cs, _mm_set1_epi32(1284865837)))));
-    return _mm_add_epi32(ret, _mm_and_si128(andm, _mm_cmplt_epi32(ret, _mm_set1_epi32(0))));
-}
-
-static inline __m128i select4Random2(__m128i* cs, int ws, __m128i a1, __m128i a2)
-{
-    __m128i cmp = _mm_cmpeq_epi32(_mm_set1_epi32(0), mc4NextInt(cs, ws, 0x1));
-    return _mm_or_si128(_mm_and_si128(cmp, a1), _mm_andnot_si128(cmp, a2));
-}
-
-static inline __m128i select4Random4(__m128i* cs, int ws, __m128i a1, __m128i a2, __m128i a3, __m128i a4)
-{
-    __m128i val = mc4NextInt(cs, ws, 0x3);
-    __m128i v2 = _mm_set1_epi32(2);
-    __m128i cmp1 = _mm_cmpeq_epi32(val, _mm_set1_epi32(0));
-    __m128i cmp2 = _mm_cmpeq_epi32(val, v2);
-    __m128i cmp3 = _mm_cmplt_epi32(val, v2);
-    return _mm_or_si128(
-        _mm_and_si128(cmp3, _mm_or_si128(_mm_and_si128(cmp1, a1), _mm_andnot_si128(cmp1, a2))),
-        _mm_andnot_si128(cmp3, _mm_or_si128(_mm_and_si128(cmp2, a3), _mm_andnot_si128(cmp2, a4)))
-    );
-}
-
-static inline __m128i select4ModeOrRandom(__m128i* cs, int ws, __m128i a1, __m128i a2, __m128i a3, __m128i a4)
-{
-    //((a == b)&(c != d) | (a == c)&(b != d) | (a == d)&(b != c))&a | ((b == c)&(a != d) | (b == d)&(a != c))&b | ((c == d)&(a != b))&c
-    __m128i cmp1 = _mm_cmpeq_epi32(a1, a2);
-    __m128i cmp2 = _mm_cmpeq_epi32(a1, a3);
-    __m128i cmp3 = _mm_cmpeq_epi32(a1, a4);
-    __m128i cmp4 = _mm_cmpeq_epi32(a2, a3);
-    __m128i cmp5 = _mm_cmpeq_epi32(a2, a4);
-    __m128i cmp6 = _mm_cmpeq_epi32(a3, a4);
-    __m128i isa1 = _mm_or_si128(
-                       _mm_andnot_si128(cmp6, cmp1),
-                       _mm_or_si128 (
-                           _mm_andnot_si128(cmp5, cmp2),
-                           _mm_andnot_si128(cmp4, cmp3)
-                       )
-                   );
-    __m128i isa2 = _mm_or_si128(
-                       _mm_andnot_si128(cmp3, cmp4),
-                       _mm_andnot_si128(cmp2, cmp5)
-                   );
-    __m128i isa3 = _mm_andnot_si128(cmp1, cmp6);
-    return _mm_or_si128(
-        _mm_andnot_si128(
-            _mm_or_si128(
-                isa1,
-                _mm_or_si128(isa2, isa3)
-            ),
-            select4Random4(cs, ws, a1, a2, a3, a4)
-        ),
-        _mm_or_si128(
-            _mm_and_si128(isa1, a1),
-            _mm_or_si128(
-                _mm_and_si128(isa2, a2),
-                _mm_and_si128(isa3, a3)
-            )
-        )
-    );
-}
-
-#endif
-
-#if defined USE_SIMD && __AVX2__
-
-void mapZoom(Layer *l, int* out, int areaX, int areaZ, int areaWidth, int areaHeight)
-{
-    int pWidth = (areaWidth>>1)+2, pHeight = (areaHeight>>1)+1;
-    
-    l->p->getMap(l->p, out, areaX>>1, areaZ>>1, pWidth, pHeight+1);
-    
-    __m256i (*selectRand)(__m256i* cs, int st, __m256i a1, __m256i a2, __m256i a3, __m256i a4) = (l->p->getMap == mapIsland) ? select8Random4 : select8ModeOrRandom;
-    int newWidth = (areaWidth+10)&0xFFFFFFFE;//modified to ignore ends
-    int x, z;
-    __m256i cs, a, b, a1, b1, toBuf1, toBuf2, aSuf;
-    __m256i mask1 = _mm256_setr_epi32(0xFFFFFFFF, 0x0, 0xFFFFFFFF, 0x0, 0xFFFFFFFF, 0x0, 0xFFFFFFFF, 0x0), mask2 = _mm256_setr_epi32(0x0, 0xFFFFFFFF, 0x0, 0xFFFFFFFF, 0x0, 0xFFFFFFFF, 0x0, 0xFFFFFFFF);
-    __m256i shuffle = _mm256_setr_epi32(0, 4, 1, 5, 2, 6, 3, 7);
-    int pX = areaX&0xFFFFFFFE;
-    __m256i xs = _mm256_set_epi32(pX+14, pX+12, pX+10, pX+8, pX+6, pX+4, pX+2, pX), zs;
-    __m256i v2 = _mm256_set1_epi32(2), v16 = _mm256_set1_epi32(16);
-    int* buf = (int*) malloc((newWidth+1)*((areaHeight+2)|1)*sizeof(*buf));
-    int* idx = buf;
-    int* outIdx = out;    
-    //z first!
-    for (x = 0; x < pWidth-1; x += 8)
-    {
-        a = _mm256_loadu_si256((__m256i*)(outIdx));//0, 0
-        b = _mm256_loadu_si256((__m256i*)(outIdx+1));//1, 0
-        zs = _mm256_set1_epi32(areaZ&0xFFFFFFFE);
-        for (z = 0; z < pHeight; z++)
-        {
-            cs = set8ChunkSeeds(l->startSalt, xs, zs);
-            outIdx += pWidth;
-            a1 = _mm256_loadu_si256((__m256i*)(outIdx));//0, 1
-            b1 = _mm256_loadu_si256((__m256i*)(outIdx+1));//1, 1
-            toBuf1 = _mm256_permutevar8x32_epi32(select8Random2(&cs, l->startSalt, a, a1), shuffle);
-            toBuf2 = _mm256_permutevar8x32_epi32(select8Random2(&cs, l->startSalt, a, b), shuffle);
-            aSuf = _mm256_permutevar8x32_epi32(a, shuffle);
-            _mm256_maskstore_epi32(idx, mask1, aSuf);
-            _mm256_maskstore_epi32(idx+1, mask1, toBuf2);
-            _mm256_maskstore_epi32(idx+7, mask2, aSuf);
-            _mm256_maskstore_epi32(idx+8, mask2, toBuf2);
-            idx += newWidth;
-            toBuf2 = _mm256_permutevar8x32_epi32(selectRand(&cs, l->startSalt, a, b, a1, b1), shuffle);
-            _mm256_maskstore_epi32(idx, mask1, toBuf1);
-            _mm256_maskstore_epi32(idx+1, mask1, toBuf2);
-            _mm256_maskstore_epi32(idx+7, mask2, toBuf1);
-            _mm256_maskstore_epi32(idx+8, mask2, toBuf2);
-            idx += newWidth;
-            a = a1;
-            b = b1;
-            zs = _mm256_add_epi32(zs, v2);
-        }
-        outIdx += 8-pHeight*pWidth;        
-        idx += 16-pHeight*2*newWidth;    
-        xs = _mm256_add_epi32(xs, v16);
-    }
-
-    for (z = 0; z < areaHeight; z++)
-    {
-        memcpy(&out[z*areaWidth], &buf[(z + (areaZ & 1))*newWidth + (areaX & 1)], areaWidth*sizeof(int));
-    }
-
-    free(buf);
-}
-
-#elif defined USE_SIMD && defined __SSE4_2__
-
-void mapZoom(Layer *l, int* out, int areaX, int areaZ, int areaWidth, int areaHeight)
-{
-    int pWidth = (areaWidth>>1)+2, pHeight = (areaHeight>>1)+1;
-    
-    l->p->getMap(l->p, out, areaX>>1, areaZ>>1, pWidth, pHeight+1);
-    
-    __m128i (*selectRand)(__m128i* cs, int st, __m128i a1, __m128i a2, __m128i a3, __m128i a4) = (l->p->getMap == mapIsland) ? select4Random4 : select4ModeOrRandom;
-    int newWidth = areaWidth+6&0xFFFFFFFE;//modified to ignore ends
-    int x, z;
-    __m128i cs, a, b, a1, b1, toBuf1, toBuf2, aSuf;
-    __m128i mask1 = _mm_setr_epi32(0xFFFFFFFF, 0x0, 0xFFFFFFFF, 0x0), mask2 = _mm_setr_epi32(0x0, 0xFFFFFFFF, 0x0, 0xFFFFFFFF);
-    int pX = areaX&0xFFFFFFFE;
-    __m128i xs = _mm_set_epi32(pX+6, pX+4, pX+2, pX), zs;
-    __m128i v2 = _mm_set1_epi32(2), v8 = _mm_set1_epi32(8);
-    int* buf = (int*) malloc((newWidth+1)*(areaHeight+2|1)*sizeof(*buf));
-    int* idx = buf;
-    int* outIdx = out;
-    //z first!
-    for (x = 0; x < pWidth-1; x += 4)
-    {
-        a = _mm_loadu_si128((__m128i_u*)(outIdx));//0, 0
-        b = _mm_loadu_si128((__m128i_u*)(outIdx+1));//1, 0
-        zs = _mm_set1_epi32(areaZ&0xFFFFFFFE);
-        for (z = 0; z < pHeight; z++)
-        {
-            cs = set4ChunkSeeds(l->startSalt, xs, zs);
-            outIdx += pWidth;
-            a1 = _mm_loadu_si128((__m128i_u*)(outIdx));//0, 1
-            b1 = _mm_loadu_si128((__m128i_u*)(outIdx+1));//1, 1
-            toBuf1 = _mm_shuffle_epi32(select4Random2(&cs, l->startSalt, a, a1), 0xD8);//11011000->3120->1324
-            toBuf2 = _mm_shuffle_epi32(select4Random2(&cs, l->startSalt, a, b), 0xD8);
-            aSuf = _mm_shuffle_epi32(a, 0xD8);
-            _mm_maskmoveu_si128(aSuf, mask1, (char*)(idx));
-            _mm_maskmoveu_si128(toBuf2, mask1, (char*)(idx+1));
-            _mm_maskmoveu_si128(aSuf, mask2, (char*)(idx+3));
-            _mm_maskmoveu_si128(toBuf2, mask2, (char*)(idx+4));
-            idx += newWidth;
-            toBuf2 = _mm_shuffle_epi32(selectRand(&cs, l->startSalt, a, b, a1, b1), 0xD8);
-            _mm_maskmoveu_si128(toBuf1, mask1, (char*)(idx));
-            _mm_maskmoveu_si128(toBuf2, mask1, (char*)(idx+1));
-            _mm_maskmoveu_si128(toBuf1, mask2, (char*)(idx+3));
-            _mm_maskmoveu_si128(toBuf2, mask2, (char*)(idx+4));
-            idx += newWidth;            
-            a = a1;
-            b = b1;
-            zs = _mm_add_epi32(zs, v2);
-        }
-        outIdx += 4-pHeight*pWidth;
-        idx += 8-pHeight*2*newWidth;
-        xs = _mm_add_epi32(xs, v8);
-    }
-
-    for (z = 0; z < areaHeight; z++)
-    {
-        memcpy(&out[z*areaWidth], &buf[(z + (areaZ & 1))*newWidth + (areaX & 1)], areaWidth*sizeof(int));
-    }
-
-    free(buf);
-}
-
-#else
-
+/// This is the most common layer, and generally the second most performance
+/// critical after mapAddIsland.
 void mapZoom(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int pX = x >> 1;
@@ -521,6 +219,7 @@ void mapZoom(const Layer * l, int * out, int x, int z, int w, int h)
     for (j = 0; j < pH; j++)
     {
         idx = (j << 1) * newW;
+
         v00 = out[(j+0)*pW];
         v01 = out[(j+1)*pW];
 
@@ -595,9 +294,8 @@ void mapZoom(const Layer * l, int * out, int x, int z, int w, int h)
 
     free(buf);
 }
-#endif
 
-
+/// This is the most performance crittical layer, especially for getBiomeAtPos.
 void mapAddIsland(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int pX = x - 1;
@@ -614,73 +312,94 @@ void mapAddIsland(const Layer * l, int * out, int x, int z, int w, int h)
 
     for (j = 0; j < h; j++)
     {
+        int *vz0 = out + (j+0)*pW;
+        int *vz1 = out + (j+1)*pW;
+        int *vz2 = out + (j+2)*pW;
+
+        int v00 = vz0[0], vt0 = vz0[1];
+        int v02 = vz2[0], vt2 = vz2[1];
+        int v20, v22;
+        int v11, v;
+
         for (i = 0; i < w; i++)
         {
-            int v00 = out[i+0 + (j+0)*pW];
-            int v20 = out[i+2 + (j+0)*pW];
-            int v02 = out[i+0 + (j+2)*pW];
-            int v22 = out[i+2 + (j+2)*pW];
-            int v11 = out[i+1 + (j+1)*pW];
+            v11 = vz1[i+1];
+            v20 = vz0[i+2];
+            v22 = vz2[i+2];
+            v = v11;
 
-            if (v11 == 0 && (v00 != 0 || v20 != 0 || v02 != 0 || v22 != 0))
+            switch (v11)
             {
-                cs = getChunkSeed(ss, i+x, j+z);
+            case 0:
+                if (v00 != 0 || v20 != 0 || v02 != 0 || v22 != 0)
+                {
+                    /*
+                    setChunkSeed(l,x+i,z+j);
+                    int inc = 1;
+                    if(v00 != 0 && mcNextInt(l,inc++) == 0) v = v00;
+                    if(v20 != 0 && mcNextInt(l,inc++) == 0) v = v20;
+                    if(v02 != 0 && mcNextInt(l,inc++) == 0) v = v02;
+                    if(v22 != 0 && mcNextInt(l,inc++) == 0) v = v22;
+                    if(mcNextInt(l,3) == 0) out[x + z*areaWidth] = v;
+                    else if(v == 4)         out[x + z*areaWidth] = 4;
+                    else                    out[x + z*areaWidth] = 0;
+                    */
 
-                int v = 1;
-                int inc = 0;
+                    cs = getChunkSeed(ss, i+x, j+z);
+                    int inc = 0;
+                    v = 1;
 
-                if (v00 != 0)
-                {
-                    ++inc; v = v00;
-                    cs = mcStepSeed(cs, st);
-                }
-                if (v20 != 0)
-                {
-                    if (++inc == 1 || (cs & (1LL << 24)) == 0) v = v20;
-                    cs = mcStepSeed(cs, st);
-                }
-                if (v02 != 0)
-                {
-                    switch(++inc)
+                    if (v00 != 0)
                     {
-                    case 1: v = v02; break;
-                    case 2: if ((cs & (1LL << 24)) == 0) v = v02; break;
-                    default: if (((cs >> 24) % 3) == 0) v = v02;
+                        ++inc; v = v00;
+                        cs = mcStepSeed(cs, st);
                     }
-                    cs = mcStepSeed(cs, st);
-                }
-                if (v22 != 0)
-                {
-                    switch(++inc)
+                    if (v20 != 0)
                     {
-                    case 1: v = v22; break;
-                    case 2: if ((cs & (1LL << 24)) == 0) v = v22; break;
-                    case 3: if (((cs >> 24) % 3) == 0) v = v22; break;
-                    default: if ((cs & (3LL << 24)) == 0) v = v22;
+                        if (++inc == 1 || mcFirstIsZero(cs, 2)) v = v20;
+                        cs = mcStepSeed(cs, st);
                     }
-                    cs = mcStepSeed(cs, st);
+                    if (v02 != 0)
+                    {
+                        switch (++inc)
+                        {
+                        case 1:     v = v02; break;
+                        case 2:     if (mcFirstIsZero(cs, 2)) v = v02; break;
+                        default:    if (mcFirstIsZero(cs, 3)) v = v02;
+                        }
+                        cs = mcStepSeed(cs, st);
+                    }
+                    if (v22 != 0)
+                    {
+                        switch (++inc)
+                        {
+                        case 1:     v = v22; break;
+                        case 2:     if (mcFirstIsZero(cs, 2)) v = v22; break;
+                        case 3:     if (mcFirstIsZero(cs, 3)) v = v22; break;
+                        default:    if (mcFirstIsZero(cs, 4)) v = v22;
+                        }
+                        cs = mcStepSeed(cs, st);
+                    }
+
+                    if (v != 4 && !mcFirstIsZero(cs, 3))
+                        v = 0;
                 }
+                break;
 
-                if ((cs >> 24) % 3 == 0)
-                    out[i + j*w] = v;
-                else if (v == 4)
-                    out[i + j*w] = 4;
-                else
-                    out[i + j*w] = 0;
+            case 4:
+                break;
+            default:
+                if (v00 == 0 || v20 == 0 || v02 == 0 || v22 == 0)
+                {
+                    cs = getChunkSeed(ss, i+x, j+z);
+                    if (mcFirstIsZero(cs, 5))
+                        v = 0;
+                }
             }
-            else if (v11 > 0 && (v00 == 0 || v20 == 0 || v02 == 0 || v22 == 0))
-            {
-                cs = getChunkSeed(ss, i+x, j+z);
 
-                if ((cs >> 24) % 5 == 0)
-                    out[i + j*w] = (v11 == 4) ? 4 : 0;
-                else
-                    out[i + j*w] = v11;
-            }
-            else
-            {
-                out[i + j*w] = v11;
-            }
+            out[i + j*w] = v;
+            v00 = vt0; vt0 = v20;
+            v02 = vt2; vt2 = v22;
         }
     }
 }
@@ -884,14 +603,13 @@ void mapAddMushroomIsland(const Layer * l, int * out, int x, int z, int w, int h
             int v11 = out[i+1 + (j+1)*pW];
 
             // surrounded by ocean?
-            if (v11 == 0 && !out[i+0 + (j+0)*pW] && !out[i+2 + (j+0)*pW] && !out[i+0 + (j+2)*pW] && !out[i+2 + (j+2)*pW])
+            if (v11 == 0 &&
+                !out[i+0 + (j+0)*pW] && !out[i+2 + (j+0)*pW] &&
+                !out[i+0 + (j+2)*pW] && !out[i+2 + (j+2)*pW])
             {
                 cs = getChunkSeed(ss, i+x, j+z);
                 if (mcFirstIsZero(cs, 100))
-                {
-                    out[i + j*w] = mushroom_fields;
-                    continue;
-                }
+                    v11 = mushroom_fields;
             }
 
             out[i + j*w] = v11;
@@ -925,7 +643,7 @@ void mapDeepOcean(const Layer * l, int * out, int x, int z, int w, int h)
                 if (isShallowOcean(out[(i+0) + (j+1)*pW])) oceans++;
                 if (isShallowOcean(out[(i+1) + (j+2)*pW])) oceans++;
 
-                if (oceans > 3)
+                if (oceans >= 4)
                 {
                     switch (v11)
                     {
@@ -1483,10 +1201,13 @@ void mapRiver(const Layer * l, int * out, int x, int z, int w, int h)
 
         for (i = 0; i < w; i++)
         {
+            int v01 = reduceID(vz1[i+0]);
             int v11 = reduceID(vz1[i+1]);
+            int v21 = reduceID(vz1[i+2]);
+            int v10 = reduceID(vz0[i+1]);
+            int v12 = reduceID(vz2[i+1]);
 
-            if (v11 == reduceID(vz1[i+0]) && v11 == reduceID(vz1[i+2]) &&
-                v11 == reduceID(vz0[i+1]) && v11 == reduceID(vz2[i+1]))
+            if (v11 == v01 && v11 == v10 && v11 == v12 && v11 == v21)
             {
                 out[i + j * w] = -1;
             }
@@ -1873,8 +1594,11 @@ void mapOceanMix(const Layer * l, int * out, int x, int z, int w, int h)
 
     for (j = 0; j < h; j++)
     {
+        int jcentre = (j-8 > 0 && j+9 < h);
         for (i = 0; i < w; i++)
         {
+            if (jcentre && i-8 > 0 && i+9 < w)
+                continue;
             int oceanID = otyp[i + j*w];
             if (oceanID == warm_ocean || oceanID == frozen_ocean)
             {
