@@ -27,9 +27,10 @@ int main()
     // properties such as the category and temperature of each biome.
     initBiomes();
 
-    // Allocate and initialize a stack of biome layers that reflects the biome
-    // generation of Minecraft 1.14
-    LayerStack g = setupGenerator(MC_1_14);
+    // Initialize a stack of biome layers that reflects the biome generation of
+    // Minecraft 1.16
+    LayerStack g;
+    setupGenerator(&g, MC_1_16);
 
     int64_t seed;
     Pos pos = {0,0}; // block position to be checked
@@ -41,16 +42,13 @@ int main()
         applySeed(&g, seed);
 
         // To get the biome at single block position we can use getBiomeAtPos().
-        int biomeID = getBiomeAtPos(g, pos);
+        int biomeID = getBiomeAtPos(&g, pos);
         if (biomeID == jungle_edge)
             break;
     }
 
     printf("Seed %" PRId64 " has a Junge Edge biome at block position "
         "(%d, %d).\n", seed, pos.x, pos.z);
-
-    // Clean up.
-    freeGenerator(g);
 
     return 0;
 }
@@ -87,8 +85,9 @@ int main()
     // Initialize a colour map for biomes.
     initBiomeColours(biomeColours);
 
-    // Allocate and initialize a stack of biome layers.
-    LayerStack g = setupGenerator(MC_1_14);
+    // Initialize a stack of biome layers.
+    LayerStack g;
+    setupGenerator(&g, MC_1_16);
     // Extract the desired layer.
     Layer *layer = &g.layers[L_SHORE_16];
 
@@ -99,20 +98,19 @@ int main()
     unsigned int imgWidth = areaWidth*scale, imgHeight = areaHeight*scale;
 
     // Allocate a sufficient buffer for the biomes and for the image pixels.
-    int *biomes = allocCache(layer, areaWidth, areaHeight);
+    int *biomeIds = allocCache(layer, areaWidth, areaHeight);
     unsigned char *rgb = (unsigned char *) malloc(3*imgWidth*imgHeight);
 
     // Apply the seed only for the required layers and generate the area.
     setWorldSeed(layer, seed);
-    genArea(layer, biomes, areaX, areaZ, areaWidth, areaHeight);
+    genArea(layer, biomeIds, areaX, areaZ, areaWidth, areaHeight);
 
     // Map the biomes to a color buffer and save to an image.
-    biomesToImage(rgb, biomeColours, biomes, areaWidth, areaHeight, scale, 2);
+    biomesToImage(rgb, biomeColours, biomeIds, areaWidth, areaHeight, scale, 2);
     savePPM("biomes_at_layer.ppm", rgb, imgWidth, imgHeight);
 
     // Clean up.
-    freeGenerator(g);
-    free(biomes);
+    free(biomeIds);
     free(rgb);
 
     return 0;
@@ -136,7 +134,7 @@ This classic type of finder uses several optimisations reguarding positioning of
 
 `./find_quadhut 0 0`
 
-will start a search with a regional positioning around the origin. (Actually the huts will be positioned in regions (-1,-1) to (0,0) this way.) 
+will start a search with a regional positioning around the origin. (Actually the huts will be positioned in regions (-1,-1) to (0,0) this way.)
 
 To my knowlege, as of the time of writing, this is fastest single-thread quad-hut-finder out there. However, note that the current implementation of the biome finding optimisations causes the finder to miss some seeds (< 2%) in favour for speed.
 
