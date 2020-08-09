@@ -7,8 +7,7 @@
 
 
 
-void setupLayer(Layer *l, Layer *p, int s,
-        void (*getMap)(const Layer *, int *, int, int, int, int))
+void setupLayer(Layer *l, Layer *p, int s, mapfunc_t getMap)
 {
     l->layerSeed = getLayerSeed(s);
     l->startSalt = 0;
@@ -16,27 +15,65 @@ void setupLayer(Layer *l, Layer *p, int s,
     l->p = p;
     l->p2 = NULL;
     l->scale = 0;
+    l->edge = 0;
     l->getMap = getMap;
     l->oceanRnd = NULL;
+    l->data = NULL;
 }
 
-void setupMultiLayer(Layer *l, Layer *p1, Layer *p2, int s,
-        void (*getMap)(const Layer *, int *, int, int, int, int))
+void setupMultiLayer(Layer *l, Layer *p1, Layer *p2, int s, mapfunc_t getMap)
 {
     setupLayer(l, p1, s, getMap);
     l->p2 = p2;
 }
 
-
 static void setupScale(Layer *l, int scale)
 {
     l->scale = scale;
     int m = 1;
-    if (l->getMap == mapZoom) {
+    int e = 0;
+
+    mapfunc_t map = l->getMap;
+
+    if (map == mapZoom)
+    {
         m = 2;
-    } else if (l->getMap == mapVoronoiZoom) {
-        m = 4;
+        e = 2; // from ((w>>1)+1)<<1
     }
+    else if (map == mapVoronoiZoom)
+    {
+        m = 4;
+        e = 8; // from ((w>>2)+2)<<2
+    }
+    else if (map == mapOceanMix)
+    {
+        e = 17;
+    }
+    else if (
+        map == mapAddIsland ||
+        map == mapRemoveTooMuchOcean ||
+        map == mapAddSnow ||
+        map == mapCoolWarm ||
+        map == mapHeatIce ||
+        map == mapAddMushroomIsland ||
+        map == mapDeepOcean ||
+        map == mapBiomeEdge ||
+        map == mapHills ||
+        map == mapHills113 ||
+        map == mapRiver ||
+        map == mapSmooth ||
+        map == mapShore
+        )
+    {
+        e = 2;
+    }
+    else
+    {
+        e = 0;
+    }
+
+    l->edge = e;
+
     if (l->p) {
         setupScale(l->p, scale * m);
     }
@@ -45,21 +82,19 @@ static void setupScale(Layer *l, int scale)
     }
 }
 
-static LayerStack setupGeneratorImpl(const int mcversion, const int largeBiomes)
+static void setupGeneratorImpl(LayerStack *g, int mcversion, int largeBiomes)
 {
     if (biomes[plains].id == 0)
     {
         fprintf(stderr, "Warning: The biomes have to be initialised first using initBiomes() before any generator can be used.\n");
     }
 
-    LayerStack g;
-    g.layerCnt = L_NUM;
-    g.layers = (Layer *) calloc(g.layerCnt, sizeof(Layer));
-    Layer *l = g.layers;
+    memset(g, 0, sizeof(LayerStack));
+    Layer *l = g->layers;
 
     //         LAYER                      PARENT                      SALT  LAYER_FUNCTION
     setupLayer(&l[L_ISLAND_4096],         NULL,                       1,    mapIsland);
-    setupLayer(&l[L_ZOOM_2048],           &l[L_ISLAND_4096],          2000, mapZoom);
+    setupLayer(&l[L_ZOOM_2048],           &l[L_ISLAND_4096],          2000, mapZoomIsland);
     setupLayer(&l[L_ADD_ISLAND_2048],     &l[L_ZOOM_2048],            1,    mapAddIsland);
     setupLayer(&l[L_ZOOM_1024],           &l[L_ADD_ISLAND_2048],      2001, mapZoom);
     setupLayer(&l[L_ADD_ISLAND_1024A],    &l[L_ZOOM_1024],            2,    mapAddIsland);
@@ -130,50 +165,39 @@ static LayerStack setupGeneratorImpl(const int mcversion, const int largeBiomes)
 
     if (mcversion <= MC_1_12)
     {
-        setupLayer(&l[L_VORONOI_ZOOM_1],   &l[L_RIVER_MIX_4],          10,   mapVoronoiZoom);
+        setupLayer(&l[L_VORONOI_ZOOM_1],   &l[L_RIVER_MIX_4],         10,   mapVoronoiZoom);
+        g->entry_4 = &l[L_RIVER_MIX_4];
     }
     else
     {
         // ocean variants
-        setupLayer(&l[L13_OCEAN_TEMP_256], NULL,                       2,    mapOceanTemp);
-        l[L13_OCEAN_TEMP_256].oceanRnd = (OceanRnd *) malloc(sizeof(OceanRnd));
-        setupLayer(&l[L13_ZOOM_128],       &l[L13_OCEAN_TEMP_256],     2001, mapZoom);
-        setupLayer(&l[L13_ZOOM_64],        &l[L13_ZOOM_128],           2002, mapZoom);
-        setupLayer(&l[L13_ZOOM_32],        &l[L13_ZOOM_64],            2003, mapZoom);
-        setupLayer(&l[L13_ZOOM_16],        &l[L13_ZOOM_32],            2004, mapZoom);
-        setupLayer(&l[L13_ZOOM_8],         &l[L13_ZOOM_16],            2005, mapZoom);
-        setupLayer(&l[L13_ZOOM_4],         &l[L13_ZOOM_8],             2006, mapZoom);
+        setupLayer(&l[L13_OCEAN_TEMP_256], NULL,                      2,    mapOceanTemp);
+        l[L13_OCEAN_TEMP_256].oceanRnd = &g->oceanRnd;
+        setupLayer(&l[L13_ZOOM_128],       &l[L13_OCEAN_TEMP_256],    2001, mapZoom);
+        setupLayer(&l[L13_ZOOM_64],        &l[L13_ZOOM_128],          2002, mapZoom);
+        setupLayer(&l[L13_ZOOM_32],        &l[L13_ZOOM_64],           2003, mapZoom);
+        setupLayer(&l[L13_ZOOM_16],        &l[L13_ZOOM_32],           2004, mapZoom);
+        setupLayer(&l[L13_ZOOM_8],         &l[L13_ZOOM_16],           2005, mapZoom);
+        setupLayer(&l[L13_ZOOM_4],         &l[L13_ZOOM_8],            2006, mapZoom);
 
         setupMultiLayer(&l[L13_OCEAN_MIX_4], &l[L_RIVER_MIX_4], &l[L13_ZOOM_4], 100, mapOceanMix);
 
-        setupLayer(&l[L_VORONOI_ZOOM_1],   &l[L13_OCEAN_MIX_4],        10,   mapVoronoiZoom);
+        setupLayer(&l[L_VORONOI_ZOOM_1],   &l[L13_OCEAN_MIX_4],       10,   mapVoronoiZoom);
+        g->entry_4 = &l[L13_OCEAN_MIX_4];
     }
 
     setupScale(&l[L_VORONOI_ZOOM_1], 1);
-
-    return g;
+    g->entry_1 = &l[L_VORONOI_ZOOM_1];
 }
 
-LayerStack setupGenerator(const int mcversion)
+void setupGenerator(LayerStack *g, int mcversion)
 {
-    return setupGeneratorImpl(mcversion, 0);
+    setupGeneratorImpl(g, mcversion, 0);
 }
 
-LayerStack setupLargeBiomesGenerator(const int mcversion)
+void setupLargeBiomesGenerator(LayerStack *g, int mcversion)
 {
-    return setupGeneratorImpl(mcversion, 1);
-}
-
-void freeGenerator(LayerStack g)
-{
-    int i;
-    for(i = 0; i < g.layerCnt; i++)
-    {
-        if (g.layers[i].oceanRnd != NULL)
-            free(g.layers[i].oceanRnd);
-    }
-
-    free(g.layers);
+    setupGeneratorImpl(g, mcversion, 1);
 }
 
 
@@ -187,35 +211,17 @@ static void getMaxArea(const Layer *layer, int areaX, int areaZ, int *maxX, int 
 
     if (layer->getMap == mapZoom)
     {
-        areaX = (areaX >> 1) + 2;
-        areaZ = (areaZ >> 1) + 2;
+        areaX >>= 1;
+        areaZ >>= 1;
     }
     else if (layer->getMap == mapVoronoiZoom)
     {
-        areaX = (areaX >> 2) + 3;
-        areaZ = (areaZ >> 2) + 3;
+        areaX >>= 2;
+        areaZ >>= 2;
     }
-    else if (layer->getMap == mapOceanMix)
-    {
-        areaX += 17;
-        areaZ += 17;
-    }
-    else
-    {
-        if (layer->getMap != mapNull &&
-            layer->getMap != mapSkip &&
-            layer->getMap != mapIsland &&
-            layer->getMap != mapSpecial &&
-            layer->getMap != mapBiome &&
-            layer->getMap != mapRareBiome &&
-            layer->getMap != mapRiverInit &&
-            layer->getMap != mapRiverMix &&
-            layer->getMap != mapOceanTemp)
-        {
-            areaX += 2;
-            areaZ += 2;
-        }
-    }
+
+    areaX += layer->edge;
+    areaZ += layer->edge;
 
     if (areaX > *maxX) *maxX = areaX;
     if (areaZ > *maxZ) *maxZ = areaZ;
@@ -249,10 +255,10 @@ void applySeed(LayerStack *g, int64_t seed)
     setWorldSeed(&g->layers[L_VORONOI_ZOOM_1], seed);
 }
 
-void genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, int areaHeight)
+int genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {
     memset(out, 0, areaWidth*areaHeight*sizeof(*out));
-    layer->getMap(layer, out, areaX, areaZ, areaWidth, areaHeight);
+    return layer->getMap(layer, out, areaX, areaZ, areaWidth, areaHeight);
 }
 
 

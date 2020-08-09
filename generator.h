@@ -6,7 +6,7 @@
 /* Minecraft versions */
 enum MCversion
 {
-    MC_1_7, MC_1_8, MC_1_9, MC_1_10, MC_1_11, MC_1_12, MC_1_13, MC_1_14, 
+    MC_1_7, MC_1_8, MC_1_9, MC_1_10, MC_1_11, MC_1_12, MC_1_13, MC_1_14,
     MC_1_15, MC_1_16,
     MC_BE = 128
 };
@@ -78,6 +78,58 @@ enum
 
     L_NUM
 };
+
+
+STRUCT(LayerStack)
+{
+    Layer layers[L_NUM];
+    Layer *entry_1; // entry layer, scale (1:1) [L_VORONOI_ZOOM_1]
+    Layer *entry_4; // entry layer, scale (1:4) [L_RIVER_MIX_4|L13_OCEAN_MIX_4]
+    OceanRnd oceanRnd;
+};
+
+typedef int (*mapfunc_t)(const Layer *, int *, int, int, int, int);
+
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+/* Initialise an instance of a generator. */
+void setupGenerator(LayerStack *g, int mcversion);
+
+/* Initialise an instance of a generator with largeBiomes configuration. */
+void setupLargeBiomesGenerator(LayerStack *g, int mcversion);
+
+
+/* Calculates the minimum size of the buffers required to generate an area of
+ * dimensions 'sizeX' by 'sizeZ' at the specified layer.
+ */
+int calcRequiredBuf(const Layer *layer, int areaX, int areaZ);
+
+/* Allocates an amount of memory required to generate an area of dimensions
+ * 'sizeX' by 'sizeZ' for the magnification of the given layer.
+ */
+int *allocCache(const Layer *layer, int sizeX, int sizeZ);
+
+
+/* Set up custom layers. */
+void setupLayer(Layer *l, Layer *p, int s, mapfunc_t getMap);
+void setupMultiLayer(Layer *l, Layer *p1, Layer *p2, int s, mapfunc_t getMap);
+
+/* Sets the world seed for the generator */
+void applySeed(LayerStack *g, int64_t seed);
+
+/* Generates the specified area using the current generator settings and stores
+ * the biomeIDs in 'out'.
+ * The biomeIDs will be indexed in the form: out[x + z*areaWidth]
+ * It is recommended that 'out' is allocated using allocCache() for the correct
+ * buffer size.
+ */
+int genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, int areaHeight);
+
+
 
 
 /******************************** BIOME TABLES *********************************
@@ -186,53 +238,6 @@ static const int BIOMES_L_RIVER_MIX_4[] =
         snowy_taiga+128, giant_tree_taiga+128, giant_tree_taiga_hills+128, wooded_mountains+128, savanna+128, savanna_plateau+128, badlands+128, wooded_badlands_plateau+128, badlands_plateau+128
 };
 
-
-STRUCT(LayerStack)
-{
-    Layer *layers;
-    int layerCnt;
-};
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
-/* Initialise an instance of a generator. */
-LayerStack setupGenerator(const int mcversion);
-
-/* Initialise an instance of a generator with largeBiomes configuration. */
-LayerStack setupLargeBiomesGenerator(const int mcversion);
-
-/* Cleans up and frees the generator layers */
-void freeGenerator(LayerStack g);
-
-
-/* Calculates the minimum size of the buffers required to generate an area of
- * dimensions 'sizeX' by 'sizeZ' at the specified layer.
- */
-int calcRequiredBuf(const Layer *layer, int areaX, int areaZ);
-
-/* Allocates an amount of memory required to generate an area of dimensions
- * 'sizeX' by 'sizeZ' for the magnification of the current top layer.
- */
-int *allocCache(const Layer *layer, int sizeX, int sizeZ);
-
-
-/* Set up custom layers. */
-void setupLayer(Layer *l, Layer *p, int s, void (*getMap)(const Layer *, int *, int, int, int, int));
-void setupMultiLayer(Layer *l, Layer *p1, Layer *p2, int s, void (*getMap)(const Layer *, int *, int, int, int, int));
-
-/* Sets the world seed for the generator */
-void applySeed(LayerStack *g, int64_t seed);
-
-/* Generates the specified area using the current generator settings and stores
- * the biomeIDs in 'out'.
- * The biomeIDs will be indexed in the form: out[x + z*areaWidth]
- * It is recommended that 'out' is allocated using allocCache() for the correct
- * buffer size.
- */
-void genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, int areaHeight);
 
 
 #ifdef __cplusplus

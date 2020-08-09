@@ -2,8 +2,7 @@ CC      = gcc
 AR      = ar
 ARFLAGS = cr
 override LDFLAGS = -lm
-override CFLAGS += -Wall -fwrapv -march=native
-#override CFLAGS += -DUSE_SIMD
+override CFLAGS += -Wall -fwrapv
 
 ifeq ($(OS),Windows_NT)
 	override CFLAGS += -D_WIN32
@@ -13,15 +12,16 @@ else
 	#RM = rm
 endif
 
-.PHONY : all debug libcubiomes clean
+.PHONY : all release debug libcubiomes clean
 
-all: CFLAGS += -O3 -march=native
-all: libcubiomes find_quadhuts find_compactbiomes clean
+all: release
 
 debug: CFLAGS += -DDEBUG -O0 -ggdb3
-debug: find_quadhuts find_compactbiomes clean
+debug: libcubiomes
+release: CFLAGS += -O3 -march=native
+release: libcubiomes find_quadhuts find_compactbiomes
 
-libcubiomes: CFLAGS += -O3 -fPIC
+libcubiomes: CFLAGS += -fPIC
 libcubiomes: layers.o generator.o finders.o util.o
 	$(AR) $(ARFLAGS) libcubiomes.a $^
 

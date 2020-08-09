@@ -13,8 +13,15 @@
 #define NULL ((void*)0)
 #endif
 
-
 #define STRUCT(S) typedef struct S S; struct S
+
+#if __GNUC__
+#define PREFETCH(PTR,RW,LOC)    __builtin_prefetch(PTR,RW,LOC)
+#define EXPECT(COND,VAL)        __builtin_expect(COND,VAL)
+#else
+#define PREFETCH(PTR)
+#define EXPECT(COND,VAL)        (COND)
+#endif
 
 
 enum BiomeID
@@ -61,8 +68,8 @@ enum BiomeID
     wooded_mountains,           extremeHillsPlus = wooded_mountains,
     savanna,
     savanna_plateau,            savannaPlateau = savanna_plateau,
-    badlands,                   mesa = badlands, 
-    wooded_badlands_plateau,    mesaPlateau_F = wooded_badlands_plateau, 
+    badlands,                   mesa = badlands,
+    wooded_badlands_plateau,    mesaPlateau_F = wooded_badlands_plateau,
     badlands_plateau,           mesaPlateau = badlands_plateau,
     // 40  --  1.13
     small_end_islands,
@@ -78,9 +85,9 @@ enum BiomeID
     // 50
     deep_frozen_ocean,          frozenDeepOcean = deep_frozen_ocean,
     BIOME_NUM,
-    
+
     the_void = 127,
-    
+
     // mutated variants
     sunflower_plains                = plains+128,
     desert_lakes                    = desert+128,
@@ -149,10 +156,12 @@ STRUCT(Layer)
     int64_t startSeed;  // (world seed dependent) starting point for chunk seeds
 
     OceanRnd *oceanRnd; // world seed dependent data for ocean temperatures
+    void *data;         // generic data for custom layers
 
     int scale;          // map scale of this layer (map entry = scale x scale blocks)
+    int edge;           // maximum border required from parent layer
 
-    void (*getMap)(const Layer *, int *, int, int, int, int);
+    int (*getMap)(const Layer *, int *, int, int, int, int);
 
     Layer *p, *p2;      // parent layers
 };
@@ -313,12 +322,19 @@ static inline int64_t getLayerSeed(int64_t salt)
     return ls;
 }
 
+static inline int64_t getStartSalt(int64_t ws, int64_t ls)
+{
+    int64_t st = ws;
+    st = mcStepSeed(st, ls);
+    st = mcStepSeed(st, ls);
+    st = mcStepSeed(st, ls);
+    return st;
+}
+
 static inline int64_t getStartSeed(int64_t ws, int64_t ls)
 {
     int64_t ss = ws;
-    ss = mcStepSeed(ss, ls);
-    ss = mcStepSeed(ss, ls);
-    ss = mcStepSeed(ss, ls);
+    ss = getStartSalt(ss, ls);
     ss = mcStepSeed(ss, 0);
     return ss;
 }
@@ -329,41 +345,36 @@ static inline int64_t getStartSeed(int64_t ws, int64_t ls)
 // Layers
 //==============================================================================
 
-// A null layer does nothing, and can be used to apply a layer to existing data.
-void mapNull                (const Layer *, int *, int, int, int, int);
-// A skip layer simply calls its first parent without modification.
-// This can be used as an easy way to skip a layer in a generator.
-void mapSkip                (const Layer *, int *, int, int, int, int);
-
-void mapIsland              (const Layer *, int *, int, int, int, int);
-void mapZoom                (const Layer *, int *, int, int, int, int);
-void mapAddIsland           (const Layer *, int *, int, int, int, int);
-void mapRemoveTooMuchOcean  (const Layer *, int *, int, int, int, int);
-void mapAddSnow             (const Layer *, int *, int, int, int, int);
-void mapCoolWarm            (const Layer *, int *, int, int, int, int);
-void mapHeatIce             (const Layer *, int *, int, int, int, int);
-void mapSpecial             (const Layer *, int *, int, int, int, int);
-void mapAddMushroomIsland   (const Layer *, int *, int, int, int, int);
-void mapDeepOcean           (const Layer *, int *, int, int, int, int);
-void mapBiome               (const Layer *, int *, int, int, int, int);
-void mapBiomeBE             (const Layer *, int *, int, int, int, int);
-void mapAddBamboo           (const Layer *, int *, int, int, int, int);
-void mapRiverInit           (const Layer *, int *, int, int, int, int);
-void mapBiomeEdge           (const Layer *, int *, int, int, int, int);
-void mapHills               (const Layer *, int *, int, int, int, int);
-void mapRiver               (const Layer *, int *, int, int, int, int);
-void mapSmooth              (const Layer *, int *, int, int, int, int);
-void mapRareBiome           (const Layer *, int *, int, int, int, int);
-void mapShore               (const Layer *, int *, int, int, int, int);
-void mapRiverMix            (const Layer *, int *, int, int, int, int);
+int mapIsland               (const Layer *, int *, int, int, int, int);
+int mapZoomIsland           (const Layer *, int *, int, int, int, int);
+int mapZoom                 (const Layer *, int *, int, int, int, int);
+int mapAddIsland            (const Layer *, int *, int, int, int, int);
+int mapRemoveTooMuchOcean   (const Layer *, int *, int, int, int, int);
+int mapAddSnow              (const Layer *, int *, int, int, int, int);
+int mapCoolWarm             (const Layer *, int *, int, int, int, int);
+int mapHeatIce              (const Layer *, int *, int, int, int, int);
+int mapSpecial              (const Layer *, int *, int, int, int, int);
+int mapAddMushroomIsland    (const Layer *, int *, int, int, int, int);
+int mapDeepOcean            (const Layer *, int *, int, int, int, int);
+int mapBiome                (const Layer *, int *, int, int, int, int);
+int mapBiomeBE              (const Layer *, int *, int, int, int, int);
+int mapAddBamboo            (const Layer *, int *, int, int, int, int);
+int mapRiverInit            (const Layer *, int *, int, int, int, int);
+int mapBiomeEdge            (const Layer *, int *, int, int, int, int);
+int mapHills                (const Layer *, int *, int, int, int, int);
+int mapRiver                (const Layer *, int *, int, int, int, int);
+int mapSmooth               (const Layer *, int *, int, int, int, int);
+int mapRareBiome            (const Layer *, int *, int, int, int, int);
+int mapShore                (const Layer *, int *, int, int, int, int);
+int mapRiverMix             (const Layer *, int *, int, int, int, int);
 
 // 1.13 layers
-void mapHills113            (const Layer *, int *, int, int, int, int);
-void mapOceanTemp           (const Layer *, int *, int, int, int, int);
-void mapOceanMix            (const Layer *, int *, int, int, int, int);
+int mapHills113             (const Layer *, int *, int, int, int, int);
+int mapOceanTemp            (const Layer *, int *, int, int, int, int);
+int mapOceanMix             (const Layer *, int *, int, int, int, int);
 
 // final layer 1:1
-void mapVoronoiZoom         (const Layer *, int *, int, int, int, int);
+int mapVoronoiZoom          (const Layer *, int *, int, int, int, int);
 
 
 #ifdef __cplusplus

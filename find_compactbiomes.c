@@ -24,12 +24,16 @@ static DWORD WINAPI searchCompactBiomesThread(LPVOID data)
     int64_t s;
 
     int mcversion = MC_1_14;
-    LayerStack g = setupGenerator(mcversion);
+    LayerStack g;
+    setupGenerator(&g, mcversion);
     int *cache = allocCache(&g.layers[L_VORONOI_ZOOM_1], w, h);
 
     for (s = info.seedStart; s != info.seedEnd; s++)
     {
-        if (checkForBiomes(&g, cache, s, ax, az, w, h, info.filter, info.minscale))
+        if (!hasAllTemps(&g, s, 0, 0))
+            continue;
+
+        if (checkForBiomes(&g, L_VORONOI_ZOOM_1, cache, s, ax, az, w, h, info.filter, 1) > 0)
         {
             int x, z;
             if (info.withHut)
@@ -70,7 +74,6 @@ static DWORD WINAPI searchCompactBiomesThread(LPVOID data)
         }
     }
 
-    freeGenerator(g);
     free(cache);
 
 #ifdef USE_PTHREAD

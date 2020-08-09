@@ -94,33 +94,22 @@ STRUCT(Pos)
     int x, z;
 };
 
+
 STRUCT(BiomeFilter)
 {
-    // bitfield for required temperature categories, including special variants
-    uint64_t tempCat;
-    // bitfield for the required ocean types
-    uint64_t oceansToFind;
-    // bitfield of required biomes without modification bit
-    uint64_t biomesToFind;
-    // bitfield of required modified biomes
-    uint64_t modifiedToFind; // TODO: add checks for bamboo_jungle*
+    // bitfields for biomes required at their respecive layers
+    uint64_t tempsToFind; // Special (1:1024)
+    uint64_t otempToFind; // OceanTemp (1:256)
+    uint64_t majorToFind; // Biome (1:256)
+    uint64_t edgesToFind; // Edge (1:64) [mod64: as special case for bamboo]
+    // bitfields for biomes to find at RareBiome(1:64), Shore(1:16) and Mix(1:4)
+    // layers for (biomeID < 64) and modified (biomeID >= 128 && biomeID < 192)
+    uint64_t raresToFind, raresToFindM;
+    uint64_t shoreToFind, shoreToFindM;
+    uint64_t riverToFind, riverToFindM;
+    uint64_t oceanToFind; // all required ocean types
 
-    // check that there is a minimum of both special and normal temperatures
-    int tempNormal, tempSpecial;
-    // check for the temperatures specified by tempCnt (1:1024)
-    int doTempCheck;
-    // check for mushroom potential
-    int requireMushroom;
-    // combine a more detailed mushroom and temperature check (1:256)
-    int doShroomAndTempCheck;
-    // early check for 1.13 ocean types (1:256)
-    int doOceanTypeCheck;
-    //
-    int doMajorBiomeCheck;
-    // pre-generation biome checks in layer L_BIOME_256
-    int checkBiomePotential;
-    //
-    int doScale4Check;
+    int specialCnt; // number of special temperature categories required
 };
 
 #ifdef __cplusplus
@@ -277,7 +266,7 @@ int isTreasureChunk(int64_t seed, const int chunkX, const int chunkZ);
 /* Returns the biome for the specified block position.
  * (Alternatives should be considered first in performance critical code.)
  */
-int getBiomeAtPos(const LayerStack g, const Pos pos);
+int getBiomeAtPos(const LayerStack *g, const Pos pos);
 
 /* Finds a suitable pseudo-random location in the specified area.
  * This function is used to determine the positions of spawn and strongholds.
@@ -468,21 +457,35 @@ int64_t getHouseList(const int64_t worldSeed, const int chunkX, const int chunkZ
  */
 BiomeFilter setupBiomeFilter(const int *biomeList, int listLen);
 
-/* Tries to determine if the biomes configured in the filter will generate in
- * this seed within the specified area. The smallest layer scale checked is
- * given by 'minscale'. Lowering this value terminate the search earlier and
- * yield more false positives.
+/* Starts to generate the specified area and checks if all biomes in the filter
+ * are present. If so, the area will be fully generated inside the cache
+ * (if != NULL) up to the entry 'layerID', and the return value will be > 0.
+ * Otherwise, the contents of 'cache' is undefined and a value <= 0 is returned.
+ * More aggressive filtering can be enabled with 'protoCheck' which may yield
+ * some false negatives in exchange for speed.
+ *
+ * @g           : generator (will be modified!)
+ * @layerID     : layer enum of generation entry point
+ * @cache       : working buffer, and output (if != NULL)
+ * @seed        : world seed
+ * @x,z,w,h     : requested area
+ * @filter      : biomes to be checked for
+ * @protoCheck  : enables more aggressive filtering when non-zero
  */
-int64_t checkForBiomes(
-        LayerStack *        g,
-        int *               cache,
-        const int64_t       seed,
-        const int           blockX,
-        const int           blockZ,
-        const unsigned int  width,
-        const unsigned int  height,
-        const BiomeFilter   filter,
-        const int           minscale);
+int checkForBiomes(
+        LayerStack *    g,
+        int             layerID,
+        int *           cache,
+        int64_t         seed,
+        int             x,
+        int             z,
+        unsigned int    w,
+        unsigned int    h,
+        BiomeFilter     filter,
+        int             protoCheck
+        );
+
+int hasAllTemps(LayerStack *g, int64_t seed, int x1024, int z1024);
 
 #ifdef __cplusplus
 }
