@@ -182,7 +182,7 @@ int mapZoomIsland(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     int newW = (pW) << 1;
@@ -264,7 +264,7 @@ int mapZoom(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     int newW = (pW) << 1;
@@ -361,7 +361,7 @@ int mapAddIsland(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     int64_t st = l->startSalt;
@@ -474,7 +474,7 @@ int mapRemoveTooMuchOcean(const Layer * l, int * out, int x, int z, int w, int h
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     int64_t ss = l->startSeed;
@@ -516,7 +516,7 @@ int mapAddSnow(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     int64_t ss = l->startSeed;
@@ -560,7 +560,7 @@ int mapCoolWarm(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     for (j = 0; j < h; j++)
@@ -599,7 +599,7 @@ int mapHeatIce(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     for (j = 0; j < h; j++)
@@ -632,7 +632,7 @@ int mapHeatIce(const Layer * l, int * out, int x, int z, int w, int h)
 int mapSpecial(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int err = l->p->getMap(l->p, out, x, z, w, h);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     int64_t st = l->startSalt;
@@ -672,7 +672,7 @@ int mapAddMushroomIsland(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     int64_t ss = l->startSeed;
@@ -711,7 +711,7 @@ int mapDeepOcean(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     for (j = 0; j < h; j++)
@@ -770,7 +770,7 @@ const int snowBiomes[] = {snowy_tundra, snowy_tundra, snowy_tundra, snowy_taiga}
 int mapBiome(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int err = l->p->getMap(l->p, out, x, z, w, h);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     int64_t ss = l->startSeed;
@@ -826,7 +826,7 @@ const int lushBiomesBE[] = {forest, dark_forest, mountains, plains, plains, plai
 int mapBiomeBE(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int err = l->p->getMap(l->p, out, x, z, w, h);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     int64_t ss = l->startSeed;
@@ -880,7 +880,7 @@ int mapBiomeBE(const Layer * l, int * out, int x, int z, int w, int h)
 int mapRiverInit(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int err = l->p->getMap(l->p, out, x, z, w, h);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     int64_t ss = l->startSeed;
@@ -910,7 +910,7 @@ int mapRiverInit(const Layer * l, int * out, int x, int z, int w, int h)
 int mapAddBamboo(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int err = l->p->getMap(l->p, out, x, z, w, h);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     int64_t ss = l->startSeed;
@@ -959,7 +959,7 @@ int mapBiomeEdge(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     for (j = 0; j < h; j++)
@@ -1037,14 +1037,14 @@ int mapHills(const Layer * l, int * out, int x, int z, int w, int h)
     }
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     buf = (int *) malloc(pW*pH*sizeof(int));
     memcpy(buf, out, pW*pH*sizeof(int));
 
     err = l->p2->getMap(l->p2, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
     {
         free(buf);
         return err;
@@ -1172,14 +1172,14 @@ int mapHills113(const Layer * l, int * out, int x, int z, int w, int h)
     }
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     buf = (int *) malloc(pW*pH*sizeof(int));
     memcpy(buf, out, pW*pH*sizeof(int));
 
     err = l->p2->getMap(l->p2, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
     {
         free(buf);
         return err;
@@ -1318,7 +1318,7 @@ int mapRiver(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     for (j = 0; j < h; j++)
@@ -1359,7 +1359,7 @@ int mapSmooth(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     int64_t ss = l->startSeed;
@@ -1409,7 +1409,7 @@ int mapRareBiome(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, x, z, w, h);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     int64_t ss = l->startSeed;
@@ -1463,7 +1463,7 @@ int mapShore(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     for (j = 0; j < h; j++)
@@ -1563,7 +1563,7 @@ int mapRiverMix(const Layer * l, int * out, int x, int z, int w, int h)
 
 
     int err = l->p->getMap(l->p, out, x, z, w, h); // biome chain
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     len = w*h;
@@ -1571,7 +1571,7 @@ int mapRiverMix(const Layer * l, int * out, int x, int z, int w, int h)
     memcpy(buf, out, len*sizeof(int));
 
     err = l->p2->getMap(l->p2, out, x, z, w, h); // rivers
-    if (EXPECT(err, 0))
+    if U(err != 0)
     {
         free(buf);
         return err;
@@ -1737,7 +1737,7 @@ int mapOceanMix(const Layer * l, int * out, int x, int z, int w, int h)
     }
 
     int err = l->p2->getMap(l->p2, out, x, z, w, h);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     otyp = (int *) malloc(w*h*sizeof(int));
@@ -1768,7 +1768,7 @@ int mapOceanMix(const Layer * l, int * out, int x, int z, int w, int h)
     lw = lx1 - lx0;
     lh = lz1 - lz0;
     err = l->p->getMap(l->p, out, x+lx0, z+lz0, lw, lh);
-    if (EXPECT(err, 0))
+    if U(err != 0)
     {
         free(otyp);
         return err;
@@ -1855,7 +1855,7 @@ int mapVoronoiZoom(const Layer * l, int * out, int x, int z, int w, int h)
     int pH = ((z + h) >> 2) - pZ + 2;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     int newW = pW << 2;
@@ -1933,11 +1933,11 @@ int mapVoronoiZoom(const Layer * l, int * out, int x, int z, int w, int h)
                     int64_t dd = (mi-dd1) * (mi-dd1) + sjd;
 
                     int v;
-                    if      (EXPECT( (da < db) && (da < dc) && (da < dd), 0 ))
+                    if      U((da < db) && (da < dc) && (da < dd))
                         v = v00;
-                    else if (EXPECT( (db < da) && (db < dc) && (db < dd), 0 ))
+                    else if U((db < da) && (db < dc) && (db < dd))
                         v = v10;
-                    else if (EXPECT( (dc < da) && (dc < db) && (dc < dd), 0 ))
+                    else if U((dc < da) && (dc < db) && (dc < dd))
                         v = v01;
                     else
                         v = v11;

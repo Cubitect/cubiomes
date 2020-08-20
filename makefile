@@ -17,7 +17,7 @@ endif
 all: release
 
 debug: CFLAGS += -DDEBUG -O0 -ggdb3
-debug: libcubiomes
+debug: libcubiomes find_quadhuts find_compactbiomes
 release: CFLAGS += -O3 -march=native
 release: libcubiomes find_quadhuts find_compactbiomes
 

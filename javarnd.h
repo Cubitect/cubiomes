@@ -48,26 +48,22 @@ static inline double nextDouble(int64_t *seed)
     return (((int64_t) next(seed, 26) << 27) + next(seed, 27)) / (double) (1LL << 53);
 }
 
+/* A macro to generate the ideal assembly for X = nextInt(S, 24)
+ * This is a macro and not an inline function, as many compilers can make use
+ * of the additional optimisation passes for the surrounding code.
+ */
+#define JAVA_NEXT_INT24(S,X)                \
+    do {                                    \
+        int64_t a = (1ULL << 48) - 1;       \
+        int64_t c = 0x5deece66dLL * (S);    \
+        c += 11; a &= c;                    \
+        (S) = a;                            \
+        a >>= 17;                           \
+        c = 0xaaaaaaab * a;                 \
+        c >>= 36;                           \
+        (X) = (int)a - (int)(c << 3) * 3;   \
+    } while (0)
 
-
-// Custom, faster alternative for the first and second call to nextInt(24)
-
-static inline int firstInt24(int64_t seed)
-{
-    seed ^= 0x5deece66d;
-    seed = (seed * 0x5deece66d) & 0xffffffffffff;
-    seed >>= 17;
-    return seed % 24;
-}
-
-static inline int secondInt24(int64_t seed)
-{
-    seed ^= 0x5deece66d;
-    seed = (seed * 0x5deece66d + 0xb) & 0xffffffffffff;
-    seed = (seed * 0x5deece66d) & 0xffffffffffff;
-    seed >>= 17;
-    return seed % 24;
-}
 
 /* skipNextN
  * ---------

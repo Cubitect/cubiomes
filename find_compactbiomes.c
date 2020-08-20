@@ -44,8 +44,8 @@ static DWORD WINAPI searchCompactBiomesThread(LPVOID data)
                     for (x = -r; x < r; x++)
                     {
                         Pos p;
-                        p = getStructurePos(SWAMP_HUT_CONFIG, s, x, z);
-                        if (isViableStructurePos(SWAMP_HUT_CONFIG, mcversion, &g, s, p.x, p.z))
+                        p = getStructurePos(SWAMP_HUT_CONFIG, s, x, z, NULL);
+                        if (isViableStructurePos(Swamp_Hut, mcversion, &g, s, p.x, p.z))
                             goto L_hut_found;
                     }
                 }
@@ -60,8 +60,8 @@ static DWORD WINAPI searchCompactBiomesThread(LPVOID data)
                     for (x = -r; x < r; x++)
                     {
                         Pos p;
-                        p = getLargeStructurePos(MONUMENT_CONFIG, s, x, z);
-                        if (isViableStructurePos(MONUMENT_CONFIG, mcversion, &g, s, p.x, p.z))
+                        p = getStructurePos(MONUMENT_CONFIG, s, x, z, NULL);
+                        if (isViableStructurePos(Monument, mcversion, &g, s, p.x, p.z))
                             goto L_monument_found;
                     }
                 }
@@ -69,7 +69,7 @@ static DWORD WINAPI searchCompactBiomesThread(LPVOID data)
                 L_monument_found:;
             }
 
-            printf("%ld\n", s);
+            printf("%" PRId64 "\n", s);
             fflush(stdout);
         }
     }

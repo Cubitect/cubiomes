@@ -12,6 +12,12 @@
 
 #include <unistd.h>
 
+#if defined(_WIN32)
+#include <direct.h>
+#else
+#include <sys/types.h>
+#include <sys/stat.h>
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -25,8 +31,11 @@ int main(int argc, char *argv[])
     int regPosZ = 0;
 
     int mcversion = MC_1_16;
-    const char *seedFileName;
     StructureConfig featureConfig;
+
+    char seedFileName[256] = {};
+    enum LowBitSet lbitset = LBIT_ALL;
+    int radius = 128;
 
     if (argc > 2)
     {
@@ -69,25 +78,44 @@ int main(int argc, char *argv[])
     if (mcversion >= MC_1_13)
     {
         featureConfig = SWAMP_HUT_CONFIG;
-        seedFileName = "./seeds/quadhutbases_1_13_Q1.txt";
     }
     else
     {
         featureConfig = FEATURE_CONFIG;
-        seedFileName = "./seeds/quadhutbases_1_7_Q1.txt";
     }
 
     setupGenerator(&g, mcversion);
+    
+#if defined(_WIN32)
+    _mkdir("./seeds");
+#else 
+    mkdir("./seeds", 0773);
+#endif
 
-    //seedFileName = "./seeds/quadbases_Q1b.txt";
+#if 0
+    sprintf(seedFileName, "./seeds/quadbase_ideal_%d.txt", featureConfig.salt);
+    lbitset = LBIT_IDEAL;
+    radius = 128;
+#elif 0
+    sprintf(seedFileName, "./seeds/quadbase_classic_%d.txt", featureConfig.salt);
+    lbitset = LBIT_CLASSIC;
+    radius = 128;
+#elif 1
+    sprintf(seedFileName, "./seeds/quadbase_normal_%d.txt", featureConfig.salt);
+    lbitset = LBIT_HUT_NORMAL;
+    radius = 128;
+#else
+    sprintf(seedFileName, "./seeds/quadbase_barely_%d.txt", featureConfig.salt);
+    lbitset = LBIT_HUT_BARELY;
+    radius = 128;
+#endif
 
     if (access(seedFileName, F_OK))
     {
         printf("Seed base file does not exist: Creating new one.\n"
-               "This may take a few minutes...\n");
+               "This can take a while...\n");
         int threads = 6;
-        int quality = 1;
-        search4QuadBases(seedFileName, threads, featureConfig, quality);
+        search4QuadBases(seedFileName, threads, featureConfig, radius, lbitset);
     }
 
     int64_t i, j, qhcnt;
@@ -101,7 +129,7 @@ int main(int argc, char *argv[])
 
     // Load the positions of the four structures that make up the quad-structure
     // so we can test the biome at these positions.
-    Pos qhpos[4];
+    Pos qpos[4];
 
     // layerSeed for Layer 19: Biome, to make preliminary seed tests.
     int64_t lsBiome = g.layers[L_BIOME_256].layerSeed;
@@ -110,49 +138,52 @@ int main(int argc, char *argv[])
     int areaX = (regPosX << 1) + 1;
     int areaZ = (regPosZ << 1) + 1;
 
+    int check_swamp_hut_specifics = 1;
+    int64_t ss, cs;
 
     // Search for a swamp at the structure positions
     for (i = 0; i < qhcnt; i++)
     {
         base = moveStructure(qhcandidates[i], regPosX, regPosZ);
 
-        qhpos[0] = getStructurePos(featureConfig, base, 0+regPosX, 0+regPosZ);
-        qhpos[1] = getStructurePos(featureConfig, base, 0+regPosX, 1+regPosZ);
-        qhpos[2] = getStructurePos(featureConfig, base, 1+regPosX, 0+regPosZ);
-        qhpos[3] = getStructurePos(featureConfig, base, 1+regPosX, 1+regPosZ);
+        qpos[0] = getStructurePos(featureConfig, base, 0+regPosX, 0+regPosZ, NULL);
+        qpos[1] = getStructurePos(featureConfig, base, 0+regPosX, 1+regPosZ, NULL);
+        qpos[2] = getStructurePos(featureConfig, base, 1+regPosX, 0+regPosZ, NULL);
+        qpos[3] = getStructurePos(featureConfig, base, 1+regPosX, 1+regPosZ, NULL);
 
         /*
         for (j = 0; j < 4; j++)
         {
-            printf("(%d,%d) ", qhpos[j].x, qhpos[j].z);
+            printf("(%d,%d) ", qpos[j].x, qpos[j].z);
         }
         printf("\n");
         */
 
-        // This little magic code checks if there is a meaningful chance for
-        // this seed base to generate swamps in the area.
-        // The idea is, that the conversion from Lush temperature to swamp is
-        // independent of surroundings, so we can test for this conversion
-        // beforehand. Furthermore, biomes tend to leak into the negative
-        // coordinates because of the Zoom layers, so the majority of hits will
-        // occur when SouthEast corner (at a 1:256 scale) of the quad-hut has a
-        // swamp. (This assumption misses about 1 in 500 quad-hut seeds.)
-        // Finally, here we also exploit that the minecraft random number
-        // generator is quite bad, the "mcNextRand() mod 6" check has a period
-        // pattern of ~3 on the high seed-bits, which means we can avoid
-        // checking all 16 high-bit combinations.
-        int64_t ss, cs;
-        for (j = 0; j < 5; j++)
+        if (check_swamp_hut_specifics)
         {
-            seed = base + ((j+0x53) << 48);
-            ss = getStartSeed(seed, lsBiome);
-            cs = getChunkSeed(ss, areaX+1, areaZ+1);
-            if (mcFirstInt(cs, 6) == 5)
-                break;
+            // This little magic code checks if there is a meaningful chance for
+            // this seed base to generate swamps in the area.
+            // The idea is, that the conversion from Lush temperature to swamp
+            // is independent of surroundings, so we can test for this
+            // conversion beforehand. Furthermore, biomes tend to leak into the
+            // negative coordinates because of the Zoom layers, so the majority
+            // of hits will occur when SouthEast corner (at a 1:256 scale) of
+            // the quad-hut has a swamp. (This assumption misses about 1 in 500
+            // quad-hut seeds.) Finally, here we also exploit that the minecraft
+            // random number generator is quite bad, the "mcNextRand() mod 6"
+            // check has a period pattern of ~3 on the high seed-bits, which
+            // means we can avoid checking all 16 high-bit combinations.
+            for (j = 0; j < 5; j++)
+            {
+                seed = base + ((j+0x53) << 48);
+                ss = getStartSeed(seed, lsBiome);
+                cs = getChunkSeed(ss, areaX+1, areaZ+1);
+                if (mcFirstInt(cs, 6) == 5)
+                    break;
+            }
+            if (j >= 5)
+                continue;
         }
-        if (j >= 5)
-            continue;
-
 
         int64_t hits = 0, swpc;
 
@@ -160,42 +191,48 @@ int main(int argc, char *argv[])
         {
             seed = base + (j << 48);
 
-            /** Pre-Generation Checks **/
-            // We can check that at least one swamp could generate in this area
-            // before doing the biome generator checks.
-            ss = getStartSeed(seed, lsBiome);
-            cs = getChunkSeed(ss, areaX+1, areaZ+1);
-            if (mcFirstInt(cs, 6) != 5)
-                continue;
-
-            // This seed base does not seem to contain many quad huts, so make
-            // a more detailed analysis of the surroundings and see if there is
-            // enough potential for more swamps to justify searching further.
-            if (hits == 0 && (j & 0xfff) == 0xfff)
+            if (check_swamp_hut_specifics)
             {
-                swpc = 0;
-                cs = getChunkSeed(ss, areaX, areaZ+1);
-                swpc += mcFirstInt(cs, 6) == 5;
-                cs = getChunkSeed(ss, areaX+1, areaZ);
-                swpc += mcFirstInt(cs, 6) == 5;
-                cs = getChunkSeed(ss, areaX, areaZ);
-                swpc += mcFirstInt(cs, 6) == 5;
+                /** Pre-Generation Checks **/
+                // We can check that at least one swamp could generate in this
+                // area before doing the biome generator checks.
+                ss = getStartSeed(seed, lsBiome);
+                cs = getChunkSeed(ss, areaX+1, areaZ+1);
+                if (mcFirstInt(cs, 6) != 5)
+                    continue;
 
-                if (swpc < (j > 0x1000 ? 2 : 1))
-                    break;
+                // This seed base does not seem to contain many quad huts, so
+                // make a more detailed analysis of the surroundings and see if
+                // there is enough potential for more swamps to justify
+                // searching further.
+                if (hits == 0 && (j & 0xfff) == 0xfff)
+                {
+                    swpc = 0;
+                    cs = getChunkSeed(ss, areaX, areaZ+1);
+                    swpc += mcFirstInt(cs, 6) == 5;
+                    cs = getChunkSeed(ss, areaX+1, areaZ);
+                    swpc += mcFirstInt(cs, 6) == 5;
+                    cs = getChunkSeed(ss, areaX, areaZ);
+                    swpc += mcFirstInt(cs, 6) == 5;
+
+                    if (swpc < (j > 0x1000 ? 2 : 1))
+                        break;
+                }
+
+                // Dismiss seeds that don't have a swamp near the quad temple.
+                setWorldSeed(lFilterBiome, seed);
+                genArea(lFilterBiome, biomeCache, (regPosX<<1)+2, (regPosZ<<1)+2, 1, 1);
+
+                if (biomeCache[0] != swamp)
+                    continue;
             }
 
-            // Dismiss seeds that don't have a swamp near the quad temple.
-            setWorldSeed(lFilterBiome, seed);
-            genArea(lFilterBiome, biomeCache, (regPosX<<1)+2, (regPosZ<<1)+2, 1, 1);
-
-            if (biomeCache[0] != swamp)
-                continue;
-
-            if (!isViableStructurePos(SWAMP_HUT_CONFIG, mcversion, &g, seed, qhpos[0].x, qhpos[0].z)) continue;
-            if (!isViableStructurePos(SWAMP_HUT_CONFIG, mcversion, &g, seed, qhpos[1].x, qhpos[1].z)) continue;
-            if (!isViableStructurePos(SWAMP_HUT_CONFIG, mcversion, &g, seed, qhpos[2].x, qhpos[2].z)) continue;
-            if (!isViableStructurePos(SWAMP_HUT_CONFIG, mcversion, &g, seed, qhpos[3].x, qhpos[3].z)) continue;
+            // we need to use config here for pre 1.13 as that would not
+            // specify that we are only interested in swamp huts
+            if (!isViableStructurePos(Swamp_Hut, mcversion, &g, seed, qpos[0].x, qpos[0].z)) continue;
+            if (!isViableStructurePos(Swamp_Hut, mcversion, &g, seed, qpos[1].x, qpos[1].z)) continue;
+            if (!isViableStructurePos(Swamp_Hut, mcversion, &g, seed, qpos[2].x, qpos[2].z)) continue;
+            if (!isViableStructurePos(Swamp_Hut, mcversion, &g, seed, qpos[3].x, qpos[3].z)) continue;
 
             printf("%" PRId64 "\n", seed);
             hits++;

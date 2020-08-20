@@ -17,10 +17,12 @@
 
 #if __GNUC__
 #define PREFETCH(PTR,RW,LOC)    __builtin_prefetch(PTR,RW,LOC)
-#define EXPECT(COND,VAL)        __builtin_expect(COND,VAL)
+#define L(COND)                 (__builtin_expect(!!(COND),1))  // [[likely]]
+#define U(COND)                 (__builtin_expect((COND),0))    // [[unlikely]]
 #else
 #define PREFETCH(PTR)
-#define EXPECT(COND,VAL)        (COND)
+#define L(COND)                 (COND)
+#define U(COND)                 (COND)
 #endif
 
 

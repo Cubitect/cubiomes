@@ -6,16 +6,6 @@
 #include <math.h>
 
 
-STRUCT(quad_threadinfo_t)
-{
-    int64_t start, end;
-    StructureConfig sconf;
-    int threadID;
-    int quality;
-    const char *fnam;
-};
-
-
 //==============================================================================
 // Globals
 //==============================================================================
@@ -23,33 +13,36 @@ STRUCT(quad_threadinfo_t)
 
 Biome biomes[256];
 
+// only the very best constellations
+const int64_t lowerBaseBitsIdeal[] =
+{
+        0x43f18,0xc751a,0xf520a,
+};
 
-const int64_t lowerBaseBitsQ1[] = // for quad-structure with quality 1
-        {
-                0x3f18,0x520a,0x751a,0x9a0a
-        };
+// for the classic quad-structure constellations
+const int64_t lowerBaseBitsClassic[] =
+{
+        0x43f18,0x79a0a,0xc751a,0xf520a,
+};
 
-const int64_t lowerBaseBitsQ2[] = // for quad-structure with quality 2
-        {
-                0x0770,0x0775,0x07ad,0x07b2,0x0c3a,0x0c58,0x0cba,0x0cd8,0x0e38,
-                0x0e5a,0x0ed8,0x0eda,0x111c,0x1c96,0x2048,0x20e8,0x2248,0x224a,
-                0x22c8,0x258d,0x272d,0x2732,0x2739,0x2758,0x275d,0x27c8,0x27c9,
-                0x2aa9,0x2c3a,0x2cba,0x2eb8,0x308c,0x3206,0x371a,0x3890,0x3d0a,
-                0x3f18,0x4068,0x40ca,0x40e8,0x418a,0x4248,0x426a,0x42ea,0x4732,
-                0x4738,0x4739,0x4765,0x4768,0x476a,0x47b0,0x47b5,0x47d4,0x47d9,
-                0x47e8,0x4c58,0x4e38,0x4eb8,0x4eda,0x5118,0x520a,0x5618,0x5918,
-                0x591d,0x5a08,0x5e18,0x5f1c,0x60ca,0x6739,0x6748,0x6749,0x6758,
-                0x6776,0x67b4,0x67b9,0x67c9,0x67d8,0x67dd,0x67ec,0x6c3a,0x6c58,
-                0x6cba,0x6d9a,0x6e5a,0x6ed8,0x6eda,0x7108,0x717a,0x751a,0x7618,
-                0x791c,0x8068,0x8186,0x8248,0x824a,0x82c8,0x82ea,0x8730,0x8739,
-                0x8748,0x8768,0x87b9,0x87c9,0x87ce,0x87d9,0x898d,0x8c3a,0x8cda,
-                0x8e38,0x8eb8,0x951e,0x9718,0x9a0a,0xa04a,0xa068,0xa0ca,0xa0e8,
-                0xa18a,0xa26a,0xa2e8,0xa2ea,0xa43d,0xa4e1,0xa589,0xa76d,0xa7ac,
-                0xa7b1,0xa7ed,0xa85d,0xa86d,0xaa2d,0xb1f8,0xb217,0xb9f8,0xba09,
-                0xba17,0xbb0f,0xc54c,0xc6f9,0xc954,0xc9ce,0xd70b,0xd719,0xdc55,
-                0xdf0b,0xe1c4,0xe556,0xe589,0xea5d
-        };
+// for any valid quad-structure constellation with a structure size:
+// (7+1,7+43+1,9+1) which corresponds to a fall-damage based quad-witch-farm,
+// but may require a perfect player position
+const int64_t lowerBaseBitsHutNormal[] =
+{
+        0x43f18,0x65118,0x75618,0x79a0a, 0x89718,0x9371a,0xa5a08,0xb5e18,
+        0xc751a,0xf520a,
+};
 
+// for any valid quad-structure constellation with a structure size:
+// (7+1,7+1,9+1) which corresponds to quad-witch-farms without drop chute
+const int64_t lowerBaseBitsHutBarely[] =
+{
+        0x1272d,0x17908,0x367b9,0x43f18, 0x487c9,0x487ce,0x50aa7,0x647b5,
+        0x65118,0x75618,0x79a0a,0x89718, 0x9371a,0x967ec,0xa3d0a,0xa5918,
+        0xa591d,0xa5a08,0xb5e18,0xc6749, 0xc6d9a,0xc751a,0xd7108,0xd717a,
+        0xe2739,0xe9918,0xee1c4,0xf520a,
+};
 
 //==============================================================================
 // Saving & Loading Seeds
@@ -93,402 +86,79 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt)
 }
 
 
+
+//==============================================================================
+// Finding Structure Positions
+//==============================================================================
+
+
+Pos getStructurePos(StructureConfig config, int64_t seed, int regX, int regZ, int *valid)
+{
+    Pos pos;
+    if (valid) *valid = 0;
+
+    if (config.properties == 0)
+    {
+        pos = getFeaturePos(config, seed, regX, regZ);
+        if (valid)
+        {
+            if (config.structType == Outpost)
+            {
+                int64_t rnds = seed;
+                rnds ^= ((pos.x >> 8) ^ (pos.z >> 4)) << 4;
+                setSeed(&rnds);
+                next(&rnds, 32);
+                if (nextInt(&rnds, 5) == 0)
+                    *valid = 1;
+                else
+                    *valid = 0;
+                // Outposts also require that there are no villages nearby.
+                // However, before 1.16 this would include a biome check, so it
+                // should be tested for in the position viability check.
+            }
+            else
+            {
+                *valid = 1;
+            }
+        }
+    }
+    else if (config.properties == LARGE_STRUCT)
+    {
+        if ((config.chunkRange & (config.chunkRange-1)))
+        {
+            pos = getLargeStructurePos(config, seed, regX, regZ);
+            if (valid) *valid = 1;
+        }
+    }
+
+    return pos;
+}
+
+int isMineshaftChunk(int64_t seed, int chunkX, int chunkZ)
+{
+    int64_t s = seed;
+    setSeed(&s);
+    int64_t i = nextLong(&s);
+    int64_t j = nextLong(&s);
+    s = chunkX * i ^ chunkZ * j ^ seed;
+    setSeed(&s);
+    return nextDouble(&s) < 0.004;
+}
+
+int isTreasureChunk(int64_t seed, int chunkX, int chunkZ)
+{
+    seed = chunkX*341873128712 + chunkZ*132897987541 + seed + TREASURE_CONFIG.salt;
+    setSeed(&seed);
+    return nextFloat(&seed) < 0.01;
+}
+
+
+
 //==============================================================================
 // Multi-Structure Checks
 //==============================================================================
 
-int isQuadFeatureBase(const StructureConfig sconf, const int64_t seed, const int qual)
-{
-    // seed offsets for the regions (0,0) to (1,1)
-    const int64_t reg00base = sconf.salt;
-    const int64_t reg01base = 341873128712 + sconf.salt;
-    const int64_t reg10base = 132897987541 + sconf.salt;
-    const int64_t reg11base = 341873128712 + 132897987541 + sconf.salt;
-
-    const int range = sconf.chunkRange;
-    const int upper = range - qual - 1;
-    const int lower = qual;
-
-    int64_t s;
-
-    s = (reg00base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    if ((int)(s >> 17) % range < upper) return 0;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    if ((int)(s >> 17) % range < upper) return 0;
-
-    s = (reg01base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    if ((int)(s >> 17) % range > lower) return 0;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    if ((int)(s >> 17) % range < upper) return 0;
-
-    s = (reg10base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    if ((int)(s >> 17) % range < upper) return 0;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    if ((int)(s >> 17) % range > lower) return 0;
-
-    s = (reg11base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    if ((int)(s >> 17) % range > lower) return 0;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    if ((int)(s >> 17) % range > lower) return 0;
-
-    return 1;
-}
-
-
-void checkVec4QuadBases(const StructureConfig sconf, int64_t seeds[256])
-{
-    const int64_t reg00base = sconf.salt;
-    const int64_t reg01base = 341873128712 + sconf.salt;
-    const int64_t reg10base = 132897987541 + sconf.salt;
-    const int64_t reg11base = 341873128712 + 132897987541 + sconf.salt;
-
-    int i;
-    for (i = 0; i < 256; i++)
-    {
-        int64_t seed = seeds[i];
-        int64_t s;
-        int dx, dz;
-
-        s = (reg00base + seed) ^ 0x5deece66dLL;
-        s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-        int x00 = (int)(s >> 17) % sconf.chunkRange;
-        if (x00 <= 16) { seeds[i] = 0; continue; }
-        s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-        int z00 = (int)(s >> 17) % sconf.chunkRange;
-        if (z00 <= 16) { seeds[i] = 0; continue; }
-        x00 -= 32; z00 -= 32;
-
-        s = (reg11base + seed) ^ 0x5deece66dLL;
-        s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-        int x11 = (int)(s >> 17) % sconf.chunkRange;
-        dx = x11 - x00;
-        if (dx >= 16) { seeds[i] = 0; continue; }
-        s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-        int z11 = (int)(s >> 17) % sconf.chunkRange;
-        dz = z11 - z00;
-        if (dz >= 16) { seeds[i] = 0; continue; }
-        if (dx*dx + dz*dz >= 16*16) { seeds[i] = 0; continue; }
-
-        s = (reg01base + seed) ^ 0x5deece66dLL;
-        s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-        int x01 = (int)(s >> 17) % sconf.chunkRange;
-        dx = x01 - x00;
-        if (dx >= 16) { seeds[i] = 0; continue; }
-        s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-        int z01 = (int)(s >> 17) % sconf.chunkRange;
-        z01 -= 32;
-        dz = z11 - z01;
-        if (dz >= 16) { seeds[i] = 0; continue; }
-
-        s = (reg10base + seed) ^ 0x5deece66dLL;
-        s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-        int x10 = (int)(s >> 17) % sconf.chunkRange;
-        x10 -= 32;
-        dx = x01 - x10;
-        if (dx >= 16) { seeds[i] = 0; continue; }
-        s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-        int z10 = (int)(s >> 17) % sconf.chunkRange;
-        dz = z10 - z01;
-        if (dz >= 16) { seeds[i] = 0; continue; }
-
-        dx = (x11 > x01 ? x11 : x01) - (x10 < x00 ? x10 : x00);
-        dz = (z11 > z10 ? z11 : z10) - (z01 < z00 ? z01 : z00);
-        if (dx*dx + dz*dz >= 256) { seeds[i] = 0; continue; } // 15.5 chunks
-    }
-}
-
-int isTriFeatureBase(const StructureConfig sconf, const int64_t seed, const int qual)
-{
-    // seed offsets for the regions (0,0) to (1,1)
-    const int64_t reg00base = sconf.salt;
-    const int64_t reg01base = 341873128712 + sconf.salt;
-    const int64_t reg10base = 132897987541 + sconf.salt;
-    const int64_t reg11base = 341873128712 + 132897987541 + sconf.salt;
-
-    const int range = sconf.chunkRange;
-    const int upper = range - qual - 1;
-    const int lower = qual;
-
-    int64_t s;
-    int missing = 0;
-
-    s = (reg00base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    if ((int)(s >> 17) % range < upper ||
-        (int)(((s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff) >> 17) % range < upper)
-    {
-        missing++;
-    }
-
-    s = (reg01base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    if ((int)(s >> 17) % range > lower ||
-        (int)(((s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff) >> 17) % range < upper)
-    {
-        if (missing) return 0;
-        missing++;
-    }
-
-    s = (reg10base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    if ((int)(s >> 17) % range < upper ||
-        (int)(((s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff) >> 17) % range > lower)
-    {
-        if (missing) return 0;
-        missing++;
-    }
-
-    s = (reg11base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    if ((int)(s >> 17) % range > lower ||
-        (int)(((s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff) >> 17) % range > lower)
-    {
-        if (missing) return 0;
-    }
-
-    return 1;
-}
-
-
-int isLargeQuadBase(const StructureConfig sconf, const int64_t seed, const int qual)
-{
-    // seed offsets for the regions (0,0) to (1,1)
-    const int64_t reg00base = sconf.salt;
-    const int64_t reg01base = 341873128712 + sconf.salt;
-    const int64_t reg10base = 132897987541 + sconf.salt;
-    const int64_t reg11base = 341873128712 + 132897987541 + sconf.salt;
-
-    // p1 = nextInt(range); p2 = nextInt(range); pos = (p1+p2)>>1
-    const int range = sconf.chunkRange;
-    const int rmax  = (qual << 1) + 1;         // p1 <= rmax && p1+p2 <= rmax
-    const int rmin2 = (range - qual - 1) << 1; // p1+p2 >= rmin2
-    const int rmin1 = rmin2 - range + 1;       // p1 >= rmin1
-
-    int64_t s;
-    int p;
-
-    s = (reg00base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p = (int)(s >> 17) % range;
-    if (p < rmin1) return 0;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p += (int)(s >> 17) % range;
-    if (p < rmin2) return 0;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p = (int)(s >> 17) % range;
-    if (p < rmin1) return 0;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p += (int)(s >> 17) % range;
-    if (p < rmin2) return 0;
-
-    s = (reg01base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p = (int)(s >> 17) % range;
-    if (p > rmax) return 0;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p += (int)(s >> 17) % range;
-    if (p > rmax) return 0;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p = (int)(s >> 17) % range;
-    if (p < rmin1) return 0;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p += (int)(s >> 17) % range;
-    if (p < rmin2) return 0;
-
-    s = (reg10base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p = (int)(s >> 17) % range;
-    if (p < rmin1) return 0;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p += (int)(s >> 17) % range;
-    if (p < rmin2) return 0;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p = (int)(s >> 17) % range;
-    if (p > rmax) return 0;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p += (int)(s >> 17) % range;
-    if (p > rmax) return 0;
-
-    s = (reg11base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p = (int)(s >> 17) % range;
-    if (p > rmax) return 0;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p += (int)(s >> 17) % range;
-    if (p > rmax) return 0;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p = (int)(s >> 17) % range;
-    if (p > rmax) return 0;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p += (int)(s >> 17) % range;
-    if (p > rmax) return 0;
-
-    return 1;
-}
-
-
-int isLargeTriBase(const StructureConfig sconf, const int64_t seed, const int qual)
-{
-    // seed offsets for the regions (0,0) to (1,1)
-    const int64_t reg00base = sconf.salt;
-    const int64_t reg01base = 341873128712 + sconf.salt;
-    const int64_t reg10base = 132897987541 + sconf.salt;
-    const int64_t reg11base = 341873128712 + 132897987541 + sconf.salt;
-
-    // p1 = nextInt(range); p2 = nextInt(range); pos = (p1+p2)>>1
-    const int range = sconf.chunkRange;
-    const int rmax  = (qual << 1) + 1;         // p1 <= rmax && p1+p2 <= rmax
-    const int rmin2 = (range - qual - 1) << 1; // p1+p2 >= rmin2
-    const int rmin1 = rmin2 - range + 1;       // p1 >= rmin1
-
-    int64_t s;
-    int p;
-
-    int incomplete = 0;
-
-    s = (reg00base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p = (int)(s >> 17) % range;
-    if (p < rmin1) goto incomp11;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p += (int)(s >> 17) % range;
-    if (p < rmin2) goto incomp11;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p = (int)(s >> 17) % range;
-    if (p < rmin1) goto incomp11;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p += (int)(s >> 17) % range;
-    if (p < rmin2) goto incomp11;
-
-    if (0)
-    {
-        incomp11:
-        incomplete = 1;
-    }
-
-    s = (reg01base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p = (int)(s >> 17) % range;
-    if (p > rmax) goto incomp01;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p += (int)(s >> 17) % range;
-    if (p > rmax) goto incomp01;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p = (int)(s >> 17) % range;
-    if (p < rmin1) goto incomp01;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p += (int)(s >> 17) % range;
-    if (p < rmin2) goto incomp01;
-
-    if (0)
-    {
-        incomp01:
-        if (incomplete) return 0;
-        incomplete = 2;
-    }
-
-    s = (reg10base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p = (int)(s >> 17) % range;
-    if (p < rmin1) goto incomp10;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p += (int)(s >> 17) % range;
-    if (p < rmin2) goto incomp10;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p = (int)(s >> 17) % range;
-    if (p > rmax) goto incomp10;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p += (int)(s >> 17) % range;
-    if (p > rmax) goto incomp10;
-
-    if (0)
-    {
-        incomp10:
-        if (incomplete) return 0;
-        incomplete = 3;
-    }
-
-    s = (reg11base + seed) ^ 0x5deece66dLL; // & 0xffffffffffff;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p = (int)(s >> 17) % range;
-    if (p > rmax) goto incomp00;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p += (int)(s >> 17) % range;
-    if (p > rmax) goto incomp00;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p = (int)(s >> 17) % range;
-    if (p > rmax) goto incomp00;
-    s = (s * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    p += (int)(s >> 17) % range;
-    if (p > rmax) goto incomp00;
-
-    if (0)
-    {
-        incomp00:
-        if (incomplete) return 0;
-        incomplete = 4;
-    }
-
-    return incomplete ? incomplete : -1;
-}
-
-
-/* Calls the correct quad-base finder for the structure config, if available.
- * (Exits program otherwise.)
- */
-int isQuadBase(const StructureConfig sconf, const int64_t seed, const int64_t qual)
-{
-    if ((sconf.chunkRange & (sconf.chunkRange-1)) == 0)
-    {
-        fprintf(stderr,
-                "Quad-finder using power of 2 RNG is not implemented yet.\n");
-        exit(-1);
-    }
-
-    switch(sconf.properties)
-    {
-    case 0:
-        return isQuadFeatureBase(sconf, seed, qual);
-    case LARGE_STRUCT:
-        return isLargeQuadBase(sconf, seed, qual);
-    default:
-        fprintf(stderr,
-                "Unknown properties field for structure: 0x%04X\n",
-                sconf.properties);
-        exit(-1);
-    }
-}
-
-/* Calls the correct triple-base finder for the structure config, if available.
- * (Exits program otherwise.)
- */
-int isTriBase(const StructureConfig sconf, const int64_t seed, const int64_t qual)
-{
-    if ((sconf.chunkRange & (sconf.chunkRange-1)) == 0)
-    {
-        fprintf(stderr,
-                "Tri-finder using power of 2 RNG is not implemented yet.\n");
-        exit(-1);
-    }
-
-    switch(sconf.properties)
-    {
-    case 0:
-        return isTriFeatureBase(sconf, seed, qual);
-    case LARGE_STRUCT:
-        return isLargeTriBase(sconf, seed, qual);
-    default:
-        fprintf(stderr,
-                "Unknown properties field for structure: 0x%04X\n",
-                sconf.properties);
-        exit(-1);
-    }
-}
-
+// TODO: accurate seed testers for two or three structures in range
 
 
 /* Searches for the optimal AFK position given four structures at positions 'p',
@@ -527,8 +197,8 @@ int countBlocksInSpawnRange(Pos p[4], const int ax, const int ay, const int az)
 
             for (i = 0; i < 4; i++)
             {
-                double dx = p[i].x - (x+0.5);
-                double dz = p[i].z - (z+0.5);
+                double dx = p[i].x - (x);
+                double dz = p[i].z - (z);
 
                 for (px = 0; px < ax; px++)
                 {
@@ -551,6 +221,17 @@ int countBlocksInSpawnRange(Pos p[4], const int ax, const int ay, const int az)
     return best;
 }
 
+
+STRUCT(quad_threadinfo_t)
+{
+    int64_t start, end;
+    StructureConfig sconf;
+    int threadID;
+    int radius;
+    int lbitset;
+    const char *fnam;
+};
+
 #ifdef USE_PTHREAD
 static void *search4QuadBasesThread(void *data)
 #else
@@ -561,7 +242,7 @@ static DWORD WINAPI search4QuadBasesThread(LPVOID data)
 
     const int64_t start       = info.start;
     const int64_t end         = info.end;
-    const StructureConfig stc = info.sconf;
+    const int64_t salt        = info.sconf.salt;
 
     int64_t seed;
 
@@ -570,37 +251,38 @@ static DWORD WINAPI search4QuadBasesThread(LPVOID data)
     int lowerBitsIdx = 0;
     int i;
 
-    lowerBits = (int64_t *) malloc(0x10000 * sizeof(int64_t));
+    lowerBits = (int64_t *) malloc(0x100000 * sizeof(int64_t));
 
-    if (stc.properties == 0 && stc.chunkRange == 24 && info.quality == 1)
+    switch (info.lbitset)
     {
-        lowerBitsCnt = sizeof(lowerBaseBitsQ1) / sizeof(lowerBaseBitsQ1[0]);
+    case LBIT_IDEAL:
+        lowerBitsCnt = sizeof(lowerBaseBitsIdeal) / sizeof(int64_t);
         for (i = 0; i < lowerBitsCnt; i++)
-        {
-            lowerBits[i] = (lowerBaseBitsQ1[i] - stc.salt) & 0xffff;
-        }
-    }
-    else if (stc.properties == 0 && stc.chunkRange == 24 && info.quality == 2)
-    {
-        lowerBitsCnt = sizeof(lowerBaseBitsQ2) / sizeof(lowerBaseBitsQ2[0]);
-        for (i = 0; i < lowerBitsCnt; i++)
-        {
-            lowerBits[i] = (lowerBaseBitsQ2[i] - stc.salt) & 0xffff;
-        }
-    }
-    else if (stc.properties == 0 && stc.chunkRange == 24 && info.quality == -1)
-    {
-        lowerBitsCnt = 0x100;
-        for (i = 0; i < lowerBitsCnt; i++) lowerBits[i] = i << 8;
-    }
-    else
-    {
-        printf("WARN search4QuadBasesThread: "
-               "Lower bits for this quality and property have not been defined"
-               " => trying all combinations.\n");
+            lowerBits[i] = (lowerBaseBitsIdeal[i] - salt) & 0xfffff;
+        break;
 
-        lowerBitsCnt = 0x10000;
+    case LBIT_CLASSIC:
+        lowerBitsCnt = sizeof(lowerBaseBitsClassic) / sizeof(int64_t);
+        for (i = 0; i < lowerBitsCnt; i++)
+            lowerBits[i] = (lowerBaseBitsClassic[i] - salt) & 0xfffff;
+        break;
+
+    case LBIT_HUT_NORMAL:
+        lowerBitsCnt = sizeof(lowerBaseBitsHutNormal) / sizeof(int64_t);
+        for (i = 0; i < lowerBitsCnt; i++)
+            lowerBits[i] = (lowerBaseBitsHutNormal[i] - salt) & 0xfffff;
+        break;
+
+    case LBIT_HUT_BARELY:
+        lowerBitsCnt = sizeof(lowerBaseBitsHutBarely) / sizeof(int64_t);
+        for (i = 0; i < lowerBitsCnt; i++)
+            lowerBits[i] = (lowerBaseBitsHutBarely[i] - salt) & 0xfffff;
+        break;
+
+    default:
+        lowerBitsCnt = 0x100000;
         for (i = 0; i < lowerBitsCnt; i++) lowerBits[i] = i;
+        break;
     }
 
     char fnam[256];
@@ -632,10 +314,10 @@ static DWORD WINAPI search4QuadBasesThread(LPVOID data)
     {
         if (sscanf(buf, "%" PRId64, &seed) == 1)
         {
-            while (lowerBits[lowerBitsIdx] <= (seed & 0xffff))
+            while (lowerBits[lowerBitsIdx] <= (seed & 0xfffff))
                 lowerBitsIdx++;
 
-            seed = (seed & 0x0000ffffffff0000) + lowerBits[lowerBitsIdx];
+            seed = (seed & 0x0000fffffff00000) + lowerBits[lowerBitsIdx];
 
             printf("Thread %d starting from: %" PRId64"\n", info.threadID, seed);
         }
@@ -648,42 +330,26 @@ static DWORD WINAPI search4QuadBasesThread(LPVOID data)
 
     fseek(fp, 0, SEEK_END);
 
-
     while (seed < end)
     {
-        if (info.quality >= 0)
+        float r = isQuadBase(info.sconf, seed, info.radius);
+        if (r)
         {
-            if (isQuadBase(info.sconf, seed, info.quality))
-            {
-                fprintf(fp, "%" PRId64"\n", seed);
-                fflush(fp);
-            }
-        }
-        else
-        {
-            int64_t st[0x100];
-            int i;
-            for (i = 0; i < 0x100; i++)
-                st[i] = seed + i;
-            checkVec4QuadBases(info.sconf, st);
-            for (i = 0; i < 0x100; i++)
-            {
-                int64_t base = st[i];
-                if (base)
-                {
-                    fprintf(fp, "%" PRId64"\n", base);
-                    fflush(fp);
-                }
-            }
+            fprintf(fp, "%" PRId64"\n", seed);
+            fflush(fp);
+            //FILE *ftmp = fopen("./seeds/hex", "a");
+            //fprintf(ftmp, "0x%05lx %.6f\n", (seed + salt) & 0xfffff, r);
+            //fflush(ftmp);
+            //fclose(ftmp);
         }
 
         lowerBitsIdx++;
         if (lowerBitsIdx >= lowerBitsCnt)
         {
             lowerBitsIdx = 0;
-            seed += 0x10000;
+            seed += 0x100000;
         }
-        seed = (seed & 0x0000ffffffff0000) + lowerBits[lowerBitsIdx];
+        seed = (seed & 0x0000fffffff00000) + lowerBits[lowerBitsIdx];
     }
 
     fclose(fp);
@@ -696,8 +362,8 @@ static DWORD WINAPI search4QuadBasesThread(LPVOID data)
 }
 
 
-void search4QuadBases(const char *fnam, const int threads,
-        const StructureConfig structureConfig, const int quality)
+void search4QuadBases(const char *fnam, int threads,
+        const StructureConfig structureConfig, int radius, int lbitset)
 {
     thread_id_t threadID[threads];
     quad_threadinfo_t info[threads];
@@ -706,10 +372,11 @@ void search4QuadBases(const char *fnam, const int threads,
     for (t = 0; t < threads; t++)
     {
         info[t].threadID = t;
-        info[t].start = (t * SEED_BASE_MAX / threads) & 0x0000ffffffff0000;
-        info[t].end = ((info[t].start + (SEED_BASE_MAX-1) / threads) & 0x0000ffffffff0000) + 1;
+        info[t].start = (t * SEED_BASE_MAX / threads) & 0x0000fffffff00000;
+        info[t].end = ((info[t].start + (SEED_BASE_MAX-1) / threads) & 0x0000fffffff00000) + 1;
         info[t].fnam = fnam;
-        info[t].quality = quality;
+        info[t].radius = radius;
+        info[t].lbitset = lbitset;
         info[t].sconf = structureConfig;
     }
 
@@ -782,159 +449,6 @@ void search4QuadBases(const char *fnam, const int threads,
     fclose(fp);
 }
 
-
-//==============================================================================
-// Finding Structure Positions
-//==============================================================================
-
-
-Pos getStructurePos(const StructureConfig config, int64_t seed,
-        const int regionX, const int regionZ)
-{
-    Pos pos;
-
-    // set seed
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + config.salt;
-    seed = (seed ^ 0x5deece66dLL);// & ((1LL << 48) - 1);
-
-    seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-
-    if (config.chunkRange & (config.chunkRange-1))
-    {
-        pos.x = (int)(seed >> 17) % config.chunkRange;
-
-        seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-        pos.z = (int)(seed >> 17) % config.chunkRange;
-    }
-    else
-    {
-        // Java RNG treats powers of 2 as a special case.
-        pos.x = (config.chunkRange * (seed >> 17)) >> 31;
-
-        seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-        pos.z = (config.chunkRange * (seed >> 17)) >> 31;
-    }
-
-    // Structure is positioned at chunk origin but the biome check is performed
-    // at block position (9,9) within chunk. [CHECK: maybe (8,8) in 1.7]
-    pos.x = ((regionX*config.regionSize + pos.x) << 4) + 9;
-    pos.z = ((regionZ*config.regionSize + pos.z) << 4) + 9;
-    return pos;
-}
-
-Pos getStructureChunkInRegion(const StructureConfig config, int64_t seed,
-        const int regionX, const int regionZ)
-{
-    /*
-    // Vanilla like implementation.
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + structureSeed;
-    setSeed(&(seed));
-
-    Pos pos;
-    pos.x = nextInt(&seed, 24);
-    pos.z = nextInt(&seed, 24);
-    */
-    Pos pos;
-
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + config.salt;
-    seed = (seed ^ 0x5deece66dLL);// & ((1LL << 48) - 1);
-
-    seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-
-    if (config.chunkRange & (config.chunkRange-1))
-    {
-        pos.x = (int)(seed >> 17) % config.chunkRange;
-
-        seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-        pos.z = (int)(seed >> 17) % config.chunkRange;
-    }
-    else
-    {
-        // Java RNG treats powers of 2 as a special case.
-        pos.x = (config.chunkRange * (seed >> 17)) >> 31;
-
-        seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-        pos.z = (config.chunkRange * (seed >> 17)) >> 31;
-    }
-
-    return pos;
-}
-
-
-Pos getLargeStructurePos(StructureConfig config, int64_t seed,
-        const int regionX, const int regionZ)
-{
-    Pos pos;
-
-    //TODO: power of two chunk ranges...
-
-    // set seed
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + config.salt;
-    seed = (seed ^ 0x5deece66dLL) & ((1LL << 48) - 1);
-
-    seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    pos.x = (seed >> 17) % config.chunkRange;
-    seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    pos.x += (seed >> 17) % config.chunkRange;
-
-    seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    pos.z = (seed >> 17) % config.chunkRange;
-    seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    pos.z += (seed >> 17) % config.chunkRange;
-
-    pos.x = regionX*config.regionSize + (pos.x >> 1);
-    pos.z = regionZ*config.regionSize + (pos.z >> 1);
-    pos.x = pos.x*16 + 9;
-    pos.z = pos.z*16 + 9;
-    return pos;
-}
-
-
-Pos getLargeStructureChunkInRegion(StructureConfig config, int64_t seed,
-        const int regionX, const int regionZ)
-{
-    Pos pos;
-
-    //TODO: power of two chunk ranges...
-
-    // set seed
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + config.salt;
-    seed = (seed ^ 0x5deece66dLL) & ((1LL << 48) - 1);
-
-    seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    pos.x = (seed >> 17) % config.chunkRange;
-    seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    pos.x += (seed >> 17) % config.chunkRange;
-
-    seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    pos.z = (seed >> 17) % config.chunkRange;
-    seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    pos.z += (seed >> 17) % config.chunkRange;
-
-    pos.x >>= 1;
-    pos.z >>= 1;
-
-    return pos;
-}
-
-
-int isMineshaftChunk(int64_t seed, const int chunkX, const int chunkZ)
-{
-    int64_t s = seed;
-    setSeed(&s);
-    int64_t i = nextLong(&s);
-    int64_t j = nextLong(&s);
-    s = chunkX * i ^ chunkZ * j ^ seed;
-    setSeed(&s);
-    return nextDouble(&s) < 0.004;
-}
-
-int isTreasureChunk(int64_t seed, const int chunkX, const int chunkZ)
-{
-    seed = chunkX*341873128712 + chunkZ*132897987541 + seed + TREASURE_CONFIG.salt;
-    setSeed(&seed);
-    return nextFloat(&seed) < 0.01;
-}
 
 
 //==============================================================================
@@ -1394,13 +908,13 @@ int isViableFeatureBiome(int structureType, int biomeID)
     {
     case Desert_Pyramid:
         return biomeID == desert || biomeID == desert_hills;
-    case Igloo:
-        return biomeID == snowy_tundra || biomeID == snowy_taiga;
     case Jungle_Pyramid:
         return (biomeID == jungle || biomeID == jungle_hills ||
                 biomeID == bamboo_jungle || biomeID == bamboo_jungle_hills);
     case Swamp_Hut:
         return biomeID == swamp;
+    case Igloo:
+        return biomeID == snowy_tundra || biomeID == snowy_taiga;
     case Ocean_Ruin:
         return isOceanic(biomeID);
     case Shipwreck:
@@ -1479,11 +993,10 @@ static const char *getValidMansionBiomes()
 static int mapViableBiome(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int err = mapBiome(l, out, x, z, w, h);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
-    const StructureConfig *sconf = (const StructureConfig*) l->data;
-    int styp = sconf->structType;
+    int styp = * (const int*) l->data;
     int i, j;
 
     for (j = 0; j < h; j++)
@@ -1497,16 +1010,16 @@ static int mapViableBiome(const Layer * l, int * out, int x, int z, int w, int h
                 if (biomeID == desert || getBiomeType(biomeID) == Mesa)
                     return 0;
                 break;
-            case Igloo:
-                if (biomeID == snowy_tundra || biomeID == snowy_taiga)
-                    return 0;
-                break;
             case Jungle_Pyramid:
                 if (biomeID == jungle)
                     return 0;
                 break;
             case Swamp_Hut:
                 if (biomeID == swamp)
+                    return 0;
+                break;
+            case Igloo:
+                if (biomeID == snowy_tundra || biomeID == snowy_taiga)
                     return 0;
                 break;
             case Ocean_Ruin:
@@ -1531,11 +1044,10 @@ static int mapViableBiome(const Layer * l, int * out, int x, int z, int w, int h
 static int mapViableShore(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int err = mapShore(l, out, x, z, w, h);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
-    const StructureConfig *sconf = (const StructureConfig*) l->data;
-    int styp = sconf->structType;
+    int styp = * (const int*) l->data;
     int i, j;
 
     for (j = 0; j < h; j++)
@@ -1546,9 +1058,9 @@ static int mapViableShore(const Layer * l, int * out, int x, int z, int w, int h
             switch (styp)
             {
             case Desert_Pyramid:
-            case Igloo:
             case Jungle_Pyramid:
             case Swamp_Hut:
+            case Igloo:
             case Ocean_Ruin:
             case Shipwreck:
             case Village:
@@ -1568,8 +1080,8 @@ static int mapViableShore(const Layer * l, int * out, int x, int z, int w, int h
 }
 
 
-int isViableStructurePos(const StructureConfig sconf, int mcversion,
-        LayerStack *g, int64_t seed, int blockX, int blockZ)
+int isViableStructurePos(int structureType, int mcversion, LayerStack *g,
+        int64_t seed, int blockX, int blockZ)
 {
     int *map = NULL;
     Layer *l;
@@ -1582,17 +1094,17 @@ int isViableStructurePos(const StructureConfig sconf, int mcversion,
     Layer lbiome = g->layers[L_BIOME_256];
     Layer lshore = g->layers[L_SHORE_16];
 
-    g->layers[L_BIOME_256].data = (void*) &sconf;
+    g->layers[L_BIOME_256].data = (void*) &structureType;
     g->layers[L_BIOME_256].getMap = mapViableBiome;
-    g->layers[L_SHORE_16].data = (void*) &sconf;
+    g->layers[L_SHORE_16].data = (void*) &structureType;
     g->layers[L_SHORE_16].getMap = mapViableShore;
 
-    switch (sconf.structType)
+    switch (structureType)
     {
     case Desert_Pyramid:
-    case Igloo:
     case Jungle_Pyramid:
     case Swamp_Hut:
+    case Igloo:
     case Ocean_Ruin:
     case Shipwreck:
     case Treasure:
@@ -1612,7 +1124,7 @@ int isViableStructurePos(const StructureConfig sconf, int mcversion,
         map = allocCache(l, 1, 1);
         if (genArea(l, map, blockX, blockZ, 1, 1))
             goto L_NOT_VIABLE;
-        if (!isViableFeatureBiome(sconf.structType, map[0]))
+        if (!isViableFeatureBiome(structureType, map[0]))
             goto L_NOT_VIABLE;
         goto L_VIABLE;
 
@@ -1676,13 +1188,13 @@ int isViableStructurePos(const StructureConfig sconf, int mcversion,
         {
             for (rx = cx0 >> 5; rx <= cx1 >> 5; rx++)
             {
-                Pos p = getStructurePos(VILLAGE_CONFIG, seed, rx, rz);
+                Pos p = getFeaturePos(VILLAGE_CONFIG, seed, rx, rz);
                 int cx = p.x >> 4, cz = p.z >> 4;
                 if (cx >= cx0 && cx <= cx1 && cz >= cz0 && cz <= cz1)
                 {
                     if (mcversion >= MC_1_16)
                         goto L_NOT_VIABLE;
-                    if (isViableStructurePos(VILLAGE_CONFIG, mcversion, g, seed, p.x, p.z))
+                    if (isViableStructurePos(Village, mcversion, g, seed, p.x, p.z))
                         goto L_NOT_VIABLE;
                     goto L_VIABLE;
                 }
@@ -2098,7 +1610,7 @@ static int mapFilterSpecial(const Layer * l, int * out, int x, int z, int w, int
     }
 
     int err = mapSpecial(l, out, x, z, w, h);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     temps = 0;
@@ -2147,7 +1659,7 @@ static int mapFilterMushroom(const Layer * l, int * out, int x, int z, int w, in
 
 L_GENERATE:
     err = mapAddMushroomIsland(l, out, x, z, w, h);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     if (bf->majorToFind & (1ULL << mushroom_fields))
@@ -2167,7 +1679,7 @@ static int mapFilterBiome(const Layer * l, int * out, int x, int z, int w, int h
     uint64_t b;
 
     int err = mapBiome(l, out, x, z, w, h);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     b = 0;
@@ -2192,7 +1704,7 @@ static int mapFilterOceanTemp(const Layer * l, int * out, int x, int z, int w, i
     uint64_t b;
 
     int err = mapOceanTemp(l, out, x, z, w, h);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     b = 0;
@@ -2218,7 +1730,7 @@ static int mapFilterBiomeEdge(const Layer * l, int * out, int x, int z, int w, i
     int err;
 
     err = mapBiomeEdge(l, out, x, z, w, h);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     b = 0;
@@ -2238,7 +1750,7 @@ static int mapFilterRareBiome(const Layer * l, int * out, int x, int z, int w, i
     int err;
 
     err = mapRareBiome(l, out, x, z, w, h);
-    if (EXPECT(err, 0))
+    if U(err != 0)
         return err;
 
     b = 0; bm = 0;
@@ -2263,7 +1775,7 @@ static int mapFilterShore(const Layer * l, int * out, int x, int z, int w, int h
     int i;
 
     int err = mapShore(l, out, x, z, w, h);
-    if (EXPECT(err, 0)) return err;
+    if U(err != 0) return err;
 
     b = 0; bm = 0;
     for (i = 0; i < w*h; i++)
@@ -2287,7 +1799,7 @@ static int mapFilterRiverMix(const Layer * l, int * out, int x, int z, int w, in
     int i;
 
     int err = mapRiverMix(l, out, x, z, w, h);
-    if (EXPECT(err, 0)) return err;
+    if U(err != 0) return err;
 
     b = 0; bm = 0;
     for (i = 0; i < w*h; i++)
@@ -2318,7 +1830,7 @@ static int mapFilterOceanMix(const Layer * l, int * out, int x, int z, int w, in
     }
 
     err = mapOceanMix(l, out, x, z, w, h);
-    if (EXPECT(err, 0)) return err;
+    if U(err != 0) return err;
 
     b = 0;
     for (i = 0; i < w*h; i++)
