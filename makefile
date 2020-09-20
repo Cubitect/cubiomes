@@ -14,7 +14,7 @@ endif
 
 .PHONY : all release debug libcubiomes clean
 
-all: release
+all: debug
 
 debug: CFLAGS += -DDEBUG -O0 -ggdb3
 debug: libcubiomes find_quadhuts find_compactbiomes
@@ -37,9 +37,6 @@ find_quadhuts: find_quadhuts.o layers.o generator.o finders.o
 find_quadhuts.o: find_quadhuts.c
 	$(CC) -c $(CFLAGS) $<
 
-
-xmapview.o: xmapview.c xmapview.h
-	$(CC) -c $(CFLAGS) $<
 
 finders.o: finders.c finders.h
 	$(CC) -c $(CFLAGS) $<

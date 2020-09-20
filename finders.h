@@ -54,6 +54,39 @@ enum // village house types prior to 1.14
     Blacksmith, HouseLarge, HOUSE_NUM
 };
 
+
+// only the very best constellations
+static const int64_t lowerBaseBitsIdeal[] =
+{
+        0x43f18,0xc751a,0xf520a,
+};
+
+// for the classic quad-structure constellations
+static const int64_t lowerBaseBitsClassic[] =
+{
+        0x43f18,0x79a0a,0xc751a,0xf520a,
+};
+
+// for any valid quad-structure constellation with a structure size:
+// (7+1,7+43+1,9+1) which corresponds to a fall-damage based quad-witch-farm,
+// but may require a perfect player position
+static const int64_t lowerBaseBitsHutNormal[] =
+{
+        0x43f18,0x65118,0x75618,0x79a0a, 0x89718,0x9371a,0xa5a08,0xb5e18,
+        0xc751a,0xf520a,
+};
+
+// for any valid quad-structure constellation with a structure size:
+// (7+1,7+1,9+1) which corresponds to quad-witch-farms without drop chute
+static const int64_t lowerBaseBitsHutBarely[] =
+{
+        0x1272d,0x17908,0x367b9,0x43f18, 0x487c9,0x487ce,0x50aa7,0x647b5,
+        0x65118,0x75618,0x79a0a,0x89718, 0x9371a,0x967ec,0xa3d0a,0xa5918,
+        0xa591d,0xa5a08,0xb5e18,0xc6749, 0xc6d9a,0xc751a,0xd7108,0xd717a,
+        0xe2739,0xe9918,0xee1c4,0xf520a,
+};
+
+
 STRUCT(StructureConfig)
 {
     int             salt;
@@ -65,6 +98,10 @@ STRUCT(StructureConfig)
 
 /* for desert pyramids, jungle temples, witch huts and igloos prior to 1.13 */
 static const StructureConfig FEATURE_CONFIG        = { 14357617, 32, 24, Feature, 0};
+static const StructureConfig DESERT_CONFIG_17      = { 14357617, 32, 24, Desert_Pyramid, 0};
+static const StructureConfig IGLOO_CONFIG_17       = { 14357617, 32, 24, Igloo, 0};
+static const StructureConfig JUNGLE_CONFIG_17      = { 14357617, 32, 24, Jungle_Pyramid, 0};
+static const StructureConfig SWAMP_HUT_CONFIG_17   = { 14357617, 32, 24, Swamp_Hut, 0};
 
 /* ocean features before 1.16 */
 static const StructureConfig OCEAN_RUIN_CONFIG_113 = { 14357621, 16,  8, Ocean_Ruin, 0};
@@ -320,10 +357,10 @@ float isQuadBaseLarge (const StructureConfig sconf, int64_t seed,
 enum LowBitSet
 {
     LBIT_ALL,           // all bit configurations
-    LBIT_IDEAL,         // only the very best constellations that exist
-    LBIT_CLASSIC,       // only classic constellations
-    LBIT_HUT_NORMAL,    // sufficiently close for standard farm designs
     LBIT_HUT_BARELY,    // any constellation for huts within 128 blocks
+    LBIT_HUT_NORMAL,    // sufficiently close for standard farm designs
+    LBIT_CLASSIC,       // only classic constellations
+    LBIT_IDEAL,         // only the very best constellations that exist
 };
 
 /* Starts a multi-threaded search for quad-bases, given a maximum block radius
@@ -333,6 +370,7 @@ void search4QuadBases(const char *fnam, int threads,
         const StructureConfig structureConfig, int radius, int lbitset);
 
 
+int countBlocksInSpawnRange(Pos p[4], int ax, int ay, int az, Pos *afk);
 
 //==============================================================================
 // Checking Biomes & Biome Helper Functions
@@ -716,9 +754,9 @@ static inline float isQuadBase(const StructureConfig sconf, int64_t seed, int ra
     {
     case Swamp_Hut:
         if (radius == 128)
-            return isQuadBaseFeature24(sconf, seed, 7+1, 7+43+1, 9+1);
+            return isQuadBaseFeature24(sconf, seed, 7+1, 7+1, 9+1);//7+1, 7+43+1, 9+1);
         else
-            return isQuadBaseFeature(sconf, seed, 7+1, 7+43+1, 9+1, radius);
+            return isQuadBaseFeature(sconf, seed, 7+1, 7+1, 9+1, radius);
     case Desert_Pyramid:
     case Jungle_Pyramid:
     case Igloo:

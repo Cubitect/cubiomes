@@ -13,37 +13,6 @@
 
 Biome biomes[256];
 
-// only the very best constellations
-const int64_t lowerBaseBitsIdeal[] =
-{
-        0x43f18,0xc751a,0xf520a,
-};
-
-// for the classic quad-structure constellations
-const int64_t lowerBaseBitsClassic[] =
-{
-        0x43f18,0x79a0a,0xc751a,0xf520a,
-};
-
-// for any valid quad-structure constellation with a structure size:
-// (7+1,7+43+1,9+1) which corresponds to a fall-damage based quad-witch-farm,
-// but may require a perfect player position
-const int64_t lowerBaseBitsHutNormal[] =
-{
-        0x43f18,0x65118,0x75618,0x79a0a, 0x89718,0x9371a,0xa5a08,0xb5e18,
-        0xc751a,0xf520a,
-};
-
-// for any valid quad-structure constellation with a structure size:
-// (7+1,7+1,9+1) which corresponds to quad-witch-farms without drop chute
-const int64_t lowerBaseBitsHutBarely[] =
-{
-        0x1272d,0x17908,0x367b9,0x43f18, 0x487c9,0x487ce,0x50aa7,0x647b5,
-        0x65118,0x75618,0x79a0a,0x89718, 0x9371a,0x967ec,0xa3d0a,0xa5918,
-        0xa591d,0xa5a08,0xb5e18,0xc6749, 0xc6d9a,0xc751a,0xd7108,0xd717a,
-        0xe2739,0xe9918,0xee1c4,0xf520a,
-};
-
 //==============================================================================
 // Saving & Loading Seeds
 //==============================================================================
@@ -92,6 +61,14 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt)
 //==============================================================================
 
 
+static int testOutpostPos(int64_t s, int cx, int cz)
+{
+    s ^= (cx >> 4) ^ ( (cz >> 4) << 4 );
+    setSeed(&s);
+    next(&s, 32);
+    return nextInt(&s, 5) == 0;
+}
+
 Pos getStructurePos(StructureConfig config, int64_t seed, int regX, int regZ, int *valid)
 {
     Pos pos;
@@ -104,14 +81,7 @@ Pos getStructurePos(StructureConfig config, int64_t seed, int regX, int regZ, in
         {
             if (config.structType == Outpost)
             {
-                int64_t rnds = seed;
-                rnds ^= ((pos.x >> 8) ^ (pos.z >> 4)) << 4;
-                setSeed(&rnds);
-                next(&rnds, 32);
-                if (nextInt(&rnds, 5) == 0)
-                    *valid = 1;
-                else
-                    *valid = 0;
+                *valid = testOutpostPos(seed, pos.x >> 4, pos.z >> 4);
                 // Outposts also require that there are no villages nearby.
                 // However, before 1.16 this would include a biome check, so it
                 // should be tested for in the position viability check.
@@ -166,10 +136,10 @@ int isTreasureChunk(int64_t seed, int chunkX, int chunkZ)
  *
  * Returned is the number of spawning spaces within reach.
  */
-int countBlocksInSpawnRange(Pos p[4], const int ax, const int ay, const int az)
+int countBlocksInSpawnRange(Pos p[4], int ax, int ay, int az, Pos *afk)
 {
     int minX = 3e7, minZ = 3e7, maxX = -3e7, maxZ = -3e7;
-    int best, i, x, z, px, pz;
+    int bestr, bestn, i, x, z, px, pz;
 
 
     // Find corners
@@ -185,9 +155,10 @@ int countBlocksInSpawnRange(Pos p[4], const int ax, const int ay, const int az)
     // assume that the search area is bound by the inner corners
     maxX += ax;
     maxZ += az;
-    best = 0;
+    bestr = 0;
+    bestn = 0;
 
-    double thsq = 128.0*128.0 - az*az/4.0;
+    double thsq = 128.0*128.0 - ay*ay/4.0;
 
     for (x = minX; x < maxX; x++)
     {
@@ -211,14 +182,35 @@ int countBlocksInSpawnRange(Pos p[4], const int ax, const int ay, const int az)
                 }
             }
 
-            if (inrange > best)
+            if (inrange > bestr)
             {
-                best = inrange;
+                if (afk)
+                {
+                    afk->x = x;
+                    afk->z = z;
+                    bestn = 1;
+                }
+                bestr = inrange;
+            }
+            else if (inrange == bestr)
+            {
+                if (afk)
+                {
+                    afk->x += x;
+                    afk->z += z;
+                    bestn++;
+                }
             }
         }
     }
 
-    return best;
+    if (afk && bestn)
+    {
+        afk->x /= bestn;
+        afk->z /= bestn;
+    }
+
+    return bestr;
 }
 
 
@@ -1156,11 +1148,7 @@ int isViableStructurePos(int structureType, int mcversion, LayerStack *g,
 
     case Outpost:
     {
-        int64_t rnds = seed;
-        rnds ^= ((chunkX >> 4) ^ (chunkZ >> 4)) << 4;
-        setSeed(&rnds);
-        next(&rnds, 32);
-        if (nextInt(&rnds, 5) != 0)
+        if (!testOutpostPos(seed, chunkX, chunkZ))
             goto L_NOT_VIABLE;
         if (mcversion < MC_1_16)
         {
@@ -1640,7 +1628,7 @@ static int mapFilterMushroom(const Layer * l, int * out, int x, int z, int w, in
     int i, j;
     int err;
 
-    if (w*h < 100 && bf->majorToFind & (1ULL << mushroom_fields))
+    if (w*h < 100 && (bf->majorToFind & (1ULL << mushroom_fields)))
     {
         int64_t ss = l->startSeed;
         int64_t cs;
