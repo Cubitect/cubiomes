@@ -259,8 +259,8 @@ int mapZoom(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int pX = x >> 1;
     int pZ = z >> 1;
-    int pW = ((x + w) >> 1) - pX + 1;
-    int pH = ((z + h) >> 1) - pZ + 1;
+    int pW = ((x + w) >> 1) - pX + 1; // (w >> 1) + 2;
+    int pH = ((z + h) >> 1) - pZ + 1; // (h >> 1) + 2;
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
@@ -1062,16 +1062,20 @@ int mapHills(const Layer * l, int * out, int x, int z, int w, int h)
             int b11 = out[i+1 + (j+1)*pW]; // river branch
             int idx = i + j*w;
 
-            int var12 = (b11 - 2) % 29 == 0;
+            int bn = (b11 - 2) % 29 == 0;
 
             if (a11 != 0 && b11 >= 2 && (b11 - 2) % 29 == 1 && a11 < 128)
             {
-                out[idx] = (biomeExists(a11 + 128)) ? a11 + 128 : a11;
+                int m = biomes[a11].mutated;
+                if (m > 0)
+                    out[idx] = m;
+                else
+                    out[idx] = a11;
             }
             else
             {
                 cs = getChunkSeed(ss, i + x, j + z);
-                if (mcFirstIsZero(cs, 3) && !var12)
+                if (!mcFirstIsZero(cs, 3) && !bn)
                 {
                     out[idx] = a11;
                 }
@@ -1116,11 +1120,10 @@ int mapHills(const Layer * l, int * out, int x, int z, int w, int h)
                         break;
                     }
 
-                    if (var12 && hillID != a11)
+                    if (bn != 0 && hillID != a11)
                     {
-                        if (biomeExists(hillID + 128))
-                            hillID += 128;
-                        else
+                        hillID = biomes[hillID].mutated;
+                        if (hillID < 0)
                             hillID = a11;
                     }
 

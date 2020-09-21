@@ -554,6 +554,7 @@ int areBiomesViable(
     int height = z2 - z1 + 1;
     int i;
     int *map;
+    int viable;
 
     if (l->scale != 4)
     {
@@ -562,20 +563,23 @@ int areBiomesViable(
     }
 
     map = cache ? cache : allocCache(l, width, height);
-    if (genArea(l, map, x1, z1, width, height))
-        return 0;
+    viable = !genArea(l, map, x1, z1, width, height);
 
-    for (i = 0; i < width*height; i++)
+    if (viable)
     {
-        if (!biomeExists(map[i]) || !isValid[ map[i] ])
+        for (i = 0; i < width*height; i++)
         {
-            if (cache == NULL) free(map);
-            return 0;
+            if (!biomeExists(map[i]) || !isValid[ map[i] ])
+            {
+                viable = 0;
+                break;
+            }
         }
     }
 
-    if (cache == NULL) free(map);
-    return 1;
+    if (cache == NULL)
+        free(map);
+    return viable;
 }
 
 
