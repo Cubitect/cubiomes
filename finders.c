@@ -1196,13 +1196,25 @@ int isViableStructurePos(int structureType, int mcversion, LayerStack *g,
     }
 
     case Monument:
-        // Monuments require two viability checks with the ocean layer branch =>
-        // worth checking for potential deep ocean beforehand.
-        l = &g->layers[L_SHORE_16];
-        setWorldSeed(l, seed);
-        map = allocCache(l, 1, 1);
-        if (genArea(l, map, chunkX, chunkZ, 1, 1))
-            goto L_NOT_VIABLE;
+        if (mcversion >= MC_1_9)
+        {
+            // Monuments require two viability checks with the ocean layer
+            // branch => worth checking for potential deep ocean beforehand.
+            l = &g->layers[L_SHORE_16];
+            setWorldSeed(l, seed);
+            map = allocCache(l, 1, 1);
+            if (genArea(l, map, chunkX, chunkZ, 1, 1))
+                goto L_NOT_VIABLE;
+        }
+        else
+        {
+            // In 1.8 monuments require only a single deep ocean block.
+            l = g->entry_1;
+            setWorldSeed(l, seed);
+            map = allocCache(l, 1, 1);
+            if (genArea(l, map, blockX, blockZ, 1, 1))
+                goto L_NOT_VIABLE;
+        }
         if (!isDeepOcean(map[0]))
             goto L_NOT_VIABLE;
         if (mcversion >= MC_1_13)
@@ -1210,8 +1222,8 @@ int isViableStructurePos(int structureType, int mcversion, LayerStack *g,
         else
             l = &g->layers[L_RIVER_MIX_4];
         setWorldSeed(l, seed);
-        if (areBiomesViable(l, NULL, blockX, blockZ, 16, getValidMonumentBiomes1()))
-            if (areBiomesViable(l, NULL, blockX, blockZ, 29, getValidMonumentBiomes2()))
+        if (mcversion < MC_1_9 || areBiomesViable(l, NULL, blockX, blockZ, 16, getValidMonumentBiomes2()))
+            if (areBiomesViable(l, NULL, blockX, blockZ, 29, getValidMonumentBiomes1()))
                 goto L_VIABLE;
         goto L_NOT_VIABLE;
 
