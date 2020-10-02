@@ -453,6 +453,20 @@ int getBiomeRadius(
 // Finding Strongholds and Spawn
 //==============================================================================
 
+/* The chunk locations of the 3 closest strongholds, from the inner ring, can
+ * be approximated without going through the full biome check. However, the 
+ * accurate positions as well as the locations of the strongholds in the outer
+ * rings depend on a pseudo-random-number which requires the full biome check 
+ * for all strongholds before them.
+ *
+ * Up to MC_1_8 this covers the approximate location for all strongholds as 
+ * there is only one ring.
+ * 
+ * Note that this function requires only the lower 48-bits of the seed, and the
+ * accuracy is within +/-112 blocks.
+ */
+void approxInnerStrongholdRing(Pos p[3], int mcversion, int64_t s48);
+
 /* Finds the block positions of the strongholds in the world. Note that the
  * number of strongholds was increased from 3 to 128 in MC 1.9.
  * Warning: Slow!
@@ -464,8 +478,7 @@ int getBiomeRadius(
  * @worldSeed : world seed of the generator
  * @maxSH     : Stop when this many strongholds have been found. A value of 0
  *              defaults to 3 for mcversion <= MC_1_8, and to 128 for >= MC_1_9.
- * @maxRadius : Stop searching if the radius exceeds this value in meters.
- *              Set this to 0 to ignore this condition.
+ * @maxRing   : Stop after this many rings.
  *
  * Returned is the number of strongholds found.
  */
@@ -476,7 +489,7 @@ int findStrongholds(
         Pos *               locations,
         int64_t             worldSeed,
         int                 maxSH,
-        const int           maxRadius
+        int                 maxRing
         );
 
 /* Finds the spawn point in the world.

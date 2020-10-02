@@ -629,6 +629,61 @@ int getBiomeRadius(
 //==============================================================================
 
 
+void approxInnerStrongholdRing(Pos p[3], int mcversion, int64_t s48)
+{
+    int64_t rnds = s48;
+    setSeed(&rnds);
+
+    double angle = 2.0 * PI * nextDouble(&rnds);
+    double acos = cos(angle);
+    double asin = sin(angle);
+    double tmp, distance;
+
+    const double r120c = cos(2.0 * PI / 3);
+    const double r120s = sin(2.0 * PI / 3);
+
+    if (mcversion >= MC_1_9)
+    {
+        distance = (4.0 * 32.0) + (nextDouble(&rnds) - 0.5) * 32 * 2.5;
+        p[0].x = (int)round(acos * distance);
+        p[0].z = (int)round(asin * distance);
+        // rotate 120 degrees
+        tmp = acos;
+        acos = tmp * r120c - asin * r120s;
+        asin = tmp * r120s + asin * r120c;
+        distance = (4.0 * 32.0) + (nextDouble(&rnds) - 0.5) * 32 * 2.5;
+        p[1].x = (int)round(acos * distance);
+        p[1].z = (int)round(asin * distance);
+        // rotate 120 degrees
+        tmp = acos;
+        acos = tmp * r120c - asin * r120s;
+        asin = tmp * r120s + asin * r120c;
+        distance = (4.0 * 32.0) + (nextDouble(&rnds) - 0.5) * 32 * 2.5;
+        p[2].x = (int)round(acos * distance);
+        p[2].z = (int)round(asin * distance);
+    }
+    else
+    {
+        distance = (1.25 + nextDouble(&rnds)) * 32.0;
+        p[0].x = (int)round(acos * distance);
+        p[0].z = (int)round(asin * distance);
+        // rotate 120 degrees
+        tmp = acos;
+        acos = tmp * r120c - asin * r120s;
+        asin = tmp * r120s + asin * r120c;
+        distance = (1.25 + nextDouble(&rnds)) * 32.0;
+        p[1].x = (int)round(acos * distance);
+        p[1].z = (int)round(asin * distance);
+        // rotate 120 degrees
+        tmp = acos;
+        acos = tmp * r120c - asin * r120s;
+        asin = tmp * r120s + asin * r120c;
+        distance = (1.25 + nextDouble(&rnds)) * 32.0;
+        p[2].x = (int)round(acos * distance);
+        p[2].z = (int)round(asin * distance);
+    }
+}
+
 const char* getValidStrongholdBiomes()
 {
     static char validStrongholdBiomes[256];
@@ -648,7 +703,7 @@ const char* getValidStrongholdBiomes()
 
 
 int findStrongholds(const int mcversion, const LayerStack *g, int *cache,
-        Pos *locations, int64_t worldSeed, int maxSH, const int maxRadius)
+        Pos *locations, int64_t worldSeed, int maxSH, int maxRing)
 {
     const char *validStrongholdBiomes = getValidStrongholdBiomes();
     int i, x, z;
@@ -658,7 +713,7 @@ int findStrongholds(const int mcversion, const LayerStack *g, int *cache,
     int currentCount = 0;
     int perRing = 3;
 
-    setSeed(&worldSeed);
+    setSeed(&worldSeed); // PRNG
     double angle = nextDouble(&worldSeed) * PI * 2.0;
 
     const Layer *l = &g->layers[L_RIVER_MIX_4];
@@ -671,9 +726,6 @@ int findStrongholds(const int mcversion, const LayerStack *g, int *cache,
         {
             distance = (4.0 * 32.0) + (6.0 * currentRing * 32.0) +
                 (nextDouble(&worldSeed) - 0.5) * 32 * 2.5;
-
-            if (maxRadius && distance*16 > maxRadius)
-                return i;
 
             x = (int)round(cos(angle) * distance);
             z = (int)round(sin(angle) * distance);
@@ -689,6 +741,12 @@ int findStrongholds(const int mcversion, const LayerStack *g, int *cache,
             {
                 // Current ring is complete, move to next ring.
                 currentRing++;
+                if (currentRing == maxRing)
+                {
+                    i++;
+                    break;
+                }
+
                 currentCount = 0;
                 perRing = perRing + 2*perRing/(currentRing+1);
                 if (perRing > 128-i)
@@ -705,9 +763,6 @@ int findStrongholds(const int mcversion, const LayerStack *g, int *cache,
         {
             distance = (1.25 + nextDouble(&worldSeed)) * 32.0;
 
-            if (maxRadius && distance*16 > maxRadius)
-                return i;
-
             x = (int)round(cos(angle) * distance);
             z = (int)round(sin(angle) * distance);
 
@@ -719,7 +774,7 @@ int findStrongholds(const int mcversion, const LayerStack *g, int *cache,
         }
     }
 
-    return maxSH;
+    return i;
 }
 
 

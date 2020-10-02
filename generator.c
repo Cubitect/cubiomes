@@ -35,15 +35,15 @@ static void setupScale(Layer *l, int scale)
 
     mapfunc_t map = l->getMap;
 
-    if (map == mapZoom)
+    if (map == mapZoom || map == mapZoomIsland)
     {
         m = 2;
-        e = 2; // from ((w>>1)+1)<<1
+        e = 3;
     }
     else if (map == mapVoronoiZoom)
     {
         m = 4;
-        e = 8; // from ((w>>2)+2)<<2
+        e = 7;
     }
     else if (map == mapOceanMix)
     {
@@ -209,7 +209,7 @@ static void getMaxArea(const Layer *layer, int areaX, int areaZ, int *maxX, int 
     if (layer == NULL)
         return;
 
-    if (layer->getMap == mapZoom)
+    if (layer->getMap == mapZoom || layer->getMap == mapZoomIsland)
     {
         areaX >>= 1;
         areaZ >>= 1;
