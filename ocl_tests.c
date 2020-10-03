@@ -4,10 +4,12 @@
 
 #define W 256
 #define H 256
+// Number of seeds to be generated in single call to `generate_layer`
+#define SEED_RANGE 32
+// Test seeds [1..33]
+#define START_SEED 1
 
 #define MAX_ERRORS 128
-#define SEED_RANGE 32
-#define START_SEED 1
 
 struct Error {
     int layer;
@@ -44,7 +46,7 @@ cl_int test_layer(struct GeneratorContext* context, LayerStack* stack, struct Er
                     errors[*error_count].layer = layer;
                     errors[*error_count].x = i;
                     errors[*error_count].z = j;
-                    errors[*error_count].expected = bufferA[i + j*W + s*W*H];
+                    errors[*error_count].expected = bufferA[i + j*W];
                     errors[*error_count].ocl = bufferB[i + j*W + s*W*H];
                     (*error_count) += 1;
                 }
@@ -64,7 +66,7 @@ cl_int run_tests(struct Error* errors, int* error_count) {
     setupGenerator(&stack, MC_1_16);
 
     struct GeneratorContext context;
-    cl_int err = init_generator_context(&context, MC_1_16, SEED_RANGE, W, H);
+    cl_int err = init_generator_context(&context, MC_1_16, W, H, SEED_RANGE);
     if (err < 0) return err;
     cl_event event0;
     set_world_seed(&context, START_SEED, &event0);
