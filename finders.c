@@ -244,6 +244,8 @@ static DWORD WINAPI search4QuadBasesThread(LPVOID data)
     int i;
 
     lowerBits = (int64_t *) malloc(0x100000 * sizeof(int64_t));
+    if (lowerBits == NULL)
+        exit(1);
 
     switch (info.lbitset)
     {
@@ -629,61 +631,6 @@ int getBiomeRadius(
 //==============================================================================
 
 
-void approxInnerStrongholdRing(Pos p[3], int mcversion, int64_t s48)
-{
-    int64_t rnds = s48;
-    setSeed(&rnds);
-
-    double angle = 2.0 * PI * nextDouble(&rnds);
-    double acos = cos(angle);
-    double asin = sin(angle);
-    double tmp, distance;
-
-    const double r120c = cos(2.0 * PI / 3);
-    const double r120s = sin(2.0 * PI / 3);
-
-    if (mcversion >= MC_1_9)
-    {
-        distance = (4.0 * 32.0) + (nextDouble(&rnds) - 0.5) * 32 * 2.5;
-        p[0].x = (int)round(acos * distance);
-        p[0].z = (int)round(asin * distance);
-        // rotate 120 degrees
-        tmp = acos;
-        acos = tmp * r120c - asin * r120s;
-        asin = tmp * r120s + asin * r120c;
-        distance = (4.0 * 32.0) + (nextDouble(&rnds) - 0.5) * 32 * 2.5;
-        p[1].x = (int)round(acos * distance);
-        p[1].z = (int)round(asin * distance);
-        // rotate 120 degrees
-        tmp = acos;
-        acos = tmp * r120c - asin * r120s;
-        asin = tmp * r120s + asin * r120c;
-        distance = (4.0 * 32.0) + (nextDouble(&rnds) - 0.5) * 32 * 2.5;
-        p[2].x = (int)round(acos * distance);
-        p[2].z = (int)round(asin * distance);
-    }
-    else
-    {
-        distance = (1.25 + nextDouble(&rnds)) * 32.0;
-        p[0].x = (int)round(acos * distance);
-        p[0].z = (int)round(asin * distance);
-        // rotate 120 degrees
-        tmp = acos;
-        acos = tmp * r120c - asin * r120s;
-        asin = tmp * r120s + asin * r120c;
-        distance = (1.25 + nextDouble(&rnds)) * 32.0;
-        p[1].x = (int)round(acos * distance);
-        p[1].z = (int)round(asin * distance);
-        // rotate 120 degrees
-        tmp = acos;
-        acos = tmp * r120c - asin * r120s;
-        asin = tmp * r120s + asin * r120c;
-        distance = (1.25 + nextDouble(&rnds)) * 32.0;
-        p[2].x = (int)round(acos * distance);
-        p[2].z = (int)round(asin * distance);
-    }
-}
-
 const char* getValidStrongholdBiomes()
 {
     static char validStrongholdBiomes[256];
@@ -701,6 +648,76 @@ const char* getValidStrongholdBiomes()
     return validStrongholdBiomes;
 }
 
+Pos initFirstStronghold(StrongholdIter *sh, int mc, int64_t s48)
+{
+    double dist, angle;
+    int64_t rnds;
+    Pos p;
+
+    rnds = s48;
+    setSeed(&rnds);
+
+    angle = 2.0 * PI * nextDouble(&rnds);
+    if (mc >= MC_1_9)
+        dist = (4.0 * 32.0) + (nextDouble(&rnds) - 0.5) * 32 * 2.5;
+    else
+        dist = (1.25 + nextDouble(&rnds)) * 32.0;
+
+    p.x = ((int)round(cos(angle) * dist) << 4) + 8;
+    p.z = ((int)round(sin(angle) * dist) << 4) + 8;
+
+    if (sh)
+    {
+        sh->pos.x = sh->pos.z = 0;
+        sh->nextapprox = p;
+        sh->index = 0;
+        sh->ringnum = 0;
+        sh->ringmax = 3;
+        sh->ringidx = 0;
+        sh->angle = angle;
+        sh->dist = dist;
+        sh->rnds = rnds;
+        sh->mc = mc;
+    }
+
+    return p;
+}
+
+int nextStronghold(StrongholdIter *sh, const LayerStack *g, int *cache)
+{
+    sh->pos = findBiomePosition(sh->mc, &g->layers[L_RIVER_MIX_4], cache,
+        sh->nextapprox.x, sh->nextapprox.z, 112, getValidStrongholdBiomes(),
+        &sh->rnds, NULL);
+
+    sh->ringidx++;
+    sh->angle += 2 * PI / sh->ringmax;
+
+    if (sh->ringidx == sh->ringmax)
+    {
+        sh->ringnum++;
+        sh->ringidx = 0;
+        sh->ringmax = sh->ringmax + 2*sh->ringmax / (sh->ringnum+1);
+        if (sh->ringmax > 128-sh->index)
+            sh->ringmax = 128-sh->index;
+        sh->angle += nextDouble(&sh->rnds) * PI * 2.0;
+    }
+
+    if (sh->mc >= MC_1_9)
+    {
+        sh->dist = (4.0 * 32.0) + (6.0 * sh->ringnum * 32.0) +
+            (nextDouble(&sh->rnds) - 0.5) * 32 * 2.5;
+    }
+    else
+    {
+        sh->dist = (1.25 + nextDouble(&sh->rnds)) * 32.0;
+    }
+
+    sh->nextapprox.x = ((int)round(cos(sh->angle) * sh->dist) << 4) + 8;
+    sh->nextapprox.z = ((int)round(sin(sh->angle) * sh->dist) << 4) + 8;
+    sh->index++;
+
+    return (sh->mc >= MC_1_9 ? 128 : 3) - (sh->index-1);
+}
 
 int findStrongholds(const int mcversion, const LayerStack *g, int *cache,
         Pos *locations, int64_t worldSeed, int maxSH, int maxRing)

@@ -253,6 +253,28 @@ int mapZoomIsland(const Layer * l, int * out, int x, int z, int w, int h)
     return 0;
 }
 
+
+static inline int select4(int cs, int st, int v00, int v01, int v10, int v11)
+{
+    int v;
+    int cv00 = (v00 == v10) + (v00 == v01) + (v00 == v11);
+    int cv10 = (v10 == v01) + (v10 == v11);
+    int cv01 = (v01 == v11);
+    if (cv00 > cv10 && cv00 > cv01) {
+        v = v00;
+    } else if (cv10 > cv00) {
+        v = v10;
+    } else if (cv01 > cv00) {
+        v = v01;
+    } else {
+        cs *= cs * 1284865837 + 4150755663;
+        cs += st;
+        int r = (cs >> 24) & 3;
+        v = r==0 ? v00 : r==1 ? v10 : r==2 ? v01 : v11;
+    }
+    return v;
+}
+
 /// This is the most common layer, and generally the second most performance
 /// critical after mapAddIsland.
 int mapZoom(const Layer * l, int * out, int x, int z, int w, int h)
@@ -317,25 +339,7 @@ int mapZoom(const Layer * l, int * out, int x, int z, int w, int h)
             cs += st;
             buf[idx] = (cs >> 24) & 1 ? v10 : v00;
 
-            int v;
-            if      (v10 == v01 && v01 == v11) v = v10;
-            else if (v00 == v10 && v00 == v01) v = v00;
-            else if (v00 == v10 && v00 == v11) v = v00;
-            else if (v00 == v01 && v00 == v11) v = v00;
-            else if (v00 == v10 && v01 != v11) v = v00;
-            else if (v00 == v01 && v10 != v11) v = v00;
-            else if (v00 == v11 && v10 != v01) v = v00;
-            else if (v10 == v01 && v00 != v11) v = v10;
-            else if (v10 == v11 && v00 != v01) v = v10;
-            else if (v01 == v11 && v00 != v10) v = v01;
-            else
-            {
-                cs *= cs * 1284865837 + 4150755663;
-                cs += st;
-                int r = (cs >> 24) & 3;
-                v = r==0 ? v00 : r==1 ? v10 : r==2 ? v01 : v11;
-            }
-            buf[idx + newW] = v;
+            buf[idx + newW] = select4(cs, st, v00, v01, v10, v11);
 
             idx++;
         }

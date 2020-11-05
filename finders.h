@@ -161,6 +161,19 @@ STRUCT(BiomeFilter)
     int specialCnt; // number of special temperature categories required
 };
 
+STRUCT(StrongholdIter)
+{
+    Pos pos;        // accurate location of current stronghold
+    Pos nextapprox; // approxmimate location (+/-112 blocks) of next stronghold
+    int index;      // stronghold index counter
+    int ringnum;    // ring number for index
+    int ringmax;    // max index within ring
+    int ringidx;    // index within ring
+    double angle;   // next angle within ring
+    double dist;    // next distance from origin (in chunks)
+    int64_t rnds;   // random number seed (48 bit)
+    int mc;         // minecraft version
+};
 
 /******************************** SEED FINDING *********************************
  *
@@ -453,19 +466,30 @@ int getBiomeRadius(
 // Finding Strongholds and Spawn
 //==============================================================================
 
-/* The chunk locations of the 3 closest strongholds, from the inner ring, can
- * be approximated without going through the full biome check. However, the 
- * accurate positions as well as the locations of the strongholds in the outer
- * rings depend on a pseudo-random-number which requires the full biome check 
- * for all strongholds before them.
+/* Finds the approximate location of the first stronghold (+/-112 blocks),
+ * which can be determined from the lower 48 bits of the world seed without
+ * biome checks. If 'sh' is not NULL, it will be initialized for iteration
+ * using nextStronghold() to get the accurate stronghold locations, as well as
+ * the subsequent approximate stronghold positions.
  *
- * Up to MC_1_8 this covers the approximate location for all strongholds as 
- * there is only one ring.
- * 
- * Note that this function requires only the lower 48-bits of the seed, and the
- * accuracy is within +/-112 blocks.
+ * @sh      : stronghold iterator to be initialized (nullable)
+ * @mc      : minecraft version (changes in 1.7, 1.9, 1.13)
+ * @s48     : world seed (only 48-bit are relevant)
+ *
+ * Returns the approximate block position of the first stronghold.
  */
-void approxInnerStrongholdRing(Pos p[3], int mcversion, int64_t s48);
+Pos initFirstStronghold(StrongholdIter *sh, int mc, int64_t s48);
+
+/* Performs the biome checks for the stronghold iterator and finds its accurate
+ * location, as well as the approximate location of the next stronghold.
+ *
+ * @sh      : stronghold iteration state, holding position info
+ * @g       : generator layer stack [world seed should be applied before call!]
+ * @cache   : biome buffer, set to NULL for temporary allocation
+ *
+ * Returns the number of further strongholds after this one.
+ */
+int nextStronghold(StrongholdIter *sh, const LayerStack *g, int *cache);
 
 /* Finds the block positions of the strongholds in the world. Note that the
  * number of strongholds was increased from 3 to 128 in MC 1.9.
