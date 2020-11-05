@@ -71,7 +71,7 @@ static int testOutpostPos(int64_t s, int cx, int cz)
 
 Pos getStructurePos(StructureConfig config, int64_t seed, int regX, int regZ, int *valid)
 {
-    Pos pos;
+    Pos pos = {};
     if (valid) *valid = 0;
 
     if (config.properties == 0)
