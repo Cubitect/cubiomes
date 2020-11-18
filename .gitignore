@@ -2,3 +2,8 @@ find_compactbiomes
 find_quadhuts
 .cproject
 .project
+docs/LayerSummary.aux
+docs/LayerSummary.log
+docs/LayerSummary.synctex.gz
+docs/LayerSummary.toc
+
