@@ -25,7 +25,7 @@ extern "C"
 {
 #endif
 
-#define SEED_BASE_MAX (1LL << 48)
+#define MASK48 ((1LL << 48) - 1)
 #define PI 3.141592653589793
 
 #define LARGE_STRUCT 1
@@ -52,38 +52,6 @@ enum // village house types prior to 1.14
 {
     HouseSmall, Church, Library, WoodHut, Butcher, FarmLarge, FarmSmall,
     Blacksmith, HouseLarge, HOUSE_NUM
-};
-
-
-// only the very best constellations
-static const int64_t lowerBaseBitsIdeal[] =
-{
-        0x43f18,0xc751a,0xf520a,
-};
-
-// for the classic quad-structure constellations
-static const int64_t lowerBaseBitsClassic[] =
-{
-        0x43f18,0x79a0a,0xc751a,0xf520a,
-};
-
-// for any valid quad-structure constellation with a structure size:
-// (7+1,7+43+1,9+1) which corresponds to a fall-damage based quad-witch-farm,
-// but may require a perfect player position
-static const int64_t lowerBaseBitsHutNormal[] =
-{
-        0x43f18,0x65118,0x75618,0x79a0a, 0x89718,0x9371a,0xa5a08,0xb5e18,
-        0xc751a,0xf520a,
-};
-
-// for any valid quad-structure constellation with a structure size:
-// (7+1,7+1,9+1) which corresponds to quad-witch-farms without drop chute
-static const int64_t lowerBaseBitsHutBarely[] =
-{
-        0x1272d,0x17908,0x367b9,0x43f18, 0x487c9,0x487ce,0x50aa7,0x647b5,
-        0x65118,0x75618,0x79a0a,0x89718, 0x9371a,0x967ec,0xa3d0a,0xa5918,
-        0xa591d,0xa5a08,0xb5e18,0xc6749, 0xc6d9a,0xc751a,0xd7108,0xd717a,
-        0xe2739,0xe9918,0xee1c4,0xf520a,
 };
 
 
@@ -226,6 +194,37 @@ STRUCT(StrongholdIter)
  */
 
 
+// lower 20 bits, only the very best constellations
+// (the structure salt has to be subtracted before use)
+static const int64_t low20QuadIdeal[] =
+{
+        0x43f18,0xc751a,0xf520a,
+};
+
+// lower 20 bits, the classic quad-structure constellations
+static const int64_t low20QuadClassic[] =
+{
+        0x43f18,0x79a0a,0xc751a,0xf520a,
+};
+
+// for any valid quad-structure constellation with a structure size:
+// (7+1,7+43+1,9+1) which corresponds to a fall-damage based quad-witch-farm,
+// but may require a perfect player position
+static const int64_t low20QuadHutNormal[] =
+{
+        0x43f18,0x65118,0x75618,0x79a0a, 0x89718,0x9371a,0xa5a08,0xb5e18,
+        0xc751a,0xf520a,
+};
+
+// for any valid quad-structure constellation with a structure size:
+// (7+1,7+1,9+1) which corresponds to quad-witch-farms without drop chute
+static const int64_t low20QuadHutBarely[] =
+{
+        0x1272d,0x17908,0x367b9,0x43f18, 0x487c9,0x487ce,0x50aa7,0x647b5,
+        0x65118,0x75618,0x79a0a,0x89718, 0x9371a,0x967ec,0xa3d0a,0xa5918,
+        0xa591d,0xa5a08,0xb5e18,0xc6749, 0xc6d9a,0xc751a,0xd7108,0xd717a,
+        0xe2739,0xe9918,0xee1c4,0xf520a,
+};
 
 //==============================================================================
 // Moving Structures
@@ -365,23 +364,38 @@ static inline __attribute__((always_inline, const))
 float isQuadBaseLarge (const StructureConfig sconf, int64_t seed,
         int ax, int ay, int az, int radius);
 
-// Defines how the search should limit the lower bits of the seed bases.
-// Conveniently this also provides a way of specifying a quality category.
-enum LowBitSet
-{
-    LBIT_ALL,           // all bit configurations
-    LBIT_HUT_BARELY,    // any constellation for huts within 128 blocks
-    LBIT_HUT_NORMAL,    // sufficiently close for standard farm designs
-    LBIT_CLASSIC,       // only classic constellations
-    LBIT_IDEAL,         // only the very best constellations that exist
-};
 
-/* Starts a multi-threaded search for quad-bases, given a maximum block radius
- * for the enclosing sphere. The result is saved in a file of path 'fnam'.
+/* Starts a multi-threaded search through all 48-bit seeds. Since this can
+ * potentially be a lengthy calculation, results can be written to temporary
+ * files immediately, in order to save progress in case of interruption. Seeds
+ * are tested using the function 'check' which takes a 48-bit seed and a custom
+ * 'data' argument. The output can be a dynamically allocated seed buffer
+ * and/or a destination file [which can be loaded using loadSavedSeeds()].
+ * Optionally, only a subset of the lower 20 bits are searched.
+ *
+ * @seedbuf     output seed buffer (nullable for file only)
+ * @buflen      length of output buffer (nullable)
+ * @path        output file path (nullable, also toggles temporary files)
+ * @threads     number of threads to use
+ * @lowBits     lower bit subset (nullable)
+ * @lowBitCnt   length of lower bit subset
+ * @lowBitN     number of bits in the subset values
+ * @check       the testing function, should return non-zero for desired seeds
+ * @data        custon data argument passed to 'check'
+ *
+ * Returns zero upon success.
  */
-void search4QuadBases(const char *fnam, int threads,
-        const StructureConfig structureConfig, int radius, int lbitset);
-
+int searchAll48(
+        int64_t **          seedbuf,
+        int64_t *           buflen,
+        const char *        path,
+        int                 threads,
+        const int64_t *     lowBits,
+        int                 lowBitCnt,
+        int                 lowBitN,
+        int (*check)(int64_t s48, void *data),
+        void *              data
+        );
 
 int countBlocksInSpawnRange(Pos p[4], int ax, int ay, int az, Pos *afk);
 
