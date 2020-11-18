@@ -5,15 +5,16 @@
 #include <stdlib.h>
 #include <math.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #if defined(_WIN32)
 #include <direct.h>
-#define IS_DIR_SEP ((C) == '/' || (C) == '\\')
+#define IS_DIR_SEP(C) ((C) == '/' || (C) == '\\')
 #define stat _stat
 #define mkdir(P,X) _mkdir(P)
 #define S_IFDIR _S_IFDIR
 #else
-#include <sys/types.h>
-#include <sys/stat.h>
 #define IS_DIR_SEP(C) ((C) == '/')
 #endif
 

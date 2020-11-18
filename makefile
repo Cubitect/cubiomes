@@ -21,7 +21,10 @@ debug: libcubiomes
 release: CFLAGS += -O3 -march=native
 release: libcubiomes
 
+ifeq ($(OS),Windows_NT)
+else
 libcubiomes: CFLAGS += -fPIC
+endif
 libcubiomes: layers.o generator.o finders.o util.o
 	$(AR) $(ARFLAGS) libcubiomes.a $^
 

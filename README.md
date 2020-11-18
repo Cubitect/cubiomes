@@ -156,6 +156,7 @@ int main()
     int entry = L_VORONOI_ZOOM_1;
     int *area = allocCache(&g.layers[entry], w, h);
 
+    printf("Searching...\n");
     int64_t seed;
     for (seed = 0; ; seed++)
         if (checkForBiomes(&g, entry, area, seed, x, z, w, h, filter, 1) > 0)
@@ -248,6 +249,7 @@ int main()
     int threads = 8;
     LayerStack g;
 
+    printf("Preparing seed bases...\n");
     // Get all 48-bit quad-witch-hut bases, but consider only the best 20-bit
     // constellations where the structures are the closest together.
     int err = searchAll48(
