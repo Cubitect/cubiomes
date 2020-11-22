@@ -955,9 +955,11 @@ static double getGrassProbability(int64_t seed, int biome, int x, int z)
     case mountains:                     return 0.8; // height dependent
     case forest:                        return 1.0;
     case taiga:                         return 1.0;
-    case swamp:                         return 0.6; // height dependent
-    case river:                         return 0.5;
-    case beach:                         return 0.1;
+    case swamp:                         return 0.3; // height dependent
+    case river:                         return 0.15;
+    case beach:                         return 0.0;
+    case snowy_tundra:                  return 0.02;
+    case snowy_mountains:               return 0.02;
     case wooded_hills:                  return 1.0;
     case taiga_hills:                   return 1.0;
     case mountain_edge:                 return 1.0; // height dependent
@@ -967,15 +969,15 @@ static double getGrassProbability(int64_t seed, int biome, int x, int z)
     case birch_forest:                  return 1.0;
     case birch_forest_hills:            return 1.0;
     case dark_forest:                   return 0.9;
-    case snowy_taiga:                   return 0.2; // below trees
-    case snowy_taiga_hills:             return 0.2; // below trees
+    case snowy_taiga:                   return 0.1; // below trees
+    case snowy_taiga_hills:             return 0.1; // below trees
     case giant_tree_taiga:              return 0.6;
     case giant_tree_taiga_hills:        return 0.6;
     case wooded_mountains:              return 0.2; // height dependent
     case savanna:                       return 1.0;
-    case savanna_plateau:               return 1.0;
-    case wooded_badlands_plateau:       return 0.1; // height dependent
-    case badlands_plateau:              return 0.1; // height dependent
+    case savanna_plateau:               return 0.9;
+    case wooded_badlands_plateau:       return 0.0; // height dependent
+    case badlands_plateau:              return 0.0; // height dependent
 
     case sunflower_plains:              return 1.0;
     case gravelly_mountains:            return 0.2;
@@ -987,7 +989,7 @@ static double getGrassProbability(int64_t seed, int biome, int x, int z)
     case tall_birch_forest:             return 1.0;
     case tall_birch_hills:              return 1.0;
     case dark_forest_hills:             return 0.9;
-    case snowy_taiga_mountains:         return 0.2;
+    case snowy_taiga_mountains:         return 0.1;
     case giant_spruce_taiga:            return 0.6;
     case giant_spruce_taiga_hills:      return 0.6;
     case modified_gravelly_mountains:   return 0.2;
@@ -999,13 +1001,6 @@ static double getGrassProbability(int64_t seed, int biome, int x, int z)
     // completely in ocean variants...
     default: return 0;
     }
-}
-
-static int canCoordinateBeSpawn(const int64_t seed, const LayerStack *g, int *cache, Pos pos)
-{
-    (void) cache;
-    int biome = getBiomeAtPos(g, pos);
-    return getGrassProbability(seed, biome, pos.x, pos.z) >= 0.5;
 }
 
 
@@ -1042,9 +1037,14 @@ Pos getSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t world
         spawn.x = spawn.z = 8;
     }
 
+    double accum = 1;
+    double bx = 0;
+    double bz = 0;
+    double bn = 0;
+
     if (mcversion >= MC_1_13)
     {
-        // TODO: The 1.13 section may need further checking!
+        int *area = allocCache(g->entry_1, 16, 16);
         int n2 = 0;
         int n3 = 0;
         int n4 = 0;
@@ -1056,16 +1056,32 @@ Pos getSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t world
             {
                 int cx = ((spawn.x >> 4) + n2) << 4;
                 int cz = ((spawn.z >> 4) + n3) << 4;
-                int i2, i3;
+                int x, z;
 
-                for (i2 = cx; i2 <= cx+15; i2++)
+                genArea(g->entry_1, area, cx, cz, 16, 16);
+
+                for (x = 0; x < 16; x++)
                 {
-                    for (i3 = cz; i3 <= cz+15; i3++)
+                    for (z = 0; z < 16; z++)
                     {
-                        Pos pos = {i2, i3};
-                        if (canCoordinateBeSpawn(worldSeed, g, cache, pos))
+                        Pos pos = {cx+x, cz+z};
+                        int biome = area[z*16 + x];
+                        double gp = getGrassProbability(worldSeed, biome,
+                            pos.x, pos.z);
+                        if (gp == 0)
+                            continue;
+
+                        bx += accum * gp * pos.x;
+                        bz += accum * gp * pos.z;
+                        bn += accum * gp;
+
+                        accum *= 1 - gp;
+                        if (accum < 0.001)
                         {
-                            return pos;
+                            free(area);
+                            spawn.x = (int) round(bx / bn);
+                            spawn.z = (int) round(bz / bn);
+                            return spawn;
                         }
                     }
                 }
@@ -1074,17 +1090,34 @@ Pos getSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t world
             if (n2 == n3 || (n2 < 0 && n2 == - n3) || (n2 > 0 && n2 == 1 - n3))
             {
                 int n7 = n4;
-                n4 = - n5;
+                n4 = -n5;
                 n5 = n7;
             }
             n2 += n4;
             n3 += n5;
         }
+
+        free(area);
     }
     else
     {
-        for (i = 0; i < 1000 && !canCoordinateBeSpawn(worldSeed, g, cache, spawn); i++)
+        for (i = 0; i < 1000; i++)
         {
+            int biome = getBiomeAtPos(g, spawn);
+            double gp = getGrassProbability(worldSeed, biome, spawn.x, spawn.z);
+
+            bx += accum * gp * spawn.x;
+            bz += accum * gp * spawn.z;
+            bn += accum * gp;
+
+            accum *= 1 - gp;
+            if (accum < 0.001)
+            {
+                spawn.x = (int) round(bx / bn);
+                spawn.z = (int) round(bz / bn);
+                break;
+            }
+
             spawn.x += nextInt(&worldSeed, 64) - nextInt(&worldSeed, 64);
             spawn.z += nextInt(&worldSeed, 64) - nextInt(&worldSeed, 64);
         }
@@ -1109,6 +1142,12 @@ Pos estimateSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t 
     if (!found)
     {
         spawn.x = spawn.z = 8;
+    }
+
+    if (mcversion >= MC_1_13)
+    {
+        spawn.x = (spawn.x >> 4) << 4;
+        spawn.z = (spawn.z >> 4) << 4;
     }
 
     return spawn;
