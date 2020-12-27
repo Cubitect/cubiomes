@@ -25,7 +25,7 @@ extern "C"
 {
 #endif
 
-#define MASK48 ((1LL << 48) - 1)
+#define MASK48 (((int64_t)1 << 48) - 1)
 #define PI 3.141592653589793
 
 #define LARGE_STRUCT 1
@@ -66,14 +66,14 @@ STRUCT(StructureConfig)
 
 /* for desert pyramids, jungle temples, witch huts and igloos prior to 1.13 */
 static const StructureConfig FEATURE_CONFIG        = { 14357617, 32, 24, Feature, 0};
-static const StructureConfig DESERT_CONFIG_17      = { 14357617, 32, 24, Desert_Pyramid, 0};
-static const StructureConfig IGLOO_CONFIG_17       = { 14357617, 32, 24, Igloo, 0};
-static const StructureConfig JUNGLE_CONFIG_17      = { 14357617, 32, 24, Jungle_Pyramid, 0};
-static const StructureConfig SWAMP_HUT_CONFIG_17   = { 14357617, 32, 24, Swamp_Hut, 0};
+static const StructureConfig IGLOO_CONFIG_112      = { 14357617, 32, 24, Igloo, 0};
+static const StructureConfig SWAMP_HUT_CONFIG_112  = { 14357617, 32, 24, Swamp_Hut, 0};
+static const StructureConfig DESERT_PYRAMID_CONFIG_112 = { 14357617, 32, 24, Desert_Pyramid, 0};
+static const StructureConfig JUNGLE_PYRAMID_CONFIG_112 = { 14357617, 32, 24, Jungle_Pyramid, 0};
 
 /* ocean features before 1.16 */
-static const StructureConfig OCEAN_RUIN_CONFIG_113 = { 14357621, 16,  8, Ocean_Ruin, 0};
-static const StructureConfig SHIPWRECK_CONFIG_113  = {165745295, 15,  7, Shipwreck, 0};
+static const StructureConfig OCEAN_RUIN_CONFIG_115 = { 14357621, 16,  8, Ocean_Ruin, 0};
+static const StructureConfig SHIPWRECK_CONFIG_115  = {165745295, 15,  7, Shipwreck, 0};
 
 /* 1.13 separated feature seeds by type */
 static const StructureConfig DESERT_PYRAMID_CONFIG = { 14357617, 32, 24, Desert_Pyramid, 0};
@@ -398,6 +398,23 @@ int searchAll48(
         );
 
 int countBlocksInSpawnRange(Pos p[4], int ax, int ay, int az, Pos *afk);
+
+/* Scans the seed 's48' for quad-structures in the given area of region
+ * coordiantes. The search is performed for only a specific lower 20-bits of
+ * the transformed bases (i.e. each call looks for only one constellation of
+ * quad-structure).
+ *
+ * @sconf   : structure config (SWAMP_HUT_CONFIG or FEATURE_CONFIG)
+ * @s48     : 48-bit seed to scan
+ * @low20   : only consider transformations that yield these lower bits
+ * @x,z,w,h : area to scan in region coordinates (inclusive)
+ * @qplist  : output region coordinates for the descovered quad-structures
+ * @n       : maximum number of quad-structures to look for
+ *
+ * Returns the number of quad-structures found (up to 'n').
+ */
+int scanForQuads(const StructureConfig sconf, int64_t s48, int64_t low20,
+        int x, int z, int w, int h, Pos *qplist, int n);
 
 //==============================================================================
 // Checking Biomes & Biome Helper Functions
@@ -835,8 +852,8 @@ static inline float isQuadBase(const StructureConfig sconf, int64_t seed, int ra
     //case Ruined_Portal:
 
     default:
-        fprintf(stderr, "ERR isQuadBase: not implemented for structure type"
-                " %d\n", sconf.structType);
+        fprintf(stderr, "isQuadBase: not implemented for structure type %d\n",
+                sconf.structType);
         exit(-1);
     }
 

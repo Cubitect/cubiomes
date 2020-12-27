@@ -81,7 +81,8 @@ static inline void skipNextN(int64_t *seed, const int n)
  * Returns the previous 48-bit seed which will generate 'nseed'.
  * The upper 16 bits are ignored, both here and in the generator.
  */
-static inline int64_t invSeed48(int64_t nseed)
+static inline __attribute__((const))
+int64_t invSeed48(int64_t nseed)
 {
     const int64_t x = 0x5deece66d;
     const int64_t xinv = 0xdfe05bcb1365LL;
@@ -110,5 +111,29 @@ static inline int64_t invSeed48(int64_t nseed)
     return -1;
 }
 
+
+/* Find the modular inverse: (1/x) | mod m.
+ * Assumes x and m are positive and co-prime.
+ */
+static inline __attribute__((const))
+int64_t mulInv(int64_t x, int64_t m)
+{
+    int64_t t, q, a, b;
+    if (m == 1)
+        return 0; // no solution
+
+    a = 0; b = 1;
+
+    while (x > 1)
+    {
+        if (m == 0)
+            return 0; // x and m are co-prime
+        q = x / m;
+        t = m; m = x % m;     x = t;
+        t = a; a = b - q * a; b = t;
+    }
+
+    return b;
+}
 
 #endif /* JAVARND_H_ */

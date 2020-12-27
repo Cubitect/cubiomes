@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
+#include <limits.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -150,8 +151,8 @@ int isTreasureChunk(int64_t seed, int chunkX, int chunkZ)
  */
 int countBlocksInSpawnRange(Pos p[4], int ax, int ay, int az, Pos *afk)
 {
-    int minX = 3e7, minZ = 3e7, maxX = -3e7, maxZ = -3e7;
-    int bestr, bestn, i, x, z, px, pz;
+    int64_t minX = INT_MAX, minZ = INT_MAX, maxX = INT_MIN, maxZ = INT_MIN;
+    int64_t bestr, bestn, i, x, z, px, pz;
 
 
     // Find corners
@@ -169,6 +170,7 @@ int countBlocksInSpawnRange(Pos p[4], int ax, int ay, int az, Pos *afk)
     maxZ += az;
     bestr = 0;
     bestn = 0;
+    double afkx = 0, afkz = 0;
 
     double thsq = 128.0*128.0 - ay*ay/4.0;
 
@@ -198,8 +200,8 @@ int countBlocksInSpawnRange(Pos p[4], int ax, int ay, int az, Pos *afk)
             {
                 if (afk)
                 {
-                    afk->x = x;
-                    afk->z = z;
+                    afkx = x;
+                    afkz = z;
                     bestn = 1;
                 }
                 bestr = inrange;
@@ -208,8 +210,8 @@ int countBlocksInSpawnRange(Pos p[4], int ax, int ay, int az, Pos *afk)
             {
                 if (afk)
                 {
-                    afk->x += x;
-                    afk->z += z;
+                    afkx += x;
+                    afkz += z;
                     bestn++;
                 }
             }
@@ -218,8 +220,8 @@ int countBlocksInSpawnRange(Pos p[4], int ax, int ay, int az, Pos *afk)
 
     if (afk && bestn)
     {
-        afk->x /= bestn;
-        afk->z /= bestn;
+        afk->x = (int)round(afkx / bestn);
+        afk->z = (int)round(afkz / bestn);
     }
 
     return bestr;
@@ -592,6 +594,40 @@ L_ERR:
     return err;
 }
 
+
+int scanForQuads(const StructureConfig sconf, int64_t s48, int64_t low20,
+        int x, int z, int w, int h, Pos *qplist, int n)
+{
+    const int m = (1LL << 20);
+    const int64_t A = 341873128712LL;
+    const int64_t invB = 132477LL; // = mulInv(132897987541LL, m);
+
+    if (n < 1)
+        return 0;
+
+    int i, j, cnt = 0;
+    for (i = x; i <= x+w; i++)
+    {
+        int64_t sx = s48 + A * i;
+        j = (z & ~(m-1)) | ((low20 - sx) * invB & (m-1));
+        if (j < z)
+            j += m;
+        for (; j <= z+h; j += m)
+        {
+            int64_t sp = moveStructure(s48, -i, -j);
+            if (isQuadBase(sconf, sp - sconf.salt, 128))
+            {
+                qplist[cnt].x = i;
+                qplist[cnt].z = j;
+                cnt++;
+                if (cnt >= n)
+                    return cnt;
+            }
+        }
+    }
+
+    return cnt;
+}
 
 
 //==============================================================================
@@ -1193,7 +1229,9 @@ int isViableFeatureBiome(int structureType, int biomeID)
     case Mansion:
         return biomeID == dark_forest || biomeID == dark_forest_hills;
     default:
-        fprintf(stderr, "ERR isViableFeatureBiome: not implemented for structure type.\n");
+        fprintf(stderr,
+                "isViableFeatureBiome: not implemented for structure type %d.\n",
+                structureType);
         exit(1);
     }
     return 0;
@@ -1359,13 +1397,18 @@ int isViableStructurePos(int structureType, int mcversion, LayerStack *g,
 
     switch (structureType)
     {
-    case Desert_Pyramid:
-    case Jungle_Pyramid:
-    case Swamp_Hut:
-    case Igloo:
     case Ocean_Ruin:
     case Shipwreck:
     case Treasure:
+        if (mcversion < MC_1_13) goto L_NOT_VIABLE;
+        goto L_FEATURE;
+    case Igloo:
+        if (mcversion < MC_1_9) goto L_NOT_VIABLE;
+        goto L_FEATURE;
+    case Desert_Pyramid:
+    case Jungle_Pyramid:
+    case Swamp_Hut:
+L_FEATURE:
         if (mcversion < MC_1_16)
         {
             l = &g->layers[L_VORONOI_ZOOM_1];
@@ -1414,7 +1457,7 @@ int isViableStructurePos(int structureType, int mcversion, LayerStack *g,
 
     case Outpost:
     {
-        if (!testOutpostPos(seed, chunkX, chunkZ))
+        if (mcversion < MC_1_14 || !testOutpostPos(seed, chunkX, chunkZ))
             goto L_NOT_VIABLE;
         if (mcversion < MC_1_16)
         {
@@ -1458,7 +1501,18 @@ int isViableStructurePos(int structureType, int mcversion, LayerStack *g,
     }
 
     case Monument:
-        if (mcversion >= MC_1_9)
+        if (mcversion < MC_1_8)
+            goto L_NOT_VIABLE;
+        else if (mcversion == MC_1_8)
+        {
+            // In 1.8 monuments require only a single deep ocean block.
+            l = g->entry_1;
+            setWorldSeed(l, seed);
+            map = allocCache(l, 1, 1);
+            if (genArea(l, map, blockX, blockZ, 1, 1))
+                goto L_NOT_VIABLE;
+        }
+        else
         {
             // Monuments require two viability checks with the ocean layer
             // branch => worth checking for potential deep ocean beforehand.
@@ -1466,15 +1520,6 @@ int isViableStructurePos(int structureType, int mcversion, LayerStack *g,
             setWorldSeed(l, seed);
             map = allocCache(l, 1, 1);
             if (genArea(l, map, chunkX, chunkZ, 1, 1))
-                goto L_NOT_VIABLE;
-        }
-        else
-        {
-            // In 1.8 monuments require only a single deep ocean block.
-            l = g->entry_1;
-            setWorldSeed(l, seed);
-            map = allocCache(l, 1, 1);
-            if (genArea(l, map, blockX, blockZ, 1, 1))
                 goto L_NOT_VIABLE;
         }
         if (!isDeepOcean(map[0]))
@@ -1490,6 +1535,8 @@ int isViableStructurePos(int structureType, int mcversion, LayerStack *g,
         goto L_NOT_VIABLE;
 
     case Mansion:
+        if (mcversion < MC_1_11)
+            goto L_NOT_VIABLE;
         l = &g->layers[L_RIVER_MIX_4];
         setWorldSeed(l, seed);
         if (areBiomesViable(l, NULL, blockX, blockZ, 32, getValidMansionBiomes()))
@@ -1497,10 +1544,14 @@ int isViableStructurePos(int structureType, int mcversion, LayerStack *g,
         goto L_NOT_VIABLE;
 
     case Ruined_Portal:
-        goto L_VIABLE;
+        if (mcversion >= MC_1_16)
+            goto L_VIABLE;
+        goto L_NOT_VIABLE;
 
     default:
-        fprintf(stderr, "ERR isViableStructurePos: validation for structure type not implemented");
+        fprintf(stderr,
+                "isViableStructurePos: validation for structure type %d not implemented",
+                structureType);
         goto L_NOT_VIABLE;
     }
 
@@ -1594,7 +1645,7 @@ BiomeFilter setupBiomeFilter(const int *biomeList, int listLen)
         id = biomeList[i];
         if (id & ~0xbf) // i.e. not in ranges [0,64),[128,192)
         {
-            fprintf(stderr, "ERR: biomeID=%d not supported by filter.\n", id);
+            fprintf(stderr, "setupBiomeFilter: biomeID=%d not supported.\n", id);
             exit(-1);
         }
 
@@ -1642,6 +1693,8 @@ BiomeFilter setupBiomeFilter(const int *biomeList, int listLen)
             if (id == bamboo_jungle || id == bamboo_jungle_hills) {
                 // bamboo%64 are End biomes, so we can reuse the edgesToFind
                 bf.edgesToFind |= (1ULL << (bamboo_jungle & 0x3f));
+                bf.raresToFindM |= (1ULL << (id-128));
+                bf.riverToFindM |= (1ULL << (id-128));
             } else if (id == jungle_edge) {
                 // un-modified jungle_edge can be created at shore layer
                 bf.riverToFind |= (1ULL << jungle_edge);
