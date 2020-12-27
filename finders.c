@@ -1387,6 +1387,11 @@ int isViableStructurePos(int structureType, int mcversion, LayerStack *g,
     int64_t chunkX = blockX >> 4;
     int64_t chunkZ = blockZ >> 4;
 
+    // Structures are positioned at the chunk origin, but the biome check is
+    // performed near the middle of the chunk [(9,9) in 1.13, TODO: check 1.7]
+    // In 1.16 the biome check is always performed at (2,2) with layer scale=4.
+    int biomeX, biomeZ;
+
     Layer lbiome = g->layers[L_BIOME_256];
     Layer lshore = g->layers[L_SHORE_16];
 
@@ -1412,38 +1417,31 @@ L_FEATURE:
         if (mcversion < MC_1_16)
         {
             l = &g->layers[L_VORONOI_ZOOM_1];
+            biomeX = (chunkX << 4) + 9;
+            biomeZ = (chunkZ << 4) + 9;
         }
         else
-        {   // In 1.16 the position and layer for the biome dependence changed
-            // to the centre of a chunk at scale 4. Using L_RIVER_MIX_4
-            // (without ocean type) should be fine for ruins and wrecks.
+        {   // NOTE: L_RIVER_MIX_4 skips the ocean types, should be fine for
+            // ocean ruins and ship wrecks.
             l = &g->layers[L_RIVER_MIX_4];
-            blockX = (chunkX << 2) + 2;
-            blockZ = (chunkZ << 2) + 2;
+            biomeX = (chunkX << 2) + 2;
+            biomeZ = (chunkZ << 2) + 2;
         }
         setWorldSeed(l, seed);
         map = allocCache(l, 1, 1);
-        if (genArea(l, map, blockX, blockZ, 1, 1))
+        if (genArea(l, map, biomeX, biomeZ, 1, 1))
             goto L_NOT_VIABLE;
         if (!isViableFeatureBiome(structureType, map[0]))
             goto L_NOT_VIABLE;
         goto L_VIABLE;
 
     case Village:
-        if (mcversion < MC_1_16)
-        {   // TODO: check this (and if it makes a difference)
-            blockX >>= 2;
-            blockZ >>= 2;
-        }
-        else
-        {
-            blockX = (chunkX << 2) + 2;
-            blockZ = (chunkZ << 2) + 2;
-        }
         l = &g->layers[L_RIVER_MIX_4];
+        biomeX = (chunkX << 2) + 2;
+        biomeZ = (chunkZ << 2) + 2;
         setWorldSeed(l, seed);
         map = allocCache(l, 1, 1);
-        if (genArea(l, map, blockX, blockZ, 1, 1))
+        if (genArea(l, map, biomeX, biomeZ, 1, 1))
             goto L_NOT_VIABLE;
         biome = map[0];
         if (biome == plains || biome == desert || biome == savanna || biome == taiga)
@@ -1462,16 +1460,18 @@ L_FEATURE:
         if (mcversion < MC_1_16)
         {
             l = &g->layers[L_VORONOI_ZOOM_1];
+            biomeX = (chunkX << 4) + 9;
+            biomeZ = (chunkZ << 4) + 9;
         }
         else
-        {
+        {   // NOTE: this skips the ocean type check
             l = &g->layers[L_RIVER_MIX_4];
-            blockX = (chunkX << 2) + 2;
-            blockZ = (chunkZ << 2) + 2;
+            biomeX = (chunkX << 2) + 2;
+            biomeZ = (chunkZ << 2) + 2;
         }
         setWorldSeed(l, seed);
         map = allocCache(l, 1, 1);
-        if (genArea(l, map, blockX, blockZ, 1, 1))
+        if (genArea(l, map, biomeX, biomeZ, 1, 1))
             goto L_NOT_VIABLE;
         biome = map[0];
         // TODO: support for MC_BE
@@ -1504,17 +1504,15 @@ L_FEATURE:
         if (mcversion < MC_1_8)
             goto L_NOT_VIABLE;
         else if (mcversion == MC_1_8)
-        {
-            // In 1.8 monuments require only a single deep ocean block.
+        {   // In 1.8 monuments require only a single deep ocean block.
             l = g->entry_1;
             setWorldSeed(l, seed);
             map = allocCache(l, 1, 1);
-            if (genArea(l, map, blockX, blockZ, 1, 1))
+            if (genArea(l, map, (chunkX << 4) + 8, (chunkZ << 4) + 8, 1, 1))
                 goto L_NOT_VIABLE;
         }
         else
-        {
-            // Monuments require two viability checks with the ocean layer
+        {   // Monuments require two viability checks with the ocean layer
             // branch => worth checking for potential deep ocean beforehand.
             l = &g->layers[L_SHORE_16];
             setWorldSeed(l, seed);
@@ -1528,9 +1526,11 @@ L_FEATURE:
             l = &g->layers[L13_OCEAN_MIX_4];
         else
             l = &g->layers[L_RIVER_MIX_4];
+        biomeX = (chunkX << 4) + 8; // areBiomesViable expects block positions
+        biomeZ = (chunkZ << 4) + 8;
         setWorldSeed(l, seed);
-        if (mcversion < MC_1_9 || areBiomesViable(l, NULL, blockX, blockZ, 16, getValidMonumentBiomes2()))
-            if (areBiomesViable(l, NULL, blockX, blockZ, 29, getValidMonumentBiomes1()))
+        if (mcversion < MC_1_9 || areBiomesViable(l, NULL, biomeX, biomeZ, 16, getValidMonumentBiomes2()))
+            if (areBiomesViable(l, NULL, biomeX, biomeZ, 29, getValidMonumentBiomes1()))
                 goto L_VIABLE;
         goto L_NOT_VIABLE;
 
@@ -1538,6 +1538,8 @@ L_FEATURE:
         if (mcversion < MC_1_11)
             goto L_NOT_VIABLE;
         l = &g->layers[L_RIVER_MIX_4];
+        biomeX = (chunkX << 4) + 8;
+        biomeZ = (chunkZ << 4) + 8;
         setWorldSeed(l, seed);
         if (areBiomesViable(l, NULL, blockX, blockZ, 32, getValidMansionBiomes()))
             goto L_VIABLE;

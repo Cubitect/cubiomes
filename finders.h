@@ -720,11 +720,8 @@ Pos getFeaturePos(StructureConfig config, int64_t seed, int regX, int regZ)
 {
     Pos pos = getFeatureChunkInRegion(config, seed, regX, regZ);
 
-    // The structure is positioned at the chunk origin, but the biome check is
-    // performed near the middle of the chunk [(9,9) in 1.13, TODO: check 1.7]
-    // In 1.16 the biome check is always performed at (2,2) with layer scale=4.
-    pos.x = ((regX*config.regionSize + pos.x) << 4) + 9;
-    pos.z = ((regZ*config.regionSize + pos.z) << 4) + 9;
+    pos.x = ((regX*config.regionSize + pos.x) << 4);
+    pos.z = ((regZ*config.regionSize + pos.z) << 4);
     return pos;
 }
 
@@ -765,8 +762,8 @@ Pos getLargeStructurePos(StructureConfig config, int64_t seed, int regX, int reg
 
     pos.x = regX*config.regionSize + pos.x;
     pos.z = regZ*config.regionSize + pos.z;
-    pos.x = pos.x*16 + 9;
-    pos.z = pos.z*16 + 9;
+    pos.x = pos.x*16;
+    pos.z = pos.z*16;
     return pos;
 }
 
