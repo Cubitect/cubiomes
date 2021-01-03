@@ -144,18 +144,84 @@ int isTreasureChunk(int64_t seed, int chunkX, int chunkZ)
 // TODO: accurate seed testers for two or three structures in range
 
 
-/* Searches for the optimal AFK position given four structures at positions 'p',
- * each of volume (ax,ay,az).
- *
- * Returned is the number of spawning spaces within reach.
- */
-int countBlocksInSpawnRange(Pos p[4], int ax, int ay, int az, Pos *afk)
+
+static int blocksInRange(Pos *p, int n, int x, int z, int ax, int az, double rsq)
+{
+    int i, cnt;
+
+    cnt = 0;
+    for (i = 0; i < n; i++)
+    {
+        double dx = p[i].x - x;
+        double dz = p[i].z - z;
+        int px, pz;
+
+        for (px = 0; px < ax; px++)
+        {
+            for (pz = 0; pz < az; pz++)
+            {
+                double ddx = px + dx;
+                double ddz = pz + dz;
+                cnt += (ddx*ddx + ddz*ddz <= rsq);
+            }
+        }
+    }
+    return cnt;
+}
+
+STRUCT(afk_meta_t)
+{
+    Pos *p;
+    int n;
+    int *buf;
+    int x0, z0, w, h, ax, az;
+    double rsq;
+    int best;
+    int sumn;
+    int64_t sumx, sumz;
+};
+
+static void checkAfkDist(afk_meta_t *d, int x, int z)
+{
+    if (x < 0 || z < 0 || x >= d->w || z >= d->h)
+        return;
+    if (d->buf[z*d->w+x])
+        return;
+
+    int q = blocksInRange(d->p, d->n, x+d->x0, z+d->z0, d->ax, d->az, d->rsq);
+    d->buf[z*d->w+x] = q;
+    if (q >= d->best)
+    {
+        if (q > d->best)
+        {
+            d->best = q;
+            d->sumn = 1;
+            d->sumx = d->x0+x;
+            d->sumz = d->z0+z;
+        }
+        else
+        {
+            d->sumn += 1;
+            d->sumx += d->x0+x;
+            d->sumz += d->z0+z;
+        }
+        checkAfkDist(d, x, z-1);
+        checkAfkDist(d, x, z+1);
+        checkAfkDist(d, x-1, z);
+        checkAfkDist(d, x+1, z);
+        checkAfkDist(d, x-1, z-1);
+        checkAfkDist(d, x-1, z+1);
+        checkAfkDist(d, x+1, z-1);
+        checkAfkDist(d, x+1, z+1);
+    }
+}
+
+
+Pos getOptimalAfk(Pos p[4], int ax, int ay, int az, int *spcnt)
 {
     int64_t minX = INT_MAX, minZ = INT_MAX, maxX = INT_MIN, maxZ = INT_MIN;
-    int64_t bestr, bestn, i, x, z, px, pz;
+    int64_t w, h, i;
 
-
-    // Find corners
     for (i = 0; i < 4; i++)
     {
         if (p[i].x < minX) minX = p[i].x;
@@ -164,67 +230,79 @@ int countBlocksInSpawnRange(Pos p[4], int ax, int ay, int az, Pos *afk)
         if (p[i].z > maxZ) maxZ = p[i].z;
     }
 
+    minX += ax/2;
+    minZ += az/2;
+    maxX += ax/2;
+    maxZ += az/2;
 
-    // assume that the search area is bound by the inner corners
-    maxX += ax;
-    maxZ += az;
-    bestr = 0;
-    bestn = 0;
-    double afkx = 0, afkz = 0;
+    double rsq = 128.0*128.0 - ay*ay/4.0;
 
-    double thsq = 128.0*128.0 - ay*ay/4.0;
+    w = maxX - minX;
+    h = maxZ - minZ;
+    Pos afk = {p[0].x + ax / 2, p[0].z + az / 2};
+    int cnt = ax*az;
 
-    for (x = minX; x < maxX; x++)
+    afk_meta_t d;
+    d.p = p;
+    d.n = 4;
+    d.buf = (int*) calloc(w*h, sizeof(int));
+    d.x0 = minX;
+    d.z0 = minZ;
+    d.w = w;
+    d.h = h;
+    d.ax = ax;
+    d.az = az;
+    d.rsq = rsq;
+
+    int v[6];
+    Pos dsp[6] = {
+        {(p[0].x + p[2].x) / 2, (p[0].z + p[2].z) / 2},
+        {(p[1].x + p[3].x) / 2, (p[1].z + p[3].z) / 2},
+        {(p[0].x + p[1].x) / 2, (p[0].z + p[1].z) / 2},
+        {(p[2].x + p[3].x) / 2, (p[2].z + p[3].z) / 2},
+        {(p[0].x + p[3].x) / 2, (p[0].z + p[3].z) / 2},
+        {(p[1].x + p[2].x) / 2, (p[1].z + p[2].z) / 2},
+    };
+    for (i = 0; i < 6; i++)
+        v[i] = blocksInRange(p, 4, dsp[i].x, dsp[i].z, ax, az, rsq);
+
+    for (i = 0; i < 6; i++)
     {
-        for (z = minZ; z < maxZ; z++)
+        // pick out the highest
+        int j, jmax = 0, vmax = 0;
+        for (j = 0; j < 6; j++)
         {
-            int inrange = 0;
-
-            for (i = 0; i < 4; i++)
+            if (v[j] > vmax)
             {
-                double dx = p[i].x - (x);
-                double dz = p[i].z - (z);
-
-                for (px = 0; px < ax; px++)
-                {
-                    for (pz = 0; pz < az; pz++)
-                    {
-                        double ddx = px + dx;
-                        double ddz = pz + dz;
-                        inrange += (ddx*ddx + ddz*ddz <= thsq);
-                    }
-                }
-            }
-
-            if (inrange > bestr)
-            {
-                if (afk)
-                {
-                    afkx = x;
-                    afkz = z;
-                    bestn = 1;
-                }
-                bestr = inrange;
-            }
-            else if (inrange == bestr)
-            {
-                if (afk)
-                {
-                    afkx += x;
-                    afkz += z;
-                    bestn++;
-                }
+                jmax = j;
+                vmax = v[j];
             }
         }
+        if (vmax <= ax*az)  // highest is less or equal to a single structure
+            break;
+
+        d.best = vmax;
+        d.sumn = 0;
+        d.sumx = 0;
+        d.sumz = 0;
+        checkAfkDist(&d, dsp[jmax].x - d.x0, dsp[jmax].z - d.z0);
+        if (d.best > cnt)
+        {
+            cnt = d.best;
+            afk.x = (int) round(d.sumx / (double)d.sumn);
+            afk.z = (int) round(d.sumz / (double)d.sumn);
+            if (cnt >= 3*ax*az)
+                break;
+        }
+        v[jmax] = 0;
     }
 
-    if (afk && bestn)
-    {
-        afk->x = (int)round(afkx / bestn);
-        afk->z = (int)round(afkz / bestn);
-    }
+    if (spcnt)
+        *spcnt = cnt;
 
-    return bestr;
+    free(d.buf);
+
+    return afk;
 }
 
 

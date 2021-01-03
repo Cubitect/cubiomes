@@ -397,7 +397,22 @@ int searchAll48(
         void *              data
         );
 
-int countBlocksInSpawnRange(Pos p[4], int ax, int ay, int az, Pos *afk);
+/* Finds the optimal AFK location for four structures of size (ax,ay,az),
+ * located at the positions of 'p'. The AFK position is determined by looking
+ * for whole block coordinates which offer the maximum number of spawning
+ * spaces on the horizontal plane, which have the vertical structure height, ay,
+ * inside the enclosing sphere of radius 128 blocks. If there are multiple
+ * positions of this type (such as when all structures can be enclosed
+ * completly inside the sphere with some tollerance) then an average of those
+ * equally valid positions is returned.
+ *
+ * @p           : positions of the structures
+ * @ax,ay,az    : size of one structure
+ * @spcnt       : output number of planar spawning spaces in reach (nullable)
+ *
+ * Returns an optimal block-coordinate to operate a farm.
+ */
+Pos getOptimalAfk(Pos p[4], int ax, int ay, int az, int *spcnt);
 
 /* Scans the seed 's48' for quad-structures in the given area of region
  * coordiantes. The search is performed for only a specific lower 20-bits of
