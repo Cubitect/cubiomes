@@ -4,6 +4,11 @@ Cubiomes is a standalone library, written in C, that mimics the Minecraft biome 
 It is intended as a powerful tool to devise very fast, custom seed finding applications and large scale map viewers with minimal memory usage.
 
 
+#### Cubiomes-Viewer
+
+If you want to get started without coding there is now also a [graphical application](https://github.com/Cubitect/cubiomes-viewer) based on this library.
+
+
 #### Audience
 
 You should be familiar with the C programming language, also a basic understanding of the Minecraft biome generation process would be helpful.
