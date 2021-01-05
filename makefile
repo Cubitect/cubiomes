@@ -12,14 +12,16 @@ else
 	#RM = rm
 endif
 
-.PHONY : all release debug libcubiomes clean
+.PHONY : all debug release native libcubiomes clean
 
 all: release
 
 debug: CFLAGS += -DDEBUG -O0 -ggdb3
 debug: libcubiomes
-release: CFLAGS += -O3 -march=native
+release: CFLAGS += -O3
 release: libcubiomes
+native: CFLAGS += -O3 -march=native
+native: libcubiomes
 
 ifeq ($(OS),Windows_NT)
 else
