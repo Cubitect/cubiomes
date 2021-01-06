@@ -131,7 +131,10 @@ void initBiomes()
 
 void setWorldSeed(Layer *layer, int64_t worldSeed)
 {
-    if (layer->p2 != NULL && layer->getMap != mapHills)
+    // TODO: setWorldSeed is problematic for layers during generation branches.
+    // Also the Hills branch gets zero-initialized pre 1.13 which is irritating.
+
+    if (layer->p2 != NULL && layer->getMap != mapHills112)
         setWorldSeed(layer->p2, worldSeed);
 
     if (layer->p != NULL)

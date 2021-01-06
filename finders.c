@@ -2178,7 +2178,8 @@ static int mapFilterShore(const Layer * l, int * out, int x, int z, int w, int h
     int i;
 
     int err = mapShore(l, out, x, z, w, h);
-    if U(err != 0) return err;
+    if U(err != 0)
+        return err;
 
     b = 0; bm = 0;
     for (i = 0; i < w*h; i++)
@@ -2202,7 +2203,8 @@ static int mapFilterRiverMix(const Layer * l, int * out, int x, int z, int w, in
     int i;
 
     int err = mapRiverMix(l, out, x, z, w, h);
-    if U(err != 0) return err;
+    if U(err != 0)
+        return err;
 
     b = 0; bm = 0;
     for (i = 0; i < w*h; i++)
@@ -2229,11 +2231,13 @@ static int mapFilterOceanMix(const Layer * l, int * out, int x, int z, int w, in
     if (bf->riverToFind)
     {
         err = mapRiverMix(l, out, x, z, w, h);
-        if (err) return err;
+        if (err)
+            return err;
     }
 
     err = mapOceanMix(l, out, x, z, w, h);
-    if U(err != 0) return err;
+    if U(err != 0)
+        return err;
 
     b = 0;
     for (i = 0; i < w*h; i++)
@@ -2384,7 +2388,7 @@ L_HAS_PROTO_MUSHROOM:
     g->layers[L13_OCEAN_MIX_4].data         = (void*) &filter;
     g->layers[L13_OCEAN_MIX_4].getMap       = mapFilterOceanMix;
 
-    setWorldSeed(l, seed);
+    applySeed(g, seed);
     int ret = !l->getMap(l, map, x, z, w, h);
     if (ret)
     {
