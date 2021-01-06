@@ -2490,6 +2490,8 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
     if (!isOverworldBiome(mc, id))
         return;
 
+    int i;
+
     switch (layer)
     {
     case L_SPECIAL_1024: // biomes added in (L_SPECIAL_1024, L_ADD_MUSHROOM_256]
@@ -2550,6 +2552,10 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
         break;
 
     case L_BIOME_256: // biomes added in (L_BIOME_256, L_BIOME_EDGE_64]
+        for (i = sizeof(BIOMES_L_BIOME_256) / sizeof(int); i >= 0; i--)
+            if (BIOMES_L_BIOME_256[i] == id)
+                break;
+        if (i < 0) break;
         if (mc >= MC_1_14 && id == jungle)
             genPotential(mL, mM, L_BIOME_EDGE_64, mc, bamboo_jungle);
         if (id == wooded_badlands_plateau || id == badlands_plateau)
@@ -2558,8 +2564,7 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
             genPotential(mL, mM, L_BIOME_EDGE_64, mc, taiga);
         else if (id == desert)
             genPotential(mL, mM, L_BIOME_EDGE_64, mc, wooded_mountains);
-        else if (id == swamp)
-        {
+        else if (id == swamp) {
             genPotential(mL, mM, L_BIOME_EDGE_64, mc, jungle_edge);
             genPotential(mL, mM, L_BIOME_EDGE_64, mc, plains);
         }
@@ -2567,6 +2572,10 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
         break;
 
     case L_BIOME_EDGE_64: // biomes added in (L_BIOME_EDGE_64, L_HILLS_64]
+        for (i = sizeof(BIOMES_L_BIOME_EDGE_64) / sizeof(int); i >= 0; i--)
+            if (BIOMES_L_BIOME_EDGE_64[i] == id)
+                break;
+        if (i < 0) break;
         if (!isShallowOcean(id) && biomes[id].mutated > 0)
              genPotential(mL, mM, L_HILLS_64, mc, biomes[id].mutated);
         switch (id)
@@ -2633,12 +2642,20 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
         break;
 
     case L_HILLS_64: // biomes added in (L_HILLS_64, L_RARE_BIOME_64]
+        for (i = sizeof(BIOMES_L_HILLS_64) / sizeof(int); i >= 0; i--)
+            if (BIOMES_L_HILLS_64[i] == id)
+                break;
+        if (i < 0) break;
         if (id == plains)
             genPotential(mL, mM, L_RARE_BIOME_64, mc, sunflower_plains);
         genPotential(mL, mM, L_RARE_BIOME_64, mc, id);
         break;
 
     case L_RARE_BIOME_64: // biomes added in (L_RARE_BIOME_64, L_SHORE_16]
+        for (i = sizeof(BIOMES_L_HILLS_64) / sizeof(int); i >= 0; i--)
+            if (BIOMES_L_HILLS_64[i] == id)
+                break;
+        if (i < 0 || id == sunflower_plains) break;
         if (id == mushroom_fields)
             genPotential(mL, mM, L_SHORE_16, mc, mushroom_field_shore);
         else if (getBiomeType(id) == Jungle) {
@@ -2657,6 +2674,10 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
         break;
 
     case L_SHORE_16: // biomes added in (L_SHORE_16, L_RIVER_MIX_4]
+        for (i = sizeof(BIOMES_L_SHORE_16) / sizeof(int); i >= 0; i--)
+            if (BIOMES_L_SHORE_16[i] == id)
+                break;
+        if (i < 0) break;
         if (id == snowy_tundra)
             genPotential(mL, mM, L_RIVER_MIX_4, mc, frozen_river);
         if (id == mushroom_fields || id == mushroom_field_shore)
