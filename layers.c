@@ -945,8 +945,8 @@ static inline int replaceEdge(int *out, int idx, int v10, int v21, int v01, int 
     if (id != baseID) return 0;
 
     // areSimilar() has not changed behaviour for ids < 128, so use the faster variant
-    if (areSimilar113(v10, baseID) && areSimilar113(v21, baseID) &&
-        areSimilar113(v01, baseID) && areSimilar113(v12, baseID))
+    if (areSimilar(v10, baseID) && areSimilar(v21, baseID) &&
+        areSimilar(v01, baseID) && areSimilar(v12, baseID))
         out[idx] = id;
     else
         out[idx] = edgeID;
@@ -1025,7 +1025,7 @@ int mapBiomeEdge(const Layer * l, int * out, int x, int z, int w, int h)
 }
 
 
-int mapHills(const Layer * l, int * out, int x, int z, int w, int h)
+int mapHills112(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int pX = x - 1;
     int pZ = z - 1;
@@ -1117,7 +1117,7 @@ int mapHills(const Layer * l, int * out, int x, int z, int w, int h)
                     case savanna:
                         hillID = savanna_plateau; break;
                     default:
-                        if (areSimilar(a11, wooded_badlands_plateau))
+                        if (areSimilar112(a11, wooded_badlands_plateau))
                             hillID = badlands;
                         else if (a11 == deep_ocean && mcFirstIsZero(cs = mcStepSeed(cs, st), 3))
                             hillID = mcFirstIsZero(mcStepSeed(cs, st), 2) ? plains : forest;
@@ -1143,10 +1143,10 @@ int mapHills(const Layer * l, int * out, int x, int z, int w, int h)
                         int a12 = buf[i+1 + (j+2)*pW];
                         int equals = 0;
 
-                        if (areSimilar(a10, a11)) equals++;
-                        if (areSimilar(a21, a11)) equals++;
-                        if (areSimilar(a01, a11)) equals++;
-                        if (areSimilar(a12, a11)) equals++;
+                        if (areSimilar112(a10, a11)) equals++;
+                        if (areSimilar112(a21, a11)) equals++;
+                        if (areSimilar112(a01, a11)) equals++;
+                        if (areSimilar112(a12, a11)) equals++;
 
                         if (equals >= 3)
                             out[idx] = hillID;
@@ -1163,7 +1163,7 @@ int mapHills(const Layer * l, int * out, int x, int z, int w, int h)
 }
 
 
-int mapHills113(const Layer * l, int * out, int x, int z, int w, int h)
+int mapHills(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int pX = x - 1;
     int pZ = z - 1;
@@ -1206,7 +1206,7 @@ int mapHills113(const Layer * l, int * out, int x, int z, int w, int h)
 
             int bn = (b11 - 2) % 29;
 
-            if (!isShallowOcean(a11) && b11 >= 2 && bn == 1)
+            if (bn == 1 && b11 >= 2 && !isShallowOcean(a11))
             {
                 int m = biomes[a11].mutated;
                 if (m > 0)
@@ -1253,7 +1253,7 @@ int mapHills113(const Layer * l, int * out, int x, int z, int w, int h)
                     case savanna:
                         hillID = savanna_plateau; break;
                     default:
-                        if (areSimilar113(a11, wooded_badlands_plateau))
+                        if (areSimilar(a11, wooded_badlands_plateau))
                             hillID = badlands;
                         else if (isDeepOcean(a11))
                         {
@@ -1282,10 +1282,10 @@ int mapHills113(const Layer * l, int * out, int x, int z, int w, int h)
                         int a12 = buf[i+1 + (j+2)*pW];
                         int equals = 0;
 
-                        if (areSimilar113(a10, a11)) equals++;
-                        if (areSimilar113(a21, a11)) equals++;
-                        if (areSimilar113(a01, a11)) equals++;
-                        if (areSimilar113(a12, a11)) equals++;
+                        if (areSimilar(a10, a11)) equals++;
+                        if (areSimilar(a21, a11)) equals++;
+                        if (areSimilar(a01, a11)) equals++;
+                        if (areSimilar(a12, a11)) equals++;
 
                         if (equals >= 3)
                             out[idx] = hillID;
@@ -1433,8 +1433,7 @@ int mapRareBiome(const Layer * l, int * out, int x, int z, int w, int h)
                 cs = getChunkSeed(ss, i + x, j + z);
                 if (mcFirstIsZero(cs, 57))
                 {
-                    // Sunflower Plains
-                    out[i + j*w] = plains + 128;
+                    out[i + j*w] = sunflower_plains;
                 }
             }
         }

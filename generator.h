@@ -132,6 +132,22 @@ int genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, i
 
 
 
+static inline int isOverworldBiome(int mc, int id)
+{
+    // check if the biome actually generates in this version
+    switch (id)
+    {
+    case ocean...river:                                 return 1;
+    case frozen_ocean:                                  return mc >= MC_1_13;
+    case frozen_river...badlands_plateau:               return id != mountain_edge;
+    case warm_ocean...deep_frozen_ocean:                return mc >= MC_1_13 && id != deep_warm_ocean;
+    case sunflower_plains...modified_badlands_plateau:  return 1;
+    case bamboo_jungle...bamboo_jungle_hills:           return mc >= MC_1_14;
+    default:
+        return 0;
+    }
+}
+
 /******************************** BIOME TABLES *********************************
  * The biome tables below are lists of the biomes that can be present at some
  * notable layers. Of cause, layers that are applied later in the hierarchy will

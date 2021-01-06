@@ -20,7 +20,7 @@
 #define L(COND)                 (__builtin_expect(!!(COND),1))  // [[likely]]
 #define U(COND)                 (__builtin_expect((COND),0))    // [[unlikely]]
 #else
-#define PREFETCH(PTR)
+#define PREFETCH(PTR,RW,LOC)
 #define L(COND)                 (COND)
 #define U(COND)                 (COND)
 #endif
@@ -191,6 +191,7 @@ void setWorldSeed(Layer *layer, int64_t worldSeed);
 // Static Helpers
 //==============================================================================
 
+
 static inline int getBiomeType(int id)
 {
     return (id & (~0xff)) ? Void : biomes[id].type;
@@ -206,7 +207,7 @@ static inline int getTempCategory(int id)
     return (id & (~0xff)) ? Void : biomes[id].tempCat;
 }
 
-static inline int areSimilar(int id1, int id2)
+static inline int areSimilar112(int id1, int id2)
 {
     if (id1 == id2) return 1;
     if (id1 == wooded_badlands_plateau || id1 == badlands_plateau)
@@ -221,7 +222,7 @@ static inline int areSimilar(int id1, int id2)
     return getBiomeType(id1) == getBiomeType(id2);
 }
 
-static inline int areSimilar113(int id1, int id2)
+static inline int areSimilar(int id1, int id2)
 {
     if (id1 == id2) return 1;
     if (id1 == wooded_badlands_plateau || id1 == badlands_plateau)
@@ -363,7 +364,7 @@ int mapBiomeBE              (const Layer *, int *, int, int, int, int);
 int mapAddBamboo            (const Layer *, int *, int, int, int, int);
 int mapRiverInit            (const Layer *, int *, int, int, int, int);
 int mapBiomeEdge            (const Layer *, int *, int, int, int, int);
-int mapHills                (const Layer *, int *, int, int, int, int);
+int mapHills112             (const Layer *, int *, int, int, int, int);
 int mapRiver                (const Layer *, int *, int, int, int, int);
 int mapSmooth               (const Layer *, int *, int, int, int, int);
 int mapRareBiome            (const Layer *, int *, int, int, int, int);
@@ -371,7 +372,7 @@ int mapShore                (const Layer *, int *, int, int, int, int);
 int mapRiverMix             (const Layer *, int *, int, int, int, int);
 
 // 1.13 layers
-int mapHills113             (const Layer *, int *, int, int, int, int);
+int mapHills                (const Layer *, int *, int, int, int, int);
 int mapOceanTemp            (const Layer *, int *, int, int, int, int);
 int mapOceanMix             (const Layer *, int *, int, int, int, int);
 

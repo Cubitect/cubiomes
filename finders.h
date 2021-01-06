@@ -685,6 +685,13 @@ int checkForBiomes(
 int hasAllTemps(LayerStack *g, int64_t seed, int x1024, int z1024);
 
 
+/* Given a biome 'id' at a generation 'layer', this functions finds which
+ * biomes may generate from it. The result is stored in the bitfields:
+ * mL : for ids 0-63
+ * mM : for ids 128-192
+ */
+void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id);
+
 
 //==============================================================================
 // Implementaions for Functions that Ideally Should be Inlined

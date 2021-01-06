@@ -59,7 +59,7 @@ static void setupScale(Layer *l, int scale)
         map == mapDeepOcean ||
         map == mapBiomeEdge ||
         map == mapHills ||
-        map == mapHills113 ||
+        map == mapHills112 ||
         map == mapRiver ||
         map == mapSmooth ||
         map == mapShore
@@ -133,7 +133,7 @@ static void setupGeneratorImpl(LayerStack *g, int mcversion, int largeBiomes)
     setupLayer(&l[L_ZOOM_64_HILLS],       &l[L_ZOOM_128_HILLS],       1001, mapZoom);
 
     setupMultiLayer(&l[L_HILLS_64], &l[L_BIOME_EDGE_64], &l[L_ZOOM_64_HILLS], 1000,
-            (mcversion & 0xff) <= MC_1_12 ? mapHills : mapHills113);
+            (mcversion & 0xff) <= MC_1_12 ? mapHills112 : mapHills);
 
     setupLayer(&l[L_RARE_BIOME_64],       &l[L_HILLS_64],             1001, mapRareBiome);
     setupLayer(&l[L_ZOOM_32],             &l[L_RARE_BIOME_64],        1000, mapZoom);

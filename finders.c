@@ -2485,7 +2485,217 @@ int hasAllTemps(LayerStack *g, int64_t seed, int x1024, int z1024)
 }
 
 
+void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
+{
+    if (!isOverworldBiome(mc, id))
+        return;
 
+    switch (layer)
+    {
+    case L_SPECIAL_1024: // biomes added in (L_SPECIAL_1024, L_ADD_MUSHROOM_256]
+        if (id == ocean)
+            genPotential(mL, mM, L_ADD_MUSHROOM_256, mc, mushroom_fields);
+        genPotential(mL, mM, L_ADD_MUSHROOM_256, mc, id);
+        break;
+
+    case L_ADD_MUSHROOM_256: // biomes added in (L_ADD_MUSHROOM_256, L_DEEP_OCEAN_256]
+        if (id == ocean)
+            genPotential(mL, mM, L_DEEP_OCEAN_256, mc, deep_ocean);
+        genPotential(mL, mM, L_DEEP_OCEAN_256, mc, id);
+        break;
+
+    case L_DEEP_OCEAN_256: // biomes added in (L_DEEP_OCEAN_256, L_BIOME_256]
+        switch (id & ~0xf00)
+        {
+        case Warm:
+            if (id & 0xf00) {
+                genPotential(mL, mM, L_BIOME_256, mc, badlands_plateau);
+                genPotential(mL, mM, L_BIOME_256, mc, wooded_badlands_plateau);
+            } else {
+                genPotential(mL, mM, L_BIOME_256, mc, desert);
+                genPotential(mL, mM, L_BIOME_256, mc, savanna);
+                genPotential(mL, mM, L_BIOME_256, mc, plains);
+            }
+            break;
+        case Lush:
+            if (id & 0xf00) {
+                genPotential(mL, mM, L_BIOME_256, mc, jungle);
+            } else {
+                genPotential(mL, mM, L_BIOME_256, mc, forest);
+                genPotential(mL, mM, L_BIOME_256, mc, dark_forest);
+                genPotential(mL, mM, L_BIOME_256, mc, mountains);
+                genPotential(mL, mM, L_BIOME_256, mc, plains);
+                genPotential(mL, mM, L_BIOME_256, mc, birch_forest);
+                genPotential(mL, mM, L_BIOME_256, mc, swamp);
+            }
+            break;
+        case Cold:
+            if (id & 0xf00) {
+                genPotential(mL, mM, L_BIOME_256, mc, giant_tree_taiga);
+            } else {
+                genPotential(mL, mM, L_BIOME_256, mc, forest);
+                genPotential(mL, mM, L_BIOME_256, mc, mountains);
+                genPotential(mL, mM, L_BIOME_256, mc, taiga);
+                genPotential(mL, mM, L_BIOME_256, mc, plains);
+            }
+            break;
+        case Freezing:
+            genPotential(mL, mM, L_BIOME_256, mc, snowy_tundra);
+            genPotential(mL, mM, L_BIOME_256, mc, snowy_taiga);
+            break;
+        default:
+            id &= ~0xf00;
+            genPotential(mL, mM, L_BIOME_256, mc, id);
+        }
+        break;
+
+    case L_BIOME_256: // biomes added in (L_BIOME_256, L_BIOME_EDGE_64]
+        if (mc >= MC_1_14 && id == jungle)
+            genPotential(mL, mM, L_BIOME_EDGE_64, mc, bamboo_jungle);
+        if (id == wooded_badlands_plateau || id == badlands_plateau)
+            genPotential(mL, mM, L_BIOME_EDGE_64, mc, badlands);
+        else if(id == giant_tree_taiga)
+            genPotential(mL, mM, L_BIOME_EDGE_64, mc, taiga);
+        else if (id == desert)
+            genPotential(mL, mM, L_BIOME_EDGE_64, mc, wooded_mountains);
+        else if (id == swamp)
+        {
+            genPotential(mL, mM, L_BIOME_EDGE_64, mc, jungle_edge);
+            genPotential(mL, mM, L_BIOME_EDGE_64, mc, plains);
+        }
+        genPotential(mL, mM, L_BIOME_EDGE_64, mc, id);
+        break;
+
+    case L_BIOME_EDGE_64: // biomes added in (L_BIOME_EDGE_64, L_HILLS_64]
+        if (!isShallowOcean(id) && biomes[id].mutated > 0)
+             genPotential(mL, mM, L_HILLS_64, mc, biomes[id].mutated);
+        switch (id)
+        {
+        case desert:
+            genPotential(mL, mM, L_HILLS_64, mc, desert_hills);
+            break;
+        case forest:
+            genPotential(mL, mM, L_HILLS_64, mc, wooded_hills);
+            break;
+        case birch_forest:
+            genPotential(mL, mM, L_HILLS_64, mc, birch_forest_hills);
+            genPotential(mL, mM, L_HILLS_64, mc, biomes[birch_forest_hills].mutated);
+            break;
+        case dark_forest:
+            genPotential(mL, mM, L_HILLS_64, mc, plains);
+            genPotential(mL, mM, L_HILLS_64, mc, biomes[plains].mutated);
+            break;
+        case taiga:
+            genPotential(mL, mM, L_HILLS_64, mc, taiga_hills);
+            break;
+        case giant_tree_taiga:
+            genPotential(mL, mM, L_HILLS_64, mc, giant_tree_taiga_hills);
+            genPotential(mL, mM, L_HILLS_64, mc, biomes[giant_tree_taiga_hills].mutated);
+            break;
+        case plains:
+            genPotential(mL, mM, L_HILLS_64, mc, wooded_hills);
+            genPotential(mL, mM, L_HILLS_64, mc, forest);
+            genPotential(mL, mM, L_HILLS_64, mc, biomes[forest].mutated);
+            break;
+        case snowy_tundra:
+            genPotential(mL, mM, L_HILLS_64, mc, snowy_mountains);
+            break;
+        case bamboo_jungle:
+            genPotential(mL, mM, L_HILLS_64, mc, bamboo_jungle_hills);
+            break;
+        case ocean:
+            genPotential(mL, mM, L_HILLS_64, mc, deep_ocean);
+            break;
+        case mountains:
+            genPotential(mL, mM, L_HILLS_64, mc, wooded_mountains);
+            genPotential(mL, mM, L_HILLS_64, mc, biomes[wooded_mountains].mutated);
+            break;
+        case savanna:
+            genPotential(mL, mM, L_HILLS_64, mc, savanna_plateau);
+            genPotential(mL, mM, L_HILLS_64, mc, biomes[savanna_plateau].mutated);
+            break;
+        default:
+            if ((mc <= MC_1_12 && areSimilar112(id, wooded_badlands_plateau)) ||
+                (mc >= MC_1_13 && areSimilar(id, wooded_badlands_plateau)))
+            {
+                genPotential(mL, mM, L_HILLS_64, mc, badlands);
+                genPotential(mL, mM, L_HILLS_64, mc, biomes[badlands].mutated);
+            }
+            else if (isDeepOcean(id))
+            {
+                genPotential(mL, mM, L_HILLS_64, mc, plains);
+                genPotential(mL, mM, L_HILLS_64, mc, forest);
+                genPotential(mL, mM, L_HILLS_64, mc, biomes[plains].mutated);
+                genPotential(mL, mM, L_HILLS_64, mc, biomes[forest].mutated);
+            }
+        }
+        genPotential(mL, mM, L_HILLS_64, mc, id);
+        break;
+
+    case L_HILLS_64: // biomes added in (L_HILLS_64, L_RARE_BIOME_64]
+        if (id == plains)
+            genPotential(mL, mM, L_RARE_BIOME_64, mc, sunflower_plains);
+        genPotential(mL, mM, L_RARE_BIOME_64, mc, id);
+        break;
+
+    case L_RARE_BIOME_64: // biomes added in (L_RARE_BIOME_64, L_SHORE_16]
+        if (id == mushroom_fields)
+            genPotential(mL, mM, L_SHORE_16, mc, mushroom_field_shore);
+        else if (getBiomeType(id) == Jungle) {
+            genPotential(mL, mM, L_SHORE_16, mc, beach);
+            genPotential(mL, mM, L_SHORE_16, mc, jungle_edge);
+        }
+        else if (id == mountains || id == wooded_mountains || id == mountain_edge)
+            genPotential(mL, mM, L_SHORE_16, mc, stone_shore);
+        else if (isBiomeSnowy(id))
+            genPotential(mL, mM, L_SHORE_16, mc, snowy_beach);
+        else if (id == badlands || id == wooded_badlands_plateau)
+            genPotential(mL, mM, L_SHORE_16, mc, desert);
+        else if (id != ocean && id != deep_ocean && id != river && id != swamp)
+            genPotential(mL, mM, L_SHORE_16, mc, beach);
+        genPotential(mL, mM, L_SHORE_16, mc, id);
+        break;
+
+    case L_SHORE_16: // biomes added in (L_SHORE_16, L_RIVER_MIX_4]
+        if (id == snowy_tundra)
+            genPotential(mL, mM, L_RIVER_MIX_4, mc, frozen_river);
+        if (id == mushroom_fields || id == mushroom_field_shore)
+            genPotential(mL, mM, L_RIVER_MIX_4, mc, mushroom_field_shore);
+        genPotential(mL, mM, L_RIVER_MIX_4, mc, id);
+        break;
+
+    case L_RIVER_MIX_4: // biomes added in (L_RIVER_MIX_4, L_VORONOI_ZOOM_1]
+        if (mc >= MC_1_13 && isOceanic(id))
+        {
+            if (id == ocean)
+            {
+                genPotential(mL, mM, L_VORONOI_ZOOM_1, mc, ocean);
+                genPotential(mL, mM, L_VORONOI_ZOOM_1, mc, warm_ocean);
+                genPotential(mL, mM, L_VORONOI_ZOOM_1, mc, lukewarm_ocean);
+                genPotential(mL, mM, L_VORONOI_ZOOM_1, mc, cold_ocean);
+                genPotential(mL, mM, L_VORONOI_ZOOM_1, mc, frozen_ocean);
+            }
+            else if (id == deep_ocean)
+            {
+                genPotential(mL, mM, L_VORONOI_ZOOM_1, mc, deep_ocean);
+                genPotential(mL, mM, L_VORONOI_ZOOM_1, mc, deep_lukewarm_ocean);
+                genPotential(mL, mM, L_VORONOI_ZOOM_1, mc, deep_cold_ocean);
+                genPotential(mL, mM, L_VORONOI_ZOOM_1, mc, deep_frozen_ocean);
+            }
+            else break;
+        }
+        genPotential(mL, mM, L_VORONOI_ZOOM_1, mc, id);
+        break;
+
+    case L_VORONOI_ZOOM_1:
+        if (id < 128)   *mL |= 1ULL << id;
+        else            *mM |= 1ULL << (id-128);
+        break;
+
+    default:
+        printf("genPotential() not implemented for layer %d\n", layer);
+    }
+}
 
 
 
