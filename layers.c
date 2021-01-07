@@ -871,7 +871,7 @@ int mapBiomeBE(const Layer * l, int * out, int x, int z, int w, int h)
                     break;
                 case Lush:
                     if (hasHighBit) out[idx] = jungle;
-                    else out[idx] = lushBiomesBE[mcFirstInt(cs, 6)];
+                    else out[idx] = lushBiomesBE[mcFirstInt(cs, 8)];
                     break;
                 case Cold:
                     if (hasHighBit) out[idx] = giant_tree_taiga;
