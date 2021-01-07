@@ -131,10 +131,7 @@ void initBiomes()
 
 void setWorldSeed(Layer *layer, int64_t worldSeed)
 {
-    // TODO: setWorldSeed is problematic for layers during generation branches.
-    // Also the Hills branch gets zero-initialized pre 1.13 which is irritating.
-
-    if (layer->p2 != NULL && layer->getMap != mapHills112)
+    if (layer->p2 != NULL)
         setWorldSeed(layer->p2, worldSeed);
 
     if (layer->p != NULL)
@@ -143,13 +140,22 @@ void setWorldSeed(Layer *layer, int64_t worldSeed)
     if (layer->oceanRnd != NULL)
         oceanRndInit(layer->oceanRnd, worldSeed);
 
-    int64_t st = worldSeed;
-    st = mcStepSeed(st, layer->layerSeed);
-    st = mcStepSeed(st, layer->layerSeed);
-    st = mcStepSeed(st, layer->layerSeed);
+    int64_t ls = layer->layerSeed;
+    if (ls != 0) // Pre 1.13 the Hills branch stays zero-initialized
+    {
+        int64_t st = worldSeed;
+        st = mcStepSeed(st, ls);
+        st = mcStepSeed(st, ls);
+        st = mcStepSeed(st, ls);
 
-    layer->startSalt = st;
-    layer->startSeed = mcStepSeed(st, 0);
+        layer->startSalt = st;
+        layer->startSeed = mcStepSeed(st, 0);
+    }
+    else
+    {
+        layer->startSalt = 0;
+        layer->startSeed = 0;
+    }
 }
 
 
@@ -1450,17 +1456,17 @@ inline static int replaceOcean(int *out, int idx, int v10, int v21, int v01, int
 {
     if (isOceanic(id)) return 0;
 
-    if (!isOceanic(v10) && !isOceanic(v21) && !isOceanic(v01) && !isOceanic(v12))
-        out[idx] = id;
-    else
+    if (isOceanic(v10) || isOceanic(v21) || isOceanic(v01) || isOceanic(v12))
         out[idx] = replaceID;
+    else
+        out[idx] = id;
 
     return 1;
 }
 
 inline static int isBiomeJFTO(int id)
 {
-    return biomeExists(id) && (getBiomeType(id) == Jungle || id == forest || id == taiga || isOceanic(id));
+    return getBiomeType(id) == Jungle || id == forest || id == taiga || isOceanic(id);
 }
 
 int mapShore(const Layer * l, int * out, int x, int z, int w, int h)
@@ -1489,67 +1495,62 @@ int mapShore(const Layer * l, int * out, int x, int z, int w, int h)
             int v01 = vz1[i+0];
             int v12 = vz2[i+1];
 
-            int biome = biomeExists(v11) ? v11 : 0;
-
             if (v11 == mushroom_fields)
             {
-                if (v10 != ocean && v21 != ocean && v01 != ocean && v12 != ocean)
-                    out[i + j*w] = v11;
-                else
+                if (v10 == ocean || v21 == ocean || v01 == ocean || v12 == ocean)
                     out[i + j*w] = mushroom_field_shore;
+                else
+                    out[i + j*w] = v11;
             }
-            else if (/*biome < 128 &&*/ getBiomeType(biome) == Jungle)
+            else if (getBiomeType(v11) == Jungle)
             {
                 if (isBiomeJFTO(v10) && isBiomeJFTO(v21) && isBiomeJFTO(v01) && isBiomeJFTO(v12))
                 {
-                    if (!isOceanic(v10) && !isOceanic(v21) && !isOceanic(v01) && !isOceanic(v12))
-                        out[i + j*w] = v11;
-                    else
+                    if (isOceanic(v10) || isOceanic(v21) || isOceanic(v01) || isOceanic(v12))
                         out[i + j*w] = beach;
+                    else
+                        out[i + j*w] = v11;
                 }
                 else
                 {
                     out[i + j*w] = jungle_edge;
                 }
             }
-            else if (v11 != mountains && v11 != wooded_mountains && v11 != mountain_edge)
+            else if (v11 == mountains || v11 == wooded_mountains || v11 == mountain_edge)
             {
-                if (isBiomeSnowy(biome))
+                replaceOcean(out, i + j*w, v10, v21, v01, v12, v11, stone_shore);
+            }
+            else if (isBiomeSnowy(v11))
+            {
+                replaceOcean(out, i + j*w, v10, v21, v01, v12, v11, snowy_beach);
+            }
+            else if (v11 == badlands || v11 == wooded_badlands_plateau)
+            {
+                if (!isOceanic(v10) && !isOceanic(v21) && !isOceanic(v01) && !isOceanic(v12))
                 {
-                    replaceOcean(out, i + j*w, v10, v21, v01, v12, v11, snowy_beach);
-                }
-                else if (v11 != badlands && v11 != wooded_badlands_plateau)
-                {
-                    if (v11 != ocean && v11 != deep_ocean && v11 != river && v11 != swamp)
-                    {
-                        if (!isOceanic(v10) && !isOceanic(v21) && !isOceanic(v01) && !isOceanic(v12))
-                            out[i + j*w] = v11;
-                        else
-                            out[i + j*w] = beach;
-                    }
-                    else
-                    {
+                    if (getBiomeType(v10) == Mesa && getBiomeType(v21) == Mesa && getBiomeType(v01) == Mesa && getBiomeType(v12) == Mesa)
                         out[i + j*w] = v11;
-                    }
+                    else
+                        out[i + j*w] = desert;
                 }
                 else
                 {
-                    if (!isOceanic(v10) && !isOceanic(v21) && !isOceanic(v01) && !isOceanic(v12))
-                    {
-                        if (getBiomeType(v10) == Mesa && getBiomeType(v21) == Mesa && getBiomeType(v01) == Mesa && getBiomeType(v12) == Mesa)
-                            out[i + j*w] = v11;
-                        else
-                            out[i + j*w] = desert;
-                    }
-                    else
-                    {
-                        out[i + j*w] = v11;
-                    }
+                    out[i + j*w] = v11;
                 }
             }
             else
             {
-                replaceOcean(out, i + j*w, v10, v21, v01, v12, v11, stone_shore);
+                if (v11 != ocean && v11 != deep_ocean && v11 != river && v11 != swamp)
+                {
+                    if (isOceanic(v10) || isOceanic(v21) || isOceanic(v01) || isOceanic(v12))
+                        out[i + j*w] = beach;
+                    else
+                        out[i + j*w] = v11;
+                }
+                else
+                {
+                    out[i + j*w] = v11;
+                }
             }
         }
     }

@@ -2388,7 +2388,7 @@ L_HAS_PROTO_MUSHROOM:
     g->layers[L13_OCEAN_MIX_4].data         = (void*) &filter;
     g->layers[L13_OCEAN_MIX_4].getMap       = mapFilterOceanMix;
 
-    applySeed(g, seed);
+    setWorldSeed(l, seed);
     int ret = !l->getMap(l, map, x, z, w, h);
     if (ret)
     {

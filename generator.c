@@ -9,7 +9,7 @@
 
 void setupLayer(Layer *l, Layer *p, int s, mapfunc_t getMap)
 {
-    l->layerSeed = getLayerSeed(s);
+    l->layerSeed = s ? getLayerSeed(s) : 0;
     l->startSalt = 0;
     l->startSeed = 0;
     l->p = p;
@@ -129,8 +129,8 @@ static void setupGeneratorImpl(LayerStack *g, int mcversion, int largeBiomes)
 
     // basic river layer chain, used to determine where hills generate
     setupLayer(&l[L_RIVER_INIT_256],      &l[L_DEEP_OCEAN_256],       100,  mapRiverInit);
-    setupLayer(&l[L_ZOOM_128_HILLS],      &l[L_RIVER_INIT_256],       1000, mapZoom);
-    setupLayer(&l[L_ZOOM_64_HILLS],       &l[L_ZOOM_128_HILLS],       1001, mapZoom);
+    setupLayer(&l[L_ZOOM_128_HILLS],      &l[L_RIVER_INIT_256],       mcversion < MC_1_13 ? 0 : 1000, mapZoom);
+    setupLayer(&l[L_ZOOM_64_HILLS],       &l[L_ZOOM_128_HILLS],       mcversion < MC_1_13 ? 0 : 1001, mapZoom);
 
     setupMultiLayer(&l[L_HILLS_64], &l[L_BIOME_EDGE_64], &l[L_ZOOM_64_HILLS], 1000,
             (mcversion & 0xff) <= MC_1_12 ? mapHills112 : mapHills);
