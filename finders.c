@@ -1948,18 +1948,15 @@ BiomeFilter setupBiomeFilter(const int *biomeList, int listLen)
                 bf.tempsToFind |= (1ULL << Oceanic);
                 bf.oceanToFind |= (1ULL << id);
                 if (isShallowOcean(id)) {
-                    bf.otempToFind |= (1ULL << id);
+                    if (id != lukewarm_ocean && id != cold_ocean)
+                        bf.otempToFind |= (1ULL << id);
                 } else {
                     bf.raresToFind |= (1ULL << deep_ocean);
                     bf.riverToFind |= (1ULL << deep_ocean);
                     if (id == deep_warm_ocean)
                         bf.otempToFind |= (1ULL << warm_ocean);
-                    else if (id == deep_lukewarm_ocean)
-                        bf.otempToFind |= (1ULL << lukewarm_ocean);
                     else if (id == deep_ocean)
                         bf.otempToFind |= (1ULL << ocean);
-                    else if (id == deep_cold_ocean)
-                        bf.otempToFind |= (1ULL << cold_ocean);
                     else if (id == deep_frozen_ocean)
                         bf.otempToFind |= (1ULL << frozen_ocean);
                 }
@@ -1986,14 +1983,20 @@ BiomeFilter setupBiomeFilter(const int *biomeList, int listLen)
 }
 
 
+STRUCT(filter_data_t)
+{
+    const BiomeFilter *bf;
+    int (*map)(const Layer *, int *, int, int, int, int);
+};
+
 static int mapFilterSpecial(const Layer * l, int * out, int x, int z, int w, int h)
 {
-    const BiomeFilter *bf = (const BiomeFilter*) l->data;
+    const filter_data_t *f = (const filter_data_t*) l->data;
     int i, j;
     uint64_t temps;
 
     /// pre-gen checks
-    int specialcnt = bf->specialCnt;
+    int specialcnt = f->bf->specialCnt;
     if (specialcnt > 0)
     {
         int64_t ss = l->startSeed;
@@ -2012,7 +2015,7 @@ static int mapFilterSpecial(const Layer * l, int * out, int x, int z, int w, int
             return 1;
     }
 
-    int err = mapSpecial(l, out, x, z, w, h);
+    int err = f->map(l, out, x, z, w, h);
     if U(err != 0)
         return err;
 
@@ -2032,18 +2035,18 @@ static int mapFilterSpecial(const Layer * l, int * out, int x, int z, int w, int
         }
     }
 
-    if ((temps & bf->tempsToFind) ^ bf->tempsToFind)
+    if ((temps & f->bf->tempsToFind) ^ f->bf->tempsToFind)
         return 1;
     return 0;
 }
 
 static int mapFilterMushroom(const Layer * l, int * out, int x, int z, int w, int h)
 {
-    const BiomeFilter *bf = (const BiomeFilter*) l->data;
+    const filter_data_t *f = (const filter_data_t*) l->data;
     int i, j;
     int err;
 
-    if (w*h < 100 && (bf->majorToFind & (1ULL << mushroom_fields)))
+    if (w*h < 100 && (f->bf->majorToFind & (1ULL << mushroom_fields)))
     {
         int64_t ss = l->startSeed;
         int64_t cs;
@@ -2061,11 +2064,11 @@ static int mapFilterMushroom(const Layer * l, int * out, int x, int z, int w, in
     }
 
 L_GENERATE:
-    err = mapAddMushroomIsland(l, out, x, z, w, h);
+    err = f->map(l, out, x, z, w, h);
     if U(err != 0)
         return err;
 
-    if (bf->majorToFind & (1ULL << mushroom_fields))
+    if (f->bf->majorToFind & (1ULL << mushroom_fields))
     {
         for (i = 0; i < w*h; i++)
             if (out[i] == mushroom_fields)
@@ -2077,11 +2080,11 @@ L_GENERATE:
 
 static int mapFilterBiome(const Layer * l, int * out, int x, int z, int w, int h)
 {
-    const BiomeFilter *bf = (const BiomeFilter*) l->data;
+    const filter_data_t *f = (const filter_data_t*) l->data;
     int i, j;
     uint64_t b;
 
-    int err = mapBiome(l, out, x, z, w, h);
+    int err = f->map(l, out, x, z, w, h);
     if U(err != 0)
         return err;
 
@@ -2095,18 +2098,18 @@ static int mapFilterBiome(const Layer * l, int * out, int x, int z, int w, int h
         }
     }
 
-    if ((b & bf->majorToFind) ^ bf->majorToFind)
+    if ((b & f->bf->majorToFind) ^ f->bf->majorToFind)
         return 1;
     return 0;
 }
 
 static int mapFilterOceanTemp(const Layer * l, int * out, int x, int z, int w, int h)
 {
-    const BiomeFilter *bf = (const BiomeFilter*) l->data;
+    const filter_data_t *f = (const filter_data_t*) l->data;
     int i, j;
     uint64_t b;
 
-    int err = mapOceanTemp(l, out, x, z, w, h);
+    int err = f->map(l, out, x, z, w, h);
     if U(err != 0)
         return err;
 
@@ -2120,19 +2123,19 @@ static int mapFilterOceanTemp(const Layer * l, int * out, int x, int z, int w, i
         }
     }
 
-    if ((b & bf->otempToFind) ^ bf->otempToFind)
+    if ((b & f->bf->otempToFind) ^ f->bf->otempToFind)
         return 1;
     return 0;
 }
 
 static int mapFilterBiomeEdge(const Layer * l, int * out, int x, int z, int w, int h)
 {
-    const BiomeFilter *bf = (const BiomeFilter*) l->data;
+    const filter_data_t *f = (const filter_data_t*) l->data;
     uint64_t b;
     int i;
     int err;
 
-    err = mapBiomeEdge(l, out, x, z, w, h);
+    err = f->map(l, out, x, z, w, h);
     if U(err != 0)
         return err;
 
@@ -2140,19 +2143,19 @@ static int mapFilterBiomeEdge(const Layer * l, int * out, int x, int z, int w, i
     for (i = 0; i < w*h; i++)
         b |= (1ULL << (out[i] & 0x3f));
 
-    if ((b & bf->edgesToFind) ^ bf->edgesToFind)
+    if ((b & f->bf->edgesToFind) ^ f->bf->edgesToFind)
         return 1;
     return 0;
 }
 
 static int mapFilterRareBiome(const Layer * l, int * out, int x, int z, int w, int h)
 {
-    const BiomeFilter *bf = (const BiomeFilter*) l->data;
+    const filter_data_t *f = (const filter_data_t*) l->data;
     uint64_t b, bm;
     int i;
     int err;
 
-    err = mapRareBiome(l, out, x, z, w, h);
+    err = f->map(l, out, x, z, w, h);
     if U(err != 0)
         return err;
 
@@ -2164,20 +2167,20 @@ static int mapFilterRareBiome(const Layer * l, int * out, int x, int z, int w, i
         else bm |= (1ULL << (id-128));
     }
 
-    if ((b & bf->raresToFind) ^ bf->raresToFind)
+    if ((b & f->bf->raresToFind) ^ f->bf->raresToFind)
         return 1;
-    if ((bm & bf->raresToFindM) ^ bf->raresToFindM)
+    if ((bm & f->bf->raresToFindM) ^ f->bf->raresToFindM)
         return 1;
     return 0;
 }
 
 static int mapFilterShore(const Layer * l, int * out, int x, int z, int w, int h)
 {
-    const BiomeFilter *bf = (const BiomeFilter*) l->data;
+    const filter_data_t *f = (const filter_data_t*) l->data;
     uint64_t b, bm;
     int i;
 
-    int err = mapShore(l, out, x, z, w, h);
+    int err = f->map(l, out, x, z, w, h);
     if U(err != 0)
         return err;
 
@@ -2189,20 +2192,20 @@ static int mapFilterShore(const Layer * l, int * out, int x, int z, int w, int h
         else bm |= (1ULL << (id-128));
     }
 
-    if ((b & bf->shoreToFind) ^ bf->shoreToFind)
+    if ((b & f->bf->shoreToFind) ^ f->bf->shoreToFind)
         return 1;
-    if ((bm & bf->shoreToFindM) ^ bf->shoreToFindM)
+    if ((bm & f->bf->shoreToFindM) ^ f->bf->shoreToFindM)
         return 1;
     return 0;
 }
 
 static int mapFilterRiverMix(const Layer * l, int * out, int x, int z, int w, int h)
 {
-    const BiomeFilter *bf = (const BiomeFilter*) l->data;
+    const filter_data_t *f = (const filter_data_t*) l->data;
     uint64_t b, bm;
     int i;
 
-    int err = mapRiverMix(l, out, x, z, w, h);
+    int err = f->map(l, out, x, z, w, h);
     if U(err != 0)
         return err;
 
@@ -2214,28 +2217,28 @@ static int mapFilterRiverMix(const Layer * l, int * out, int x, int z, int w, in
         else bm |= (1ULL << (id-128));
     }
 
-    if ((b & bf->riverToFind) ^ bf->riverToFind)
+    if ((b & f->bf->riverToFind) ^ f->bf->riverToFind)
         return 1;
-    if ((bm & bf->riverToFindM) ^ bf->riverToFindM)
+    if ((bm & f->bf->riverToFindM) ^ f->bf->riverToFindM)
         return 1;
     return 0;
 }
 
 static int mapFilterOceanMix(const Layer * l, int * out, int x, int z, int w, int h)
 {
-    const BiomeFilter *bf = (const BiomeFilter*) l->data;
+    const filter_data_t *f = (const filter_data_t*) l->data;
     uint64_t b;
     int i;
     int err;
 
-    if (bf->riverToFind)
+    if (f->bf->riverToFind)
     {
-        err = mapRiverMix(l, out, x, z, w, h);
+        err = l->p->getMap(l->p, out, x, z, w, h); // RiverMix
         if (err)
             return err;
     }
 
-    err = mapOceanMix(l, out, x, z, w, h);
+    err = f->map(l, out, x, z, w, h);
     if U(err != 0)
         return err;
 
@@ -2246,9 +2249,24 @@ static int mapFilterOceanMix(const Layer * l, int * out, int x, int z, int w, in
         if (id < 128) b |= (1ULL << id);
     }
 
-    if ((b & bf->oceanToFind) ^ bf->oceanToFind)
+    if ((b & f->bf->oceanToFind) ^ f->bf->oceanToFind)
         return 1;
     return 0;
+}
+
+void swapMap(filter_data_t *fd, BiomeFilter *bf, Layer *l,
+        int (*map)(const Layer *, int *, int, int, int, int))
+{
+    fd->bf = bf;
+    fd->map = l->getMap;
+    l->data = (void*) fd;
+    l->getMap = map;
+}
+
+void restoreMap(filter_data_t *fd, Layer *l)
+{
+    l->getMap = fd->map;
+    l->data = NULL;
 }
 
 
@@ -2366,30 +2384,22 @@ L_HAS_PROTO_MUSHROOM:
             return 0;
     }
 
-    l = &g->layers[layerID];
-    int *map = cache ? cache : allocCache(l, w, h);
+    l = g->layers;
+    int *map = cache ? cache : allocCache(&l[layerID], w, h);
 
-    g->layers[L_SPECIAL_1024].data          = (void*) &filter;
-    g->layers[L_SPECIAL_1024].getMap        = mapFilterSpecial;
-    g->layers[L_ADD_MUSHROOM_256].data      = (void*) &filter;
-    g->layers[L_ADD_MUSHROOM_256].getMap    = mapFilterMushroom;
-    g->layers[L_BIOME_256].data             = (void*) &filter;
-    g->layers[L_BIOME_256].getMap           = mapFilterBiome;
-    g->layers[L13_OCEAN_TEMP_256].data      = (void*) &filter;
-    g->layers[L13_OCEAN_TEMP_256].getMap    = mapFilterOceanTemp;
-    g->layers[L_BIOME_EDGE_64].data         = (void*) &filter;
-    g->layers[L_BIOME_EDGE_64].getMap       = mapFilterBiomeEdge;
-    g->layers[L_RARE_BIOME_64].data         = (void*) &filter;
-    g->layers[L_RARE_BIOME_64].getMap       = mapFilterRareBiome;
-    g->layers[L_SHORE_16].data              = (void*) &filter;
-    g->layers[L_SHORE_16].getMap            = mapFilterShore;
-    g->layers[L_RIVER_MIX_4].data           = (void*) &filter;
-    g->layers[L_RIVER_MIX_4].getMap         = mapFilterRiverMix;
-    g->layers[L13_OCEAN_MIX_4].data         = (void*) &filter;
-    g->layers[L13_OCEAN_MIX_4].getMap       = mapFilterOceanMix;
+    filter_data_t fd[9];
+    swapMap(fd+0, &filter, l+L13_OCEAN_MIX_4,       mapFilterOceanMix);
+    swapMap(fd+1, &filter, l+L_RIVER_MIX_4,         mapFilterRiverMix);
+    swapMap(fd+2, &filter, l+L_SHORE_16,            mapFilterShore);
+    swapMap(fd+3, &filter, l+L_RARE_BIOME_64,       mapFilterRareBiome);
+    swapMap(fd+4, &filter, l+L_BIOME_EDGE_64,       mapFilterBiomeEdge);
+    swapMap(fd+5, &filter, l+L13_OCEAN_TEMP_256,    mapFilterOceanTemp);
+    swapMap(fd+6, &filter, l+L_BIOME_256,           mapFilterBiome);
+    swapMap(fd+7, &filter, l+L_ADD_MUSHROOM_256,    mapFilterMushroom);
+    swapMap(fd+8, &filter, l+L_SPECIAL_1024,        mapFilterSpecial);
 
-    setWorldSeed(l, seed);
-    int ret = !l->getMap(l, map, x, z, w, h);
+    setWorldSeed(&l[layerID], seed);
+    int ret = !l[layerID].getMap(&l[layerID], map, x, z, w, h);
     if (ret)
     {
         uint64_t required, b = 0, bm = 0;
@@ -2410,24 +2420,15 @@ L_HAS_PROTO_MUSHROOM:
             ret = -1;
     }
 
-    g->layers[L_SPECIAL_1024].data          = NULL;
-    g->layers[L_SPECIAL_1024].getMap        = mapSpecial;
-    g->layers[L_ADD_MUSHROOM_256].data      = NULL;
-    g->layers[L_ADD_MUSHROOM_256].getMap    = mapAddMushroomIsland;
-    g->layers[L_BIOME_256].data             = NULL;
-    g->layers[L_BIOME_256].getMap           = mapBiome;
-    g->layers[L13_OCEAN_TEMP_256].data      = NULL;
-    g->layers[L13_OCEAN_TEMP_256].getMap    = mapOceanTemp;
-    g->layers[L_BIOME_EDGE_64].data         = NULL;
-    g->layers[L_BIOME_EDGE_64].getMap       = mapBiomeEdge;
-    g->layers[L_RARE_BIOME_64].data         = NULL;
-    g->layers[L_RARE_BIOME_64].getMap       = mapRareBiome;
-    g->layers[L_SHORE_16].data              = NULL;
-    g->layers[L_SHORE_16].getMap            = mapShore;
-    g->layers[L_RIVER_MIX_4].data           = NULL;
-    g->layers[L_RIVER_MIX_4].getMap         = mapRiverMix;
-    g->layers[L13_OCEAN_MIX_4].data         = NULL;
-    g->layers[L13_OCEAN_MIX_4].getMap       = mapOceanMix;
+    restoreMap(fd+8, l+L_SPECIAL_1024);
+    restoreMap(fd+7, l+L_ADD_MUSHROOM_256);
+    restoreMap(fd+6, l+L_BIOME_256);
+    restoreMap(fd+5, l+L13_OCEAN_TEMP_256);
+    restoreMap(fd+4, l+L_BIOME_EDGE_64);
+    restoreMap(fd+3, l+L_RARE_BIOME_64);
+    restoreMap(fd+2, l+L_SHORE_16);
+    restoreMap(fd+1, l+L_RIVER_MIX_4);
+    restoreMap(fd+0, l+L13_OCEAN_MIX_4);
 
     if (cache == NULL)
         free(map);
