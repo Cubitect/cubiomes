@@ -682,8 +682,14 @@ int checkForBiomes(
         int             protoCheck
         );
 
-int hasAllTemps(LayerStack *g, int64_t seed, int x1024, int z1024);
-
+/* Checks that the area (x,z,w,h) at layer Special, scale 1:1024 contains the
+ * temperature category requirements defined by 'tc' as:
+ * if (tc[TEMP_CAT] >= 0) require at least this many entries of this category
+ * if (tc[TEMP_CAT] <  0) avoid, there shall be no entries of this category
+ * TEMP_CAT is any of:
+ * Oceanic, Warm, Lush, Cold, Freeing, Special+Warm, Special+Lush, Special+Cold
+ */
+int checkForTemps(LayerStack *g, int64_t seed, int x, int z, int w, int h, const int tc[9]);
 
 /* Given a biome 'id' at a generation 'layer', this functions finds which
  * biomes may generate from it. The result is stored in the bitfields:

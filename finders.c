@@ -2439,9 +2439,7 @@ L_HAS_PROTO_MUSHROOM:
 
 int hasAllTemps(LayerStack *g, int64_t seed, int x1024, int z1024)
 {
-    int64_t ls;
-    ls = getLayerSeed(3); // L_SPECIAL_1024 layer seed
-
+    int64_t ls = getLayerSeed(3); // L_SPECIAL_1024 layer seed
     int64_t ss = getStartSeed(seed, ls);
     int spbits = 0, spcnt = 0;
 
@@ -2490,9 +2488,65 @@ int hasAllTemps(LayerStack *g, int64_t seed, int x1024, int z1024)
 }
 
 
+int checkForTemps(LayerStack *g, int64_t seed, int x, int z, int w, int h, const int tc[9])
+{
+    int64_t ls = getLayerSeed(3); // L_SPECIAL_1024 layer seed
+    int64_t ss = getStartSeed(seed, ls);
+
+    int i, j;
+    int scnt = 0;
+
+    if (tc[Special+Warm] > 0) scnt += tc[Special+Warm];
+    if (tc[Special+Lush] > 0) scnt += tc[Special+Lush];
+    if (tc[Special+Cold] > 0) scnt += tc[Special+Cold];
+
+    if (scnt > 0)
+    {
+        for (j = 0; j < h; j++)
+        {
+            for (i = 0; i < w; i++)
+            {
+                if (mcFirstIsZero(getChunkSeed(ss, x+i, z+j), 13))
+                    scnt--;
+            }
+        }
+        if (scnt > 0)
+            return 0;
+    }
+
+    Layer *l = &g->layers[L_SPECIAL_1024];
+    int ccnt[9] = {0};
+    int *area = allocCache(l, w, h);
+    int ret = 1;
+
+    setWorldSeed(l, seed);
+    genArea(l, area, x, z, w, h);
+
+    for (i = 0; i < w*h; i++)
+    {
+        int id = area[i];
+        int t = id & 0xff;
+        if (id != t && t != Freezing)
+            t += Special;
+        ccnt[t]++;
+    }
+    for (i = 0; i < 9; i++)
+    {
+        if (ccnt[i] < tc[i] || (ccnt[i] && tc[i] < 0))
+        {
+            ret = 0;
+            break;
+        }
+    }
+
+    free(area);
+    return ret;
+}
+
+
 void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
 {
-    if (!isOverworldBiome(mc, id))
+    if (layer >= L_BIOME_256 && !isOverworldBiome(mc, id))
         return;
 
     int i;
@@ -2500,15 +2554,17 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
     switch (layer)
     {
     case L_SPECIAL_1024: // biomes added in (L_SPECIAL_1024, L_ADD_MUSHROOM_256]
-        if (id == ocean)
+        if (id == Oceanic)
             genPotential(mL, mM, L_ADD_MUSHROOM_256, mc, mushroom_fields);
-        genPotential(mL, mM, L_ADD_MUSHROOM_256, mc, id);
+        if ((id & ~0xf00) >= Oceanic && (id & ~0xf00) <= Freezing)
+            genPotential(mL, mM, L_ADD_MUSHROOM_256, mc, id);
         break;
 
     case L_ADD_MUSHROOM_256: // biomes added in (L_ADD_MUSHROOM_256, L_DEEP_OCEAN_256]
-        if (id == ocean)
+        if (id == Oceanic)
             genPotential(mL, mM, L_DEEP_OCEAN_256, mc, deep_ocean);
-        genPotential(mL, mM, L_DEEP_OCEAN_256, mc, id);
+        if ((id & ~0xf00) >= Oceanic && (id & ~0xf00) <= Freezing)
+            genPotential(mL, mM, L_DEEP_OCEAN_256, mc, id);
         break;
 
     case L_DEEP_OCEAN_256: // biomes added in (L_DEEP_OCEAN_256, L_BIOME_256]
