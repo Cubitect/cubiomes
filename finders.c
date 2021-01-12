@@ -1619,7 +1619,7 @@ L_FEATURE:
         biomeX = (chunkX << 4) + 8;
         biomeZ = (chunkZ << 4) + 8;
         setWorldSeed(l, seed);
-        if (areBiomesViable(l, NULL, blockX, blockZ, 32, getValidMansionBiomes()))
+        if (areBiomesViable(l, NULL, biomeX, biomeZ, 32, getValidMansionBiomes()))
             goto L_VIABLE;
         goto L_NOT_VIABLE;
 
