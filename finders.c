@@ -2716,7 +2716,7 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
         for (i = sizeof(BIOMES_L_HILLS_64) / sizeof(int); i >= 0; i--)
             if (BIOMES_L_HILLS_64[i] == id)
                 break;
-        if (i < 0 || id == sunflower_plains) break;
+        if (i < 0 && id != sunflower_plains) break;
         if (id == mushroom_fields)
             genPotential(mL, mM, L_SHORE_16, mc, mushroom_field_shore);
         else if (getBiomeType(id) == Jungle) {

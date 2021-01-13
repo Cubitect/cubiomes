@@ -440,6 +440,13 @@ int scanForQuads(const StructureConfig sconf, int64_t s48, int64_t low20,
  */
 int getBiomeAtPos(const LayerStack *g, const Pos pos);
 
+/* Get the shadow seed.
+ */
+inline int64_t getShadow(int64_t seed)
+{
+    return -7379792620528906219LL - seed;
+}
+
 /* Finds a suitable pseudo-random location in the specified area.
  * This function is used to determine the positions of spawn and strongholds.
  * Warning: accurate, but slow!
@@ -505,7 +512,6 @@ int getBiomeRadius(
         const int *     biomes,
         const int       bnum,
         const int       ignoreMutations);
-
 
 
 //==============================================================================
