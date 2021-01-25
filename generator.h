@@ -85,7 +85,7 @@ STRUCT(LayerStack)
     Layer layers[L_NUM];
     Layer *entry_1; // entry layer, scale (1:1) [L_VORONOI_ZOOM_1]
     Layer *entry_4; // entry layer, scale (1:4) [L_RIVER_MIX_4|L13_OCEAN_MIX_4]
-    OceanRnd oceanRnd;
+    PerlinNoise oceanRnd;
 };
 
 typedef int (*mapfunc_t)(const Layer *, int *, int, int, int, int);

@@ -415,20 +415,25 @@ int searchAll48(
 Pos getOptimalAfk(Pos p[4], int ax, int ay, int az, int *spcnt);
 
 /* Scans the seed 's48' for quad-structures in the given area of region
- * coordiantes. The search is performed for only a specific lower 20-bits of
- * the transformed bases (i.e. each call looks for only one constellation of
- * quad-structure).
+ * coordiantes. The search is performed for only a specific set of lower bits
+ * of the transformed bases (each constellation of quad-structures is
+ * considered separately).
  *
- * @sconf   : structure config (SWAMP_HUT_CONFIG or FEATURE_CONFIG)
- * @s48     : 48-bit seed to scan
- * @low20   : only consider transformations that yield these lower bits
- * @x,z,w,h : area to scan in region coordinates (inclusive)
- * @qplist  : output region coordinates for the descovered quad-structures
- * @n       : maximum number of quad-structures to look for
+ * @sconf       : structure config
+ * @radius      : radius for isQuadBase (use 128 for quad-huts)
+ * @s48         : 48-bit seed to scan
+ * @lowBits     : consider transformations that yield one of these lower bits
+ * @lowBitCnt   : length of lower bit subset
+ * @lowBitN     : number of bits in the subset values (0 < lowBitN <= 48)
+ * @x,z,w,h     : area to scan in region coordinates (inclusive)
+ * @qplist      : output region coordinates for the descovered quad-structures
+ * @n           : maximum number of quad-structures to look for
  *
  * Returns the number of quad-structures found (up to 'n').
  */
-int scanForQuads(const StructureConfig sconf, int64_t s48, int64_t low20,
+int scanForQuads(
+        const StructureConfig sconf, int radius, int64_t s48,
+        const int64_t *lowBits, int lowBitCnt, int lowBitN,
         int x, int z, int w, int h, Pos *qplist, int n);
 
 //==============================================================================
@@ -442,7 +447,7 @@ int getBiomeAtPos(const LayerStack *g, const Pos pos);
 
 /* Get the shadow seed.
  */
-inline int64_t getShadow(int64_t seed)
+static inline int64_t getShadow(int64_t seed)
 {
     return -7379792620528906219LL - seed;
 }
@@ -1040,11 +1045,9 @@ static inline __attribute__((always_inline, const))
 float isQuadBaseLarge(const StructureConfig sconf, int64_t seed,
         int ax, int ay, int az, int radius)
 {
-    // Good quad-monument bases are very rare indeed. There are only two seeds
-    // for a radius below 148 blocks, between seed-bases 0 and 1e13:
-    // 775379617447  : radius=143.30 (400,384);(384,528);(528,384);(528,528)
-    // 3752024106001 : radius=145.07 (400,384);(400,560);(544,416);(528,512)
-
+    // Good quad-monument bases are very rare indeed and the search takes much
+    // longer since it cannot be abbreviated by the low-20-bit method. For a
+    // complete list of bases see the implementation of cubiomes-viewer.
 
     const int64_t M = (1ULL << 48) - 1;
     const int64_t K = 0x5deece66dLL;

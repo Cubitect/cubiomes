@@ -4,8 +4,6 @@
 #include <stdio.h>
 
 
-static void oceanRndInit(OceanRnd *rnd, int64_t seed);
-
 
 void initAddBiome(int id, int tempCat, int biometype, float temp, float height)
 {
@@ -137,8 +135,8 @@ void setWorldSeed(Layer *layer, int64_t worldSeed)
     if (layer->p != NULL)
         setWorldSeed(layer->p, worldSeed);
 
-    if (layer->oceanRnd != NULL)
-        oceanRndInit(layer->oceanRnd, worldSeed);
+    if (layer->noise != NULL)
+        perlinInit((PerlinNoise*)layer->noise, worldSeed);
 
     int64_t ls = layer->layerSeed;
     if (ls != 0) // Pre 1.13 the Hills branch stays zero-initialized
@@ -1616,11 +1614,7 @@ int mapRiverMix(const Layer * l, int * out, int x, int z, int w, int h)
 }
 
 
-
-/* Initialises data for the ocean temperature types using the world seed.
- * This function is called when the world seed is applied in setWorldSeed().
- */
-static void oceanRndInit(OceanRnd *rnd, int64_t seed)
+void perlinInit(PerlinNoise *rnd, int64_t seed)
 {
     int i = 0;
     memset(rnd, 0, sizeof(*rnd));
@@ -1643,7 +1637,7 @@ static void oceanRndInit(OceanRnd *rnd, int64_t seed)
     }
 }
 
-static double lerp(const double part, const double from, const double to)
+static double lerp(double part, double from, double to)
 {
     return from + part * (to - from);
 }
@@ -1653,14 +1647,14 @@ const double cEdgeX[] = {1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 0.0, 0.0, 0.0, 
 const double cEdgeY[] = {1.0, 1.0,-1.0,-1.0, 0.0, 0.0, 0.0, 0.0, 1.0,-1.0, 1.0,-1.0,  1.0,-1.0, 1.0,-1.0};
 const double cEdgeZ[] = {0.0, 0.0, 0.0, 0.0, 1.0, 1.0,-1.0,-1.0, 1.0, 1.0,-1.0,-1.0,  0.0, 1.0, 0.0,-1.0};
 
-static double indexedLerp(int idx, const double d1, const double d2, const double d3)
+static double indexedLerp(int idx, double d1, double d2, double d3)
 {
     idx &= 0xf;
     return cEdgeX[idx] * d1 + cEdgeY[idx] * d2 + cEdgeZ[idx] * d3;
 }
 
 
-static double getOceanTemp(const OceanRnd *rnd, double d1, double d2, double d3)
+double samplePerlin(const PerlinNoise *rnd, double d1, double d2, double d3)
 {
     d1 += rnd->a;
     d2 += rnd->b;
@@ -1709,13 +1703,13 @@ static double getOceanTemp(const OceanRnd *rnd, double d1, double d2, double d3)
 int mapOceanTemp(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int i, j;
-    OceanRnd *rnd = l->oceanRnd;
+    const PerlinNoise *rnd = (const PerlinNoise*) l->noise;
 
     for (j = 0; j < h; j++)
     {
         for (i = 0; i < w; i++)
         {
-            double tmp = getOceanTemp(rnd, (i + x) / 8.0, (j + z) / 8.0, 0);
+            double tmp = samplePerlin(rnd, (i + x) / 8.0, (j + z) / 8.0, 0);
 
             if (tmp > 0.4)
                 out[i + j*w] = warm_ocean;

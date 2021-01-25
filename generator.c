@@ -17,7 +17,7 @@ void setupLayer(Layer *l, Layer *p, int s, mapfunc_t getMap)
     l->scale = 0;
     l->edge = 0;
     l->getMap = getMap;
-    l->oceanRnd = NULL;
+    l->noise = NULL;
     l->data = NULL;
 }
 
@@ -172,7 +172,7 @@ static void setupGeneratorImpl(LayerStack *g, int mcversion, int largeBiomes)
     {
         // ocean variants
         setupLayer(&l[L13_OCEAN_TEMP_256], NULL,                      2,    mapOceanTemp);
-        l[L13_OCEAN_TEMP_256].oceanRnd = &g->oceanRnd;
+        l[L13_OCEAN_TEMP_256].noise = &g->oceanRnd;
         setupLayer(&l[L13_ZOOM_128],       &l[L13_OCEAN_TEMP_256],    2001, mapZoom);
         setupLayer(&l[L13_ZOOM_64],        &l[L13_ZOOM_128],          2002, mapZoom);
         setupLayer(&l[L13_ZOOM_32],        &l[L13_ZOOM_64],           2003, mapZoom);

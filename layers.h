@@ -145,11 +145,13 @@ STRUCT(Biome)
     int mutated;
 };
 
-STRUCT(OceanRnd)
+
+STRUCT(PerlinNoise)
 {
     int d[512];
     double a, b, c;
 };
+
 
 STRUCT(Layer)
 {
@@ -157,7 +159,7 @@ STRUCT(Layer)
     int64_t startSalt;  // (world seed dependent) = worldGenSeed, used for RND beyond the first
     int64_t startSeed;  // (world seed dependent) starting point for chunk seeds
 
-    OceanRnd *oceanRnd; // world seed dependent data for ocean temperatures
+    void *noise;        // seed dependent data for noise maps
     void *data;         // generic data for custom layers
 
     int scale;          // map scale of this layer (map entry = scale x scale blocks)
@@ -186,6 +188,9 @@ void initBiomes();
 /* Applies the given world seed to the layer and all dependent layers. */
 void setWorldSeed(Layer *layer, int64_t worldSeed);
 
+
+void perlinInit(PerlinNoise *rnd, int64_t seed);
+double samplePerlin(const PerlinNoise *rnd, double d1, double d2, double d3);
 
 //==============================================================================
 // Static Helpers
