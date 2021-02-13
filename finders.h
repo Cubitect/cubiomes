@@ -604,19 +604,19 @@ Pos estimateSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t 
  * the block positions using the appropriate getXXXPos() function.
  *
  * @structureType  : structure type to be checked
- * @mcversion      : minecraft version
+ * @mc             : minecraft version
  * @g              : generator layer stack, seed will be applied to layers
  * @seed           : world seed, will be applied to generator
  * @blockX, blockZ : block coordinates
  *
  * The return value is non-zero if the position is valid.
  */
-int isViableStructurePos(int structureType, int mcversion, LayerStack *g,
+int isViableStructurePos(int structureType, int mc, LayerStack *g,
         int64_t seed, int blockX, int blockZ);
 
 /* Checks if the specified structure type could generate in the given biome.
  */
-int isViableFeatureBiome(int structureType, int biomeID);
+int isViableFeatureBiome(int mc, int structureType, int biomeID);
 
 
 //==============================================================================

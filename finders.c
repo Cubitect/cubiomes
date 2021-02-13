@@ -1295,38 +1295,62 @@ Pos estimateSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t 
 //==============================================================================
 
 
-int isViableFeatureBiome(int structureType, int biomeID)
+int isViableFeatureBiome(int mc, int structureType, int biomeID)
 {
     switch (structureType)
     {
     case Desert_Pyramid:
         return biomeID == desert || biomeID == desert_hills;
+
     case Jungle_Pyramid:
         return (biomeID == jungle || biomeID == jungle_hills ||
                 biomeID == bamboo_jungle || biomeID == bamboo_jungle_hills);
+
     case Swamp_Hut:
         return biomeID == swamp;
+
     case Igloo:
+        if (mc < MC_1_9) return 0;
         return biomeID == snowy_tundra || biomeID == snowy_taiga;
+
     case Ocean_Ruin:
+        if (mc < MC_1_13) return 0;
         return isOceanic(biomeID);
+
     case Shipwreck:
+        if (mc < MC_1_13) return 0;
         return isOceanic(biomeID) || biomeID == beach || biomeID == snowy_beach;
+
     case Ruined_Portal:
-        return 1;
+        return mc >= MC_1_16;
+
     case Treasure:
+        if (mc < MC_1_13) return 0;
         return (biomeID == beach || biomeID == snowy_beach ||
                 biomeID == stone_shore || biomeID == mushroom_field_shore);
+
     case Monument:
-        return isOceanic(biomeID);
-    case Village:
+        if (mc < MC_1_8) return 0;
+        return isDeepOcean(biomeID);
+
     case Outpost:
-        // differs across MC versions
-        return (biomeID == plains || biomeID == desert ||
-                biomeID == savanna || biomeID == taiga ||
-                biomeID == snowy_taiga || biomeID == snowy_tundra);
+        if (mc < MC_1_14) return 0;
+        // fall through
+    case Village:
+        if (biomeID == plains || biomeID == desert)
+            return 1;
+        if (mc >= MC_1_7 && biomeID == savanna)
+            return 1;
+        if (mc >= MC_1_10 && biomeID == taiga)
+            return 1;
+        if (mc >= MC_1_14 && biomeID == snowy_tundra)
+            return 1;
+        return 0;
+
     case Mansion:
+        if (mc < MC_1_11) return 0;
         return biomeID == dark_forest || biomeID == dark_forest_hills;
+
     default:
         fprintf(stderr,
                 "isViableFeatureBiome: not implemented for structure type %d.\n",
@@ -1391,7 +1415,7 @@ static int mapViableBiome(const Layer * l, int * out, int x, int z, int w, int h
     if U(err != 0)
         return err;
 
-    int styp = * (const int*) l->data;
+    int styp = ((const int*) l->data)[0];
     int i, j;
 
     for (j = 0; j < h; j++)
@@ -1442,7 +1466,8 @@ static int mapViableShore(const Layer * l, int * out, int x, int z, int w, int h
     if U(err != 0)
         return err;
 
-    int styp = * (const int*) l->data;
+    int styp = ((const int*) l->data)[0];
+    int mc   = ((const int*) l->data)[1];
     int i, j;
 
     for (j = 0; j < h; j++)
@@ -1461,7 +1486,7 @@ static int mapViableShore(const Layer * l, int * out, int x, int z, int w, int h
             case Village:
             case Monument:
             case Mansion:
-                if (isViableFeatureBiome(styp, biomeID))
+                if (isViableFeatureBiome(mc, styp, biomeID))
                     return 0;
                 break;
 
@@ -1475,12 +1500,11 @@ static int mapViableShore(const Layer * l, int * out, int x, int z, int w, int h
 }
 
 
-int isViableStructurePos(int structureType, int mcversion, LayerStack *g,
+int isViableStructurePos(int structureType, int mc, LayerStack *g,
         int64_t seed, int blockX, int blockZ)
 {
     int *map = NULL;
     Layer *l;
-    int biome;
     int viable;
 
     int64_t chunkX = blockX >> 4;
@@ -1494,9 +1518,11 @@ int isViableStructurePos(int structureType, int mcversion, LayerStack *g,
     Layer lbiome = g->layers[L_BIOME_256];
     Layer lshore = g->layers[L_SHORE_16];
 
-    g->layers[L_BIOME_256].data = (void*) &structureType;
+    int data[2] = { structureType, mc };
+
+    g->layers[L_BIOME_256].data = (void*) data;
     g->layers[L_BIOME_256].getMap = mapViableBiome;
-    g->layers[L_SHORE_16].data = (void*) &structureType;
+    g->layers[L_SHORE_16].data = (void*) data;
     g->layers[L_SHORE_16].getMap = mapViableShore;
 
     switch (structureType)
@@ -1504,16 +1530,16 @@ int isViableStructurePos(int structureType, int mcversion, LayerStack *g,
     case Ocean_Ruin:
     case Shipwreck:
     case Treasure:
-        if (mcversion < MC_1_13) goto L_NOT_VIABLE;
+        if (mc < MC_1_13) goto L_NOT_VIABLE;
         goto L_FEATURE;
     case Igloo:
-        if (mcversion < MC_1_9) goto L_NOT_VIABLE;
+        if (mc < MC_1_9) goto L_NOT_VIABLE;
         goto L_FEATURE;
     case Desert_Pyramid:
     case Jungle_Pyramid:
     case Swamp_Hut:
 L_FEATURE:
-        if (mcversion < MC_1_16)
+        if (mc < MC_1_16)
         {
             l = &g->layers[L_VORONOI_ZOOM_1];
             biomeX = (chunkX << 4) + 9;
@@ -1530,7 +1556,7 @@ L_FEATURE:
         map = allocCache(l, 1, 1);
         if (genArea(l, map, biomeX, biomeZ, 1, 1))
             goto L_NOT_VIABLE;
-        if (!isViableFeatureBiome(structureType, map[0]))
+        if (!isViableFeatureBiome(mc, structureType, map[0]))
             goto L_NOT_VIABLE;
         goto L_VIABLE;
 
@@ -1542,21 +1568,15 @@ L_FEATURE:
         map = allocCache(l, 1, 1);
         if (genArea(l, map, biomeX, biomeZ, 1, 1))
             goto L_NOT_VIABLE;
-        biome = map[0];
-        if (biome == plains || biome == desert || biome == savanna || biome == taiga)
-            goto L_VIABLE;
-        else if (mcversion >= MC_1_14 && biome == snowy_tundra)
-            goto L_VIABLE;
-        else if (mcversion == MC_BE && biome == snowy_taiga)
-            goto L_VIABLE;
-        else
+        if (!isViableFeatureBiome(mc, structureType, map[0]))
             goto L_NOT_VIABLE;
+        goto L_VIABLE;
 
     case Outpost:
     {
-        if (mcversion < MC_1_14 || !testOutpostPos(seed, chunkX, chunkZ))
+        if (mc < MC_1_14 || !testOutpostPos(seed, chunkX, chunkZ))
             goto L_NOT_VIABLE;
-        if (mcversion < MC_1_16)
+        if (mc < MC_1_16)
         {
             l = &g->layers[L_VORONOI_ZOOM_1];
             biomeX = (chunkX << 4) + 9;
@@ -1572,9 +1592,7 @@ L_FEATURE:
         map = allocCache(l, 1, 1);
         if (genArea(l, map, biomeX, biomeZ, 1, 1))
             goto L_NOT_VIABLE;
-        biome = map[0];
-        // TODO: support for MC_BE
-        if (biome != plains && biome != desert && biome != taiga && biome != snowy_tundra && biome != savanna)
+        if (!isViableFeatureBiome(mc, structureType, map[0]))
             goto L_NOT_VIABLE;
         // look for villages within 10 chunks
         int cx0 = (chunkX-10), cx1 = (chunkX+10);
@@ -1588,9 +1606,9 @@ L_FEATURE:
                 int cx = p.x >> 4, cz = p.z >> 4;
                 if (cx >= cx0 && cx <= cx1 && cz >= cz0 && cz <= cz1)
                 {
-                    if (mcversion >= MC_1_16)
+                    if (mc >= MC_1_16)
                         goto L_NOT_VIABLE;
-                    if (isViableStructurePos(Village, mcversion, g, seed, p.x, p.z))
+                    if (isViableStructurePos(Village, mc, g, seed, p.x, p.z))
                         goto L_NOT_VIABLE;
                     goto L_VIABLE;
                 }
@@ -1600,9 +1618,9 @@ L_FEATURE:
     }
 
     case Monument:
-        if (mcversion < MC_1_8)
+        if (mc < MC_1_8)
             goto L_NOT_VIABLE;
-        else if (mcversion == MC_1_8)
+        else if (mc == MC_1_8)
         {   // In 1.8 monuments require only a single deep ocean block.
             l = g->entry_1;
             setWorldSeed(l, seed);
@@ -1621,20 +1639,20 @@ L_FEATURE:
         }
         if (!isDeepOcean(map[0]))
             goto L_NOT_VIABLE;
-        if (mcversion >= MC_1_13)
+        if (mc >= MC_1_13)
             l = &g->layers[L13_OCEAN_MIX_4];
         else
             l = &g->layers[L_RIVER_MIX_4];
         biomeX = (chunkX << 4) + 8; // areBiomesViable expects block positions
         biomeZ = (chunkZ << 4) + 8;
         setWorldSeed(l, seed);
-        if (mcversion < MC_1_9 || areBiomesViable(l, NULL, biomeX, biomeZ, 16, getValidMonumentBiomes2()))
+        if (mc < MC_1_9 || areBiomesViable(l, NULL, biomeX, biomeZ, 16, getValidMonumentBiomes2()))
             if (areBiomesViable(l, NULL, biomeX, biomeZ, 29, getValidMonumentBiomes1()))
                 goto L_VIABLE;
         goto L_NOT_VIABLE;
 
     case Mansion:
-        if (mcversion < MC_1_11)
+        if (mc < MC_1_11)
             goto L_NOT_VIABLE;
         l = &g->layers[L_RIVER_MIX_4];
         biomeX = (chunkX << 4) + 8;
@@ -1645,7 +1663,7 @@ L_FEATURE:
         goto L_NOT_VIABLE;
 
     case Ruined_Portal:
-        if (mcversion >= MC_1_16)
+        if (mc >= MC_1_16)
             goto L_VIABLE;
         goto L_NOT_VIABLE;
 
