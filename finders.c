@@ -674,17 +674,19 @@ L_ERR:
 
 static inline
 int scanForQuadBits(const StructureConfig sconf, int radius, int64_t s48,
-        int64_t lbit, int lbitn, int64_t invB, int x, int z, int w, int h,
-        Pos *qplist, int n)
+        int64_t lbit, int lbitn, int64_t invB, int64_t x, int64_t z,
+        int64_t w, int64_t h, Pos *qplist, int n)
 {
-    const int m = (1LL << lbitn);
+    const int64_t m = (1LL << lbitn);
     const int64_t A = 341873128712LL;
     // for lbitn=20: invB = 132477LL;
 
     if (n < 1)
         return 0;
+    lbit &= m-1;
 
-    int i, j, cnt = 0;
+    int64_t i, j;
+    int cnt = 0;
     for (i = x; i <= x+w; i++)
     {
         int64_t sx = s48 + A * i;
@@ -694,7 +696,10 @@ int scanForQuadBits(const StructureConfig sconf, int radius, int64_t s48,
         for (; j <= z+h; j += m)
         {
             int64_t sp = moveStructure(s48, -i, -j);
-            if (isQuadBase(sconf, sp - sconf.salt, radius))
+            if ((sp & (m-1)) != lbit)
+                continue;
+
+            if (isQuadBase(sconf, sp, radius))
             {
                 qplist[cnt].x = i;
                 qplist[cnt].z = j;
@@ -714,7 +719,13 @@ int scanForQuads(
         int x, int z, int w, int h, Pos *qplist, int n)
 {
     int i, cnt = 0;
-    const int64_t invB = mulInv(132897987541LL, (1LL << lowBitN));
+    int64_t invB;
+    if (lowBitN == 20)
+        invB = 132477LL;
+    else if (lowBitN == 48)
+        invB = 211541297333629LL;
+    else
+        invB = mulInv(132897987541LL, (1LL << lowBitN));
 
     for (i = 0; i < lowBitCnt; i++)
     {

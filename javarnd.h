@@ -118,10 +118,11 @@ int64_t invSeed48(int64_t nseed)
 static inline __attribute__((const))
 int64_t mulInv(int64_t x, int64_t m)
 {
-    int64_t t, q, a, b;
-    if (m == 1)
+    int64_t t, q, a, b, n;
+    if (m <= 1)
         return 0; // no solution
 
+    n = m;
     a = 0; b = 1;
 
     while (x > 1)
@@ -133,6 +134,8 @@ int64_t mulInv(int64_t x, int64_t m)
         t = a; a = b - q * a; b = t;
     }
 
+    if (b < 0)
+        b += n;
     return b;
 }
 
