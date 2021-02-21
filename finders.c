@@ -715,7 +715,7 @@ int scanForQuadBits(const StructureConfig sconf, int radius, int64_t s48,
 
 int scanForQuads(
         const StructureConfig sconf, int radius, int64_t s48,
-        const int64_t *lowBits, int lowBitCnt, int lowBitN,
+        const int64_t *lowBits, int lowBitCnt, int lowBitN, int64_t salt,
         int x, int z, int w, int h, Pos *qplist, int n)
 {
     int i, cnt = 0;
@@ -729,7 +729,7 @@ int scanForQuads(
 
     for (i = 0; i < lowBitCnt; i++)
     {
-        cnt += scanForQuadBits(sconf, radius, s48, lowBits[i], lowBitN, invB,
+        cnt += scanForQuadBits(sconf, radius, s48, lowBits[i]-salt, lowBitN, invB,
                 x, z, w, h, qplist+cnt, n-cnt);
         if (cnt >= n)
             break;

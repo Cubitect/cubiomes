@@ -425,15 +425,16 @@ Pos getOptimalAfk(Pos p[4], int ax, int ay, int az, int *spcnt);
  * @lowBits     : consider transformations that yield one of these lower bits
  * @lowBitCnt   : length of lower bit subset
  * @lowBitN     : number of bits in the subset values (0 < lowBitN <= 48)
+ * @salt        : salt subtracted from subset values (useful for protobases)
  * @x,z,w,h     : area to scan in region coordinates (inclusive)
  * @qplist      : output region coordinates for the descovered quad-structures
  * @n           : maximum number of quad-structures to look for
- *
+ *<
  * Returns the number of quad-structures found (up to 'n').
  */
 int scanForQuads(
         const StructureConfig sconf, int radius, int64_t s48,
-        const int64_t *lowBits, int lowBitCnt, int lowBitN,
+        const int64_t *lowBits, int lowBitCnt, int lowBitN, int64_t salt,
         int x, int z, int w, int h, Pos *qplist, int n);
 
 //==============================================================================
