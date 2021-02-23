@@ -90,7 +90,7 @@ static const StructureConfig MANSION_CONFIG        = { 10387319, 80, 60, Mansion
 static const StructureConfig RUINED_PORTAL_CONFIG  = { 34222645, 40, 25, Ruined_Portal, 0}; // overworld variant
 
 // structures that check each chunk individually
-static const StructureConfig TREASURE_CONFIG       = { 10387320,  1,  0, Treasure, CHUNK_STRUCT};
+static const StructureConfig TREASURE_CONFIG       = { 10387320,  1,  1, Treasure, CHUNK_STRUCT};
 
 //==============================================================================
 // Biome Tables

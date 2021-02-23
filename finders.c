@@ -113,6 +113,16 @@ Pos getStructurePos(StructureConfig config, int64_t seed, int regX, int regZ, in
             if (valid) *valid = 1;
         }
     }
+    else if (config.properties == CHUNK_STRUCT)
+    {
+        pos.x = (regX << 4) + 9;
+        pos.z = (regZ << 4) + 9;
+        if (valid)
+        {
+            if (config.structType == Treasure)
+                *valid = isTreasureChunk(seed, regX, regZ);
+        }
+    }
 
     return pos;
 }
@@ -1337,8 +1347,7 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
 
     case Treasure:
         if (mc < MC_1_13) return 0;
-        return (biomeID == beach || biomeID == snowy_beach ||
-                biomeID == stone_shore || biomeID == mushroom_field_shore);
+        return biomeID == beach || biomeID == snowy_beach;
 
     case Monument:
         if (mc < MC_1_8) return 0;
@@ -1452,6 +1461,10 @@ static int mapViableBiome(const Layer * l, int * out, int x, int z, int w, int h
                 if (biomeID == snowy_tundra || biomeID == snowy_taiga)
                     return 0;
                 break;
+            case Treasure:
+                if (isOceanic(biomeID))
+                    return 0;
+                break;
             case Ocean_Ruin:
             case Shipwreck:
             case Monument:
@@ -1497,6 +1510,7 @@ static int mapViableShore(const Layer * l, int * out, int x, int z, int w, int h
             case Village:
             case Monument:
             case Mansion:
+            case Treasure:
                 if (isViableFeatureBiome(mc, styp, biomeID))
                     return 0;
                 break;
