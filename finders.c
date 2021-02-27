@@ -1357,9 +1357,7 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
         if (mc < MC_1_14) return 0;
         // fall through
     case Village:
-        if (biomeID == plains || biomeID == desert)
-            return 1;
-        if (mc >= MC_1_7 && biomeID == savanna)
+        if (biomeID == plains || biomeID == desert || biomeID == savanna)
             return 1;
         if (mc >= MC_1_10 && biomeID == taiga)
             return 1;
@@ -1530,7 +1528,7 @@ int isViableStructurePos(int structureType, int mc, LayerStack *g,
 {
     int *map = NULL;
     Layer *l;
-    int viable;
+    int viable = 0;
 
     int64_t chunkX = blockX >> 4;
     int64_t chunkZ = blockZ >> 4;
@@ -1555,15 +1553,15 @@ int isViableStructurePos(int structureType, int mc, LayerStack *g,
     case Ocean_Ruin:
     case Shipwreck:
     case Treasure:
-        if (mc < MC_1_13) goto L_NOT_VIABLE;
-        goto L_FEATURE;
+        if (mc < MC_1_13) goto L_not_viable;
+        goto L_feature;
     case Igloo:
-        if (mc < MC_1_9) goto L_NOT_VIABLE;
-        goto L_FEATURE;
+        if (mc < MC_1_9) goto L_not_viable;
+        goto L_feature;
     case Desert_Pyramid:
     case Jungle_Pyramid:
     case Swamp_Hut:
-L_FEATURE:
+L_feature:
         if (mc < MC_1_16)
         {
             l = &g->layers[L_VORONOI_ZOOM_1];
@@ -1580,10 +1578,10 @@ L_FEATURE:
         setWorldSeed(l, seed);
         map = allocCache(l, 1, 1);
         if (genArea(l, map, biomeX, biomeZ, 1, 1))
-            goto L_NOT_VIABLE;
+            goto L_not_viable;
         if (!isViableFeatureBiome(mc, structureType, map[0]))
-            goto L_NOT_VIABLE;
-        goto L_VIABLE;
+            goto L_not_viable;
+        goto L_viable;
 
     case Village:
         l = &g->layers[L_RIVER_MIX_4];
@@ -1592,15 +1590,16 @@ L_FEATURE:
         setWorldSeed(l, seed);
         map = allocCache(l, 1, 1);
         if (genArea(l, map, biomeX, biomeZ, 1, 1))
-            goto L_NOT_VIABLE;
+            goto L_not_viable;
         if (!isViableFeatureBiome(mc, structureType, map[0]))
-            goto L_NOT_VIABLE;
-        goto L_VIABLE;
+            goto L_not_viable;
+        viable = map[0]; // biome for viablility value as it may be useful for further analysis
+        goto L_viable;
 
     case Outpost:
     {
         if (mc < MC_1_14 || !testOutpostPos(seed, chunkX, chunkZ))
-            goto L_NOT_VIABLE;
+            goto L_not_viable;
         if (mc < MC_1_16)
         {
             l = &g->layers[L_VORONOI_ZOOM_1];
@@ -1616,9 +1615,9 @@ L_FEATURE:
         setWorldSeed(l, seed);
         map = allocCache(l, 1, 1);
         if (genArea(l, map, biomeX, biomeZ, 1, 1))
-            goto L_NOT_VIABLE;
+            goto L_not_viable;
         if (!isViableFeatureBiome(mc, structureType, map[0]))
-            goto L_NOT_VIABLE;
+            goto L_not_viable;
         // look for villages within 10 chunks
         int cx0 = (chunkX-10), cx1 = (chunkX+10);
         int cz0 = (chunkZ-10), cz1 = (chunkZ+10);
@@ -1632,26 +1631,26 @@ L_FEATURE:
                 if (cx >= cx0 && cx <= cx1 && cz >= cz0 && cz <= cz1)
                 {
                     if (mc >= MC_1_16)
-                        goto L_NOT_VIABLE;
+                        goto L_not_viable;
                     if (isViableStructurePos(Village, mc, g, seed, p.x, p.z))
-                        goto L_NOT_VIABLE;
-                    goto L_VIABLE;
+                        goto L_not_viable;
+                    goto L_viable;
                 }
             }
         }
-        goto L_VIABLE;
+        goto L_viable;
     }
 
     case Monument:
         if (mc < MC_1_8)
-            goto L_NOT_VIABLE;
+            goto L_not_viable;
         else if (mc == MC_1_8)
         {   // In 1.8 monuments require only a single deep ocean block.
             l = g->entry_1;
             setWorldSeed(l, seed);
             map = allocCache(l, 1, 1);
             if (genArea(l, map, (chunkX << 4) + 8, (chunkZ << 4) + 8, 1, 1))
-                goto L_NOT_VIABLE;
+                goto L_not_viable;
         }
         else
         {   // Monuments require two viability checks with the ocean layer
@@ -1660,10 +1659,10 @@ L_FEATURE:
             setWorldSeed(l, seed);
             map = allocCache(l, 1, 1);
             if (genArea(l, map, chunkX, chunkZ, 1, 1))
-                goto L_NOT_VIABLE;
+                goto L_not_viable;
         }
         if (!isDeepOcean(map[0]))
-            goto L_NOT_VIABLE;
+            goto L_not_viable;
         if (mc >= MC_1_13)
             l = &g->layers[L13_OCEAN_MIX_4];
         else
@@ -1673,38 +1672,36 @@ L_FEATURE:
         setWorldSeed(l, seed);
         if (mc < MC_1_9 || areBiomesViable(l, NULL, biomeX, biomeZ, 16, getValidMonumentBiomes2()))
             if (areBiomesViable(l, NULL, biomeX, biomeZ, 29, getValidMonumentBiomes1()))
-                goto L_VIABLE;
-        goto L_NOT_VIABLE;
+                goto L_viable;
+        goto L_not_viable;
 
     case Mansion:
         if (mc < MC_1_11)
-            goto L_NOT_VIABLE;
+            goto L_not_viable;
         l = &g->layers[L_RIVER_MIX_4];
         biomeX = (chunkX << 4) + 8;
         biomeZ = (chunkZ << 4) + 8;
         setWorldSeed(l, seed);
         if (areBiomesViable(l, NULL, biomeX, biomeZ, 32, getValidMansionBiomes()))
-            goto L_VIABLE;
-        goto L_NOT_VIABLE;
+            goto L_viable;
+        goto L_not_viable;
 
     case Ruined_Portal:
         if (mc >= MC_1_16)
-            goto L_VIABLE;
-        goto L_NOT_VIABLE;
+            goto L_viable;
+        goto L_not_viable;
 
     default:
         fprintf(stderr,
                 "isViableStructurePos: validation for structure type %d not implemented",
                 structureType);
-        goto L_NOT_VIABLE;
+        goto L_not_viable;
     }
 
-L_NOT_VIABLE:
-    viable = 0;
-    if (0) {
-L_VIABLE:
+L_viable:
+    if (!viable)
         viable = 1;
-    }
+L_not_viable:
 
     g->layers[L_BIOME_256] = lbiome;
     g->layers[L_SHORE_16] = lshore;
@@ -1720,36 +1717,80 @@ L_VIABLE:
 //==============================================================================
 
 
-int isZombieVillage(const int mcversion, const int64_t worldSeed,
-        const int regionX, const int regionZ)
+VillageType getVillageType(int mc, int64_t seed, int blockX, int blockZ, int biomeID)
 {
-    Pos pos;
-    int64_t seed = worldSeed;
+    VillageType r = {};
+    if (!isViableFeatureBiome(mc, Village, biomeID))
+        return r;
 
-    if (mcversion < MC_1_10)
+    int64_t rnd = chunkGenerateRnd(seed, blockX >> 4, blockZ >> 4);
+
+    r.biome = biomeID;
+
+    if (mc >= MC_1_14)
     {
-        printf("Warning: Zombie villages were only introduced in MC 1.10.\n");
+        skipNextN(&rnd, 1);
+        int t;
+        switch (biomeID)
+        {
+        case plains:
+            t = nextInt(&rnd, 204);
+            if      (t <  50) { r.variant = 0; } // plains_fountain_01
+            else if (t < 100) { r.variant = 1; } // plains_meeting_point_1
+            else if (t < 150) { r.variant = 2; } // plains_meeting_point_2
+            else if (t < 200) { r.variant = 3; } // plains_meeting_point_3
+            else if (t < 201) { r.variant = 0; r.abandoned = 1; }
+            else if (t < 202) { r.variant = 1; r.abandoned = 1; }
+            else if (t < 203) { r.variant = 2; r.abandoned = 1; }
+            else if (t < 204) { r.variant = 3; r.abandoned = 1; }
+            break;
+        case desert:
+            t = nextInt(&rnd, 250);
+            if      (t <  98) { r.variant = 1; } // desert_meeting_point_1
+            else if (t < 196) { r.variant = 2; } // desert_meeting_point_2
+            else if (t < 245) { r.variant = 3; } // desert_meeting_point_3
+            else if (t < 247) { r.variant = 1; r.abandoned = 1; }
+            else if (t < 249) { r.variant = 2; r.abandoned = 1; }
+            else if (t < 250) { r.variant = 3; r.abandoned = 1; }
+            break;
+        case savanna:
+            t = nextInt(&rnd, 459);
+            if      (t < 100) { r.variant = 1; } // savanna_meeting_point_1
+            else if (t < 150) { r.variant = 2; } // savanna_meeting_point_2
+            else if (t < 300) { r.variant = 3; } // savanna_meeting_point_3
+            else if (t < 450) { r.variant = 4; } // savanna_meeting_point_4
+            else if (t < 452) { r.variant = 1; r.abandoned = 1; }
+            else if (t < 453) { r.variant = 2; r.abandoned = 1; }
+            else if (t < 456) { r.variant = 3; r.abandoned = 1; }
+            else if (t < 459) { r.variant = 4; r.abandoned = 1; }
+            break;
+        case taiga:
+            t = nextInt(&rnd, 100);
+            if      (t <  49) { r.variant = 1; } // taiga_meeting_point_1
+            else if (t <  98) { r.variant = 2; } // taiga_meeting_point_2
+            else if (t <  99) { r.variant = 1; r.abandoned = 1; }
+            else if (t < 100) { r.variant = 2; r.abandoned = 1; }
+            break;
+        case snowy_tundra:
+            t = nextInt(&rnd, 306);
+            if      (t < 100) { r.variant = 1; } // snowy_meeting_point_1
+            else if (t < 150) { r.variant = 2; } // snowy_meeting_point_2
+            else if (t < 300) { r.variant = 3; } // snowy_meeting_point_3
+            else if (t < 302) { r.variant = 1; r.abandoned = 1; }
+            else if (t < 303) { r.variant = 2; r.abandoned = 1; }
+            else if (t < 306) { r.variant = 3; r.abandoned = 1; }
+            break;
+        default:
+            break;
+        }
+    }
+    else if (mc >= MC_1_10)
+    {
+        skipNextN(&rnd, mc == MC_1_13 ? 10 : 11);
+        r.abandoned = nextInt(&rnd, 50) == 0;
     }
 
-    // get the chunk position of the village
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + VILLAGE_CONFIG.salt;
-    seed = (seed ^ 0x5deece66dLL);// & ((1LL << 48) - 1);
-
-    seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    pos.x = (seed >> 17) % VILLAGE_CONFIG.chunkRange;
-
-    seed = (seed * 0x5deece66dLL + 0xbLL) & 0xffffffffffff;
-    pos.z = (seed >> 17) % VILLAGE_CONFIG.chunkRange;
-
-    pos.x += regionX * VILLAGE_CONFIG.regionSize;
-    pos.z += regionZ * VILLAGE_CONFIG.regionSize;
-
-    // jump to the random number check that determines whether this is village
-    // is zombie infested
-    int64_t rnd = chunkGenerateRnd(worldSeed, pos.x , pos.z);
-    skipNextN(&rnd, mcversion == MC_1_13 ? 10 : 11);
-
-    return nextInt(&rnd, 50) == 0;
+    return r;
 }
 
 

@@ -143,6 +143,15 @@ STRUCT(StrongholdIter)
     int mc;         // minecraft version
 };
 
+
+STRUCT(VillageType)
+{
+    char abandoned; // is zombie village
+    char variant;
+    int biome;
+};
+
+
 /******************************** SEED FINDING *********************************
  *
  *  If we want to find rare seeds that meet multiple custom criteria then we
@@ -638,14 +647,11 @@ inline static int64_t chunkGenerateRnd(const int64_t worldSeed,
     return rnd;
 }
 
-/* Checks if the village in the given region would be infested by zombies.
- * (Minecraft 1.10+)
- */
-int isZombieVillage(const int mcversion, const int64_t worldSeed,
-        const int regionX, const int regionZ);
+VillageType getVillageType(int mc, int64_t seed, int blockX, int blockZ, int biomeID);
 
 
-/* Finds the number of each type of house that generate in a village.
+/* Finds the number of each type of house that generate in a village
+ * (mc < MC_1_14)
  * @worldSeed      : world seed
  * @chunkX, chunkZ : 16x16 chunk position of the village origin
  * @housesOut      : output number of houses for each entry in the house type
