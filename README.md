@@ -1,6 +1,6 @@
 # cubiomes
 
-Cubiomes is a standalone library, written in C, that mimics the Minecraft biome and feature generation (currently only for the overworld).
+Cubiomes is a standalone library, written in C, that mimics the Minecraft Java Edition biome and feature generation.
 It is intended as a powerful tool to devise very fast, custom seed finding applications and large scale map viewers with minimal memory usage.
 
 
@@ -109,7 +109,7 @@ int main()
     unsigned char *rgb = (unsigned char *) malloc(3*imgWidth*imgHeight);
 
     // Apply the seed only for the required layers and generate the area.
-    setWorldSeed(layer, seed);
+    setLayerSeed(layer, seed);
     genArea(layer, biomeIds, areaX, areaZ, areaWidth, areaHeight);
 
     // Map the biomes to a color buffer and save to an image.
@@ -215,7 +215,7 @@ int main()
             int64_t seed = lower48 | (upper16 << 48);
             if (isViableStructurePos(sconf.structType, mc, &g, seed, p.x, p.z))
             {
-                printf("Seed %" PRId64 " has a Pillager Outpost at the origin.\n",
+                printf("Seed %" PRId64 " has a Pillager Outpost at (%d, %d).\n",
                     seed, p.x, p.z);
                 return 0;
             }

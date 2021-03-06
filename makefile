@@ -1,4 +1,4 @@
-CC      = g++
+CC      = gcc
 AR      = ar
 ARFLAGS = cr
 override LDFLAGS = -lm
