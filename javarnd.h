@@ -7,9 +7,9 @@
 /********************** C copy of the Java Random methods **********************
  */
 
-static inline void setSeed(int64_t *seed)
+static inline void setSeed(int64_t *seed, int64_t value)
 {
-    *seed = (*seed ^ 0x5deece66d) & ((1LL << 48) - 1);
+    *seed = (value ^ 0x5deece66d) & ((1LL << 48) - 1);
 }
 
 static inline int next(int64_t *seed, const int bits)
@@ -69,11 +69,27 @@ static inline double nextDouble(int64_t *seed)
  * ---------
  * Jumps forwards in the random number sequence by simulating 'n' calls to next.
  */
-static inline void skipNextN(int64_t *seed, const int n)
+static inline void skipNextN(int64_t *seed, uint64_t n)
 {
-    int i;
-    for (i = 0; i < n; i++) *seed = (*seed * 0x5deece66d + 0xb);
-    *seed &= 0xffffffffffff;
+    int64_t m = 1;
+    int64_t a = 0;
+    int64_t im = 0x5deece66dLL;
+    int64_t ia = 0xbLL;
+    uint64_t k;
+
+    for (k = n; k; k >>= 1)
+    {
+        if (k & 1)
+        {
+            m *= im;
+            a = im * a + ia;
+        }
+        ia = (im + 1) * ia;
+        im *= im;
+    }
+
+    *seed = *seed * m + a;
+    *seed &= 0xffffffffffffLL;
 }
 
 /* invSeed48

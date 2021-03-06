@@ -640,10 +640,10 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID);
 inline static int64_t chunkGenerateRnd(const int64_t worldSeed,
         const int chunkX, const int chunkZ)
 {
-    int64_t rnd = worldSeed;
-    setSeed(&rnd);
+    int64_t rnd;
+    setSeed(&rnd, worldSeed);
     rnd = (nextLong(&rnd) * chunkX) ^ (nextLong(&rnd) * chunkZ) ^ worldSeed;
-    setSeed(&rnd);
+    setSeed(&rnd, rnd);
     return rnd;
 }
 

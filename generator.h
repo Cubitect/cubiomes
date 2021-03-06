@@ -8,7 +8,6 @@ enum MCversion
 {
     MC_1_7, MC_1_8, MC_1_9, MC_1_10, MC_1_11, MC_1_12, MC_1_13, MC_1_14,
     MC_1_15, MC_1_16,
-    MC_BE = 128
 };
 
 /* Enumeration of the layer indices in the generator. */

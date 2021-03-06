@@ -9,7 +9,7 @@
 
 void setupLayer(Layer *l, Layer *p, int s, mapfunc_t getMap)
 {
-    l->layerSeed = s ? getLayerSeed(s) : 0;
+    l->layerSalt = s > 0 ? getLayerSalt(s) : s;
     l->startSalt = 0;
     l->startSeed = 0;
     l->p = p;
@@ -40,7 +40,7 @@ static void setupScale(Layer *l, int scale)
         m = 2;
         e = 3;
     }
-    else if (map == mapVoronoiZoom)
+    else if (map == mapVoronoiZoom || map == mapVoronoiZoom114)
     {
         m = 4;
         e = 7;
@@ -113,8 +113,7 @@ static void setupGeneratorImpl(LayerStack *g, int mcversion, int largeBiomes)
     setupLayer(&l[L_ADD_MUSHROOM_256],    &l[L_ADD_ISLAND_256],       5,    mapAddMushroomIsland);
     setupLayer(&l[L_DEEP_OCEAN_256],      &l[L_ADD_MUSHROOM_256],     4,    mapDeepOcean);
     // biome layer chain
-    setupLayer(&l[L_BIOME_256],           &l[L_DEEP_OCEAN_256],       200,
-            mcversion != MC_BE ? mapBiome : mapBiomeBE);
+    setupLayer(&l[L_BIOME_256],           &l[L_DEEP_OCEAN_256],       200,  mapBiome);
 
     if (mcversion <= MC_1_13)
         setupLayer(&l[L_ZOOM_128],        &l[L_BIOME_256],            1000, mapZoom);
@@ -144,11 +143,11 @@ static void setupGeneratorImpl(LayerStack *g, int mcversion, int largeBiomes)
     setupLayer(&l[L_ZOOM_4],              &l[L_ZOOM_8],               1003, mapZoom);
 
     if (largeBiomes != 0) {
-        setupLayer(&l[L_ZOOM_LARGE_BIOME_A], &l[L_ZOOM_4],               1004, mapZoom);
-        setupLayer(&l[L_ZOOM_LARGE_BIOME_B], &l[L_ZOOM_LARGE_BIOME_A],   1005, mapZoom);
-        setupLayer(&l[L_SMOOTH_4],           &l[L_ZOOM_LARGE_BIOME_B],   1000, mapSmooth);
+        setupLayer(&l[L_ZOOM_LARGE_BIOME_A], &l[L_ZOOM_4],              1004, mapZoom);
+        setupLayer(&l[L_ZOOM_LARGE_BIOME_B], &l[L_ZOOM_LARGE_BIOME_A],  1005, mapZoom);
+        setupLayer(&l[L_SMOOTH_4],           &l[L_ZOOM_LARGE_BIOME_B],  1000, mapSmooth);
     } else {
-        setupLayer(&l[L_SMOOTH_4],           &l[L_ZOOM_4],               1000, mapSmooth);
+        setupLayer(&l[L_SMOOTH_4],           &l[L_ZOOM_4],              1000, mapSmooth);
     }
 
     // river layer chain
@@ -181,9 +180,12 @@ static void setupGeneratorImpl(LayerStack *g, int mcversion, int largeBiomes)
         setupLayer(&l[L13_ZOOM_4],         &l[L13_ZOOM_8],            2006, mapZoom);
 
         setupMultiLayer(&l[L13_OCEAN_MIX_4], &l[L_RIVER_MIX_4], &l[L13_ZOOM_4], 100, mapOceanMix);
-
-        setupLayer(&l[L_VORONOI_ZOOM_1],   &l[L13_OCEAN_MIX_4],       10,   mapVoronoiZoom);
         g->entry_4 = &l[L13_OCEAN_MIX_4];
+
+        if (mcversion <= MC_1_14)
+            setupLayer(&l[L_VORONOI_ZOOM_1], &l[L13_OCEAN_MIX_4],     10,   mapVoronoiZoom114);
+        else
+            setupLayer(&l[L_VORONOI_ZOOM_1], &l[L13_OCEAN_MIX_4],     -1,   mapVoronoiZoom);
     }
 
     setupScale(&l[L_VORONOI_ZOOM_1], 1);
@@ -252,7 +254,7 @@ int *allocCache(const Layer *layer, int sizeX, int sizeZ)
 void applySeed(LayerStack *g, int64_t seed)
 {
     // the seed has to be applied recursively
-    setWorldSeed(&g->layers[L_VORONOI_ZOOM_1], seed);
+    setLayerSeed(g->entry_1, seed);
 }
 
 int genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, int areaHeight)

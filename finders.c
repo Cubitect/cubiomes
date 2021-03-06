@@ -77,7 +77,7 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt)
 static int testOutpostPos(int64_t s, int cx, int cz)
 {
     s ^= (cx >> 4) ^ ( (cz >> 4) << 4 );
-    setSeed(&s);
+    setSeed(&s, s);
     next(&s, 32);
     return nextInt(&s, 5) == 0;
 }
@@ -129,19 +129,19 @@ Pos getStructurePos(StructureConfig config, int64_t seed, int regX, int regZ, in
 
 int isMineshaftChunk(int64_t seed, int chunkX, int chunkZ)
 {
-    int64_t s = seed;
-    setSeed(&s);
+    int64_t s;
+    setSeed(&s, seed);
     int64_t i = nextLong(&s);
     int64_t j = nextLong(&s);
     s = chunkX * i ^ chunkZ * j ^ seed;
-    setSeed(&s);
+    setSeed(&s, s);
     return nextDouble(&s) < 0.004;
 }
 
 int isTreasureChunk(int64_t seed, int chunkX, int chunkZ)
 {
     seed = chunkX*341873128712 + chunkZ*132897987541 + seed + TREASURE_CONFIG.salt;
-    setSeed(&seed);
+    setSeed(&seed, seed);
     return nextFloat(&seed) < 0.01;
 }
 
@@ -959,8 +959,7 @@ Pos initFirstStronghold(StrongholdIter *sh, int mc, int64_t s48)
     int64_t rnds;
     Pos p;
 
-    rnds = s48;
-    setSeed(&rnds);
+    setSeed(&rnds, s48);
 
     angle = 2.0 * PI * nextDouble(&rnds);
     if (mc >= MC_1_9)
@@ -1034,9 +1033,10 @@ int findStrongholds(const int mcversion, const LayerStack *g, int *cache,
     int currentRing = 0;
     int currentCount = 0;
     int perRing = 3;
+    int64_t rnd;
 
-    setSeed(&worldSeed); // PRNG
-    double angle = nextDouble(&worldSeed) * PI * 2.0;
+    setSeed(&rnd, worldSeed);
+    double angle = nextDouble(&rnd) * PI * 2.0;
 
     const Layer *l = &g->layers[L_RIVER_MIX_4];
 
@@ -1047,14 +1047,14 @@ int findStrongholds(const int mcversion, const LayerStack *g, int *cache,
         for (i = 0; i < maxSH; i++)
         {
             distance = (4.0 * 32.0) + (6.0 * currentRing * 32.0) +
-                (nextDouble(&worldSeed) - 0.5) * 32 * 2.5;
+                (nextDouble(&rnd) - 0.5) * 32 * 2.5;
 
             x = (int)round(cos(angle) * distance);
             z = (int)round(sin(angle) * distance);
 
             locations[i] = findBiomePosition(mcversion, l, cache,
                     (x << 4) + 8, (z << 4) + 8, 112, validStrongholdBiomes,
-                    &worldSeed, NULL);
+                    &rnd, NULL);
 
             angle += 2 * PI / perRing;
 
@@ -1073,7 +1073,7 @@ int findStrongholds(const int mcversion, const LayerStack *g, int *cache,
                 perRing = perRing + 2*perRing/(currentRing+1);
                 if (perRing > 128-i)
                     perRing = 128-i;
-                angle = angle + nextDouble(&worldSeed) * PI * 2.0;
+                angle = angle + nextDouble(&rnd) * PI * 2.0;
             }
         }
     }
@@ -1083,14 +1083,14 @@ int findStrongholds(const int mcversion, const LayerStack *g, int *cache,
 
         for (i = 0; i < maxSH; i++)
         {
-            distance = (1.25 + nextDouble(&worldSeed)) * 32.0;
+            distance = (1.25 + nextDouble(&rnd)) * 32.0;
 
             x = (int)round(cos(angle) * distance);
             z = (int)round(sin(angle) * distance);
 
             locations[i] = findBiomePosition(mcversion, l, cache,
                     (x << 4) + 8, (z << 4) + 8, 112, validStrongholdBiomes,
-                    &worldSeed, NULL);
+                    &rnd, NULL);
 
             angle += 2 * PI / 3.0;
         }
@@ -1182,10 +1182,11 @@ Pos getSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t world
     int i;
 
     const Layer *l = &g->layers[L_RIVER_MIX_4];
+    int64_t rnd;
 
-    setSeed(&worldSeed);
+    setSeed(&rnd, worldSeed);
     spawn = findBiomePosition(mcversion, l, cache, 0, 0, 256, isSpawnBiome,
-            &worldSeed, &found);
+            &rnd, &found);
 
     if (!found)
     {
@@ -1274,8 +1275,8 @@ Pos getSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t world
                 break;
             }
 
-            spawn.x += nextInt(&worldSeed, 64) - nextInt(&worldSeed, 64);
-            spawn.z += nextInt(&worldSeed, 64) - nextInt(&worldSeed, 64);
+            spawn.x += nextInt(&rnd, 64) - nextInt(&rnd, 64);
+            spawn.z += nextInt(&rnd, 64) - nextInt(&rnd, 64);
         }
     }
 
@@ -1290,10 +1291,10 @@ Pos estimateSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t 
     int found;
 
     const Layer *l = &g->layers[L_RIVER_MIX_4];
-
-    setSeed(&worldSeed);
+    int64_t rnd;
+    setSeed(&rnd, worldSeed);
     spawn = findBiomePosition(mcversion, l, cache, 0, 0, 256, isSpawnBiome,
-            &worldSeed, &found);
+            &rnd, &found);
 
     if (!found)
     {
@@ -1575,7 +1576,7 @@ L_feature:
             biomeX = (chunkX << 2) + 2;
             biomeZ = (chunkZ << 2) + 2;
         }
-        setWorldSeed(l, seed);
+        setLayerSeed(l, seed);
         map = allocCache(l, 1, 1);
         if (genArea(l, map, biomeX, biomeZ, 1, 1))
             goto L_not_viable;
@@ -1587,7 +1588,7 @@ L_feature:
         l = &g->layers[L_RIVER_MIX_4];
         biomeX = (chunkX << 2) + 2;
         biomeZ = (chunkZ << 2) + 2;
-        setWorldSeed(l, seed);
+        setLayerSeed(l, seed);
         map = allocCache(l, 1, 1);
         if (genArea(l, map, biomeX, biomeZ, 1, 1))
             goto L_not_viable;
@@ -1612,7 +1613,7 @@ L_feature:
             biomeX = (chunkX << 2) + 2;
             biomeZ = (chunkZ << 2) + 2;
         }
-        setWorldSeed(l, seed);
+        setLayerSeed(l, seed);
         map = allocCache(l, 1, 1);
         if (genArea(l, map, biomeX, biomeZ, 1, 1))
             goto L_not_viable;
@@ -1647,7 +1648,7 @@ L_feature:
         else if (mc == MC_1_8)
         {   // In 1.8 monuments require only a single deep ocean block.
             l = g->entry_1;
-            setWorldSeed(l, seed);
+            setLayerSeed(l, seed);
             map = allocCache(l, 1, 1);
             if (genArea(l, map, (chunkX << 4) + 8, (chunkZ << 4) + 8, 1, 1))
                 goto L_not_viable;
@@ -1656,7 +1657,7 @@ L_feature:
         {   // Monuments require two viability checks with the ocean layer
             // branch => worth checking for potential deep ocean beforehand.
             l = &g->layers[L_SHORE_16];
-            setWorldSeed(l, seed);
+            setLayerSeed(l, seed);
             map = allocCache(l, 1, 1);
             if (genArea(l, map, chunkX, chunkZ, 1, 1))
                 goto L_not_viable;
@@ -1669,7 +1670,7 @@ L_feature:
             l = &g->layers[L_RIVER_MIX_4];
         biomeX = (chunkX << 4) + 8; // areBiomesViable expects block positions
         biomeZ = (chunkZ << 4) + 8;
-        setWorldSeed(l, seed);
+        setLayerSeed(l, seed);
         if (mc < MC_1_9 || areBiomesViable(l, NULL, biomeX, biomeZ, 16, getValidMonumentBiomes2()))
             if (areBiomesViable(l, NULL, biomeX, biomeZ, 29, getValidMonumentBiomes1()))
                 goto L_viable;
@@ -1681,7 +1682,7 @@ L_feature:
         l = &g->layers[L_RIVER_MIX_4];
         biomeX = (chunkX << 4) + 8;
         biomeZ = (chunkZ << 4) + 8;
-        setWorldSeed(l, seed);
+        setLayerSeed(l, seed);
         if (areBiomesViable(l, NULL, biomeX, biomeZ, 32, getValidMansionBiomes()))
             goto L_viable;
         goto L_not_viable;
@@ -1719,7 +1720,7 @@ L_not_viable:
 
 VillageType getVillageType(int mc, int64_t seed, int blockX, int blockZ, int biomeID)
 {
-    VillageType r = {};
+    VillageType r = { 0, 0, 0 };
     if (!isViableFeatureBiome(mc, Village, biomeID))
         return r;
 
@@ -2411,7 +2412,7 @@ int checkForBiomes(
             z0 = (bz) / l->scale; if (z < 0) z0--;
             x1 = (bx + bw) / l->scale; if (x+(int)w >= 0) x1++;
             z1 = (bz + bh) / l->scale; if (z+(int)h >= 0) z1++;
-            ss = getStartSeed(seed, l->layerSeed);
+            ss = getStartSeed(seed, l->layerSalt);
 
             for (j = z0; j <= z1; j++)
             {
@@ -2434,7 +2435,7 @@ int checkForBiomes(
 
         if (filter.majorToFind & (1ULL << mushroom_fields))
         {
-            ss = getStartSeed(seed, g->layers[L_ADD_MUSHROOM_256].layerSeed);
+            ss = getStartSeed(seed, g->layers[L_ADD_MUSHROOM_256].layerSalt);
 
             for (j = z0; j <= z1; j++)
             {
@@ -2456,7 +2457,7 @@ L_HAS_PROTO_MUSHROOM:
                 (1ULL << forest) | (1ULL << dark_forest) | (1ULL << mountains) |
                 (1ULL << birch_forest) | (1ULL << swamp));
 
-        ss = getStartSeed(seed, l->layerSeed);
+        ss = getStartSeed(seed, l->layerSalt);
 
         for (j = z0; j <= z1; j++)
         {
@@ -2503,7 +2504,7 @@ L_HAS_PROTO_MUSHROOM:
     swapMap(fd+7, &filter, l+L_ADD_MUSHROOM_256,    mapFilterMushroom);
     swapMap(fd+8, &filter, l+L_SPECIAL_1024,        mapFilterSpecial);
 
-    setWorldSeed(&l[layerID], seed);
+    setLayerSeed(&l[layerID], seed);
     int ret = !l[layerID].getMap(&l[layerID], map, x, z, w, h);
     if (ret)
     {
@@ -2542,60 +2543,9 @@ L_HAS_PROTO_MUSHROOM:
 }
 
 
-int hasAllTemps(LayerStack *g, int64_t seed, int x1024, int z1024)
-{
-    int64_t ls = getLayerSeed(3); // L_SPECIAL_1024 layer seed
-    int64_t ss = getStartSeed(seed, ls);
-    int spbits = 0, spcnt = 0;
-
-    if (mcFirstIsZero(getChunkSeed(ss, x1024-1, z1024-1), 13))
-    { spbits |= (1<<0); spcnt++; }
-    if (mcFirstIsZero(getChunkSeed(ss, x1024  , z1024-1), 13))
-    { spbits |= (1<<1); spcnt++; }
-    if (mcFirstIsZero(getChunkSeed(ss, x1024+1, z1024-1), 13))
-    { spbits |= (1<<2); spcnt++; }
-    if (mcFirstIsZero(getChunkSeed(ss, x1024-1, z1024  ), 13))
-    { spbits |= (1<<3); spcnt++; }
-    if (mcFirstIsZero(getChunkSeed(ss, x1024  , z1024  ), 13))
-    { spbits |= (1<<4); spcnt++; }
-    if (mcFirstIsZero(getChunkSeed(ss, x1024+1, z1024  ), 13))
-    { spbits |= (1<<5); spcnt++; }
-    if (mcFirstIsZero(getChunkSeed(ss, x1024-1, z1024+1), 13))
-    { spbits |= (1<<6); spcnt++; }
-    if (mcFirstIsZero(getChunkSeed(ss, x1024  , z1024+1), 13))
-    { spbits |= (1<<7); spcnt++; }
-    if (mcFirstIsZero(getChunkSeed(ss, x1024+1, z1024+1), 13))
-    { spbits |= (1<<8); spcnt++; }
-
-    if (spcnt < 3)
-        return 0;
-
-    // approx. ~2.7% of seeds make it to here
-
-    int buf[20*20];
-    int i;
-
-    setWorldSeed(&g->layers[L_HEAT_ICE_1024], seed);
-    genArea(&g->layers[L_HEAT_ICE_1024], buf, x1024-1, z1024-1, 3, 3);
-
-    uint64_t bm = 0;
-    for (i = 0; i < 9; i++)
-    {
-        int id = buf[i];
-        if (id != 0 && id != Freezing && (spbits & (1<<i)))
-           bm |= (1ULL << (id+Special));
-        else
-           bm |= (1ULL << id);
-    }
-
-    // approx. 1 in 100000 seeds satisfy such an all-temperatures cluster
-    return ((bm & 0x1df) ^ 0x1df) == 0;
-}
-
-
 int checkForTemps(LayerStack *g, int64_t seed, int x, int z, int w, int h, const int tc[9])
 {
-    int64_t ls = getLayerSeed(3); // L_SPECIAL_1024 layer seed
+    int64_t ls = getLayerSalt(3); // L_SPECIAL_1024 layer seed
     int64_t ss = getStartSeed(seed, ls);
 
     int i, j;
@@ -2624,7 +2574,7 @@ int checkForTemps(LayerStack *g, int64_t seed, int x, int z, int w, int h, const
     int *area = allocCache(l, w, h);
     int ret = 1;
 
-    setWorldSeed(l, seed);
+    setLayerSeed(l, seed);
     genArea(l, area, x, z, w, h);
 
     for (i = 0; i < w*h; i++)

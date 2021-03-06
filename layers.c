@@ -2,8 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
+#include <float.h>
 
-
+//==============================================================================
+// Essentials
+//==============================================================================
 
 void initAddBiome(int id, int tempCat, int biometype, float temp, float height)
 {
@@ -127,19 +131,33 @@ void initBiomes()
 }
 
 
-void setWorldSeed(Layer *layer, int64_t worldSeed)
+void setLayerSeed(Layer *layer, int64_t worldSeed)
 {
     if (layer->p2 != NULL)
-        setWorldSeed(layer->p2, worldSeed);
+        setLayerSeed(layer->p2, worldSeed);
 
     if (layer->p != NULL)
-        setWorldSeed(layer->p, worldSeed);
+        setLayerSeed(layer->p, worldSeed);
 
     if (layer->noise != NULL)
-        perlinInit((PerlinNoise*)layer->noise, worldSeed);
+    {
+        int64_t s;
+        setSeed(&s, worldSeed);
+        perlinInit((PerlinNoise*)layer->noise, &s);
+    }
 
-    int64_t ls = layer->layerSeed;
-    if (ls != 0) // Pre 1.13 the Hills branch stays zero-initialized
+    int64_t ls = layer->layerSalt;
+    if (ls == 0) // Pre 1.13 the Hills branch stays zero-initialized
+    {
+        layer->startSalt = 0;
+        layer->startSeed = 0;
+    }
+    else if (ls == -1) // Post 1.14 VoronoiZoom uses SHA256 for initialization
+    {
+        layer->startSalt = getVoroniSHA(worldSeed);
+        layer->startSeed = 0;
+    }
+    else
     {
         int64_t st = worldSeed;
         st = mcStepSeed(st, ls);
@@ -149,12 +167,231 @@ void setWorldSeed(Layer *layer, int64_t worldSeed)
         layer->startSalt = st;
         layer->startSeed = mcStepSeed(st, 0);
     }
-    else
+}
+
+//==============================================================================
+// Noise
+//==============================================================================
+
+
+static double lerp(double part, double from, double to)
+{
+    return from + part * (to - from);
+}
+
+/* Table of vectors to cube edge centres (12 + 4 extra), used for ocean PRNG */
+const double cEdgeX[] = {1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 0.0, 0.0, 0.0, 0.0,  1.0, 0.0,-1.0, 0.0};
+const double cEdgeY[] = {1.0, 1.0,-1.0,-1.0, 0.0, 0.0, 0.0, 0.0, 1.0,-1.0, 1.0,-1.0,  1.0,-1.0, 1.0,-1.0};
+const double cEdgeZ[] = {0.0, 0.0, 0.0, 0.0, 1.0, 1.0,-1.0,-1.0, 1.0, 1.0,-1.0,-1.0,  0.0, 1.0, 0.0,-1.0};
+
+// grad()
+static double indexedLerp(int idx, double d1, double d2, double d3)
+{
+    idx &= 0xf;
+    return cEdgeX[idx] * d1 + cEdgeY[idx] * d2 + cEdgeZ[idx] * d3;
+}
+
+void perlinInit(PerlinNoise *rnd, int64_t *seed)
+{
+    int i = 0;
+    memset(rnd, 0, sizeof(*rnd));
+    rnd->a = nextDouble(seed) * 256.0;
+    rnd->b = nextDouble(seed) * 256.0;
+    rnd->c = nextDouble(seed) * 256.0;
+
+    for (i = 0; i < 256; i++)
     {
-        layer->startSalt = 0;
-        layer->startSeed = 0;
+        rnd->d[i] = i;
+    }
+    for (i = 0; i < 256; i++)
+    {
+        int n3 = nextInt(seed, 256 - i) + i;
+        int n4 = rnd->d[i];
+        rnd->d[i] = rnd->d[n3];
+        rnd->d[n3] = n4;
+        rnd->d[i + 256] = rnd->d[i];
     }
 }
+
+
+double samplePerlin(const PerlinNoise *rnd, double d1, double d2, double d3)
+{
+    d1 += rnd->a;
+    d2 += rnd->b;
+    d3 += rnd->c;
+    int i1 = (int)d1 - (int)(d1 < 0);
+    int i2 = (int)d2 - (int)(d2 < 0);
+    int i3 = (int)d3 - (int)(d3 < 0);
+    d1 -= i1;
+    d2 -= i2;
+    d3 -= i3;
+    double t1 = d1*d1*d1 * (d1 * (d1*6.0-15.0) + 10.0);
+    double t2 = d2*d2*d2 * (d2 * (d2*6.0-15.0) + 10.0);
+    double t3 = d3*d3*d3 * (d3 * (d3*6.0-15.0) + 10.0);
+
+    i1 &= 0xff;
+    i2 &= 0xff;
+    i3 &= 0xff;
+
+    int a1 = rnd->d[i1]   + i2;
+    int a2 = rnd->d[a1]   + i3;
+    int a3 = rnd->d[a1+1] + i3;
+    int b1 = rnd->d[i1+1] + i2;
+    int b2 = rnd->d[b1]   + i3;
+    int b3 = rnd->d[b1+1] + i3;
+
+    double l1 = indexedLerp(rnd->d[a2],   d1,   d2,   d3);
+    double l2 = indexedLerp(rnd->d[b2],   d1-1, d2,   d3);
+    double l3 = indexedLerp(rnd->d[a3],   d1,   d2-1, d3);
+    double l4 = indexedLerp(rnd->d[b3],   d1-1, d2-1, d3);
+    double l5 = indexedLerp(rnd->d[a2+1], d1,   d2,   d3-1);
+    double l6 = indexedLerp(rnd->d[b2+1], d1-1, d2,   d3-1);
+    double l7 = indexedLerp(rnd->d[a3+1], d1,   d2-1, d3-1);
+    double l8 = indexedLerp(rnd->d[b3+1], d1-1, d2-1, d3-1);
+
+    l1 = lerp(t1, l1, l2);
+    l3 = lerp(t1, l3, l4);
+    l5 = lerp(t1, l5, l6);
+    l7 = lerp(t1, l7, l8);
+
+    l1 = lerp(t2, l1, l3);
+    l5 = lerp(t2, l5, l7);
+
+    return lerp(t3, l1, l5);
+}
+
+
+void doublePerlinInit(DoublePerlinNoise *rnd, int64_t *seed,
+        PerlinNoise *octavesA, PerlinNoise *octavesB, int omin, int len)
+{
+    if (len < 1 || omin+len > 0)
+    {
+        printf("doublePerlinInit(): unsupported octave range\n");
+        return;
+    }
+    rnd->octaves[0] = octavesA;
+    rnd->octaves[1] = octavesB;
+    rnd->octcnt = len;
+
+    rnd->amplitude = (10.0 / 6.0) * len / (len + 1);
+
+    int ab, i;
+    for (ab = 0; ab < 2; ab++)
+    {
+        // octave zero is initialized first
+        if (omin <= 0 && omin+len > 0)
+            perlinInit(&rnd->octaves[ab][-omin], seed);
+        else
+            skipNextN(seed, 262);
+
+        if (omin+len < 0)
+            skipNextN(seed, -(omin+len) * 262);
+        for (i = 0; i < len; i++)
+            if (i+omin < 0)
+                perlinInit(&rnd->octaves[ab][i], seed);
+
+        rnd->persist[ab] = pow(2.0, omin+len - 1);
+        rnd->lacuna[ab] = 1.0 / ((1LL << len) - 1.0);
+    }
+}
+
+
+static double sampleOctave(const PerlinNoise *octaves, int len,
+        double x, double y, double z, double persist, double lacuna)
+{
+    double v = 0;
+    int i;
+    for (i = 0; i < len; i++)
+    {
+        double ax = x * persist;
+        double ay = y * persist;
+        double az = z * persist;
+        ax -= floor(ax / 33554432.0 + 0.5) * 33554432.0;
+        ay -= floor(ay / 33554432.0 + 0.5) * 33554432.0;
+        az -= floor(az / 33554432.0 + 0.5) * 33554432.0;
+        v += lacuna * samplePerlin(octaves+i, ax, ay, az);
+        persist *= 0.5;
+        lacuna *= 2.0;
+    }
+    return v;
+}
+
+double sampleDoublePerlin(const DoublePerlinNoise *rnd,
+        double x, double y, double z)
+{
+    const double f = 337.0 / 331.0;
+    double v = 0;
+
+    v += sampleOctave(rnd->octaves[0], rnd->octcnt, x,   y,   z,
+        rnd->persist[0], rnd->lacuna[0]);
+
+    v += sampleOctave(rnd->octaves[1], rnd->octcnt, x*f, y*f, z*f,
+        rnd->persist[1], rnd->lacuna[1]);
+
+    return v * rnd->amplitude;
+}
+
+
+void setNetherSeed(NetherNoise *nn, int64_t seed)
+{
+    int64_t s;
+    setSeed(&s, seed);
+    doublePerlinInit(&nn->temperature, &s, &nn->oct[0], &nn->oct[2], -7, 2);
+    setSeed(&s, seed+1);
+    doublePerlinInit(&nn->humidity, &s, &nn->oct[4], &nn->oct[6], -7, 2);
+}
+
+
+static float distsq(const float *a, const float *b, int n)
+{
+    float dsq = 0;
+    int i;
+    for (i = 0; i < n; i++)
+    {
+        float d = a[i] - b[i];
+        dsq += d*d;
+    }
+    return dsq;
+}
+
+int getNetherBiome(const NetherNoise *nn, int x, int y, int z)
+{
+    const float mixpoints[5][6] = {
+        { nether_wastes,    0,      0,      0,  0,  0     },
+        { soul_sand_valley, 0,      -0.5,   0,  0,  0     },
+        { crimson_forest,   0.4,    0,      0,  0,  0     },
+        { warped_forest,    0,      0.5,    0,  0,  0.375 },
+        { basalt_deltas,    -0.5,   0,      0,  0,  0.175 },
+    };
+
+    float point[] = {
+        (float) sampleDoublePerlin(&nn->temperature, x, y, z),
+        (float) sampleDoublePerlin(&nn->humidity, x, y, z),
+        0,//(float) sampleDoublePerlin(&nn->altitude, x, y, z),
+        0,//(float) sampleDoublePerlin(&nn->wierdness, x, y, z),
+        0,
+    };
+
+    int i, id = 0;
+    float dmin = FLT_MAX;
+    for (i = 0; i < 5; i++)
+    {
+        float dsq = distsq(point, &mixpoints[i][1], 5);
+        if (dsq < dmin)
+        {
+            dmin = dsq;
+            id = i;
+        }
+    }
+
+    id = (int) mixpoints[id][0];
+    return id;
+}
+
+
+//==============================================================================
+// Layers
+//==============================================================================
 
 
 int mapIsland(const Layer * l, int * out, int x, int z, int w, int h)
@@ -1041,7 +1278,7 @@ int mapHills112(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
     int *buf = NULL;
 
-    if (l->p2 == NULL)
+    if U(l->p2 == NULL)
     {
         printf("mapHills() requires two parents! Use setupMultiLayer()\n");
         exit(1);
@@ -1179,7 +1416,7 @@ int mapHills(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
     int *buf = NULL;
 
-    if (l->p2 == NULL)
+    if U(l->p2 == NULL)
     {
         printf("mapHills() requires two parents! Use setupMultiLayer()\n");
         exit(1);
@@ -1563,7 +1800,7 @@ int mapRiverMix(const Layer * l, int * out, int x, int z, int w, int h)
     int len;
     int *buf;
 
-    if (l->p2 == NULL)
+    if U(l->p2 == NULL)
     {
         printf("mapRiverMix() requires two parents! Use setupMultiLayer()\n");
         exit(1);
@@ -1614,92 +1851,6 @@ int mapRiverMix(const Layer * l, int * out, int x, int z, int w, int h)
 }
 
 
-void perlinInit(PerlinNoise *rnd, int64_t seed)
-{
-    int i = 0;
-    memset(rnd, 0, sizeof(*rnd));
-    setSeed(&seed);
-    rnd->a = nextDouble(&seed) * 256.0;
-    rnd->b = nextDouble(&seed) * 256.0;
-    rnd->c = nextDouble(&seed) * 256.0;
-
-    for (i = 0; i < 256; i++)
-    {
-        rnd->d[i] = i;
-    }
-    for (i = 0; i < 256; i++)
-    {
-        int n3 = nextInt(&seed, 256 - i) + i;
-        int n4 = rnd->d[i];
-        rnd->d[i] = rnd->d[n3];
-        rnd->d[n3] = n4;
-        rnd->d[i + 256] = rnd->d[i];
-    }
-}
-
-static double lerp(double part, double from, double to)
-{
-    return from + part * (to - from);
-}
-
-/* Table of vectors to cube edge centres (12 + 4 extra), used for ocean PRNG */
-const double cEdgeX[] = {1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 0.0, 0.0, 0.0, 0.0,  1.0, 0.0,-1.0, 0.0};
-const double cEdgeY[] = {1.0, 1.0,-1.0,-1.0, 0.0, 0.0, 0.0, 0.0, 1.0,-1.0, 1.0,-1.0,  1.0,-1.0, 1.0,-1.0};
-const double cEdgeZ[] = {0.0, 0.0, 0.0, 0.0, 1.0, 1.0,-1.0,-1.0, 1.0, 1.0,-1.0,-1.0,  0.0, 1.0, 0.0,-1.0};
-
-static double indexedLerp(int idx, double d1, double d2, double d3)
-{
-    idx &= 0xf;
-    return cEdgeX[idx] * d1 + cEdgeY[idx] * d2 + cEdgeZ[idx] * d3;
-}
-
-
-double samplePerlin(const PerlinNoise *rnd, double d1, double d2, double d3)
-{
-    d1 += rnd->a;
-    d2 += rnd->b;
-    d3 += rnd->c;
-    int i1 = (int)d1 - (int)(d1 < 0);
-    int i2 = (int)d2 - (int)(d2 < 0);
-    int i3 = (int)d3 - (int)(d3 < 0);
-    d1 -= i1;
-    d2 -= i2;
-    d3 -= i3;
-    double t1 = d1*d1*d1 * (d1 * (d1*6.0-15.0) + 10.0);
-    double t2 = d2*d2*d2 * (d2 * (d2*6.0-15.0) + 10.0);
-    double t3 = d3*d3*d3 * (d3 * (d3*6.0-15.0) + 10.0);
-
-    i1 &= 0xff;
-    i2 &= 0xff;
-    i3 &= 0xff;
-
-    int a1 = rnd->d[i1]   + i2;
-    int a2 = rnd->d[a1]   + i3;
-    int a3 = rnd->d[a1+1] + i3;
-    int b1 = rnd->d[i1+1] + i2;
-    int b2 = rnd->d[b1]   + i3;
-    int b3 = rnd->d[b1+1] + i3;
-
-    double l1 = indexedLerp(rnd->d[a2],   d1,   d2,   d3);
-    double l2 = indexedLerp(rnd->d[b2],   d1-1, d2,   d3);
-    double l3 = indexedLerp(rnd->d[a3],   d1,   d2-1, d3);
-    double l4 = indexedLerp(rnd->d[b3],   d1-1, d2-1, d3);
-    double l5 = indexedLerp(rnd->d[a2+1], d1,   d2,   d3-1);
-    double l6 = indexedLerp(rnd->d[b2+1], d1-1, d2,   d3-1);
-    double l7 = indexedLerp(rnd->d[a3+1], d1,   d2-1, d3-1);
-    double l8 = indexedLerp(rnd->d[b3+1], d1-1, d2-1, d3-1);
-
-    l1 = lerp(t1, l1, l2);
-    l3 = lerp(t1, l3, l4);
-    l5 = lerp(t1, l5, l6);
-    l7 = lerp(t1, l7, l8);
-
-    l1 = lerp(t2, l1, l3);
-    l5 = lerp(t2, l5, l7);
-
-    return lerp(t3, l1, l5);
-}
-
 int mapOceanTemp(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int i, j;
@@ -1734,7 +1885,7 @@ int mapOceanMix(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
     int lx0, lx1, lz0, lz1, lw, lh;
 
-    if (l->p2 == NULL)
+    if U(l->p2 == NULL)
     {
         printf("mapOceanMix() requires two parents! Use setupMultiLayer()\n");
         exit(1);
@@ -1862,10 +2013,92 @@ int mapVoronoiZoom(const Layer * l, int * out, int x, int z, int w, int h)
     if U(err != 0)
         return err;
 
+    int64_t sha = l->startSalt;
+    int *buf = (int *) malloc(w*h*sizeof(*buf));
+
+    int i, j;
+    for (j = 0; j < h; j++)
+    {
+        for (i = 0; i < w; i++)
+        {
+            // TODO: this can be optimized further!
+            // rx,ry,rz only need to be calculated for the parent grid
+            // the dependency on the inner grid comes with dx,dz
+
+            int pi = x+i;
+            int pj = z+j;
+            int px = pi >> 2;
+            int pz = pj >> 2;
+            int dx = (pi & 3) * 10240;
+            int dz = (pj & 3) * 10240;
+            uint64_t dmin = (uint64_t)-1;
+            int k;
+
+            for (k = 0; k < 8; k++)
+            {
+                int bx = (k & 4) != 0;
+                int by = (k & 2) != 0;
+                int bz = (k & 1) != 0;
+                int ax = px + bx;
+                int ay = -1 + by;
+                int az = pz + bz;
+
+                int64_t s = sha;
+                s = mcStepSeed(s, ax);
+                s = mcStepSeed(s, ay);
+                s = mcStepSeed(s, az);
+                s = mcStepSeed(s, ax);
+                s = mcStepSeed(s, ay);
+                s = mcStepSeed(s, az);
+
+                int rx = (((s >> 24) & 1023) - 512) * 36;
+                s = mcStepSeed(s, sha);
+                int ry = (((s >> 24) & 1023) - 512) * 36;
+                s = mcStepSeed(s, sha);
+                int rz = (((s >> 24) & 1023) - 512) * 36;
+
+                int64_t sx = rx - 40*1024*bx + dx;
+                int64_t sy = ry - 40*1024*by + 20*1024;
+                int64_t sz = rz - 40*1024*bz + dz;
+
+                uint64_t d = sx*sx + sy*sy + sz*sz;
+                if (d < dmin)
+                {
+                    dmin = d;
+                    pi = ax;
+                    pj = az;
+                }
+            }
+
+            pi -= pX;
+            pj -= pZ;
+            int v = out[pj*pW + pi];
+            buf[j*w + i] = v;
+        }
+    }
+
+    memcpy(out, buf, w*h*sizeof(*buf));
+    free(buf);
+    return 0;
+}
+
+int mapVoronoiZoom114(const Layer * l, int * out, int x, int z, int w, int h)
+{
+    x -= 2;
+    z -= 2;
+    int pX = x >> 2;
+    int pZ = z >> 2;
+    int pW = ((x + w) >> 2) - pX + 2;
+    int pH = ((z + h) >> 2) - pZ + 2;
+
+    int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
+    if U(err != 0)
+        return err;
+
     int newW = pW << 2;
     int newH = pH << 2;
-    int i, j;
     int *buf = (int *) malloc((newW+1)*(newH+1)*sizeof(*buf));
+    int i, j;
 
     int64_t st = l->startSalt;
     int64_t ss = l->startSeed;
@@ -1960,5 +2193,78 @@ int mapVoronoiZoom(const Layer * l, int * out, int x, int z, int w, int h)
     free(buf);
     return 0;
 }
+
+
+int64_t getVoroniSHA(int64_t worldSeed)
+{
+    int i;
+    BYTE data[8];
+    for (i = 0; i < 8; i++)
+        data[i] = (BYTE) (worldSeed >> i*8);
+    SHA256_CTX ctx;
+    BYTE hash[SHA256_BLOCK_SIZE];
+
+    sha256_init(&ctx);
+    sha256_update(&ctx, data, 8);
+    sha256_final(&ctx, hash);
+
+    int64_t sha = 0;
+    for (i = 0; i < 8; i++)
+        sha |= ((uint64_t)hash[i] << i*8);
+    return sha;
+}
+
+void voronoiAccess3D(int64_t sha, int x, int y, int z, int *x4, int *y4, int *z4)
+{
+    x -= 2;
+    y -= 2;
+    z -= 2;
+    int pX = x >> 2;
+    int pY = y >> 2;
+    int pZ = z >> 2;
+    int dx = (x & 3) * 10240;
+    int dy = (y & 3) * 10240;
+    int dz = (z & 3) * 10240;
+    uint64_t dmin = (uint64_t)-1;
+    int i;
+
+    for (i = 0; i < 8; i++)
+    {
+        int bx = (i & 4) != 0;
+        int by = (i & 2) != 0;
+        int bz = (i & 1) != 0;
+        int ax = pX + bx;
+        int ay = pY + by;
+        int az = pZ + bz;
+
+        int64_t s = sha;
+        s = mcStepSeed(s, ax);
+        s = mcStepSeed(s, ay);
+        s = mcStepSeed(s, az);
+        s = mcStepSeed(s, ax);
+        s = mcStepSeed(s, ay);
+        s = mcStepSeed(s, az);
+
+        int rx = (((s >> 24) & 1023) - 512) * 36;
+        s = mcStepSeed(s, sha);
+        int ry = (((s >> 24) & 1023) - 512) * 36;
+        s = mcStepSeed(s, sha);
+        int rz = (((s >> 24) & 1023) - 512) * 36;
+
+        rx += dx - 40*1024*bx;
+        ry += dy - 40*1024*by;
+        rz += dz - 40*1024*bz;
+
+        uint64_t d = rx*(uint64_t)rx + ry*(uint64_t)ry + rz*(uint64_t)rz;
+        if (d < dmin)
+        {
+            dmin = d;
+            *x4 = ax;
+            *y4 = ay;
+            *z4 = az;
+        }
+    }
+}
+
 
 
