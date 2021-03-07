@@ -1,6 +1,6 @@
 # cubiomes
 
-Cubiomes is a standalone library, written in C, that mimics the Minecraft Java Edition biome and feature generation.
+Cubiomes is a standalone library, written in C, that mimics the biome and feature generation of Minecraft Java Edition.
 It is intended as a powerful tool to devise very fast, custom seed finding applications and large scale map viewers with minimal memory usage.
 
 

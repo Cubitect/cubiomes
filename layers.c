@@ -2017,70 +2017,124 @@ int mapVoronoiZoom(const Layer * l, int * out, int x, int z, int w, int h)
     int *buf = (int *) malloc(w*h*sizeof(*buf));
 
     int i, j;
+    typedef struct Touple { int x, y, z; } Touple;
+    Touple *prbuf = (Touple *) malloc(2 * pW * pH * sizeof(Touple));
+
+    for (j = 0; j < pH; j++)
+    {
+        for (i = 0; i < pW; i++)
+        {
+            int64_t s = sha;
+            s = mcStepSeed(s, pX+i);
+            s = mcStepSeed(s, -1);
+            s = mcStepSeed(s, pZ+j);
+            s = mcStepSeed(s, pX+i);
+            s = mcStepSeed(s, -1);
+            s = mcStepSeed(s, pZ+j);
+
+            int rx = (((s >> 24) & 1023) - 512) * 36;
+            s = mcStepSeed(s, sha);
+            int ry = (((s >> 24) & 1023) - 512) * 36;
+            s = mcStepSeed(s, sha);
+            int rz = (((s >> 24) & 1023) - 512) * 36;
+            
+            Touple *pt = prbuf + 2*(j*pW+i);
+            pt->x = rx;
+            pt->y = ry;
+            pt->z = rz;
+            
+            s = sha;
+            s = mcStepSeed(s, pX+i);
+            s = mcStepSeed(s, 0);
+            s = mcStepSeed(s, pZ+j);
+            s = mcStepSeed(s, pX+i);
+            s = mcStepSeed(s, 0);
+            s = mcStepSeed(s, pZ+j);
+
+            rx = (((s >> 24) & 1023) - 512) * 36;
+            s = mcStepSeed(s, sha);
+            ry = (((s >> 24) & 1023) - 512) * 36;
+            s = mcStepSeed(s, sha);
+            rz = (((s >> 24) & 1023) - 512) * 36;
+            
+            pt++;
+            pt->x = rx;
+            pt->y = ry;
+            pt->z = rz;
+        }
+    }
+
     for (j = 0; j < h; j++)
     {
         for (i = 0; i < w; i++)
         {
-            // TODO: this can be optimized further!
-            // rx,ry,rz only need to be calculated for the parent grid
-            // the dependency on the inner grid comes with dx,dz
+            int xi = x+i;
+            int zj = z+j;
+            int pi = (xi >> 2) - pX;
+            int pj = (zj >> 2) - pZ;
+            
+            int v00 = out[(pj+0)*pW + (pi+0)];
+            int v01 = out[(pj+0)*pW + (pi+1)];
+            int v10 = out[(pj+1)*pW + (pi+0)];
+            int v11 = out[(pj+1)*pW + (pi+1)];
+            int v = v00;
 
-            int pi = x+i;
-            int pj = z+j;
-            int px = pi >> 2;
-            int pz = pj >> 2;
-            int dx = (pi & 3) * 10240;
-            int dz = (pj & 3) * 10240;
-            uint64_t dmin = (uint64_t)-1;
-            int k;
-
-            for (k = 0; k < 8; k++)
+            if (v00 == v01 && v00 == v10 && v00 == v11)
             {
-                int bx = (k & 4) != 0;
-                int by = (k & 2) != 0;
-                int bz = (k & 1) != 0;
-                int ax = px + bx;
-                int ay = -1 + by;
-                int az = pz + bz;
-
-                int64_t s = sha;
-                s = mcStepSeed(s, ax);
-                s = mcStepSeed(s, ay);
-                s = mcStepSeed(s, az);
-                s = mcStepSeed(s, ax);
-                s = mcStepSeed(s, ay);
-                s = mcStepSeed(s, az);
-
-                int rx = (((s >> 24) & 1023) - 512) * 36;
-                s = mcStepSeed(s, sha);
-                int ry = (((s >> 24) & 1023) - 512) * 36;
-                s = mcStepSeed(s, sha);
-                int rz = (((s >> 24) & 1023) - 512) * 36;
-
-                int64_t sx = rx - 40*1024*bx + dx;
-                int64_t sy = ry - 40*1024*by + 20*1024;
-                int64_t sz = rz - 40*1024*bz + dz;
-
-                uint64_t d = sx*sx + sy*sy + sz*sz;
-                if (d < dmin)
-                {
-                    dmin = d;
-                    pi = ax;
-                    pj = az;
-                }
+                buf[j*w + i] = v00;
+                continue;
             }
 
-            pi -= pX;
-            pj -= pZ;
-            int v = out[pj*pW + pi];
+            int dx = (xi & 3) * 10240;
+            int dz = (zj & 3) * 10240;
+
+            uint64_t dmin = (uint64_t)-1;
+            int bx, bz;
+            for (bz = 0; bz <= 1; bz++)
+            {
+                for (bx = 0; bx <= 1; bx++)
+                {
+                    int ax = pi + bx;
+                    int az = pj + bz;
+                    int64_t r;
+                    uint64_t d;
+                    
+                    Touple *pt = prbuf + 2*( (az)*pW + (ax) );
+                    d = 0;
+                    r = pt->x - 40*1024*bx + dx;    d += r*r;
+                    r = pt->y + 20*1024;            d += r*r;
+                    r = pt->z - 40*1024*bz + dz;    d += r*r;
+
+                    if (d < dmin)
+                    {
+                        dmin = d;
+                        v = out[az*pW + ax];
+                    }
+                    
+                    pt++;
+                    d = 0;
+                    r = pt->x - 40*1024*bx + dx;    d += r*r;
+                    r = pt->y - 20*1024;            d += r*r;
+                    r = pt->z - 40*1024*bz + dz;    d += r*r;
+
+                    if (d < dmin)
+                    {
+                        dmin = d;
+                        v = out[az*pW + ax];
+                    }
+                }
+            }
+            
             buf[j*w + i] = v;
         }
     }
 
+    free(prbuf);
     memcpy(out, buf, w*h*sizeof(*buf));
     free(buf);
     return 0;
 }
+
 
 int mapVoronoiZoom114(const Layer * l, int * out, int x, int z, int w, int h)
 {
