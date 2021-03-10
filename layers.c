@@ -356,7 +356,7 @@ static float distsq(const float *a, const float *b, int n)
 
 int getNetherBiome(const NetherNoise *nn, int x, int y, int z)
 {
-    const float mixpoints[5][6] = {
+    const float bpoints[5][6] = {
         { nether_wastes,    0,      0,      0,  0,  0     },
         { soul_sand_valley, 0,      -0.5,   0,  0,  0     },
         { crimson_forest,   0.4,    0,      0,  0,  0     },
@@ -376,7 +376,7 @@ int getNetherBiome(const NetherNoise *nn, int x, int y, int z)
     float dmin = FLT_MAX;
     for (i = 0; i < 5; i++)
     {
-        float dsq = distsq(point, &mixpoints[i][1], 5);
+        float dsq = distsq(point, &bpoints[i][1], 5);
         if (dsq < dmin)
         {
             dmin = dsq;
@@ -384,7 +384,7 @@ int getNetherBiome(const NetherNoise *nn, int x, int y, int z)
         }
     }
 
-    id = (int) mixpoints[id][0];
+    id = (int) bpoints[id][0];
     return id;
 }
 
@@ -1999,6 +1999,23 @@ int mapOceanMix(const Layer * l, int * out, int x, int z, int w, int h)
     return 0;
 }
 
+static inline void getVoronoiCell(int64_t sha, int a, int b, int c,
+        int *x, int *y, int *z)
+{
+    int64_t s = sha;
+    s = mcStepSeed(s, a);
+    s = mcStepSeed(s, b);
+    s = mcStepSeed(s, c);
+    s = mcStepSeed(s, a);
+    s = mcStepSeed(s, b);
+    s = mcStepSeed(s, c);
+
+    *x = (((s >> 24) & 1023) - 512) * 36;
+    s = mcStepSeed(s, sha);
+    *y = (((s >> 24) & 1023) - 512) * 36;
+    s = mcStepSeed(s, sha);
+    *z = (((s >> 24) & 1023) - 512) * 36;
+}
 
 int mapVoronoiZoom(const Layer * l, int * out, int x, int z, int w, int h)
 {
@@ -2016,120 +2033,147 @@ int mapVoronoiZoom(const Layer * l, int * out, int x, int z, int w, int h)
     int64_t sha = l->startSalt;
     int *buf = (int *) malloc(w*h*sizeof(*buf));
 
+    int x000, x001, x010, x011, x100, x101, x110, x111;
+    int y000, y001, y010, y011, y100, y101, y110, y111;
+    int z000, z001, z010, z011, z100, z101, z110, z111;
+    int pi, pj, ii, jj, dx, dz, pjz, pix, i4, j4;
+    int v00, v01, v10, v11, v;
+    int prev_skip;
+    int64_t r;
+    uint64_t d, dmin;
     int i, j;
-    typedef struct Touple { int x, y, z; } Touple;
-    Touple *prbuf = (Touple *) malloc(2 * pW * pH * sizeof(Touple));
 
-    for (j = 0; j < pH; j++)
+    for (pj = 0; pj < pH-1; pj++)
     {
-        for (i = 0; i < pW; i++)
+        v00 = out[(pj+0)*pW];
+        v10 = out[(pj+1)*pW];
+        pjz = pZ + pj;
+        j4 = ((pjz) << 2) - z;
+        prev_skip = 1;
+
+        for (pi = 0; pi < pW-1; pi++)
         {
-            int64_t s = sha;
-            s = mcStepSeed(s, pX+i);
-            s = mcStepSeed(s, -1);
-            s = mcStepSeed(s, pZ+j);
-            s = mcStepSeed(s, pX+i);
-            s = mcStepSeed(s, -1);
-            s = mcStepSeed(s, pZ+j);
+            PREFETCH( buf + ((pjz << 2) + 0) * w + pi, 1, 1 );
+            PREFETCH( buf + ((pjz << 2) + 1) * w + pi, 1, 1 );
+            PREFETCH( buf + ((pjz << 2) + 2) * w + pi, 1, 1 );
+            PREFETCH( buf + ((pjz << 2) + 3) * w + pi, 1, 1 );
 
-            int rx = (((s >> 24) & 1023) - 512) * 36;
-            s = mcStepSeed(s, sha);
-            int ry = (((s >> 24) & 1023) - 512) * 36;
-            s = mcStepSeed(s, sha);
-            int rz = (((s >> 24) & 1023) - 512) * 36;
-            
-            Touple *pt = prbuf + 2*(j*pW+i);
-            pt->x = rx;
-            pt->y = ry;
-            pt->z = rz;
-            
-            s = sha;
-            s = mcStepSeed(s, pX+i);
-            s = mcStepSeed(s, 0);
-            s = mcStepSeed(s, pZ+j);
-            s = mcStepSeed(s, pX+i);
-            s = mcStepSeed(s, 0);
-            s = mcStepSeed(s, pZ+j);
-
-            rx = (((s >> 24) & 1023) - 512) * 36;
-            s = mcStepSeed(s, sha);
-            ry = (((s >> 24) & 1023) - 512) * 36;
-            s = mcStepSeed(s, sha);
-            rz = (((s >> 24) & 1023) - 512) * 36;
-            
-            pt++;
-            pt->x = rx;
-            pt->y = ry;
-            pt->z = rz;
-        }
-    }
-
-    for (j = 0; j < h; j++)
-    {
-        for (i = 0; i < w; i++)
-        {
-            int xi = x+i;
-            int zj = z+j;
-            int pi = (xi >> 2) - pX;
-            int pj = (zj >> 2) - pZ;
-            
-            int v00 = out[(pj+0)*pW + (pi+0)];
-            int v01 = out[(pj+0)*pW + (pi+1)];
-            int v10 = out[(pj+1)*pW + (pi+0)];
-            int v11 = out[(pj+1)*pW + (pi+1)];
-            int v = v00;
+            v01 = out[(pj+0)*pW + (pi+1)];
+            v11 = out[(pj+1)*pW + (pi+1)];
+            pix = pX + pi;
+            i4 = ((pix) << 2) - x;
 
             if (v00 == v01 && v00 == v10 && v00 == v11)
             {
-                buf[j*w + i] = v00;
-                continue;
-            }
-
-            int dx = (xi & 3) * 10240;
-            int dz = (zj & 3) * 10240;
-
-            uint64_t dmin = (uint64_t)-1;
-            int bx, bz;
-            for (bz = 0; bz <= 1; bz++)
-            {
-                for (bx = 0; bx <= 1; bx++)
+                for (jj = 0; jj < 4; jj++)
                 {
-                    int ax = pi + bx;
-                    int az = pj + bz;
-                    int64_t r;
-                    uint64_t d;
-                    
-                    Touple *pt = prbuf + 2*( (az)*pW + (ax) );
-                    d = 0;
-                    r = pt->x - 40*1024*bx + dx;    d += r*r;
-                    r = pt->y + 20*1024;            d += r*r;
-                    r = pt->z - 40*1024*bz + dz;    d += r*r;
-
-                    if (d < dmin)
+                    j = j4 + jj;
+                    if (j < 0 || j >= h) continue;
+                    for (ii = 0; ii < 4; ii++)
                     {
-                        dmin = d;
-                        v = out[az*pW + ax];
-                    }
-                    
-                    pt++;
-                    d = 0;
-                    r = pt->x - 40*1024*bx + dx;    d += r*r;
-                    r = pt->y - 20*1024;            d += r*r;
-                    r = pt->z - 40*1024*bz + dz;    d += r*r;
-
-                    if (d < dmin)
-                    {
-                        dmin = d;
-                        v = out[az*pW + ax];
+                        i = i4 + ii;
+                        if (i < 0 || i >= w) continue;
+                        buf[j*w + i] = v00;
                     }
                 }
+                prev_skip = 1;
+                continue;
             }
-            
-            buf[j*w + i] = v;
+            if (prev_skip)
+            {
+                getVoronoiCell(sha, pix, -1, pjz+0, &x000, &y000, &z000);
+                getVoronoiCell(sha, pix,  0, pjz+0, &x001, &y001, &z001);
+                getVoronoiCell(sha, pix, -1, pjz+1, &x100, &y100, &z100);
+                getVoronoiCell(sha, pix,  0, pjz+1, &x101, &y101, &z101);
+                prev_skip = 0;
+            }
+            getVoronoiCell(sha, pix+1, -1, pjz+0, &x010, &y010, &z010);
+            getVoronoiCell(sha, pix+1,  0, pjz+0, &x011, &y011, &z011);
+            getVoronoiCell(sha, pix+1, -1, pjz+1, &x110, &y110, &z110);
+            getVoronoiCell(sha, pix+1,  0, pjz+1, &x111, &y111, &z111);
+
+
+            for (jj = 0; jj < 4; jj++)
+            {
+                j = j4 + jj;
+                if (j < 0 || j >= h) continue;
+                for (ii = 0; ii < 4; ii++)
+                {
+                    i = i4 + ii;
+                    if (i < 0 || i >= w) continue;
+
+                    const int A = 40*1024;
+                    const int B = 20*1024;
+                    dx = ii * 10*1024;
+                    dz = jj * 10*1024;
+                    dmin = (uint64_t)-1;
+
+                    v = v00;
+                    d = 0;
+                    r = x000 - 0 + dx;  d += r*r;
+                    r = y000 + B;       d += r*r;
+                    r = z000 - 0 + dz;  d += r*r;
+                    if (d < dmin) { dmin = d; }
+                    d = 0;
+                    r = x001 - 0 + dx;  d += r*r;
+                    r = y001 - B;       d += r*r;
+                    r = z001 - 0 + dz;  d += r*r;
+                    if (d < dmin) { dmin = d; }
+
+                    d = 0;
+                    r = x010 - A + dx;  d += r*r;
+                    r = y010 + B;       d += r*r;
+                    r = z010 - 0 + dz;  d += r*r;
+                    if (d < dmin) { dmin = d; v = v01; }
+                    d = 0;
+                    r = x011 - A + dx;  d += r*r;
+                    r = y011 - B;       d += r*r;
+                    r = z011 - 0 + dz;  d += r*r;
+                    if (d < dmin) { dmin = d; v = v01; }
+
+                    d = 0;
+                    r = x100 - 0 + dx;  d += r*r;
+                    r = y100 + B;       d += r*r;
+                    r = z100 - A + dz;  d += r*r;
+                    if (d < dmin) { dmin = d; v = v10; }
+                    d = 0;
+                    r = x101 - 0 + dx;  d += r*r;
+                    r = y101 - B;       d += r*r;
+                    r = z101 - A + dz;  d += r*r;
+                    if (d < dmin) { dmin = d; v = v10; }
+
+                    d = 0;
+                    r = x110 - A + dx;  d += r*r;
+                    r = y110 + B;       d += r*r;
+                    r = z110 - A + dz;  d += r*r;
+                    if (d < dmin) { dmin = d; v = v11; }
+                    d = 0;
+                    r = x111 - A + dx;  d += r*r;
+                    r = y111 - B;       d += r*r;
+                    r = z111 - A + dz;  d += r*r;
+                    if (d < dmin) { dmin = d; v = v11; }
+
+                    buf[j*w + i] = v;
+                }
+            }
+
+            x000 = x010;
+            y000 = y010;
+            z000 = z010;
+            x100 = x110;
+            y100 = y110;
+            z100 = z110;
+            x001 = x011;
+            y001 = y011;
+            z001 = z011;
+            x101 = x111;
+            y101 = y111;
+            z101 = z111;
+            v00 = v01;
+            v10 = v11;
         }
     }
 
-    free(prbuf);
     memcpy(out, buf, w*h*sizeof(*buf));
     free(buf);
     return 0;
@@ -2279,6 +2323,7 @@ void voronoiAccess3D(int64_t sha, int x, int y, int z, int *x4, int *y4, int *z4
     int dx = (x & 3) * 10240;
     int dy = (y & 3) * 10240;
     int dz = (z & 3) * 10240;
+    int ax = 0, ay = 0, az = 0;
     uint64_t dmin = (uint64_t)-1;
     int i;
 
@@ -2287,23 +2332,12 @@ void voronoiAccess3D(int64_t sha, int x, int y, int z, int *x4, int *y4, int *z4
         int bx = (i & 4) != 0;
         int by = (i & 2) != 0;
         int bz = (i & 1) != 0;
-        int ax = pX + bx;
-        int ay = pY + by;
-        int az = pZ + bz;
+        int cx = pX + bx;
+        int cy = pY + by;
+        int cz = pZ + bz;
+        int rx, ry, rz;
 
-        int64_t s = sha;
-        s = mcStepSeed(s, ax);
-        s = mcStepSeed(s, ay);
-        s = mcStepSeed(s, az);
-        s = mcStepSeed(s, ax);
-        s = mcStepSeed(s, ay);
-        s = mcStepSeed(s, az);
-
-        int rx = (((s >> 24) & 1023) - 512) * 36;
-        s = mcStepSeed(s, sha);
-        int ry = (((s >> 24) & 1023) - 512) * 36;
-        s = mcStepSeed(s, sha);
-        int rz = (((s >> 24) & 1023) - 512) * 36;
+        getVoronoiCell(sha, cx, cy, cz, &rx, &ry, &rz);
 
         rx += dx - 40*1024*bx;
         ry += dy - 40*1024*by;
@@ -2313,11 +2347,15 @@ void voronoiAccess3D(int64_t sha, int x, int y, int z, int *x4, int *y4, int *z4
         if (d < dmin)
         {
             dmin = d;
-            *x4 = ax;
-            *y4 = ay;
-            *z4 = az;
+            ax = cx;
+            ay = cy;
+            az = cz;
         }
     }
+
+    if (x4) *x4 = ax;
+    if (y4) *y4 = ay;
+    if (z4) *z4 = az;
 }
 
 
