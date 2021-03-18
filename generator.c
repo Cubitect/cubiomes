@@ -164,7 +164,7 @@ static void setupGeneratorImpl(LayerStack *g, int mcversion, int largeBiomes)
 
     if (mcversion <= MC_1_12)
     {
-        setupLayer(&l[L_VORONOI_ZOOM_1],   &l[L_RIVER_MIX_4],         10,   mapVoronoiZoom);
+        setupLayer(&l[L_VORONOI_ZOOM_1],   &l[L_RIVER_MIX_4],         10,   mapVoronoiZoom114);
         g->entry_4 = &l[L_RIVER_MIX_4];
     }
     else
