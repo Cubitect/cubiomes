@@ -260,6 +260,45 @@ double samplePerlin(const PerlinNoise *rnd, double d1, double d2, double d3)
     return lerp(t3, l1, l5);
 }
 
+static double simplexGrad(int idx, double x, double y, double z, double d)
+{
+    double con = d - x*x - y*y - z*z;
+    if (con < 0)
+        return 0;
+    con *= con;
+    return con * con * indexedLerp(idx, x, y, z);
+}
+
+double sampleSimplex2D(const PerlinNoise *rnd, double x, double y)
+{
+    const double SKEW = 0.5 * (sqrt(3) - 1.0);
+    const double UNSKEW = (3.0 - sqrt(3)) / 6.0;
+
+    double hf = (x + y) * SKEW;
+    int hx = (int)floor(x + hf);
+    int hz = (int)floor(y + hf);
+    double mhxz = (hx + hz) * UNSKEW;
+    double x0 = x - (hx - mhxz);
+    double y0 = y - (hz - mhxz);
+    int offx = (x0 > y0);
+    int offz = !offx;
+    double x1 = x0 - offx + UNSKEW;
+    double y1 = y0 - offz + UNSKEW;
+    double x2 = x0 - 1.0 + 2.0 * UNSKEW;
+    double y2 = y0 - 1.0 + 2.0 * UNSKEW;
+    int gi0 = rnd->d[0xff & (hz)];
+    int gi1 = rnd->d[0xff & (hz + offz)];
+    int gi2 = rnd->d[0xff & (hz + 1)];
+    gi0 = rnd->d[0xff & (gi0 + hx)];
+    gi1 = rnd->d[0xff & (gi1 + hx + offx)];
+    gi2 = rnd->d[0xff & (gi2 + hx + 1)];
+    double t = 0;
+    t += simplexGrad(gi0 % 12, x0, y0, 0.0, 0.5);
+    t += simplexGrad(gi1 % 12, x1, y1, 0.0, 0.5);
+    t += simplexGrad(gi2 % 12, x2, y2, 0.0, 0.5);
+    return 70.0 * t;
+}
+
 
 void doublePerlinInit(DoublePerlinNoise *rnd, int64_t *seed,
         PerlinNoise *octavesA, PerlinNoise *octavesB, int omin, int len)
@@ -332,6 +371,10 @@ double sampleDoublePerlin(const DoublePerlinNoise *rnd,
 }
 
 
+//==============================================================================
+// Nether (1.16+) and End (1.9+) Biome Generation
+//==============================================================================
+
 void setNetherSeed(NetherNoise *nn, int64_t seed)
 {
     int64_t s;
@@ -340,7 +383,6 @@ void setNetherSeed(NetherNoise *nn, int64_t seed)
     setSeed(&s, seed+1);
     doublePerlinInit(&nn->humidity, &s, &nn->oct[4], &nn->oct[6], -7, 2);
 }
-
 
 static float distsq(const float *a, const float *b, int n)
 {
@@ -388,6 +430,134 @@ int getNetherBiome(const NetherNoise *nn, int x, int y, int z)
     return id;
 }
 
+
+void setEndSeed(EndNoise *en, int64_t seed)
+{
+    int64_t s;
+    setSeed(&s, seed);
+    skipNextN(&s, 17292);
+    perlinInit(en, &s);
+}
+
+__attribute__(( optimize("unroll-loops") ))
+static int getEndBiome(int hx, int hz, const uint16_t *hmap, int hw)
+{
+    int i, j;
+    const uint16_t ds[26] = { // (25-2*i)*(25-2*i)
+        //  0    1    2    3    4    5    6    7    8    9   10   11   12
+          625, 529, 441, 361, 289, 225, 169, 121,  81,  49,  25,   9,   1,
+        // 13   14   15   16   17   18   19   20   21   22   23   24,  25
+            1,   9,  25,  49,  81, 121, 169, 225, 289, 361, 441, 529, 625,
+    };
+
+    const uint16_t *p_dsi = ds + (hx < 0);
+    const uint16_t *p_dsj = ds + (hz < 0);
+    const uint16_t *p_elev = hmap;
+    uint32_t h;
+
+    if (abs(hx) > 15 || abs(hz) > 15)
+        h = 14401;
+    else
+        h = 64 * (hx*hx + hz*hz);
+
+    for (j = 0; j < 25; j++)
+    {
+        uint16_t hdsj = p_dsj[j];
+        for (i = 0; i < 25; i++)
+        {
+            uint16_t elev = p_elev[i];
+            if (elev)
+            {
+                uint32_t hds = (p_dsi[i] + (uint32_t)hdsj) * elev;
+                if (hds < h)
+                    h = hds;
+            }
+        }
+        p_elev += hw;
+    }
+
+    if (h < 3600)
+        return end_highlands;
+    else if (h <= 10000)
+        return end_midlands;
+    else if (h <= 14400)
+        return end_barrens;
+
+    return small_end_islands;
+}
+
+int mapEndBiome(const EndNoise *en, int *out, int x, int z, int w, int h)
+{
+    int i, j;
+    int hw = w + 26;
+    int hh = h + 26;
+    uint16_t *hmap = (uint16_t*) malloc(hw * hh * sizeof(*hmap));
+
+    for (j = 0; j < hh; j++)
+    {
+        for (i = 0; i < hw; i++)
+        {
+            int64_t rx = x + i - 12;
+            int64_t rz = z + j - 12;
+            uint16_t v = 0;
+            if (rx*rx + rz*rz > 4096 && sampleSimplex2D(en, rx, rz) < -0.9f)
+            {
+                v = (llabs(rx) * 3439 + llabs(rz) * 147) % 13 + 9;
+                v *= v;
+            }
+            hmap[j*hw+i] = v;
+        }
+    }
+
+    for (j = 0; j < h; j++)
+    {
+        for (i = 0; i < w; i++)
+        {
+            int64_t hx = (i+x);
+            int64_t hz = (j+z);
+
+            if (hx*hx + hz*hz <= 4096L)
+                out[j*w+i] = the_end;
+            else
+            {
+                hx = 2*hx + 1;
+                hz = 2*hz + 1;
+                uint16_t *p_elev = &hmap[(hz/2-z)*hw + (hx/2-x)];
+                out[j*w+i] = getEndBiome(hx, hz, p_elev, hw);
+            }
+        }
+    }
+
+    free(hmap);
+    return 0;
+}
+
+int mapEnd(const EndNoise *en, int *out, int x, int z, int w, int h)
+{
+    int cx = x >> 2;
+    int cz = z >> 2;
+    int cw = ((x+w) >> 2) + 1 - cx;
+    int ch = ((z+h) >> 2) + 1 - cz;
+
+    int *buf = (int*) malloc(cw * ch * sizeof(int));
+    mapEndBiome(en, buf, cx, cz, cw, ch);
+
+    int i, j;
+
+    for (j = 0; j < h; j++)
+    {
+        int cj = ((z+j) >> 2) - cz;
+        for (i = 0; i < w; i++)
+        {
+            int ci = ((x+i) >> 2) - cx;
+            int v = buf[cj*cw+ci];
+            out[j*w+i] = v;
+        }
+    }
+
+    free(buf);
+    return 0;
+}
 
 //==============================================================================
 // Layers
@@ -2026,9 +2196,12 @@ int mapVoronoiZoom(const Layer * l, int * out, int x, int z, int w, int h)
     int pW = ((x + w) >> 2) - pX + 2;
     int pH = ((z + h) >> 2) - pZ + 2;
 
-    int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
-        return err;
+    if (l->p)
+    {
+        int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
+        if (err != 0)
+            return err;
+    }
 
     int64_t sha = l->startSalt;
     int *buf = (int *) malloc(w*h*sizeof(*buf));
@@ -2189,9 +2362,12 @@ int mapVoronoiZoom114(const Layer * l, int * out, int x, int z, int w, int h)
     int pW = ((x + w) >> 2) - pX + 2;
     int pH = ((z + h) >> 2) - pZ + 2;
 
-    int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
-        return err;
+    if (l->p)
+    {
+        int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
+        if (err != 0)
+            return err;
+    }
 
     int newW = pW << 2;
     int newH = pH << 2;

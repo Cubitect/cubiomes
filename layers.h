@@ -187,6 +187,8 @@ STRUCT(NetherNoise)
     PerlinNoise oct[8]; // buffer for octaves in double perlin noise
 };
 
+typedef PerlinNoise EndNoise;
+
 
 #ifdef __cplusplus
 extern "C"
@@ -213,16 +215,34 @@ void setLayerSeed(Layer *layer, int64_t worldSeed);
 
 void perlinInit(PerlinNoise *rnd, int64_t *seed);
 double samplePerlin(const PerlinNoise *rnd, double x, double y, double z);
+double sampleSimplex2D(const PerlinNoise *rnd, double x, double y);
 
 void doublePerlinInit(DoublePerlinNoise *rnd, int64_t *seed,
         PerlinNoise *octavesA, PerlinNoise *octavesB, int omin, int len);
 double sampleDoublePerlin(const DoublePerlinNoise *rnd,
         double x, double y, double z);
 
-// nether noise is scale 1:4
+//==============================================================================
+// Nether (1.16+) and End (1.9+) Biome Generation
+//==============================================================================
+
+/**
+ * Nether biomes are 3D, and generated at scale 1:4. Use voronoiAccess3D() to
+ * get coordinates at 1:1 scale. Biome checks for structures are generally done
+ * at y=0.
+ */
 void setNetherSeed(NetherNoise *nn, int64_t seed);
 int getNetherBiome(const NetherNoise *nn, int x, int y, int z);
 
+/**
+ * End biome generation is based on simplex noise and varies only at a 1:16
+ * chunk scale which can be generated with mapEndBiome(). The function mapEnd()
+ * is a variation which also scales this up on a regular grid to 1:4. The final
+ * access at a 1:1 scale is the standard voronoi layer.
+ */
+void setEndSeed(EndNoise *en, int64_t seed);
+int mapEndBiome(const EndNoise *en, int *out, int x, int z, int w, int h);
+int mapEnd(const EndNoise *en, int *out, int x, int z, int w, int h);
 
 //==============================================================================
 // Seed Helpers
@@ -415,8 +435,9 @@ int mapOceanMix             (const Layer *, int *, int, int, int, int);
 int mapVoronoiZoom          (const Layer *, int *, int, int, int, int);
 int mapVoronoiZoom114       (const Layer *, int *, int, int, int, int);
 
-// With 1.15, biomes are only generated up to scale 1:4 OceanMix on the server-
-// side while voronoi is primarily treated as a client-side access pattern.
+// With 1.15 voronoi changed in preparation for 3D biome generation.
+// Biome generation now stops at scale 1:4 OceanMix and voronoi is just an
+// access algorithm, mapping the 1:1 scale onto its 1:4 correspondent.
 // It is seeded by the first 8-bytes of the SHA-256 hash of the world seed.
 int64_t getVoroniSHA(int64_t worldSeed);
 void voronoiAccess3D(int64_t sha, int x, int y, int z, int *x4, int *y4, int *z4);
