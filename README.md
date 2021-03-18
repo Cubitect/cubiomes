@@ -189,8 +189,7 @@ int main()
 {
     initBiomes();
 
-    // Note that some structure configs changed with the Minecraft versions.
-    const StructureConfig sconf = OUTPOST_CONFIG;
+    int structType = Outpost;
     int mc = MC_1_16;
 
     LayerStack g;
@@ -201,11 +200,12 @@ int main()
     {
         // The structure position depends only on the region coordinates and
         // the lower 48-bits of the world seed.
-        int valid;
-        Pos p = getStructurePos(sconf, lower48, 0, 0, &valid);
+        Pos p;
+        if (!getStructurePos(structType, mc, lower48, 0, 0, &p))
+            continue;
 
         // Look for a seed with the structure at the origin chunk.
-        if (!valid || p.x >= 16 || p.z >= 16)
+        if (p.x >= 16 || p.z >= 16)
             continue;
 
         // Look for a full 64-bit seed with viable biomes.
@@ -213,7 +213,7 @@ int main()
         for (upper16 = 0; upper16 < 0x10000; upper16++)
         {
             int64_t seed = lower48 | (upper16 << 48);
-            if (isViableStructurePos(sconf.structType, mc, &g, seed, p.x, p.z))
+            if (isViableStructurePos(structType, mc, &g, seed, p.x, p.z))
             {
                 printf("Seed %" PRId64 " has a Pillager Outpost at (%d, %d).\n",
                     seed, p.x, p.z);
@@ -246,13 +246,18 @@ int main()
 {
     initBiomes();
 
-    // Note that some structure configs changed with the Minecraft versions.
-    StructureConfig sconf = SWAMP_HUT_CONFIG;
+    int styp = Swamp_Hut;
     int mc = MC_1_16;
     int64_t basecnt = 0;
     int64_t *bases = NULL;
     int threads = 8;
     LayerStack g;
+
+    StructureConfig sconf;
+    if (mc <= MC_1_12)
+        sconf = SWAMP_HUT_CONFIG_112;
+    else
+        sconf = SWAMP_HUT_CONFIG;
 
     printf("Preparing seed bases...\n");
     // Get all 48-bit quad-witch-hut bases, but consider only the best 20-bit
@@ -278,18 +283,16 @@ int main()
         // so we can move them by -1 regions to have them around the origin.
         int64_t s48 = moveStructure(bases[i] - sconf.salt, -1, -1);
 
-        Pos pos[4] = {
-            getStructurePos(sconf, s48, -1, -1, NULL),
-            getStructurePos(sconf, s48, -1,  0, NULL),
-            getStructurePos(sconf, s48,  0, -1, NULL),
-            getStructurePos(sconf, s48,  0,  0, NULL)
-        };
+        Pos pos[4];
+        getStructurePos(styp, mc, s48, -1, -1, &pos[0]);
+        getStructurePos(styp, mc, s48, -1,  0, &pos[1]);
+        getStructurePos(styp, mc, s48,  0, -1, &pos[2]);
+        getStructurePos(styp, mc, s48,  0,  0, &pos[3]);
 
         int64_t high;
         for (high = 0; high < 0x10000; high++)
         {
             int64_t seed = s48 | (high << 48);
-            int styp = sconf.structType;
 
             if (isViableStructurePos(styp, mc, &g, seed, pos[0].x, pos[0].z) &&
                 isViableStructurePos(styp, mc, &g, seed, pos[1].x, pos[1].z) &&
