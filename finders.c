@@ -74,57 +74,109 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt)
 //==============================================================================
 
 
-static int testOutpostPos(int64_t s, int cx, int cz)
+void setAttemptSeed(int64_t *s, int cx, int cz)
 {
-    s ^= (cx >> 4) ^ ( (cz >> 4) << 4 );
-    setSeed(&s, s);
-    next(&s, 32);
-    return nextInt(&s, 5) == 0;
+    *s ^= (cx >> 4) ^ ( (cz >> 4) << 4 );
+    setSeed(s, *s);
+    next(s, 31);
 }
 
-Pos getStructurePos(StructureConfig config, int64_t seed, int regX, int regZ, int *valid)
+int getStructurePos(int structureType, int mc, int64_t seed, int regX, int regZ, Pos *pos)
 {
-    Pos pos = {0,0};
-    if (valid) *valid = 0;
+    StructureConfig sconf;
+    switch (structureType)
+    {
+    case Feature:
+        if (mc > MC_1_12) return 0;
+        sconf = FEATURE_CONFIG;
+        goto L_feature;
+    case Desert_Pyramid:
+        sconf = mc <= MC_1_12 ? DESERT_PYRAMID_CONFIG_112 : DESERT_PYRAMID_CONFIG;
+        goto L_feature;
+    case Jungle_Pyramid:
+        sconf = mc <= MC_1_12 ? JUNGLE_PYRAMID_CONFIG_112 : JUNGLE_PYRAMID_CONFIG;
+        goto L_feature;
+    case Swamp_Hut:
+        sconf = mc <= MC_1_12 ? SWAMP_HUT_CONFIG_112 : SWAMP_HUT_CONFIG;
+        goto L_feature;
+    case Igloo:
+        if (mc < MC_1_9) return 0;
+        sconf = mc <= MC_1_12 ? IGLOO_CONFIG_112 : IGLOO_CONFIG;
+        goto L_feature;
+    case Village:
+        sconf = VILLAGE_CONFIG;
+        goto L_feature;
+    case Ocean_Ruin:
+        if (mc < MC_1_13) return 0;
+        sconf = mc <= MC_1_15 ? OCEAN_RUIN_CONFIG_115 : OCEAN_RUIN_CONFIG;
+        goto L_feature;
+    case Shipwreck:
+        if (mc < MC_1_13) return 0;
+        sconf = mc <= MC_1_15 ? SHIPWRECK_CONFIG_115 : SHIPWRECK_CONFIG;
+        goto L_feature;
+    case Ruined_Portal:
+        if (mc < MC_1_16) return 0;
+        sconf = RUINED_PORTAL_CONFIG;
+L_feature:
+        *pos = getFeaturePos(sconf, seed, regX, regZ);
+        return 1;
 
-    if (config.properties == 0)
-    {
-        pos = getFeaturePos(config, seed, regX, regZ);
-        if (valid)
-        {
-            if (config.structType == Outpost)
-            {
-                *valid = testOutpostPos(seed, pos.x >> 4, pos.z >> 4);
-                // Outposts also require that there are no villages nearby.
-                // However, before 1.16 this would include a biome check, so it
-                // should be tested for in the position viability check.
-            }
-            else
-            {
-                *valid = 1;
-            }
-        }
-    }
-    else if (config.properties == LARGE_STRUCT)
-    {
-        if ((config.chunkRange & (config.chunkRange-1)))
-        {
-            pos = getLargeStructurePos(config, seed, regX, regZ);
-            if (valid) *valid = 1;
-        }
-    }
-    else if (config.properties == CHUNK_STRUCT)
-    {
-        pos.x = (regX << 4) + 9;
-        pos.z = (regZ << 4) + 9;
-        if (valid)
-        {
-            if (config.structType == Treasure)
-                *valid = isTreasureChunk(seed, regX, regZ);
-        }
-    }
+    case Monument:
+        if (mc < MC_1_8) return 0;
+        sconf = MONUMENT_CONFIG;
+        goto L_large_struct;
+    case End_City:
+        if (mc < MC_1_9) return 0;
+        sconf = END_CITY_CONFIG;
+        goto L_large_struct;
+    case Mansion:
+        if (mc < MC_1_11) return 0;
+        sconf = MANSION_CONFIG;
+L_large_struct:
+        *pos = getLargeStructurePos(sconf, seed, regX, regZ);
+        return 1;
 
-    return pos;
+    case Outpost:
+        if (mc < MC_1_14) return 0;
+        *pos = getFeaturePos(OUTPOST_CONFIG, seed, regX, regZ);
+        setAttemptSeed(&seed, (pos->x) >> 4, (pos->z) >> 4);
+        return nextInt(&seed, 5) == 0;
+
+    case Treasure:
+        if (mc < MC_1_13) return 0;
+        pos->x = (regX << 4) + 9;
+        pos->z = (regZ << 4) + 9;
+        return isTreasureChunk(seed, regX, regZ);
+
+    case Fortress:
+        sconf = FORTRESS_CONFIG;
+        if (mc < MC_1_16) {
+            setAttemptSeed(&seed, regX << 4, regZ << 4);
+            int valid = nextInt(&seed, 3) == 0;
+            pos->x = ((regX << 4) + nextInt(&seed, 8) + 4) << 4;
+            pos->z = ((regZ << 4) + nextInt(&seed, 8) + 4) << 4;
+            return valid;
+        } else {
+            setSeed(&seed, regX*341873128712 + regZ*132897987541 + seed + sconf.salt);
+            pos->x = (regX * sconf.regionSize + nextInt(&seed, 24)) << 4;
+            pos->z = (regZ * sconf.regionSize + nextInt(&seed, 24)) << 4;
+            return nextInt(&seed, 5) < 2;
+        }
+
+    case Bastion:
+        if (mc < MC_1_16) return 0;
+        sconf = BASTION_CONFIG;
+        setSeed(&seed, regX*341873128712 + regZ*132897987541 + seed + sconf.salt);
+        pos->x = (regX * sconf.regionSize + nextInt(&seed, 24)) << 4;
+        pos->z = (regZ * sconf.regionSize + nextInt(&seed, 24)) << 4;
+        return nextInt(&seed, 5) >= 2;
+
+    default:
+        fprintf(stderr,
+                "ERR getStructurePos: unsupported structure type %d\n", structureType);
+        exit(-1);
+    }
+    return 0;
 }
 
 int isMineshaftChunk(int64_t seed, int chunkX, int chunkZ)
@@ -503,7 +555,7 @@ int searchAll48(
 
         // split path into directory and file and create missing directories
         if (pathlen + 8 >= sizeof(dpath))
-            goto L_ERR;
+            goto L_err;
         strcpy(dpath, path);
 
         for (i = pathlen-1; i >= 0; i--)
@@ -512,7 +564,7 @@ int searchAll48(
             {
                 dpath[i] = 0;
                 if (mkdirp(dpath))
-                    goto L_ERR;
+                    goto L_err;
                 break;
             }
         }
@@ -520,7 +572,7 @@ int searchAll48(
     else if (seedbuf == NULL || buflen == NULL)
     {
         // no file and no buffer return: no output possible
-        goto L_ERR;
+        goto L_err;
     }
 
     // prepare the thread info and load progress if present
@@ -540,7 +592,7 @@ int searchAll48(
             snprintf(info[t].path, sizeof(info[t].path), "%s.part%d", path, t);
             FILE *fp = fopen(info[t].path, "a+");
             if (fp == NULL)
-                goto L_ERR;
+                goto L_err;
 
             int c, nnl = 0;
             char buf[32];
@@ -607,7 +659,7 @@ int searchAll48(
         // merge partial files
         FILE *fp = fopen(path, "w");
         if (fp == NULL)
-            goto L_ERR;
+            goto L_err;
 
         for (t = 0; t < threads; t++)
         {
@@ -620,7 +672,7 @@ int searchAll48(
                 if (!fwrite(buffer, sizeof(char), n, fp))
                 {
                     fclose(fp);
-                    goto L_ERR;
+                    goto L_err;
                 }
             }
 
@@ -673,7 +725,7 @@ int searchAll48(
     }
 
     if (0)
-L_ERR:
+L_err:
         err = 1;
 
     free(tids);
@@ -1303,8 +1355,8 @@ Pos estimateSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t 
 
     if (mcversion >= MC_1_13)
     {
-        spawn.x = (spawn.x >> 4) << 4;
-        spawn.z = (spawn.z >> 4) << 4;
+        spawn.x &= ~0xf;
+        spawn.z &= ~0xf;
     }
 
     return spawn;
@@ -1369,6 +1421,20 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
     case Mansion:
         if (mc < MC_1_11) return 0;
         return biomeID == dark_forest || biomeID == dark_forest_hills;
+
+    case Fortress:
+        return (biomeID == nether_wastes || biomeID == soul_sand_valley ||
+                biomeID == warped_forest || biomeID == crimson_forest);
+
+    case Bastion:
+        if (mc < MC_1_16) return 0;
+        return (biomeID == nether_wastes || biomeID == soul_sand_valley ||
+                biomeID == warped_forest || biomeID == crimson_forest ||
+                biomeID == basalt_deltas);
+
+    case End_City:
+        if (mc < MC_1_9) return 0;
+        return biomeID == end_midlands || biomeID == end_highlands;
 
     default:
         fprintf(stderr,
@@ -1599,7 +1665,11 @@ L_feature:
 
     case Outpost:
     {
-        if (mc < MC_1_14 || !testOutpostPos(seed, chunkX, chunkZ))
+        if (mc < MC_1_14)
+            goto L_not_viable;
+        int64_t rnd = seed;
+        setAttemptSeed(&rnd, chunkX, chunkZ);
+        if (nextInt(&rnd, 5) != 0)
             goto L_not_viable;
         if (mc < MC_1_16)
         {
@@ -1710,6 +1780,19 @@ L_not_viable:
         free(map);
 
     return viable;
+}
+
+int isViableNetherStructurePos(int structureType, int mc, NetherNoise *nn,
+        int64_t seed, int blockX, int blockZ)
+{
+    if (mc < MC_1_16)
+        return structureType == Fortress;
+
+    blockX = ((blockX >> 4) << 2) + 2;
+    blockZ = ((blockZ >> 4) << 2) + 2;
+    setNetherSeed(nn, seed);
+    int biomeID = getNetherBiome(nn, blockX, 0, blockZ);
+    return isViableFeatureBiome(mc, structureType, biomeID);
 }
 
 

@@ -46,6 +46,9 @@ enum StructureType
     Outpost,
     Ruined_Portal,
     Treasure,
+    Fortress,
+    Bastion,
+    End_City,
 };
 
 enum // village house types prior to 1.14
@@ -91,6 +94,12 @@ static const StructureConfig RUINED_PORTAL_CONFIG  = { 34222645, 40, 25, Ruined_
 
 // structures that check each chunk individually
 static const StructureConfig TREASURE_CONFIG       = { 10387320,  1,  1, Treasure, CHUNK_STRUCT};
+
+// nether and end structures
+static const StructureConfig FORTRESS_CONFIG       = { 30084232, 27,  4, Fortress, 0};
+static const StructureConfig BASTION_CONFIG        = { 30084232, 27,  4, Bastion, 0};
+static const StructureConfig END_CITY_CONFIG       = { 10387313, 20,  9, End_City, LARGE_STRUCT};
+
 
 //==============================================================================
 // Biome Tables
@@ -270,21 +279,28 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt);
 // Finding Structure Positions
 //==============================================================================
 
-/* Finds the block position at which the structure generation attempt will
- * occur within the specified region. This function is a wrapper for the more
- * specific inlinable functions, which can be found below. You can use
- * isViableStructurePos() to test if the necessary biome requirements are met
- * for the structure to actually generate at the returned position (much much
- * slower than checking attempts).
- *
- * @config      : the structure configuration
- * @seed        : world seed (only the lower 48-bits are relevant)
- * @regX,regZ   : region coordinates
- * @valid       : some structures, like outposts, can have invalid positions,
- *                use NULL to ignore this options
- */
-Pos getStructurePos(StructureConfig config, int64_t seed, int regX, int regZ, int *valid);
 
+/* Finds the block position of the structure generation attempt in a given
+ * region. You can use isViableStructurePos() to test if the necessary biome
+ * requirements are met for the structure to actually generate at that position.
+ * Some structure types may fail to produce a valid position in the given
+ * region regardless of biomes, in which case the function returns zero.
+ *
+ * @structureType   : structure type
+ * @mc              : minecraft version
+ * @seed            : world seed (only the lower 48-bits are relevant)
+ * @regX,regZ       : region coordinates (the region size depends on type)
+ * @pos             : output block position
+ *
+ * Returns zero if the position is invalid, or non-zero otherwise.
+ */
+int getStructurePos(int structureType, int mc, int64_t seed, int regX, int regZ, Pos *pos);
+
+/* The inline functions below get the generation attempt position given a
+ * structure configuration. Most small structures use the getFeature..
+ * variants, which have a uniform distribution, while large structures
+ * (monuments and mansions) have a triangular distribution.
+ */
 static inline __attribute__((const))
 Pos getFeaturePos(StructureConfig config, int64_t seed, int regX, int regZ);
 
@@ -611,7 +627,7 @@ Pos estimateSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t 
 
 /* This function performs a biome check at the specified block coordinates to
  * determine whether the corresponding structure would spawn there. You can get
- * the block positions using the appropriate getXXXPos() function.
+ * the block positions using getStructurePos().
  *
  * @structureType  : structure type to be checked
  * @mc             : minecraft version
@@ -623,6 +639,9 @@ Pos estimateSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t 
  */
 int isViableStructurePos(int structureType, int mc, LayerStack *g,
         int64_t seed, int blockX, int blockZ);
+int isViableNetherStructurePos(int structureType, int mc, NetherNoise *nn,
+        int64_t seed, int blockX, int blockZ);
+// TODO: viability checks for end cities
 
 /* Checks if the specified structure type could generate in the given biome.
  */
@@ -727,8 +746,7 @@ Pos getFeatureChunkInRegion(StructureConfig config, int64_t seed, int regX, int 
 {
     /*
     // Vanilla like implementation.
-    seed = regionX*341873128712 + regionZ*132897987541 + seed + structureSeed;
-    setSeed(&(seed));
+    setSeed(&seed, regX*341873128712 + regZ*132897987541 + seed + config.salt);
 
     Pos pos;
     pos.x = nextInt(&seed, 24);
