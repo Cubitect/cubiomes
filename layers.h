@@ -2,7 +2,6 @@
 #define LAYER_H_
 
 #include "javarnd.h"
-#include "sha256.h"
 
 #define __STDC_FORMAT_MACROS 1
 
@@ -439,7 +438,7 @@ int mapVoronoiZoom114       (const Layer *, int *, int, int, int, int);
 // Biome generation now stops at scale 1:4 OceanMix and voronoi is just an
 // access algorithm, mapping the 1:1 scale onto its 1:4 correspondent.
 // It is seeded by the first 8-bytes of the SHA-256 hash of the world seed.
-int64_t getVoroniSHA(int64_t worldSeed);
+int64_t getVoronoiSHA(int64_t worldSeed) __attribute__((const));
 void voronoiAccess3D(int64_t sha, int x, int y, int z, int *x4, int *y4, int *z4);
 
 

@@ -27,7 +27,7 @@ ifeq ($(OS),Windows_NT)
 else
 libcubiomes: CFLAGS += -fPIC
 endif
-libcubiomes: sha256.o layers.o generator.o finders.o util.o
+libcubiomes: layers.o generator.o finders.o util.o
 	$(AR) $(ARFLAGS) libcubiomes.a $^
 
 
@@ -38,9 +38,6 @@ generator.o: generator.c generator.h
 	$(CC) -c $(CFLAGS) $<
 
 layers.o: layers.c layers.h
-	$(CC) -c $(CFLAGS) $<
-
-sha256.o: sha256.c sha256.h
 	$(CC) -c $(CFLAGS) $<
 
 util.o: util.c util.h
