@@ -320,6 +320,19 @@ Pos getLargeStructureChunkInRegion(StructureConfig config, int64_t seed, int reg
 int isMineshaftChunk(int64_t seed, int chunkX, int chunkZ);
 int isTreasureChunk(int64_t seed, int chunkX, int chunkZ);
 
+// not exacly a structure
+static inline __attribute__((const))
+int isSlimeChunk(int64_t seed, int chunkX, int chunkZ)
+{
+    int64_t rnd = seed;
+    rnd += (int)(chunkX * 0x5ac0db);
+    rnd += (int)(chunkX * chunkX * 0x4c1906);
+    rnd += (int)(chunkZ * 0x5f24f);
+    rnd += (int)(chunkZ * chunkZ) * 0x4307a7LL;
+    rnd ^= 0x3ad8025fLL;
+    setSeed(&rnd, rnd);
+    return nextInt(&rnd, 10) == 0;
+}
 
 
 //==============================================================================
