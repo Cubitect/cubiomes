@@ -25,6 +25,13 @@
 #define U(COND)                 (COND)
 #endif
 
+/* Minecraft versions */
+enum MCversion
+{
+    MC_1_0, MC_1_1, MC_1_2, MC_1_3, MC_1_4, MC_1_5, MC_1_6, //<1.7 Experimental!
+    MC_1_7, MC_1_8, MC_1_9, MC_1_10, MC_1_11, MC_1_12, MC_1_13, MC_1_14,
+    MC_1_15, MC_1_16,
+};
 
 enum BiomeID
 {
@@ -122,27 +129,10 @@ enum BiomeID
     basalt_deltas                   = 173,
 };
 
-enum BiomeType
-{
-    Void = -1,
-    Ocean, Plains, Desert, Hills, Forest, Taiga, Swamp, River, Nether, Sky, Snow, MushroomIsland, Beach, Jungle, StoneBeach, Savanna, Mesa,
-    BTYPE_NUM
-};
 
 enum BiomeTempCategory
 {
     Oceanic, Warm, Lush, Cold, Freezing, Special
-};
-
-
-STRUCT(Biome)
-{
-    int id;
-    int type;
-    double height;
-    double temp;
-    int tempCat;
-    int mutated;
 };
 
 
@@ -163,24 +153,27 @@ STRUCT(DoublePerlinNoise)
 
 STRUCT(Layer)
 {
+    int (*getMap)(const Layer *, int *, int, int, int, int);
+
+    int8_t mc;          // minecraft version
+    int8_t zoom;        // zoom factor of layer
+    int8_t edge;        // maximum border required from parent layer
+    int scale;          // scale of this layer (cell = scale x scale blocks)
+
     int64_t layerSalt;  // processed salt or initialization mode
     int64_t startSalt;  // (depends on world seed) used to step PRNG forward
     int64_t startSeed;  // (depends on world seed) starting point for chunk seeds
 
-    void *noise;        // seed dependent data for noise maps
+    void *noise;        // (depends on world seed) noise map data
     void *data;         // generic data for custom layers
-
-    int scale;          // scale of this layer (cell = scale x scale blocks)
-    int edge;           // maximum border required from parent layer
-
-    int (*getMap)(const Layer *, int *, int, int, int, int);
 
     Layer *p, *p2;      // parent layers
 };
 
 STRUCT(NetherNoise)
 {
-    // altitude, wierdness and weight don't affect nether biomes
+    // altitude and wierdness don't affect nether biomes
+    // and the weight is a 5th noise parameter which is constant
     DoublePerlinNoise temperature;
     DoublePerlinNoise humidity;
     PerlinNoise oct[8]; // buffer for octaves in double perlin noise
@@ -198,10 +191,6 @@ extern "C"
 // Essentials
 //==============================================================================
 
-extern Biome biomes[256];
-
-
-/* initBiomes() has to be called before any of the generators can be used */
 void initBiomes();
 
 /* Applies the given world seed to the layer and all dependent layers. */
@@ -227,11 +216,28 @@ double sampleDoublePerlin(const DoublePerlinNoise *rnd,
 
 /**
  * Nether biomes are 3D, and generated at scale 1:4. Use voronoiAccess3D() to
- * get coordinates at 1:1 scale. Biome checks for structures are generally done
- * at y=0.
+ * convert coordinates at 1:1 scale to their 1:4 access. Biome checks for
+ * structures are generally done at y=0.
+ *
+ * The function getNetherBiome() determines the nether biome at a given
+ * coordinate at scale 1:4. The parameter 'ndel' is an output noise delta for
+ * optimization purposes and can be ignored (nullable).
+ *
+ * Use mapNether2D() to get a 2D area of nether biomes at y=0, scale 1:4.
+ *
+ * The mapNether3D() function attempts to optimize the generation of a volume
+ * at scale 1:4, ranging from (x,y,z) to (x+w, y+yh, z+h) [exclusive] and the
+ * output is indexed with out[y_k*(w*h) + z_j*w + x_i]. If the optimization
+ * parameter 'confidence' has a value less than 1.0, the generation will
+ * generally be faster, but can yield incorrect results in some circumstances.
+ *
+ * The output buffer for the map-functions need only be of sufficient size to
+ * hold the generated area (i.e. w*h or w*h*yh).
  */
 void setNetherSeed(NetherNoise *nn, int64_t seed);
-int getNetherBiome(const NetherNoise *nn, int x, int y, int z);
+int getNetherBiome(const NetherNoise *nn, int x, int y, int z, float *ndel);
+int mapNether2D(const NetherNoise *nn, int *out, int x, int z, int w, int h);
+int mapNether3D(const NetherNoise *nn, int *out, int x, int z, int w, int h, int y, int yh, float confidence);
 
 /**
  * End biome generation is based on simplex noise and varies only at a 1:16
@@ -318,86 +324,16 @@ static inline int64_t getStartSeed(int64_t ws, int64_t ls)
 // BiomeID Helpers
 //==============================================================================
 
-
-static inline int getBiomeType(int id)
-{
-    return (id & (~0xff)) ? Void : biomes[id].type;
-}
-
-static inline int biomeExists(int id)
-{
-    return !(id & (~0xff)) && !(biomes[id].id & (~0xff));
-}
-
-static inline int getTempCategory(int id)
-{
-    return (id & (~0xff)) ? Void : biomes[id].tempCat;
-}
-
-static inline int areSimilar112(int id1, int id2)
-{
-    if (id1 == id2) return 1;
-    if (id1 == wooded_badlands_plateau || id1 == badlands_plateau)
-        return id2 == wooded_badlands_plateau || id2 == badlands_plateau;
-    if (!biomeExists(id1) || !biomeExists(id2)) return 0;
-    // adjust for asymmetric equality (workaround to simulate a bug in the MC java code)
-    // for biomes that did not overload the isEqualTo() method up to 1.12
-    if (id2 == 130 || id2 == 133 || id2 == 134 || id2 == 149 || id2 == 151 || id2 == 155 ||
-        id2 == 156 || id2 == 157 || id2 == 158 || id2 == 163 || id2 == 164) return 0;
-    return getBiomeType(id1) == getBiomeType(id2);
-}
-
-static inline int areSimilar(int id1, int id2)
-{
-    if (id1 == id2) return 1;
-    if (id1 == wooded_badlands_plateau || id1 == badlands_plateau)
-        return id2 == wooded_badlands_plateau || id2 == badlands_plateau;
-    if (!biomeExists(id1) || !biomeExists(id2)) return 0;
-    return getBiomeType(id1) == getBiomeType(id2);
-}
-
-static inline int isShallowOcean(int id)
-{
-    const uint64_t shallow_bits =
-            (1ULL << ocean) |
-            (1ULL << frozen_ocean) |
-            (1ULL << warm_ocean) |
-            (1ULL << lukewarm_ocean) |
-            (1ULL << cold_ocean);
-    return id < 64 && ((1ULL << id) & shallow_bits);
-}
-
-static inline int isDeepOcean(int id)
-{
-    const uint64_t deep_bits =
-            (1ULL << deep_ocean) |
-            (1ULL << deep_warm_ocean) |
-            (1ULL << deep_lukewarm_ocean) |
-            (1ULL << deep_cold_ocean) |
-            (1ULL << deep_frozen_ocean);
-    return id < 64 && ((1ULL << id) & deep_bits);
-}
-
-static inline int isOceanic(int id)
-{
-    const uint64_t ocean_bits =
-            (1ULL << ocean) |
-            (1ULL << frozen_ocean) |
-            (1ULL << warm_ocean) |
-            (1ULL << lukewarm_ocean) |
-            (1ULL << cold_ocean) |
-            (1ULL << deep_ocean) |
-            (1ULL << deep_warm_ocean) |
-            (1ULL << deep_lukewarm_ocean) |
-            (1ULL << deep_cold_ocean) |
-            (1ULL << deep_frozen_ocean);
-    return id < 64 && ((1ULL << id) & ocean_bits);
-}
-
-static inline int isBiomeSnowy(int id)
-{
-    return biomeExists(id) && biomes[id].temp < 0.1;
-}
+int biomeExists(int mc, int id);
+int isOverworld(int mc, int id);
+int getMutated(int mc, int id);
+int getCategory(int mc, int id);
+int areSimilar(int mc, int id1, int id2);
+int isMesa(int id);
+int isShallowOcean(int id);
+int isDeepOcean(int id);
+int isOceanic(int id);
+int isSnowy(int id);
 
 
 //==============================================================================
@@ -408,8 +344,10 @@ int mapIsland               (const Layer *, int *, int, int, int, int);
 int mapZoomIsland           (const Layer *, int *, int, int, int, int);
 int mapZoom                 (const Layer *, int *, int, int, int, int);
 int mapAddIsland            (const Layer *, int *, int, int, int, int);
+int mapAddIsland16          (const Layer *, int *, int, int, int, int);
 int mapRemoveTooMuchOcean   (const Layer *, int *, int, int, int, int);
 int mapAddSnow              (const Layer *, int *, int, int, int, int);
+int mapAddSnow16            (const Layer *, int *, int, int, int, int);
 int mapCoolWarm             (const Layer *, int *, int, int, int, int);
 int mapHeatIce              (const Layer *, int *, int, int, int, int);
 int mapSpecial              (const Layer *, int *, int, int, int, int);
@@ -421,10 +359,10 @@ int mapAddBamboo            (const Layer *, int *, int, int, int, int);
 int mapRiverInit            (const Layer *, int *, int, int, int, int);
 int mapBiomeEdge            (const Layer *, int *, int, int, int, int);
 int mapHills                (const Layer *, int *, int, int, int, int);
-int mapHills112             (const Layer *, int *, int, int, int, int);
 int mapRiver                (const Layer *, int *, int, int, int, int);
 int mapSmooth               (const Layer *, int *, int, int, int, int);
 int mapRareBiome            (const Layer *, int *, int, int, int, int);
+int mapRiverInBiome         (const Layer *, int *, int, int, int, int);
 int mapShore                (const Layer *, int *, int, int, int, int);
 int mapRiverMix             (const Layer *, int *, int, int, int, int);
 int mapOceanTemp            (const Layer *, int *, int, int, int, int);

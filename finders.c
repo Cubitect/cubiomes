@@ -19,12 +19,6 @@
 #define IS_DIR_SEP(C) ((C) == '/')
 #endif
 
-//==============================================================================
-// Globals
-//==============================================================================
-
-
-Biome biomes[256];
 
 //==============================================================================
 // Saving & Loading Seeds
@@ -857,7 +851,7 @@ Pos findBiomePosition(
     {
         for (i = 0, j = 2; i < width*height; i++)
         {
-            if (!biomeExists(map[i]) || !isValid[map[i]]) continue;
+            if (!isValid[map[i]]) continue;
             if ((found == 0 || nextInt(seed, j++) == 0))
             {
                 out.x = (x1 + i%width) << 2;
@@ -871,8 +865,7 @@ Pos findBiomePosition(
     {
         for (i = 0; i < width*height; i++)
         {
-            if (biomeExists(map[i]) && isValid[map[i]] &&
-                (found == 0 || nextInt(seed, found + 1) == 0))
+            if (isValid[map[i]] && (found == 0 || nextInt(seed, found + 1) == 0))
             {
                 out.x = (x1 + i%width) << 2;
                 out.z = (z1 + i/width) << 2;
@@ -928,7 +921,7 @@ int areBiomesViable(
     {
         for (i = 0; i < width*height; i++)
         {
-            if (!biomeExists(map[i]) || !isValid[ map[i] ])
+            if (!isValid[ map[i] ])
             {
                 viable = 0;
                 break;
@@ -988,21 +981,45 @@ int getBiomeRadius(
 //==============================================================================
 
 
-const char* getValidStrongholdBiomes()
+const char* getValidStrongholdBiomes(int mc)
 {
-    static char validStrongholdBiomes[256];
+    static const int strongholdBiomes[] = {
+        plains, desert, mountains, forest, taiga, snowy_tundra, snowy_mountains,
+        mushroom_fields, desert_hills, wooded_hills, taiga_hills, mountain_edge,
+        jungle, jungle_hills, jungle_edge, stone_shore, birch_forest,
+        birch_forest_hills, dark_forest, snowy_taiga, snowy_taiga_hills,
+        giant_tree_taiga, giant_tree_taiga_hills, wooded_mountains, savanna,
+        savanna_plateau, badlands, wooded_badlands_plateau, badlands_plateau,
 
-    if (!validStrongholdBiomes[plains])
+        plains+128, desert+128, mountains+128, forest+128, taiga+128,
+        snowy_tundra+128, jungle+128, jungle_edge+128, birch_forest+128,
+        birch_forest_hills+128, dark_forest+128, snowy_taiga+128,
+        giant_tree_taiga+128, giant_tree_taiga_hills+128, wooded_mountains+128,
+        savanna+128, savanna_plateau+128, badlands+128,
+        wooded_badlands_plateau+128, badlands_plateau+128,
+
+        bamboo_jungle, bamboo_jungle_hills,
+    };
+
+    static char isValid115[256], isValid[256];
+    unsigned int i;
+
+    if (mc <= MC_1_15)
     {
-        int id;
-        for (id = 0; id < 256; id++)
-        {
-            if (biomeExists(id) && biomes[id].height > 0.0)
-                validStrongholdBiomes[id] = 1;
-        }
+        if (!isValid115[strongholdBiomes[0]])
+            for (i = 0; i < sizeof(strongholdBiomes) / sizeof(int); i++)
+                isValid115[ strongholdBiomes[i] ] = 1;
+        return isValid115;
     }
-
-    return validStrongholdBiomes;
+    else
+    {   // simulate MC-199298
+        if (!isValid[strongholdBiomes[0]])
+            for (i = 0; i < sizeof(strongholdBiomes) / sizeof(int); i++)
+                isValid[ strongholdBiomes[i] ] = 1;
+        isValid[bamboo_jungle] = 0;
+        isValid[bamboo_jungle_hills] = 0;
+        return isValid;
+    }
 }
 
 Pos initFirstStronghold(StrongholdIter *sh, int mc, int64_t s48)
@@ -1042,8 +1059,8 @@ Pos initFirstStronghold(StrongholdIter *sh, int mc, int64_t s48)
 int nextStronghold(StrongholdIter *sh, const LayerStack *g, int *cache)
 {
     sh->pos = findBiomePosition(sh->mc, &g->layers[L_RIVER_MIX_4], cache,
-        sh->nextapprox.x, sh->nextapprox.z, 112, getValidStrongholdBiomes(),
-        &sh->rnds, NULL);
+        sh->nextapprox.x, sh->nextapprox.z, 112,
+        getValidStrongholdBiomes(sh->mc), &sh->rnds, NULL);
 
     sh->ringidx++;
     sh->angle += 2 * PI / sh->ringmax;
@@ -1075,10 +1092,10 @@ int nextStronghold(StrongholdIter *sh, const LayerStack *g, int *cache)
     return (sh->mc >= MC_1_9 ? 128 : 3) - (sh->index-1);
 }
 
-int findStrongholds(const int mcversion, const LayerStack *g, int *cache,
+int findStrongholds(const int mc, const LayerStack *g, int *cache,
         Pos *locations, int64_t worldSeed, int maxSH, int maxRing)
 {
-    const char *validStrongholdBiomes = getValidStrongholdBiomes();
+    const char *validStrongholdBiomes = getValidStrongholdBiomes(mc);
     int i, x, z;
     double distance;
 
@@ -1092,7 +1109,7 @@ int findStrongholds(const int mcversion, const LayerStack *g, int *cache,
 
     const Layer *l = &g->layers[L_RIVER_MIX_4];
 
-    if (mcversion >= MC_1_9)
+    if (mc >= MC_1_9)
     {
         if (maxSH <= 0) maxSH = 128;
 
@@ -1104,7 +1121,7 @@ int findStrongholds(const int mcversion, const LayerStack *g, int *cache,
             x = (int)round(cos(angle) * distance);
             z = (int)round(sin(angle) * distance);
 
-            locations[i] = findBiomePosition(mcversion, l, cache,
+            locations[i] = findBiomePosition(mc, l, cache,
                     (x << 4) + 8, (z << 4) + 8, 112, validStrongholdBiomes,
                     &rnd, NULL);
 
@@ -1140,7 +1157,7 @@ int findStrongholds(const int mcversion, const LayerStack *g, int *cache,
             x = (int)round(cos(angle) * distance);
             z = (int)round(sin(angle) * distance);
 
-            locations[i] = findBiomePosition(mcversion, l, cache,
+            locations[i] = findBiomePosition(mc, l, cache,
                     (x << 4) + 8, (z << 4) + 8, 112, validStrongholdBiomes,
                     &rnd, NULL);
 
@@ -1511,7 +1528,7 @@ static int mapViableBiome(const Layer * l, int * out, int x, int z, int w, int h
             switch (styp)
             {
             case Desert_Pyramid:
-                if (biomeID == desert || getBiomeType(biomeID) == Mesa)
+                if (biomeID == desert || isMesa(biomeID))
                     return 0;
                 break;
             case Jungle_Pyramid:
@@ -1791,7 +1808,7 @@ int isViableNetherStructurePos(int structureType, int mc, NetherNoise *nn,
     blockX = ((blockX >> 4) << 2) + 2;
     blockZ = ((blockZ >> 4) << 2) + 2;
     setNetherSeed(nn, seed);
-    int biomeID = getNetherBiome(nn, blockX, 0, blockZ);
+    int biomeID = getNetherBiome(nn, blockX, 0, blockZ, NULL);
     return isViableFeatureBiome(mc, structureType, biomeID);
 }
 
@@ -2684,7 +2701,7 @@ int checkForTemps(LayerStack *g, int64_t seed, int x, int z, int w, int h, const
 
 void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
 {
-    if (layer >= L_BIOME_256 && !isOverworldBiome(mc, id))
+    if (layer >= L_BIOME_256 && !isOverworld(mc, id))
         return;
 
     int i;
@@ -2775,8 +2792,8 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
             if (BIOMES_L_BIOME_EDGE_64[i] == id)
                 break;
         if (i < 0) break;
-        if (!isShallowOcean(id) && biomes[id].mutated > 0)
-             genPotential(mL, mM, L_HILLS_64, mc, biomes[id].mutated);
+        if (!isShallowOcean(id) && getMutated(mc, id) > 0)
+             genPotential(mL, mM, L_HILLS_64, mc, getMutated(mc, id));
         switch (id)
         {
         case desert:
@@ -2787,23 +2804,23 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
             break;
         case birch_forest:
             genPotential(mL, mM, L_HILLS_64, mc, birch_forest_hills);
-            genPotential(mL, mM, L_HILLS_64, mc, biomes[birch_forest_hills].mutated);
+            genPotential(mL, mM, L_HILLS_64, mc, getMutated(mc, birch_forest_hills));
             break;
         case dark_forest:
             genPotential(mL, mM, L_HILLS_64, mc, plains);
-            genPotential(mL, mM, L_HILLS_64, mc, biomes[plains].mutated);
+            genPotential(mL, mM, L_HILLS_64, mc, getMutated(mc, plains));
             break;
         case taiga:
             genPotential(mL, mM, L_HILLS_64, mc, taiga_hills);
             break;
         case giant_tree_taiga:
             genPotential(mL, mM, L_HILLS_64, mc, giant_tree_taiga_hills);
-            genPotential(mL, mM, L_HILLS_64, mc, biomes[giant_tree_taiga_hills].mutated);
+            genPotential(mL, mM, L_HILLS_64, mc, getMutated(mc, giant_tree_taiga_hills));
             break;
         case plains:
             genPotential(mL, mM, L_HILLS_64, mc, wooded_hills);
             genPotential(mL, mM, L_HILLS_64, mc, forest);
-            genPotential(mL, mM, L_HILLS_64, mc, biomes[forest].mutated);
+            genPotential(mL, mM, L_HILLS_64, mc, getMutated(mc, forest));
             break;
         case snowy_tundra:
             genPotential(mL, mM, L_HILLS_64, mc, snowy_mountains);
@@ -2816,25 +2833,24 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
             break;
         case mountains:
             genPotential(mL, mM, L_HILLS_64, mc, wooded_mountains);
-            genPotential(mL, mM, L_HILLS_64, mc, biomes[wooded_mountains].mutated);
+            genPotential(mL, mM, L_HILLS_64, mc, getMutated(mc, wooded_mountains));
             break;
         case savanna:
             genPotential(mL, mM, L_HILLS_64, mc, savanna_plateau);
-            genPotential(mL, mM, L_HILLS_64, mc, biomes[savanna_plateau].mutated);
+            genPotential(mL, mM, L_HILLS_64, mc, getMutated(mc, savanna_plateau));
             break;
         default:
-            if ((mc <= MC_1_12 && areSimilar112(id, wooded_badlands_plateau)) ||
-                (mc >= MC_1_13 && areSimilar(id, wooded_badlands_plateau)))
+            if (areSimilar(mc, id, wooded_badlands_plateau))
             {
                 genPotential(mL, mM, L_HILLS_64, mc, badlands);
-                genPotential(mL, mM, L_HILLS_64, mc, biomes[badlands].mutated);
+                genPotential(mL, mM, L_HILLS_64, mc, getMutated(mc, badlands));
             }
             else if (isDeepOcean(id))
             {
                 genPotential(mL, mM, L_HILLS_64, mc, plains);
                 genPotential(mL, mM, L_HILLS_64, mc, forest);
-                genPotential(mL, mM, L_HILLS_64, mc, biomes[plains].mutated);
-                genPotential(mL, mM, L_HILLS_64, mc, biomes[forest].mutated);
+                genPotential(mL, mM, L_HILLS_64, mc, getMutated(mc, plains));
+                genPotential(mL, mM, L_HILLS_64, mc, getMutated(mc, forest));
             }
         }
         genPotential(mL, mM, L_HILLS_64, mc, id);
@@ -2857,13 +2873,13 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
         if (i < 0 && id != sunflower_plains) break;
         if (id == mushroom_fields)
             genPotential(mL, mM, L_SHORE_16, mc, mushroom_field_shore);
-        else if (getBiomeType(id) == Jungle) {
+        else if (getCategory(mc, id) == jungle) {
             genPotential(mL, mM, L_SHORE_16, mc, beach);
             genPotential(mL, mM, L_SHORE_16, mc, jungle_edge);
         }
         else if (id == mountains || id == wooded_mountains || id == mountain_edge)
             genPotential(mL, mM, L_SHORE_16, mc, stone_shore);
-        else if (isBiomeSnowy(id))
+        else if (isSnowy(id))
             genPotential(mL, mM, L_SHORE_16, mc, snowy_beach);
         else if (id == badlands || id == wooded_badlands_plateau)
             genPotential(mL, mM, L_SHORE_16, mc, desert);

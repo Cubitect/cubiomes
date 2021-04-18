@@ -7,199 +7,196 @@
 
 
 
-void setupLayer(Layer *l, Layer *p, int s, mapfunc_t getMap)
+Layer *setupLayer(LayerStack *g, int layerId, mapfunc_t map, int mc,
+    int8_t zoom, int8_t edge, int saltbase, Layer *p, Layer *p2)
 {
-    l->layerSalt = s > 0 ? getLayerSalt(s) : s;
+    Layer *l = g->layers + layerId;
+    l->getMap = map;
+    l->mc = mc;
+    l->zoom = zoom;
+    l->edge = edge;
+    l->scale = 0;
+    l->layerSalt = saltbase > 0 ? getLayerSalt(saltbase) : saltbase;
     l->startSalt = 0;
     l->startSeed = 0;
-    l->p = p;
-    l->p2 = NULL;
-    l->scale = 0;
-    l->edge = 0;
-    l->getMap = getMap;
     l->noise = NULL;
     l->data = NULL;
-}
-
-void setupMultiLayer(Layer *l, Layer *p1, Layer *p2, int s, mapfunc_t getMap)
-{
-    setupLayer(l, p1, s, getMap);
+    l->p = p;
     l->p2 = p2;
+    return l;
 }
 
 static void setupScale(Layer *l, int scale)
 {
-    l->scale = scale;
-    int m = 1;
-    int e = 0;
-
-    mapfunc_t map = l->getMap;
-
-    if (map == mapZoom || map == mapZoomIsland)
-    {
-        m = 2;
-        e = 3;
-    }
-    else if (map == mapVoronoiZoom || map == mapVoronoiZoom114)
-    {
-        m = 4;
-        e = 7;
-    }
-    else if (map == mapOceanMix)
-    {
-        e = 17;
-    }
-    else if (
-        map == mapAddIsland ||
-        map == mapRemoveTooMuchOcean ||
-        map == mapAddSnow ||
-        map == mapCoolWarm ||
-        map == mapHeatIce ||
-        map == mapAddMushroomIsland ||
-        map == mapDeepOcean ||
-        map == mapBiomeEdge ||
-        map == mapHills ||
-        map == mapHills112 ||
-        map == mapRiver ||
-        map == mapSmooth ||
-        map == mapShore
-        )
-    {
-        e = 2;
-    }
-    else
-    {
-        e = 0;
-    }
-
-    l->edge = e;
-
-    if (l->p) {
-        setupScale(l->p, scale * m);
-    }
-    if (l->p2) {
-        setupScale(l->p2, scale * m);
-    }
+    if (l->p)
+        setupScale(l->p, scale * l->zoom);
+    if (l->p2)
+        setupScale(l->p2, scale * l->zoom);
 }
 
-static void setupGeneratorImpl(LayerStack *g, int mcversion, int largeBiomes)
+static void setupGeneratorImpl(LayerStack *g, int mc, int largeBiomes)
 {
-    if (biomes[plains].id == 0)
-    {
-        fprintf(stderr, "Warning: The biomes have to be initialised first using initBiomes() before any generator can be used.\n");
-    }
-
     memset(g, 0, sizeof(LayerStack));
-    Layer *l = g->layers;
+    Layer *p;
 
-    //         LAYER                      PARENT                      SALT  LAYER_FUNCTION
-    setupLayer(&l[L_ISLAND_4096],         NULL,                       1,    mapIsland);
-    setupLayer(&l[L_ZOOM_2048],           &l[L_ISLAND_4096],          2000, mapZoomIsland);
-    setupLayer(&l[L_ADD_ISLAND_2048],     &l[L_ZOOM_2048],            1,    mapAddIsland);
-    setupLayer(&l[L_ZOOM_1024],           &l[L_ADD_ISLAND_2048],      2001, mapZoom);
-    setupLayer(&l[L_ADD_ISLAND_1024A],    &l[L_ZOOM_1024],            2,    mapAddIsland);
-    setupLayer(&l[L_ADD_ISLAND_1024B],    &l[L_ADD_ISLAND_1024A],     50,   mapAddIsland);
-    setupLayer(&l[L_ADD_ISLAND_1024C],    &l[L_ADD_ISLAND_1024B],     70,   mapAddIsland);
-    setupLayer(&l[L_REMOVE_OCEAN_1024],   &l[L_ADD_ISLAND_1024C],     2,    mapRemoveTooMuchOcean);
+    // G: generator layer stack
+    // L: layer ID
+    // M: mapping function
+    // V: minecraft version
+    // Z: zoom
+    // E: edge
+    // S: salt base
+    // P1: parent 1
+    // P2: parent 2
 
-    setupLayer(&l[L_ADD_SNOW_1024],       &l[L_REMOVE_OCEAN_1024],    2,    mapAddSnow);
-    setupLayer(&l[L_ADD_ISLAND_1024D],    &l[L_ADD_SNOW_1024],        3,    mapAddIsland);
-    setupLayer(&l[L_COOL_WARM_1024],      &l[L_ADD_ISLAND_1024D],     2,    mapCoolWarm);
-    setupLayer(&l[L_HEAT_ICE_1024],       &l[L_COOL_WARM_1024],       2,    mapHeatIce);
-    setupLayer(&l[L_SPECIAL_1024],        &l[L_HEAT_ICE_1024],        3,    mapSpecial);
-    setupLayer(&l[L_ZOOM_512],            &l[L_SPECIAL_1024],         2002, mapZoom);
-    setupLayer(&l[L_ZOOM_256],            &l[L_ZOOM_512],             2003, mapZoom);
-    setupLayer(&l[L_ADD_ISLAND_256],      &l[L_ZOOM_256],             4,    mapAddIsland);
-    setupLayer(&l[L_ADD_MUSHROOM_256],    &l[L_ADD_ISLAND_256],       5,    mapAddMushroomIsland);
-    setupLayer(&l[L_DEEP_OCEAN_256],      &l[L_ADD_MUSHROOM_256],     4,    mapDeepOcean);
-    // biome layer chain
-    setupLayer(&l[L_BIOME_256],           &l[L_DEEP_OCEAN_256],       200,  mapBiome);
+    //             G, L,                  M              V   Z  E  S     P1 P2
+    p = setupLayer(g, L_ISLAND_4096,      mapIsland,     mc, 1, 0, 1,    0, 0);
+    p = setupLayer(g, L_ZOOM_2048,        mapZoomIsland, mc, 2, 3, 2000, p, 0);
+    p = setupLayer(g, L_ADD_ISLAND_2048,  mapAddIsland,  mc, 1, 2, 1,    p, 0);
+    p = setupLayer(g, L_ZOOM_1024,        mapZoom,       mc, 2, 3, 2001, p, 0);
+    p = setupLayer(g, L_ADD_ISLAND_1024A, mapAddIsland,  mc, 1, 2, 2,    p, 0);
 
-    if (mcversion <= MC_1_13)
-        setupLayer(&l[L_ZOOM_128],        &l[L_BIOME_256],            1000, mapZoom);
+    if (mc <= MC_1_6)
+    {
+        //             G  L                   M                     V   Z  E  S     P1 P2
+        p = setupLayer(g, L_ADD_SNOW_1024,    mapAddSnow16,         mc, 1, 2, 2,    p, 0);
+        p = setupLayer(g, L_ZOOM_512,         mapZoom,              mc, 2, 3, 2002, p, 0);
+        p = setupLayer(g, L_ADD_ISLAND_1024D, mapAddIsland16,       mc, 1, 2, 3,    p, 0);
+        p = setupLayer(g, L_ZOOM_256,         mapZoom,              mc, 2, 3, 2003, p, 0);
+        p = setupLayer(g, L_ADD_ISLAND_256,   mapAddIsland16,       mc, 1, 2, 4,    p, 0);
+        p = setupLayer(g, L_ADD_MUSHROOM_256, mapAddMushroomIsland, mc, 1, 2, 5,    p, 0);
+        p = setupLayer(g, L_BIOME_256,        mapBiome,             mc, 1, 0, 200,  p, 0);
+        p = setupLayer(g, L_ZOOM_128,         mapZoom,              mc, 2, 3, 1000, p, 0);
+        p = setupLayer(g, L_ZOOM_64,          mapZoom,              mc, 2, 3, 1001, p, 0);
+
+        // river RNG layer chain, also used to determine where hills generate
+        p = setupLayer(g, L_RIVER_INIT_256,   mapRiverInit,         mc, 1, 0, 100, g->layers+L_ADD_MUSHROOM_256, 0);
+        p = setupLayer(g, L_ZOOM_128_HILLS,   mapZoom,              mc, 2, 3, 0,    p, 0);
+        p = setupLayer(g, L_ZOOM_64_HILLS,    mapZoom,              mc, 2, 3, 0,    p, 0);
+
+        p = setupLayer(g, L_HILLS_64,         mapHills,             mc, 1, 2, 1000,
+                g->layers+L_ZOOM_64, g->layers+L_ZOOM_64_HILLS);
+
+        p = setupLayer(g, L_ZOOM_32,           mapZoom,               mc, 2, 3, 1000, p, 0);
+        p = setupLayer(g, L_ADD_ISLAND_32,     mapAddIsland16,        mc, 1, 2, 3,    p, 0);
+        p = setupLayer(g, L_ZOOM_16,           mapZoom,               mc, 2, 3, 1001, p, 0);
+        p = setupLayer(g, L_SHORE_16,          mapShore,              mc, 1, 2, 1000, p, 0);
+        p = setupLayer(g, L_RIVER_BIOME_16,    mapRiverInBiome,       mc, 1, 0, 1000, p, 0);
+        p = setupLayer(g, L_ZOOM_8,            mapZoom,               mc, 2, 3, 1002, p, 0);
+        p = setupLayer(g, L_ZOOM_4,            mapZoom,               mc, 2, 3, 1003, p, 0);
+
+        p = setupLayer(g, L_SMOOTH_4,          mapSmooth,             mc, 1, 2, 1000, p, 0);
+
+        // river layer chain
+        p = setupLayer(g, L_ZOOM_128_RIVER,    mapZoom,               mc, 2, 3, 1000, g->layers+L_RIVER_INIT_256, 0);
+        p = setupLayer(g, L_ZOOM_64_RIVER,     mapZoom,               mc, 2, 3, 1001, p, 0);
+        p = setupLayer(g, L_ZOOM_32_RIVER,     mapZoom,               mc, 2, 3, 1002, p, 0);
+        p = setupLayer(g, L_ZOOM_16_RIVER,     mapZoom,               mc, 2, 3, 1003, p, 0);
+        p = setupLayer(g, L_ZOOM_8_RIVER,      mapZoom,               mc, 2, 3, 1004, p, 0);
+        p = setupLayer(g, L_ZOOM_4_RIVER,      mapZoom,               mc, 2, 3, 1005, p, 0);
+        p = setupLayer(g, L_RIVER_4,           mapRiver,              mc, 1, 2, 1,    p, 0);
+        p = setupLayer(g, L_SMOOTH_4_RIVER,    mapSmooth,             mc, 1, 2, 1000, p, 0);
+    }
     else
     {
-        setupLayer(&l[L14_BAMBOO_256],    &l[L_BIOME_256],            1001, mapAddBamboo);
-        setupLayer(&l[L_ZOOM_128],        &l[L14_BAMBOO_256],         1000, mapZoom);
+        //             G  L                    M                      V   Z  E  S     P1 P2
+        p = setupLayer(g, L_ADD_ISLAND_1024B,  mapAddIsland,          mc, 1, 2, 50,   p, 0);
+        p = setupLayer(g, L_ADD_ISLAND_1024C,  mapAddIsland,          mc, 1, 2, 70,   p, 0);
+        p = setupLayer(g, L_REMOVE_OCEAN_1024, mapRemoveTooMuchOcean, mc, 1, 2, 2,    p, 0);
+        p = setupLayer(g, L_ADD_SNOW_1024,     mapAddSnow,            mc, 1, 2, 2,    p, 0);
+        p = setupLayer(g, L_ADD_ISLAND_1024D,  mapAddIsland,          mc, 1, 2, 3,    p, 0);
+        p = setupLayer(g, L_COOL_WARM_1024,    mapCoolWarm,           mc, 1, 2, 2,    p, 0);
+        p = setupLayer(g, L_HEAT_ICE_1024,     mapHeatIce,            mc, 1, 2, 2,    p, 0);
+        p = setupLayer(g, L_SPECIAL_1024,      mapSpecial,            mc, 1, 2, 3,    p, 0);
+        p = setupLayer(g, L_ZOOM_512,          mapZoom,               mc, 2, 3, 2002, p, 0);
+        p = setupLayer(g, L_ZOOM_256,          mapZoom,               mc, 2, 3, 2003, p, 0);
+        p = setupLayer(g, L_ADD_ISLAND_256,    mapAddIsland,          mc, 1, 2, 4,    p, 0);
+        p = setupLayer(g, L_ADD_MUSHROOM_256,  mapAddMushroomIsland,  mc, 1, 2, 5,    p, 0);
+        p = setupLayer(g, L_DEEP_OCEAN_256,    mapDeepOcean,          mc, 1, 2, 4,    p, 0);
+        p = setupLayer(g, L_BIOME_256,         mapBiome,              mc, 1, 0, 200,  p, 0);
+        if (mc > MC_1_13)
+            p = setupLayer(g, L14_BAMBOO_256,  mapAddBamboo,          mc, 1, 0, 1001, p, 0);
+        p = setupLayer(g, L_ZOOM_128,          mapZoom,               mc, 2, 3, 1000, p, 0);
+        p = setupLayer(g, L_ZOOM_64,           mapZoom,               mc, 2, 3, 1001, p, 0);
+        p = setupLayer(g, L_BIOME_EDGE_64,     mapBiomeEdge,          mc, 1, 2, 1000, p, 0);
+
+        // river RNG layer chain, also used to determine where hills generate
+        p = setupLayer(g, L_RIVER_INIT_256,    mapRiverInit,          mc, 1, 0, 100, g->layers+L_DEEP_OCEAN_256, 0);
+        p = setupLayer(g, L_ZOOM_128_HILLS,    mapZoom,               mc, 2, 3, mc < MC_1_13 ? 0 : 1000, p, 0);
+        p = setupLayer(g, L_ZOOM_64_HILLS,     mapZoom,               mc, 2, 3, mc < MC_1_13 ? 0 : 1001, p, 0);
+
+        p = setupLayer(g, L_HILLS_64,          mapHills,              mc, 1, 2, 1000,
+                g->layers+L_BIOME_EDGE_64, g->layers+L_ZOOM_64_HILLS);
+
+        p = setupLayer(g, L_RARE_BIOME_64,     mapRareBiome,          mc, 1, 0, 1001, p, 0);
+        p = setupLayer(g, L_ZOOM_32,           mapZoom,               mc, 2, 3, 1000, p, 0);
+        p = setupLayer(g, L_ADD_ISLAND_32,     mapAddIsland,          mc, 1, 2, 3,    p, 0);
+        p = setupLayer(g, L_ZOOM_16,           mapZoom,               mc, 2, 3, 1001, p, 0);
+        p = setupLayer(g, L_SHORE_16,          mapShore,              mc, 1, 2, 1000, p, 0);
+        p = setupLayer(g, L_ZOOM_8,            mapZoom,               mc, 2, 3, 1002, p, 0);
+        p = setupLayer(g, L_ZOOM_4,            mapZoom,               mc, 2, 3, 1003, p, 0);
+
+        if (largeBiomes)
+        {
+            p = setupLayer(g, L_ZOOM_LARGE_BIOME_A, mapZoom,          mc, 2, 3, 1004, p, 0);
+            p = setupLayer(g, L_ZOOM_LARGE_BIOME_B, mapZoom,          mc, 2, 3, 1005, p, 0);
+        }
+
+        p = setupLayer(g, L_SMOOTH_4,          mapSmooth,             mc, 1, 2, 1000, p, 0);
+
+        // river layer chain
+        p = setupLayer(g, L_ZOOM_128_RIVER,    mapZoom,               mc, 2, 3, 1000, g->layers+L_RIVER_INIT_256, 0);
+        p = setupLayer(g, L_ZOOM_64_RIVER,     mapZoom,               mc, 2, 3, 1001, p, 0);
+        p = setupLayer(g, L_ZOOM_32_RIVER,     mapZoom,               mc, 2, 3, 1000, p, 0);
+        p = setupLayer(g, L_ZOOM_16_RIVER,     mapZoom,               mc, 2, 3, 1001, p, 0);
+        p = setupLayer(g, L_ZOOM_8_RIVER,      mapZoom,               mc, 2, 3, 1002, p, 0);
+        p = setupLayer(g, L_ZOOM_4_RIVER,      mapZoom,               mc, 2, 3, 1003, p, 0);
+        p = setupLayer(g, L_RIVER_4,           mapRiver,              mc, 1, 2, 1,    p, 0);
+        p = setupLayer(g, L_SMOOTH_4_RIVER,    mapSmooth,             mc, 1, 2, 1000, p, 0);
     }
 
-    setupLayer(&l[L_ZOOM_64],             &l[L_ZOOM_128],             1001, mapZoom);
-    setupLayer(&l[L_BIOME_EDGE_64],       &l[L_ZOOM_64],              1000, mapBiomeEdge);
+    p = setupLayer(g, L_RIVER_MIX_4, mapRiverMix, mc, 1, 0, 100,
+            g->layers+L_SMOOTH_4, g->layers+L_SMOOTH_4_RIVER);
 
-    // basic river layer chain, used to determine where hills generate
-    setupLayer(&l[L_RIVER_INIT_256],      &l[L_DEEP_OCEAN_256],       100,  mapRiverInit);
-    setupLayer(&l[L_ZOOM_128_HILLS],      &l[L_RIVER_INIT_256],       mcversion < MC_1_13 ? 0 : 1000, mapZoom);
-    setupLayer(&l[L_ZOOM_64_HILLS],       &l[L_ZOOM_128_HILLS],       mcversion < MC_1_13 ? 0 : 1001, mapZoom);
 
-    setupMultiLayer(&l[L_HILLS_64], &l[L_BIOME_EDGE_64], &l[L_ZOOM_64_HILLS], 1000,
-            mcversion <= MC_1_12 ? mapHills112 : mapHills);
-
-    setupLayer(&l[L_RARE_BIOME_64],       &l[L_HILLS_64],             1001, mapRareBiome);
-    setupLayer(&l[L_ZOOM_32],             &l[L_RARE_BIOME_64],        1000, mapZoom);
-    setupLayer(&l[L_ADD_ISLAND_32],       &l[L_ZOOM_32],              3,    mapAddIsland);
-    setupLayer(&l[L_ZOOM_16],             &l[L_ADD_ISLAND_32],        1001, mapZoom);
-    setupLayer(&l[L_SHORE_16],            &l[L_ZOOM_16],              1000, mapShore);
-    setupLayer(&l[L_ZOOM_8],              &l[L_SHORE_16],             1002, mapZoom);
-    setupLayer(&l[L_ZOOM_4],              &l[L_ZOOM_8],               1003, mapZoom);
-
-    if (largeBiomes != 0) {
-        setupLayer(&l[L_ZOOM_LARGE_BIOME_A], &l[L_ZOOM_4],              1004, mapZoom);
-        setupLayer(&l[L_ZOOM_LARGE_BIOME_B], &l[L_ZOOM_LARGE_BIOME_A],  1005, mapZoom);
-        setupLayer(&l[L_SMOOTH_4],           &l[L_ZOOM_LARGE_BIOME_B],  1000, mapSmooth);
-    } else {
-        setupLayer(&l[L_SMOOTH_4],           &l[L_ZOOM_4],              1000, mapSmooth);
-    }
-
-    // river layer chain
-    setupLayer(&l[L_ZOOM_128_RIVER],      &l[L_RIVER_INIT_256],       1000, mapZoom);
-    setupLayer(&l[L_ZOOM_64_RIVER],       &l[L_ZOOM_128_RIVER],       1001, mapZoom);
-    setupLayer(&l[L_ZOOM_32_RIVER],       &l[L_ZOOM_64_RIVER],        1000, mapZoom);
-    setupLayer(&l[L_ZOOM_16_RIVER],       &l[L_ZOOM_32_RIVER],        1001, mapZoom);
-    setupLayer(&l[L_ZOOM_8_RIVER],        &l[L_ZOOM_16_RIVER],        1002, mapZoom);
-    setupLayer(&l[L_ZOOM_4_RIVER],        &l[L_ZOOM_8_RIVER],         1003, mapZoom);
-    setupLayer(&l[L_RIVER_4],             &l[L_ZOOM_4_RIVER],         1,    mapRiver);
-    setupLayer(&l[L_SMOOTH_4_RIVER],      &l[L_RIVER_4],              1000, mapSmooth);
-
-    setupMultiLayer(&l[L_RIVER_MIX_4], &l[L_SMOOTH_4], &l[L_SMOOTH_4_RIVER], 100, mapRiverMix);
-
-    if (mcversion <= MC_1_12)
+    if (mc <= MC_1_12)
     {
-        setupLayer(&l[L_VORONOI_ZOOM_1],   &l[L_RIVER_MIX_4],         10,   mapVoronoiZoom114);
-        g->entry_4 = &l[L_RIVER_MIX_4];
+        g->entry_4 = p;
+        p = setupLayer(g, L_VORONOI_ZOOM_1, mapVoronoiZoom114, mc, 4, 7, 10, p, 0);
     }
     else
     {
         // ocean variants
-        setupLayer(&l[L13_OCEAN_TEMP_256], NULL,                      2,    mapOceanTemp);
-        l[L13_OCEAN_TEMP_256].noise = &g->oceanRnd;
-        setupLayer(&l[L13_ZOOM_128],       &l[L13_OCEAN_TEMP_256],    2001, mapZoom);
-        setupLayer(&l[L13_ZOOM_64],        &l[L13_ZOOM_128],          2002, mapZoom);
-        setupLayer(&l[L13_ZOOM_32],        &l[L13_ZOOM_64],           2003, mapZoom);
-        setupLayer(&l[L13_ZOOM_16],        &l[L13_ZOOM_32],           2004, mapZoom);
-        setupLayer(&l[L13_ZOOM_8],         &l[L13_ZOOM_16],           2005, mapZoom);
-        setupLayer(&l[L13_ZOOM_4],         &l[L13_ZOOM_8],            2006, mapZoom);
+        p = setupLayer(g, L13_OCEAN_TEMP_256, mapOceanTemp, mc, 1, 0, 2,    0, 0);
+        p->noise = &g->oceanRnd;
+        p = setupLayer(g, L13_ZOOM_128,       mapZoom,      mc, 2, 3, 2001, p, 0);
+        p = setupLayer(g, L13_ZOOM_64,        mapZoom,      mc, 2, 3, 2002, p, 0);
+        p = setupLayer(g, L13_ZOOM_32,        mapZoom,      mc, 2, 3, 2003, p, 0);
+        p = setupLayer(g, L13_ZOOM_16,        mapZoom,      mc, 2, 3, 2004, p, 0);
+        p = setupLayer(g, L13_ZOOM_8,         mapZoom,      mc, 2, 3, 2005, p, 0);
+        p = setupLayer(g, L13_ZOOM_4,         mapZoom,      mc, 2, 3, 2006, p, 0);
+        p = setupLayer(g, L13_OCEAN_MIX_4,    mapOceanMix,  mc, 1, 17, 100,
+                g->layers+L_RIVER_MIX_4, g->layers+L13_ZOOM_4);
+        g->entry_4 = p;
 
-        setupMultiLayer(&l[L13_OCEAN_MIX_4], &l[L_RIVER_MIX_4], &l[L13_ZOOM_4], 100, mapOceanMix);
-        g->entry_4 = &l[L13_OCEAN_MIX_4];
-
-        if (mcversion <= MC_1_14)
-            setupLayer(&l[L_VORONOI_ZOOM_1], &l[L13_OCEAN_MIX_4],     10,   mapVoronoiZoom114);
+        if (mc <= MC_1_14)
+            p = setupLayer(g, L_VORONOI_ZOOM_1, mapVoronoiZoom114, mc, 4, 7, 10, p, 0);
         else
-            setupLayer(&l[L_VORONOI_ZOOM_1], &l[L13_OCEAN_MIX_4],     -1,   mapVoronoiZoom);
+            p = setupLayer(g, L_VORONOI_ZOOM_1, mapVoronoiZoom, mc, 4, 7, -1, p, 0);
     }
 
-    setupScale(&l[L_VORONOI_ZOOM_1], 1);
-    g->entry_1 = &l[L_VORONOI_ZOOM_1];
+    g->entry_1 = p;
+    setupScale(g->entry_1, 1);
 }
 
-void setupGenerator(LayerStack *g, int mcversion)
+void setupGenerator(LayerStack *g, int mc)
 {
-    setupGeneratorImpl(g, mcversion, 0);
+    setupGeneratorImpl(g, mc, 0);
 }
 
-void setupLargeBiomesGenerator(LayerStack *g, int mcversion)
+void setupLargeBiomesGenerator(LayerStack *g, int mc)
 {
-    setupGeneratorImpl(g, mcversion, 1);
+    setupGeneratorImpl(g, mc, 1);
 }
 
 
@@ -211,12 +208,12 @@ static void getMaxArea(const Layer *layer, int areaX, int areaZ, int *maxX, int 
     if (layer == NULL)
         return;
 
-    if (layer->getMap == mapZoom || layer->getMap == mapZoomIsland)
+    if (layer->zoom == 2)
     {
         areaX >>= 1;
         areaZ >>= 1;
     }
-    else if (layer->getMap == mapVoronoiZoom)
+    else if (layer->zoom == 4)
     {
         areaX >>= 2;
         areaZ >>= 2;

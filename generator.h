@@ -3,13 +3,6 @@
 
 #include "layers.h"
 
-/* Minecraft versions */
-enum MCversion
-{
-    MC_1_7, MC_1_8, MC_1_9, MC_1_10, MC_1_11, MC_1_12, MC_1_13, MC_1_14,
-    MC_1_15, MC_1_16,
-};
-
 /* Enumeration of the layer indices in the generator. */
 enum
 {
@@ -25,25 +18,26 @@ enum
     L_ADD_ISLAND_1024D,
     L_COOL_WARM_1024,
     L_HEAT_ICE_1024,
-    L_SPECIAL_1024,  /* Good entry for: temperature categories */
+    L_SPECIAL_1024,
     L_ZOOM_512,
     L_ZOOM_256,
     L_ADD_ISLAND_256,
-    L_ADD_MUSHROOM_256, /* Good entry for: mushroom biomes */
+    L_ADD_MUSHROOM_256,
     L_DEEP_OCEAN_256,
-    L_BIOME_256, /* Good entry for: major biome types */
+    L_BIOME_256,
     L_ZOOM_128,
     L_ZOOM_64,
     L_BIOME_EDGE_64,
     L_RIVER_INIT_256,
     L_ZOOM_128_HILLS,
     L_ZOOM_64_HILLS,
-    L_HILLS_64, /* Good entry for: minor biome types */
+    L_HILLS_64,
     L_RARE_BIOME_64,
     L_ZOOM_32,
     L_ADD_ISLAND_32,
     L_ZOOM_16,
     L_SHORE_16,
+    L_RIVER_BIOME_16,   // MC 1.6
     L_ZOOM_8,
     L_ZOOM_4,
     L_SMOOTH_4,
@@ -96,10 +90,10 @@ extern "C"
 #endif
 
 /* Initialise an instance of a generator. */
-void setupGenerator(LayerStack *g, int mcversion);
+void setupGenerator(LayerStack *g, int mc);
 
 /* Initialise an instance of a generator with largeBiomes configuration. */
-void setupLargeBiomesGenerator(LayerStack *g, int mcversion);
+void setupLargeBiomesGenerator(LayerStack *g, int mc);
 
 
 /* Calculates the minimum size of the buffers required to generate an area of
@@ -114,8 +108,8 @@ int *allocCache(const Layer *layer, int sizeX, int sizeZ);
 
 
 /* Set up custom layers. */
-void setupLayer(Layer *l, Layer *p, int s, mapfunc_t getMap);
-void setupMultiLayer(Layer *l, Layer *p1, Layer *p2, int s, mapfunc_t getMap);
+Layer *setupLayer(LayerStack *g, int layerId, mapfunc_t map, int mc,
+    int8_t zoom, int8_t edge, int saltbase, Layer *p, Layer *p2);
 
 /* Sets the world seed for the generator */
 void applySeed(LayerStack *g, int64_t seed);
@@ -129,22 +123,6 @@ void applySeed(LayerStack *g, int64_t seed);
 int genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, int areaHeight);
 
 
-
-static inline int isOverworldBiome(int mc, int id)
-{
-    // check if the biome actually generates in this version
-    switch (id)
-    {
-    case ocean...river:                                 return 1;
-    case frozen_ocean:                                  return mc >= MC_1_13;
-    case frozen_river...badlands_plateau:               return id != mountain_edge;
-    case warm_ocean...deep_frozen_ocean:                return mc >= MC_1_13 && id != deep_warm_ocean;
-    case sunflower_plains...modified_badlands_plateau:  return 1;
-    case bamboo_jungle...bamboo_jungle_hills:           return mc >= MC_1_14;
-    default:
-        return 0;
-    }
-}
 
 /******************************** BIOME TABLES *********************************
  * The biome tables below are lists of the biomes that can be present at some

@@ -6,6 +6,7 @@ extern "C"
 {
 #endif
 
+const char *biome2str(int id);
 void initBiomeColours(unsigned char biomeColours[256][3]);
 void initBiomeTypeColours(unsigned char biomeColours[256][3]);
 
