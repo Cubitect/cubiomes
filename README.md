@@ -29,10 +29,6 @@ Let's create a simple program called `find_jedge.c` which tests seeds for a Jung
 
 int main()
 {
-    // First initialize the global biome table. This sets up properties such as
-    // the category and temperature of each biome.
-    initBiomes();
-
     // Initialize a stack of biome layers that reflects the biome generation of
     // Minecraft 1.16
     LayerStack g;
@@ -67,10 +63,12 @@ $ make libcubiomes
 ```
 To compile, and link the cubiomes library you can use one of
 ```
-$ gcc find_jedge.c libcubiomes.a -lm   # static
-$ gcc find_jedge.c -L. -lcubiomes -lm  # dynamic
+$ gcc find_jedge.c libcubiomes.a -fwrapv -lm   # static
+$ gcc find_jedge.c -L. -lcubiomes -fwrapv -lm  # dynamic
 ```
-Both options assume that your source code is saved as `find_jedge.c` in the cubiomes working directory. If your makefile is configured to use pthreads you also may need to add the `-lpthread` option to the compiler. Running the program should output:
+Both commands assume that your source code is saved as `find_jedge.c` in the cubiomes working directory. If your makefile is configured to use pthreads you also may need to add the `-lpthread` option to the compiler.
+The option `-fwrapv` enforces two's complement for signed integer overflow, which this library relies on. It is not strictly necessary for this example as the library should already be compiled with this flag, but it is good practice to prevent undefined behaviour.
+Running the program should output:
 ```
 $ ./a.out
 Seed 615 has a Junge Edge biome at block position (0, 0).
@@ -87,8 +85,6 @@ int main()
 {
     unsigned char biomeColours[256][3];
 
-    // Initialize global biome table.
-    initBiomes();
     // Initialize a colour map for biomes.
     initBiomeColours(biomeColours);
 
@@ -141,8 +137,6 @@ Biome filters provide a way of generating an area, but only if that area contain
 
 int main()
 {
-    initBiomes();
-
     int mc = MC_1_16;
     LayerStack g;
     BiomeFilter filter;
@@ -187,8 +181,6 @@ The generation of structures can usually be regarded as a two stage process: gen
 
 int main()
 {
-    initBiomes();
-
     int structType = Outpost;
     int mc = MC_1_16;
 
@@ -244,8 +236,6 @@ int check(int64_t s48, void *data)
 
 int main()
 {
-    initBiomes();
-
     int styp = Swamp_Hut;
     int mc = MC_1_16;
     int64_t basecnt = 0;
@@ -321,8 +311,6 @@ Strongholds as well as the world spawn point actually search until they find a s
 
 int main()
 {
-    initBiomes();
-
     int mc = MC_1_16;
     int64_t seed = 3055141959546LL;
 

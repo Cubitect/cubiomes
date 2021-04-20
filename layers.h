@@ -151,9 +151,12 @@ STRUCT(DoublePerlinNoise)
     int octcnt;
 };
 
+struct Layer;
+typedef int (mapfunc_t)(const struct Layer *, int *, int, int, int, int);
+
 STRUCT(Layer)
 {
-    int (*getMap)(const Layer *, int *, int, int, int, int);
+    mapfunc_t *getMap;
 
     int8_t mc;          // minecraft version
     int8_t zoom;        // zoom factor of layer
@@ -340,37 +343,37 @@ int isSnowy(int id);
 // Layers
 //==============================================================================
 
-int mapIsland               (const Layer *, int *, int, int, int, int);
-int mapZoomIsland           (const Layer *, int *, int, int, int, int);
-int mapZoom                 (const Layer *, int *, int, int, int, int);
-int mapAddIsland            (const Layer *, int *, int, int, int, int);
-int mapAddIsland16          (const Layer *, int *, int, int, int, int);
-int mapRemoveTooMuchOcean   (const Layer *, int *, int, int, int, int);
-int mapAddSnow              (const Layer *, int *, int, int, int, int);
-int mapAddSnow16            (const Layer *, int *, int, int, int, int);
-int mapCoolWarm             (const Layer *, int *, int, int, int, int);
-int mapHeatIce              (const Layer *, int *, int, int, int, int);
-int mapSpecial              (const Layer *, int *, int, int, int, int);
-int mapAddMushroomIsland    (const Layer *, int *, int, int, int, int);
-int mapDeepOcean            (const Layer *, int *, int, int, int, int);
-int mapBiome                (const Layer *, int *, int, int, int, int);
-int mapBiomeBE              (const Layer *, int *, int, int, int, int);
-int mapAddBamboo            (const Layer *, int *, int, int, int, int);
-int mapRiverInit            (const Layer *, int *, int, int, int, int);
-int mapBiomeEdge            (const Layer *, int *, int, int, int, int);
-int mapHills                (const Layer *, int *, int, int, int, int);
-int mapRiver                (const Layer *, int *, int, int, int, int);
-int mapSmooth               (const Layer *, int *, int, int, int, int);
-int mapRareBiome            (const Layer *, int *, int, int, int, int);
-int mapRiverInBiome         (const Layer *, int *, int, int, int, int);
-int mapShore                (const Layer *, int *, int, int, int, int);
-int mapRiverMix             (const Layer *, int *, int, int, int, int);
-int mapOceanTemp            (const Layer *, int *, int, int, int, int);
-int mapOceanMix             (const Layer *, int *, int, int, int, int);
+//                             old names
+mapfunc_t mapContinent;     // mapIsland
+mapfunc_t mapZoomFuzzy;
+mapfunc_t mapZoom;
+mapfunc_t mapLand;          // mapAddIsland
+mapfunc_t mapLand16;
+mapfunc_t mapIsland;        // mapRemoveTooMuchOcean
+mapfunc_t mapSnow;          // mapAddSnow
+mapfunc_t mapSnow16;
+mapfunc_t mapCool;          // mapCoolWarm
+mapfunc_t mapHeat;          // mapHeatIce
+mapfunc_t mapSpecial;
+mapfunc_t mapMushroom;      // mapAddMushroomIsland
+mapfunc_t mapDeepOcean;
+mapfunc_t mapBiome;
+mapfunc_t mapBamboo;        // mapAddBamboo
+mapfunc_t mapNoise;         // mapRiverInit
+mapfunc_t mapBiomeEdge;
+mapfunc_t mapHills;
+mapfunc_t mapRiver;
+mapfunc_t mapSmooth;
+mapfunc_t mapSunflower;     // mapRareBiome
+mapfunc_t mapShore;
+mapfunc_t mapSwampRiver;
+mapfunc_t mapRiverMix;
+mapfunc_t mapOceanTemp;
+mapfunc_t mapOceanMix;
 
 // final layer 1:1
-int mapVoronoiZoom          (const Layer *, int *, int, int, int, int);
-int mapVoronoiZoom114       (const Layer *, int *, int, int, int, int);
+mapfunc_t mapVoronoi;       // mapVoronoiZoom
+mapfunc_t mapVoronoi114;
 
 // With 1.15 voronoi changed in preparation for 3D biome generation.
 // Biome generation now stops at scale 1:4 OceanMix and voronoi is just an

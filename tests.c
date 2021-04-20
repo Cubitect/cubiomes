@@ -70,13 +70,16 @@ int testBiomeGen1x1(const int *mc, const uint32_t *expect, int bits, int cnt)
 int main()
 {
     const int mc_vers[] = {
-        MC_1_16, MC_1_15, MC_1_12, MC_1_9, MC_1_7, MC_1_6,
+        MC_1_16, MC_1_15, MC_1_13, MC_1_12, MC_1_9, MC_1_7,
+        MC_1_6,
     };
     const uint32_t b6_hashes[] = {
-        0xde9a6574, 0x3a568a6d, 0xbc75e996, 0xe27a45a2, 0xbc75e996, 0x15b47206,
+        0xde9a6574, 0x3a568a6d, 0x96c97323, 0xbc75e996, 0xe27a45a2, 0xbc75e996,
+        0x15b47206,
     };
     const uint32_t b10_hashes[] = {
-        0xfdede71d, 0xca8005d7, 0xb3363967, 0x17e5592f, 0xb3363967, 0xa52e377c,
+        0xfdede71d, 0xca8005d7, 0x399f7cc8, 0xb3363967, 0x17e5592f, 0xb3363967,
+        0xa52e377c,
     };
     const int testcnt = sizeof(mc_vers) / sizeof(int);
 

@@ -101,20 +101,6 @@ static const StructureConfig BASTION_CONFIG        = { 30084232, 27,  4, Bastion
 static const StructureConfig END_CITY_CONFIG       = { 10387313, 20,  9, End_City, LARGE_STRUCT};
 
 
-//==============================================================================
-// Biome Tables
-//==============================================================================
-
-static const int achievementBiomes_1_7[] =
-{
-        ocean, plains, desert, extremeHills, forest, taiga, swampland, river, /*hell, sky,*/ // 0-9
-        /*frozenOcean,*/ frozenRiver, icePlains, iceMountains, mushroomIsland, mushroomIslandShore, beach, desertHills, forestHills, taigaHills,  // 10-19
-        /*extremeHillsEdge,*/ jungle, jungleHills, jungleEdge, deepOcean, stoneBeach, coldBeach, birchForest, birchForestHills, roofedForest, // 20-29
-        coldTaiga, coldTaigaHills, megaTaiga, megaTaigaHills, extremeHillsPlus, savanna, savannaPlateau, mesa, mesaPlateau_F, mesaPlateau // 30-39
-};
-
-
-
 STRUCT(Pos)
 {
     int x, z;
@@ -522,7 +508,7 @@ Pos findBiomePosition(
  * and mansions.
  * Warning: accurate, but slow!
  *
- * @l          : entry layer with scale = 4: (L_RIVER_MIX_4, L13_OCEAN_MIX_4)
+ * @l          : entry layer with scale = 4: [L_RIVER_MIX_4|L13_OCEAN_MIX_4]
  * @cache      : biome buffer, set to NULL for temporary allocation
  * @posX, posZ : centre for the check
  * @radius     : 'radius' of the check area
@@ -536,26 +522,6 @@ int areBiomesViable(
         const int           radius,
         const char *        isValid
         );
-
-/* Finds the smallest radius (by square around the origin) at which all the
- * specified biomes are present. The input map is assumed to be a square of
- * side length 'sideLen'.
- *
- * @map             : square biome map to be tested
- * @sideLen         : side length of the square map (should be 2*radius+1)
- * @biomes          : list of biomes to check for
- * @bnum            : length of 'biomes'
- * @ignoreMutations : flag to count mutated biomes as their original form
- *
- * Return the radius on the square map that covers all biomes in the list.
- * If the map does not contain all the specified biomes, -1 is returned.
- */
-int getBiomeRadius(
-        const int *     map,
-        const int       mapSide,
-        const int *     biomes,
-        const int       bnum,
-        const int       ignoreMutations);
 
 
 //==============================================================================
@@ -587,7 +553,8 @@ Pos initFirstStronghold(StrongholdIter *sh, int mc, int64_t s48);
  */
 int nextStronghold(StrongholdIter *sh, const LayerStack *g, int *cache);
 
-/* Finds the block positions of the strongholds in the world. Note that the
+/* deprecated - use initFirstStronghold() and nextStronghold() instead
+ * Finds the block positions of the strongholds in the world. Note that the
  * number of strongholds was increased from 3 to 128 in MC 1.9.
  * Warning: Slow!
  *
@@ -602,6 +569,7 @@ int nextStronghold(StrongholdIter *sh, const LayerStack *g, int *cache);
  *
  * Returned is the number of strongholds found.
  */
+__attribute__((deprecated))
 int findStrongholds(
         const int           mcversion,
         const LayerStack *  g,
@@ -616,21 +584,21 @@ int findStrongholds(
  * Warning: Slow, and may be inaccurate because the world spawn depends on
  * grass blocks!
  *
- * @mcversion : Minecraft version (changed in 1.7, 1.13)
+ * @mc        : Minecraft version (changed in 1.7, 1.13)
  * @g         : generator layer stack [worldSeed should be applied before call!]
  * @cache     : biome buffer, set to NULL for temporary allocation
  * @worldSeed : world seed used for the generator
  */
-Pos getSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t worldSeed);
+Pos getSpawn(const int mc, const LayerStack *g, int *cache, int64_t worldSeed);
 
 /* Finds the approximate spawn point in the world.
  *
- * @mcversion : Minecraft version (changed in 1.7, 1.13)
+ * @mc        : Minecraft version (changed in 1.7, 1.13)
  * @g         : generator layer stack [worldSeed should be applied before call!]
  * @cache     : biome buffer, set to NULL for temporary allocation
  * @worldSeed : world seed used for the generator
  */
-Pos estimateSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t worldSeed);
+Pos estimateSpawn(const int mc, const LayerStack *g, int *cache, int64_t worldSeed);
 
 
 //==============================================================================
@@ -717,7 +685,7 @@ BiomeFilter setupBiomeFilter(const int *biomeList, int listLen);
  * @seed        : world seed
  * @x,z,w,h     : requested area
  * @filter      : biomes to be checked for
- * @protoCheck  : enables more aggressive filtering when non-zero
+ * @protoCheck  : enables more aggressive filtering when non-zero (MC >= 1.7)
  */
 int checkForBiomes(
         LayerStack *    g,
@@ -738,8 +706,17 @@ int checkForBiomes(
  * if (tc[TEMP_CAT] <  0) avoid, there shall be no entries of this category
  * TEMP_CAT is any of:
  * Oceanic, Warm, Lush, Cold, Freeing, Special+Warm, Special+Lush, Special+Cold
+ * For 1.7+ only.
  */
 int checkForTemps(LayerStack *g, int64_t seed, int x, int z, int w, int h, const int tc[9]);
+
+/* Checks if a biome may generate given a version and layer ID as entry point.
+ * The supported layers are:
+ * L_BIOME_256, L_BAMBOO_256, L_BIOME_EDGE_64, L_HILLS_64, L_SUNFLOWER_64,
+ * L_SHORE_16, L_RIVER_MIX_4, L_OCEAN_MIX_4, L_VORONOI_1
+ * (provided the version matches)
+ */
+int canBiomeGenerate(int layerId, int mc, int biomeID);
 
 /* Given a biome 'id' at a generation 'layer', this functions finds which
  * biomes may generate from it. The result is stored in the bitfields:
@@ -747,7 +724,6 @@ int checkForTemps(LayerStack *g, int64_t seed, int x, int z, int w, int h, const
  * mM : for ids 128-192
  */
 void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id);
-
 
 //==============================================================================
 // Implementaions for Functions that Ideally Should be Inlined
