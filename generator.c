@@ -189,9 +189,9 @@ static void setupGeneratorImpl(LayerStack *g, int mc, int largeBiomes)
 
     g->entry_1 = p;
     g->entry_4 = g->layers + (mc <= MC_1_12 ? L_RIVER_MIX_4 : L_OCEAN_MIX_4);
-    g->shore_16 = g->layers + L_SHORE_16;
-    g->hills_64 = g->layers + (mc <= MC_1_7 ? L_HILLS_64 : L_SUNFLOWER_64);
-    g->biome_256 = g->layers + (mc <= MC_1_14 ? L_BIOME_256 : L_BAMBOO_256);
+    g->entry_16 = g->layers + (mc <= MC_1_6 ? L_SWAMP_RIVER_16 : L_SHORE_16);
+    g->entry_64 = g->layers + (mc <= MC_1_7 ? L_HILLS_64 : L_SUNFLOWER_64);
+    g->entry_256 = g->layers + (mc <= MC_1_14 ? L_BIOME_256 : L_BAMBOO_256);
     setupScale(g->entry_1, 1);
 }
 

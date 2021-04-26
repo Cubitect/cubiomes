@@ -2742,7 +2742,8 @@ int canBiomeGenerate(int layerId, int mc, int id)
 
     if (!dofilter && layerId != L_VORONOI_1)
     {
-        printf("canBiomeGenerate(): unsupported layer or version\n");
+        printf("canBiomeGenerate(): unsupported layer (%d) or version (%d)\n",
+            layerId, mc);
         return 0;
     }
     return isOverworld(mc, id);
@@ -2753,7 +2754,7 @@ int canBiomeGenerate(int layerId, int mc, int id)
 void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
 {
     // filter out bad biomes
-    if (layer >= L_BIOME_256 && !canBiomeGenerate(mc, layer, id))
+    if (layer >= L_BIOME_256 && !canBiomeGenerate(layer, mc, id))
         return;
 
     switch (layer)
@@ -2964,8 +2965,10 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
     case L_SHORE_16: // biomes added in (L_SHORE_16, L_RIVER_MIX_4]
         if (id == snowy_tundra)
             genPotential(mL, mM, L_RIVER_MIX_4, mc, frozen_river);
-        if (id == mushroom_fields || id == mushroom_field_shore)
+        else if (id == mushroom_fields || id == mushroom_field_shore)
             genPotential(mL, mM, L_RIVER_MIX_4, mc, mushroom_field_shore);
+        else if (id != ocean && (mc < MC_1_7 || !isOceanic(id)))
+            genPotential(mL, mM, L_RIVER_MIX_4, mc, river);
         genPotential(mL, mM, L_RIVER_MIX_4, mc, id);
         break;
 

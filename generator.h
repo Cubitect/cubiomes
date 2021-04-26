@@ -77,9 +77,10 @@ STRUCT(LayerStack)
     Layer layers[L_NUM];
     Layer *entry_1;     // entry scale (1:1) [L_VORONOI_1]
     Layer *entry_4;     // entry scale (1:4) [L_RIVER_MIX_4|L_OCEAN_MIX_4]
-    Layer *shore_16;    // useful entry for (1:16) [L_SHORE_16]
-    Layer *hills_64;    // useful entry for (1:64) [L_HILLS_64|L_SUNFLOWER_64]
-    Layer *biome_256;   // useful entry for (1:256) [L_BIOME_256|L_BAMBOO_256]
+    // unofficial entries for other scales (latest sensible layers):
+    Layer *entry_16;    // [L_SWAMP_RIVER_16|L_SHORE_16]
+    Layer *entry_64;    // [L_HILLS_64|L_SUNFLOWER_64]
+    Layer *entry_256;   // [L_BIOME_256|L_BAMBOO_256]
     PerlinNoise oceanRnd;
 };
 
