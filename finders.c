@@ -75,75 +75,101 @@ void setAttemptSeed(int64_t *s, int cx, int cz)
     next(s, 31);
 }
 
-int getStructurePos(int structureType, int mc, int64_t seed, int regX, int regZ, Pos *pos)
+int getConfig(int structureType, int mc, StructureConfig *sconf)
 {
-    StructureConfig sconf;
     switch (structureType)
     {
     case Feature:
-        if (mc > MC_1_12) return 0;
-        sconf = FEATURE_CONFIG;
-        goto L_feature;
+        *sconf = FEATURE_CONFIG;
+        return mc <= MC_1_12;
     case Desert_Pyramid:
-        sconf = mc <= MC_1_12 ? DESERT_PYRAMID_CONFIG_112 : DESERT_PYRAMID_CONFIG;
-        goto L_feature;
+        *sconf = mc <= MC_1_12 ? DESERT_PYRAMID_CONFIG_112 : DESERT_PYRAMID_CONFIG;
+        return mc >= MC_1_3;
     case Jungle_Pyramid:
-        sconf = mc <= MC_1_12 ? JUNGLE_PYRAMID_CONFIG_112 : JUNGLE_PYRAMID_CONFIG;
-        goto L_feature;
+        *sconf = mc <= MC_1_12 ? JUNGLE_PYRAMID_CONFIG_112 : JUNGLE_PYRAMID_CONFIG;
+        return mc >= MC_1_3;
     case Swamp_Hut:
-        sconf = mc <= MC_1_12 ? SWAMP_HUT_CONFIG_112 : SWAMP_HUT_CONFIG;
-        goto L_feature;
+        *sconf = mc <= MC_1_12 ? SWAMP_HUT_CONFIG_112 : SWAMP_HUT_CONFIG;
+        return mc >= MC_1_4;
     case Igloo:
-        if (mc < MC_1_9) return 0;
-        sconf = mc <= MC_1_12 ? IGLOO_CONFIG_112 : IGLOO_CONFIG;
-        goto L_feature;
+        *sconf = mc <= MC_1_12 ? IGLOO_CONFIG_112 : IGLOO_CONFIG;
+        return mc >= MC_1_9;
     case Village:
-        sconf = VILLAGE_CONFIG;
-        goto L_feature;
+        *sconf = VILLAGE_CONFIG;
+        return 1;
     case Ocean_Ruin:
-        if (mc < MC_1_13) return 0;
-        sconf = mc <= MC_1_15 ? OCEAN_RUIN_CONFIG_115 : OCEAN_RUIN_CONFIG;
-        goto L_feature;
+        *sconf = mc <= MC_1_15 ? OCEAN_RUIN_CONFIG_115 : OCEAN_RUIN_CONFIG;
+        return mc >= MC_1_13;
     case Shipwreck:
-        if (mc < MC_1_13) return 0;
-        sconf = mc <= MC_1_15 ? SHIPWRECK_CONFIG_115 : SHIPWRECK_CONFIG;
-        goto L_feature;
+        *sconf = mc <= MC_1_15 ? SHIPWRECK_CONFIG_115 : SHIPWRECK_CONFIG;
+        return mc >= MC_1_13;
     case Ruined_Portal:
-        if (mc < MC_1_16) return 0;
-        sconf = RUINED_PORTAL_CONFIG;
-L_feature:
+        *sconf = RUINED_PORTAL_CONFIG;
+        return mc >= MC_1_16;
+    case Monument:
+        *sconf = MONUMENT_CONFIG;
+        return mc >= MC_1_8;
+    case End_City:
+        *sconf = END_CITY_CONFIG;
+        return mc >= MC_1_9;
+    case Mansion:
+        *sconf = MANSION_CONFIG;
+        return mc >= MC_1_11;
+    case Outpost:
+        *sconf = OUTPOST_CONFIG;
+        return mc >= MC_1_14;
+    case Treasure:
+        *sconf = TREASURE_CONFIG;
+        return mc >= MC_1_13;
+    case Fortress:
+        *sconf = FORTRESS_CONFIG;
+        return 1;
+    case Bastion:
+        *sconf = FORTRESS_CONFIG;
+        return mc >= MC_1_16;
+    default:
+        memset(sconf, 0, sizeof(StructureConfig));
+        return 0;
+    }
+}
+
+int getStructurePos(int structureType, int mc, int64_t seed, int regX, int regZ, Pos *pos)
+{
+    StructureConfig sconf;
+    if (!getConfig(structureType, mc, &sconf))
+        return 0;
+
+    switch (structureType)
+    {
+    case Feature:
+    case Desert_Pyramid:
+    case Jungle_Pyramid:
+    case Swamp_Hut:
+    case Igloo:
+    case Village:
+    case Ocean_Ruin:
+    case Shipwreck:
+    case Ruined_Portal:
         *pos = getFeaturePos(sconf, seed, regX, regZ);
         return 1;
 
     case Monument:
-        if (mc < MC_1_8) return 0;
-        sconf = MONUMENT_CONFIG;
-        goto L_large_struct;
     case End_City:
-        if (mc < MC_1_9) return 0;
-        sconf = END_CITY_CONFIG;
-        goto L_large_struct;
     case Mansion:
-        if (mc < MC_1_11) return 0;
-        sconf = MANSION_CONFIG;
-L_large_struct:
         *pos = getLargeStructurePos(sconf, seed, regX, regZ);
         return 1;
 
     case Outpost:
-        if (mc < MC_1_14) return 0;
-        *pos = getFeaturePos(OUTPOST_CONFIG, seed, regX, regZ);
+        *pos = getFeaturePos(sconf, seed, regX, regZ);
         setAttemptSeed(&seed, (pos->x) >> 4, (pos->z) >> 4);
         return nextInt(&seed, 5) == 0;
 
     case Treasure:
-        if (mc < MC_1_13) return 0;
         pos->x = (regX << 4) + 9;
         pos->z = (regZ << 4) + 9;
         return isTreasureChunk(seed, regX, regZ);
 
     case Fortress:
-        sconf = FORTRESS_CONFIG;
         if (mc < MC_1_16) {
             setAttemptSeed(&seed, regX << 4, regZ << 4);
             int valid = nextInt(&seed, 3) == 0;
@@ -158,8 +184,6 @@ L_large_struct:
         }
 
     case Bastion:
-        if (mc < MC_1_16) return 0;
-        sconf = BASTION_CONFIG;
         setSeed(&seed, regX*341873128712 + regZ*132897987541 + seed + sconf.salt);
         pos->x = (regX * sconf.regionSize + nextInt(&seed, 24)) << 4;
         pos->z = (regZ * sconf.regionSize + nextInt(&seed, 24)) << 4;
@@ -1740,7 +1764,7 @@ L_feature:
 
     default:
         fprintf(stderr,
-                "isViableStructurePos: validation for structure type %d not implemented",
+                "isViableStructurePos: validation for structure type %d not implemented\n",
                 structureType);
         goto L_not_viable;
     }

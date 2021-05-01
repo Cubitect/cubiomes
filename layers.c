@@ -698,7 +698,8 @@ void setEndSeed(EndNoise *en, int64_t seed)
     perlinInit(en, &s);
 }
 
-__attribute__(( optimize("unroll-loops") ))
+// TODO: compiler independent unroll
+//__attribute__(( optimize("unroll-loops") ))
 static int getEndBiome(int hx, int hz, const uint16_t *hmap, int hw)
 {
     int i, j;
@@ -1582,7 +1583,7 @@ const int snowBiomes[] = {snowy_tundra, snowy_tundra, snowy_tundra, snowy_taiga}
 
 const int oldBiomes[] = { desert, forest, mountains, swamp, plains, taiga, jungle };
 const int oldBiomes11[] = { desert, forest, mountains, swamp, plains, taiga };
-const int lushBiomesBE[] = {forest, dark_forest, mountains, plains, plains, plains, birch_forest, swamp};
+//const int lushBiomesBE[] = {forest, dark_forest, mountains, plains, plains, plains, birch_forest, swamp};
 
 int mapBiome(const Layer * l, int * out, int x, int z, int w, int h)
 {

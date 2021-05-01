@@ -266,6 +266,11 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt);
 //==============================================================================
 
 
+/* Selects the structure configuration for a given version. Returns zero upon
+ * failure (e.g. version does not support structure type).
+ */
+int getConfig(int structureType, int mc, StructureConfig *sconf);
+
 /* Finds the block position of the structure generation attempt in a given
  * region. You can use isViableStructurePos() to test if the necessary biome
  * requirements are met for the structure to actually generate at that position.
@@ -281,12 +286,6 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt);
  * Returns zero if the position is invalid, or non-zero otherwise.
  */
 int getStructurePos(int structureType, int mc, int64_t seed, int regX, int regZ, Pos *pos);
-
-/* Selects the structure configuration for a given version. The return value is
- * undefined if the structure type does not generate in the provided version.
- */
-static inline __attribute__((const))
-StructureConfig getConfig(int structureType, int mc);
 
 /* The inline functions below get the generation attempt position given a
  * structure configuration. Most small structures use the getFeature..
@@ -734,53 +733,6 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id);
 //==============================================================================
 // Implementaions for Functions that Ideally Should be Inlined
 //==============================================================================
-
-
-static inline __attribute__((const))
-StructureConfig getConfig(int structureType, int mc)
-{
-    switch (structureType)
-    {
-    case Desert_Pyramid:
-        if (mc <= MC_1_12) return DESERT_PYRAMID_CONFIG_112;
-        return DESERT_PYRAMID_CONFIG;
-    case Jungle_Pyramid:
-        if (mc <= MC_1_12) return JUNGLE_PYRAMID_CONFIG_112;
-        return JUNGLE_PYRAMID_CONFIG;
-    case Swamp_Hut:
-        if (mc <= MC_1_12) return SWAMP_HUT_CONFIG_112;
-        return SWAMP_HUT_CONFIG;
-    case Igloo:
-        if (mc <= MC_1_12) return IGLOO_CONFIG_112;
-        return IGLOO_CONFIG;
-    case Village:
-        return VILLAGE_CONFIG;
-    case Ocean_Ruin:
-        if (mc <= MC_1_15) return OCEAN_RUIN_CONFIG_115;
-        return OCEAN_RUIN_CONFIG;
-    case Shipwreck:
-        if (mc <= MC_1_15) return SHIPWRECK_CONFIG_115;
-        return SHIPWRECK_CONFIG;
-    case Monument:
-        return MONUMENT_CONFIG;
-    case Mansion:
-        return MANSION_CONFIG;
-    case Outpost:
-        return OUTPOST_CONFIG;
-    case Ruined_Portal:
-        return RUINED_PORTAL_CONFIG;
-    case Treasure:
-        return TREASURE_CONFIG;
-    case Fortress:
-        return FORTRESS_CONFIG;
-    case Bastion:
-        return BASTION_CONFIG;
-    case End_City:
-        return END_CITY_CONFIG;
-    default:
-        return FEATURE_CONFIG;
-    }
-}
 
 
 static inline __attribute__((const))
