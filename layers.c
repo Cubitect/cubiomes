@@ -698,8 +698,6 @@ void setEndSeed(EndNoise *en, int64_t seed)
     perlinInit(en, &s);
 }
 
-// TODO: compiler independent unroll
-//__attribute__(( optimize("unroll-loops") ))
 static int getEndBiome(int hx, int hz, const uint16_t *hmap, int hw)
 {
     int i, j;
@@ -722,16 +720,16 @@ static int getEndBiome(int hx, int hz, const uint16_t *hmap, int hw)
 
     for (j = 0; j < 25; j++)
     {
-        uint16_t hdsj = p_dsj[j];
-        for (i = 0; i < 25; i++)
+        uint16_t dsj = p_dsj[j];
+        uint16_t e;
+        uint32_t u;
+        for (i = 0; i < 25; i += 5)
         {
-            uint16_t elev = p_elev[i];
-            if (elev)
-            {
-                uint32_t hds = (p_dsi[i] + (uint32_t)hdsj) * elev;
-                if (hds < h)
-                    h = hds;
-            }
+            if (U(e = p_elev[i+0]) && (u = (p_dsi[i+0] + (uint32_t)dsj) * e) < h) h = u;
+            if (U(e = p_elev[i+1]) && (u = (p_dsi[i+1] + (uint32_t)dsj) * e) < h) h = u;
+            if (U(e = p_elev[i+2]) && (u = (p_dsi[i+2] + (uint32_t)dsj) * e) < h) h = u;
+            if (U(e = p_elev[i+3]) && (u = (p_dsi[i+3] + (uint32_t)dsj) * e) < h) h = u;
+            if (U(e = p_elev[i+4]) && (u = (p_dsi[i+4] + (uint32_t)dsj) * e) < h) h = u;
         }
         p_elev += hw;
     }

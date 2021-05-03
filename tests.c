@@ -1,6 +1,10 @@
 #include "finders.h"
 #include "util.h"
 
+#include <time.h>
+#include <float.h>
+#include <stdlib.h>
+
 uint32_t hash32(uint32_t x)
 {
     x ^= x >> 15;
@@ -9,6 +13,59 @@ uint32_t hash32(uint32_t x)
     x *= 0xaf723597;
     x ^= x >> 15;
     return x;
+}
+
+double now()
+{
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return t.tv_sec + t.tv_nsec * 1e-9;
+}
+
+/* Runs a performance test using function f(). The function should take a
+ * number of trial runs and a data argument [dat], and return an arbitrary
+ * consumable value (useful to avoid ommission by optimization).
+ * The minimum and mean times for a trial run will be stored in tmin and tavg.
+ * The benchmark aims to take just over one second.
+ * Returned is the total number of trials performed.
+ */
+int64_t
+benchmark(int64_t (*f)(int64_t n, void*), void *dat, double *tmin, double *tavg)
+{
+    const double maxt = 1.0;
+    const double mintt = 1e-2;
+    int64_t cnt = 0;
+    int64_t ntt = 1;
+    int64_t consume = 0;
+    double t, _tavg = 0, _tmin = DBL_MAX;
+
+    for (ntt = 1; ; ntt *= 2)
+    {
+        t = -now();
+        consume ^= f(ntt, dat);
+        t += now();
+        if (t >= mintt)
+            break;
+    }
+    do
+    {
+        t = -now();
+        consume ^= f(ntt, dat);
+        t += now();
+        cnt++;
+        _tavg += t;
+        if (t < _tmin)
+            _tmin = t;
+    }
+    while (_tavg < maxt);
+
+    cnt *= ntt;
+    if (tmin) *tmin = _tmin / ntt;
+    if (tavg) *tavg = _tavg / cnt;
+
+    static volatile int64_t v_consume;
+    v_consume ^= consume;
+    return cnt;
 }
 
 uint32_t getRef(int mc, int bits, const char *path)
@@ -67,7 +124,7 @@ int testBiomeGen1x1(const int *mc, const uint32_t *expect, int bits, int cnt)
     return ok;
 }
 
-int main()
+int testOverworldBiomes()
 {
     const int mc_vers[] = {
         MC_1_16, MC_1_15, MC_1_13, MC_1_12, MC_1_9, MC_1_7,
@@ -91,6 +148,66 @@ int main()
     if (!testBiomeGen1x1(mc_vers, b10_hashes, 10, testcnt))
         return -1;
 
+    return 0;
+}
+
+
+int gw = 16, gh = 16;
+
+int64_t testPerfEnd(int64_t n, void *data)
+{
+    EndNoise *en = (EndNoise*) data;
+    int ids[gw*gh];
+    int64_t r = 0;
+
+    while (n-->0)
+    {
+        int x = rand() % 10000 - 5000;
+        int z = rand() % 10000 - 5000;
+        mapEndBiome(en, ids, x, z, gw, gh);
+        r ^= ids[0];
+    }
+    return r;
+}
+
+int64_t testPerfNether(int64_t n, void *data)
+{
+    NetherNoise *nn = (NetherNoise*) data;
+    int ids[gw*gh];
+    int64_t r = 0;
+
+    while (n-->0)
+    {
+        int x = rand() % 10000 - 5000;
+        int z = rand() % 10000 - 5000;
+        mapNether2D(nn, ids, x, z, gw, gh);
+        r ^= ids[0];
+    }
+    return r;
+}
+
+int testPerformance()
+{
+    double tmin, tavg;
+
+    EndNoise en;
+    setEndSeed(&en, 12345);
+    benchmark(testPerfEnd, &en, &tmin, &tavg);
+    printf("End %dx%d    -> min:%10.0lf ns | avg:%10.0lf ns | conf:%4.2lf %%\n",
+        gw, gh, 1e9*tmin, 1e9*tavg, 100 * (tavg-tmin) / (tavg+tmin));
+
+    NetherNoise nn;
+    setNetherSeed(&nn, 12345);
+    benchmark(testPerfNether, &nn, &tmin, &tavg);
+    printf("Nether %dx%d -> min:%10.0lf ns | avg:%10.0lf ns | conf:%4.2lf %%\n",
+        gw, gh, 1e9*tmin, 1e9*tavg, 100 * (tavg-tmin) / (tavg+tmin));
+}
+
+
+int main()
+{
+    //testOverworldBiomes();
+    testPerformance();
     return 0;
 }
 
