@@ -1795,23 +1795,10 @@ int isViableNetherStructurePos(int structureType, int mc, NetherNoise *nn,
     return isViableFeatureBiome(mc, structureType, biomeID);
 }
 
-
-/* Given bordering noise columns and a fractional position between those,
- * determine the surface block height (i.e. where the interpolated noise > 0).
- * Note that the noise columns should be of size: ncolxz[ colheight+1 ]
- */
-int getSurfaceHeight(
-        const double ncol00[], const double ncol01[],
-        const double ncol10[], const double ncol11[], int colheight,
-        int blockspercell, double dx, double dz);
-
-void sampleNoiseColumnEnd(double column[33], const SurfaceNoise *sn,
-        const EndNoise *en, int x, int z);
-
-int isViableEndCityPos(int mc, EndNoise *en, SurfaceNoise *sn,
+int isViableEndStructurePos(int structureType, int mc, EndNoise *en,
         int64_t seed, int blockX, int blockZ)
 {
-    if (mc < MC_1_9)
+    if (structureType != End_City || mc < MC_1_9)
         return 0;
 
     setEndSeed(en, seed);
@@ -1819,84 +1806,99 @@ int isViableEndCityPos(int mc, EndNoise *en, SurfaceNoise *sn,
     // end biomes vary only on a per-chunk scale (1:16)
     // voronoi shouldn't matter as the check will be near the chunk center
     int id;
-    int chunkX = blockX >> 4, chunkZ = blockZ >> 4;
+    int chunkX = blockX >> 4;
+    int chunkZ = blockZ >> 4;
     mapEndBiome(en, &id, chunkX, chunkZ, 1, 1);
-    if (!isViableFeatureBiome(mc, End_City, id))
-        return 0;
+    return isViableFeatureBiome(mc, End_City, id) ? id : 0;
+}
 
-    if (!sn)
-        return 1;
+/* Given bordering noise columns and a fractional position between those,
+ * determine the surface block height (i.e. where the interpolated noise > 0).
+ * Note that the noise columns should be of size: ncolxz[ colheight+1 ]
+ */
+int getSurfaceHeight(
+        const double ncol00[], const double ncol01[],
+        const double ncol10[], const double ncol11[],
+        int colymin, int colymax, int blockspercell, double dx, double dz);
 
-    initSurfaceNoiseEnd(sn, seed);
+void sampleNoiseColumnEnd(double column[], const SurfaceNoise *sn,
+        const EndNoise *en, int x, int z, int colymin, int colymax);
 
+int isViableEndCityTerrain(const EndNoise *en, const SurfaceNoise *sn,
+        int blockX, int blockZ)
+{
+    int chunkX = blockX >> 4;
+    int chunkZ = blockZ >> 4;
     blockX = (chunkX << 4) + 7;
     blockZ = (chunkZ << 4) + 7;
     int cellx = (blockX >> 3);
     int cellz = (blockZ >> 3);
-    double ncol[3][3][33];
+    // TODO: make sure upper bound is ok
+    const int y0 = 15, y1 = 18; // only check range that could yield h >= 60
+    double ncol[3][3][y1-y0+1];
 
-    sampleNoiseColumnEnd(ncol[0][0], sn, en, cellx, cellz);
-    sampleNoiseColumnEnd(ncol[0][1], sn, en, cellx, cellz+1);
-    sampleNoiseColumnEnd(ncol[1][0], sn, en, cellx+1, cellz);
-    sampleNoiseColumnEnd(ncol[1][1], sn, en, cellx+1, cellz+1);
+    sampleNoiseColumnEnd(ncol[0][0], sn, en, cellx, cellz, y0, y1);
+    sampleNoiseColumnEnd(ncol[0][1], sn, en, cellx, cellz+1, y0, y1);
+    sampleNoiseColumnEnd(ncol[1][0], sn, en, cellx+1, cellz, y0, y1);
+    sampleNoiseColumnEnd(ncol[1][1], sn, en, cellx+1, cellz+1, y0, y1);
 
     int h00, h01, h10, h11;
     h00 = getSurfaceHeight(ncol[0][0], ncol[0][1], ncol[1][0], ncol[1][1],
-        32, 4, (blockX & 7) / 8.0, (blockZ & 7) / 8.0);
+            y0, y1, 4, (blockX & 7) / 8.0, (blockZ & 7) / 8.0);
 
     int64_t cs;
     setSeed(&cs, chunkX + chunkZ * 10387313LL);
     switch (nextInt(&cs, 4))
     {
     case 0: // (++) 0
-        sampleNoiseColumnEnd(ncol[0][2], sn, en, cellx+0, cellz+2);
-        sampleNoiseColumnEnd(ncol[1][2], sn, en, cellx+1, cellz+2);
-        sampleNoiseColumnEnd(ncol[2][0], sn, en, cellx+2, cellz+0);
-        sampleNoiseColumnEnd(ncol[2][1], sn, en, cellx+2, cellz+1);
-        sampleNoiseColumnEnd(ncol[2][1], sn, en, cellx+2, cellz+2);
+        sampleNoiseColumnEnd(ncol[0][2], sn, en, cellx+0, cellz+2, y0, y1);
+        sampleNoiseColumnEnd(ncol[1][2], sn, en, cellx+1, cellz+2, y0, y1);
+        sampleNoiseColumnEnd(ncol[2][0], sn, en, cellx+2, cellz+0, y0, y1);
+        sampleNoiseColumnEnd(ncol[2][1], sn, en, cellx+2, cellz+1, y0, y1);
+        sampleNoiseColumnEnd(ncol[2][2], sn, en, cellx+2, cellz+2, y0, y1);
         h01 = getSurfaceHeight(ncol[0][1], ncol[0][2], ncol[1][1], ncol[1][2],
-                32, 4, ((blockX    ) & 7) / 8.0, ((blockZ + 5) & 7) / 8.0);
+                y0, y1, 4, ((blockX    ) & 7) / 8.0, ((blockZ + 5) & 7) / 8.0);
         h10 = getSurfaceHeight(ncol[1][0], ncol[1][1], ncol[2][0], ncol[2][1],
-                32, 4, ((blockX + 5) & 7) / 8.0, ((blockZ    ) & 7) / 8.0);
+                y0, y1, 4, ((blockX + 5) & 7) / 8.0, ((blockZ    ) & 7) / 8.0);
         h11 = getSurfaceHeight(ncol[1][1], ncol[1][2], ncol[2][1], ncol[2][2],
-                32, 4, ((blockX + 5) & 7) / 8.0, ((blockZ + 5) & 7) / 8.0);
+                y0, y1, 4, ((blockX + 5) & 7) / 8.0, ((blockZ + 5) & 7) / 8.0);
         break;
 
     case 1: // (-+) 90
-        sampleNoiseColumnEnd(ncol[0][2], sn, en, cellx+0, cellz+2);
-        sampleNoiseColumnEnd(ncol[1][2], sn, en, cellx+1, cellz+2);
+        sampleNoiseColumnEnd(ncol[0][2], sn, en, cellx+0, cellz+2, y0, y1);
+        sampleNoiseColumnEnd(ncol[1][2], sn, en, cellx+1, cellz+2, y0, y1);
         h01 = getSurfaceHeight(ncol[0][1], ncol[0][2], ncol[1][1], ncol[1][2],
-                32, 4, ((blockX    ) & 7) / 8.0, ((blockZ + 5) & 7) / 8.0);
+                y0, y1, 4, ((blockX    ) & 7) / 8.0, ((blockZ + 5) & 7) / 8.0);
         h10 = getSurfaceHeight(ncol[0][0], ncol[0][1], ncol[1][0], ncol[1][1],
-                32, 4, ((blockX - 5) & 7) / 8.0, ((blockZ    ) & 7) / 8.0);
+                y0, y1, 4, ((blockX - 5) & 7) / 8.0, ((blockZ    ) & 7) / 8.0);
         h11 = getSurfaceHeight(ncol[0][1], ncol[0][2], ncol[1][1], ncol[1][2],
-                32, 4, ((blockX - 5) & 7) / 8.0, ((blockZ + 5) & 7) / 8.0);
+                y0, y1, 4, ((blockX - 5) & 7) / 8.0, ((blockZ + 5) & 7) / 8.0);
         break;
 
     case 2: // (--) 180
         h01 = getSurfaceHeight(ncol[0][0], ncol[0][1], ncol[1][0], ncol[1][1],
-                32, 4, ((blockX    ) & 7) / 8.0, ((blockZ - 5) & 7) / 8.0);
+                y0, y1, 4, ((blockX    ) & 7) / 8.0, ((blockZ - 5) & 7) / 8.0);
         h10 = getSurfaceHeight(ncol[0][0], ncol[0][1], ncol[1][0], ncol[1][1],
-                32, 4, ((blockX - 5) & 7) / 8.0, ((blockZ    ) & 7) / 8.0);
+                y0, y1, 4, ((blockX - 5) & 7) / 8.0, ((blockZ    ) & 7) / 8.0);
         h11 = getSurfaceHeight(ncol[0][0], ncol[0][1], ncol[1][0], ncol[1][1],
-                32, 4, ((blockX - 5) & 7) / 8.0, ((blockZ - 5) & 7) / 8.0);
+                y0, y1, 4, ((blockX - 5) & 7) / 8.0, ((blockZ - 5) & 7) / 8.0);
         break;
 
     case 3: // (+-) 270
-        sampleNoiseColumnEnd(ncol[2][0], sn, en, cellx+2, cellz+0);
-        sampleNoiseColumnEnd(ncol[2][1], sn, en, cellx+2, cellz+1);
+        sampleNoiseColumnEnd(ncol[2][0], sn, en, cellx+2, cellz+0, y0, y1);
+        sampleNoiseColumnEnd(ncol[2][1], sn, en, cellx+2, cellz+1, y0, y1);
         h01 = getSurfaceHeight(ncol[0][0], ncol[0][1], ncol[1][0], ncol[1][1],
-                32, 4, ((blockX    ) & 7) / 8.0, ((blockZ - 5) & 7) / 8.0);
+                y0, y1, 4, ((blockX    ) & 7) / 8.0, ((blockZ - 5) & 7) / 8.0);
         h10 = getSurfaceHeight(ncol[1][0], ncol[1][1], ncol[2][0], ncol[2][1],
-                32, 4, ((blockX + 5) & 7) / 8.0, ((blockZ    ) & 7) / 8.0);
+                y0, y1, 4, ((blockX + 5) & 7) / 8.0, ((blockZ    ) & 7) / 8.0);
         h11 = getSurfaceHeight(ncol[1][0], ncol[1][1], ncol[2][0], ncol[2][1],
-                32, 4, ((blockX + 5) & 7) / 8.0, ((blockZ - 5) & 7) / 8.0);
+                y0, y1, 4, ((blockX + 5) & 7) / 8.0, ((blockZ - 5) & 7) / 8.0);
         break;
 
     default:
         return 0; // error
     }
-
+    //printf("%d %d %d %d\n", h00, h01, h10, h11);
     if (h01 < h00) h00 = h01;
     if (h10 < h00) h00 = h10;
     if (h11 < h00) h00 = h11;

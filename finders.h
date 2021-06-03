@@ -627,13 +627,19 @@ int isViableStructurePos(int structureType, int mc, LayerStack *g,
         int64_t seed, int blockX, int blockZ);
 int isViableNetherStructurePos(int structureType, int mc, NetherNoise *nn,
         int64_t seed, int blockX, int blockZ);
-int isViableEndCityPos(int mc, EndNoise *en, SurfaceNoise *sn,
+int isViableEndStructurePos(int structureType, int mc, EndNoise *en,
         int64_t seed, int blockX, int blockZ);
 
 /* Checks if the specified structure type could generate in the given biome.
  */
 int isViableFeatureBiome(int mc, int structureType, int biomeID);
 
+/* End Cities require a sufficiently high surface in addition to a biome check.
+ * The world seed should be applied to the EndNoise and SurfaceNoise before
+ * calling this function. (Use initSurfaceNoiseEnd() for initialization.)
+ */
+int isViableEndCityTerrain(const EndNoise *en, const SurfaceNoise *sn,
+        int blockX, int blockZ);
 
 //==============================================================================
 // Finding Properties of Structures

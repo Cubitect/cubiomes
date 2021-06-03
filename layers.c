@@ -946,42 +946,43 @@ float getEndHeightNoise(const EndNoise *en, int x, int z)
     return ret;
 }
 
-void sampleNoiseColumnEnd(double column[33], const SurfaceNoise *sn,
-        const EndNoise *en, int x, int z)
+void sampleNoiseColumnEnd(double column[], const SurfaceNoise *sn,
+        const EndNoise *en, int x, int z, int colymin, int colymax)
 {
     double depth = getEndHeightNoise(en, x, z) - 8.0f;
     int y;
-    for (y = 0; y <= 32; y++)
+    for (y = colymin; y <= colymax; y++)
     {
         double noise = sampleSurfaceNoise(sn, x, y, z);
         noise += depth; // falloff for the End is just the depth
         // clamp top and bottom slides from End settings
         noise = clampedLerp((32 + 46 - y) / 64.0, -3000, noise);
         noise = clampedLerp((y - 1) / 7.0, -30, noise);
-        column[y] = noise;
+        column[y - colymin] = noise;
     }
 }
 
 /* Given bordering noise columns and a fractional position between those,
  * determine the surface block height (i.e. where the interpolated noise > 0).
- * Note that the noise columns should be of size: ncolxz[ colheight+1 ]
+ * Note that the noise columns should be of size: ncolxz[ colymax-colymin+1 ]
  */
 int getSurfaceHeight(
         const double ncol00[], const double ncol01[],
-        const double ncol10[], const double ncol11[], int colheight,
-        int blockspercell, double dx, double dz)
+        const double ncol10[], const double ncol11[],
+        int colymin, int colymax, int blockspercell, double dx, double dz)
 {
     int y, celly;
-    for (celly = colheight-1; celly >= 0; celly--)
+    for (celly = colymax-1; celly >= colymin; celly--)
     {
-        double v000 = ncol00[celly];
-        double v001 = ncol01[celly];
-        double v100 = ncol10[celly];
-        double v101 = ncol11[celly];
-        double v010 = ncol00[celly+1];
-        double v011 = ncol01[celly+1];
-        double v110 = ncol10[celly+1];
-        double v111 = ncol11[celly+1];
+        int idx = celly - colymin;
+        double v000 = ncol00[idx];
+        double v001 = ncol01[idx];
+        double v100 = ncol10[idx];
+        double v101 = ncol11[idx];
+        double v010 = ncol00[idx+1];
+        double v011 = ncol01[idx+1];
+        double v110 = ncol10[idx+1];
+        double v111 = ncol11[idx+1];
 
         for (y = blockspercell - 1; y >= 0; y--)
         {
@@ -1013,16 +1014,17 @@ int getSurfaceHeightEnd(int mc, int64_t seed, int x, int z)
     double dx = (x & 7) / 8.0;
     double dz = (z & 7) / 8.0;
 
-    double ncol00[33];
-    double ncol01[33];
-    double ncol10[33];
-    double ncol11[33];
-    sampleNoiseColumnEnd(ncol00, &sn, &en, cellx, cellz);
-    sampleNoiseColumnEnd(ncol01, &sn, &en, cellx, cellz+1);
-    sampleNoiseColumnEnd(ncol10, &sn, &en, cellx+1, cellz);
-    sampleNoiseColumnEnd(ncol11, &sn, &en, cellx+1, cellz+1);
+    const int y0 = 0, y1 = 32, yn = y1-y0+1;
+    double ncol00[yn];
+    double ncol01[yn];
+    double ncol10[yn];
+    double ncol11[yn];
+    sampleNoiseColumnEnd(ncol00, &sn, &en, cellx, cellz, y0, y1);
+    sampleNoiseColumnEnd(ncol01, &sn, &en, cellx, cellz+1, y0, y1);
+    sampleNoiseColumnEnd(ncol10, &sn, &en, cellx+1, cellz, y0, y1);
+    sampleNoiseColumnEnd(ncol11, &sn, &en, cellx+1, cellz+1, y0, y1);
 
-    return getSurfaceHeight(ncol00, ncol01, ncol10, ncol11, 32, 4, dx, dz);
+    return getSurfaceHeight(ncol00, ncol01, ncol10, ncol11, y0, y1, 4, dx, dz);
 }
 
 
