@@ -142,13 +142,19 @@ STRUCT(PerlinNoise)
     double a, b, c;
 };
 
+STRUCT(OctaveNoise)
+{
+    double lacuna;
+    double persist;
+    int octcnt;
+    PerlinNoise *octaves;
+};
+
 STRUCT(DoublePerlinNoise)
 {
     double amplitude;
-    double lacuna[2];
-    double persist[2];
-    PerlinNoise *octaves[2];
-    int octcnt;
+    OctaveNoise octA;
+    OctaveNoise octB;
 };
 
 struct Layer;
@@ -184,6 +190,15 @@ STRUCT(NetherNoise)
 
 typedef PerlinNoise EndNoise;
 
+STRUCT(SurfaceNoise)
+{
+    double xzScale, yScale;
+    double xzFactor, yFactor;
+    OctaveNoise octmin;
+    OctaveNoise octmax;
+    OctaveNoise octmain;
+    PerlinNoise oct[16+16+8];
+};
 
 #ifdef __cplusplus
 extern "C"
@@ -205,13 +220,24 @@ void setLayerSeed(Layer *layer, int64_t worldSeed);
 //==============================================================================
 
 void perlinInit(PerlinNoise *rnd, int64_t *seed);
-double samplePerlin(const PerlinNoise *rnd, double x, double y, double z);
+double samplePerlin(const PerlinNoise *rnd, double x, double y, double z,
+        double yamp, double ymin);
 double sampleSimplex2D(const PerlinNoise *rnd, double x, double y);
+
+void octaveInit(OctaveNoise *rnd, int64_t *seed, PerlinNoise *octaves,
+        int omin, int len);
+double sampleOctave(const OctaveNoise *rnd, double x, double y, double z);
 
 void doublePerlinInit(DoublePerlinNoise *rnd, int64_t *seed,
         PerlinNoise *octavesA, PerlinNoise *octavesB, int omin, int len);
 double sampleDoublePerlin(const DoublePerlinNoise *rnd,
         double x, double y, double z);
+
+void initSurfaceNoise(SurfaceNoise *rnd, int64_t *seed,
+        double xzScale, double yScale, double xzFactor, double yFactor);
+void initSurfaceNoiseEnd(SurfaceNoise *rnd, int64_t seed);
+double sampleSurfaceNoise(const SurfaceNoise *rnd, int x, int y, int z);
+
 
 //==============================================================================
 // Nether (1.16+) and End (1.9+) Biome Generation
@@ -251,6 +277,7 @@ int mapNether3D(const NetherNoise *nn, int *out, int x, int z, int w, int h, int
 void setEndSeed(EndNoise *en, int64_t seed);
 int mapEndBiome(const EndNoise *en, int *out, int x, int z, int w, int h);
 int mapEnd(const EndNoise *en, int *out, int x, int z, int w, int h);
+int getSurfaceHeightEnd(int mc, int64_t seed, int x, int z);
 
 //==============================================================================
 // Seed Helpers

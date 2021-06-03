@@ -365,6 +365,32 @@ static double lerp(double part, double from, double to)
     return from + part * (to - from);
 }
 
+static double lerp2(double dx, double dy, double v00, double v10, double v01, double v11)
+{
+    return lerp(dy, lerp(dx, v00, v10), lerp(dx, v01, v11));
+}
+
+static double lerp3(double dx, double dy, double dz,
+        double v000, double v100, double v010, double v110,
+        double v001, double v101, double v011, double v111)
+{
+    v000 = lerp2(dx, dy, v000, v100, v010, v110);
+    v001 = lerp2(dx, dy, v001, v101, v011, v111);
+    return lerp(dz, v000, v001);
+}
+
+static double clampedLerp(double part, double from, double to)
+{
+    if (part <= 0) return from;
+    if (part >= 1) return to;
+    return lerp(part, from, to);
+}
+
+static double maintainPrecision(double x)
+{
+    return x - floor(x / 33554432.0 + 0.5) * 33554432.0;
+}
+
 /* Table of vectors to cube edge centres (12 + 4 extra) */
 const double cEdgeX[] = {1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 0.0, 0.0, 0.0, 0.0,  1.0, 0.0,-1.0, 0.0};
 const double cEdgeY[] = {1.0, 1.0,-1.0,-1.0, 0.0, 0.0, 0.0, 0.0, 1.0,-1.0, 1.0,-1.0,  1.0,-1.0, 1.0,-1.0};
@@ -376,6 +402,7 @@ static double indexedLerp(int idx, double d1, double d2, double d3)
     idx &= 0xf;
     return cEdgeX[idx] * d1 + cEdgeY[idx] * d2 + cEdgeZ[idx] * d3;
 }
+
 
 void perlinInit(PerlinNoise *rnd, int64_t *seed)
 {
@@ -400,7 +427,8 @@ void perlinInit(PerlinNoise *rnd, int64_t *seed)
 }
 
 
-double samplePerlin(const PerlinNoise *rnd, double d1, double d2, double d3)
+double samplePerlin(const PerlinNoise *rnd, double d1, double d2, double d3,
+        double yamp, double ymin)
 {
     d1 += rnd->a;
     d2 += rnd->b;
@@ -414,6 +442,12 @@ double samplePerlin(const PerlinNoise *rnd, double d1, double d2, double d3)
     double t1 = d1*d1*d1 * (d1 * (d1*6.0-15.0) + 10.0);
     double t2 = d2*d2*d2 * (d2 * (d2*6.0-15.0) + 10.0);
     double t3 = d3*d3*d3 * (d3 * (d3*6.0-15.0) + 10.0);
+
+    if (yamp)
+    {
+        double yclamp = ymin < d2 ? ymin : d2;
+        d2 -= floor(yclamp / yamp) * yamp;
+    }
 
     i1 &= 0xff;
     i2 &= 0xff;
@@ -486,59 +520,62 @@ double sampleSimplex2D(const PerlinNoise *rnd, double x, double y)
 }
 
 
-void doublePerlinInit(DoublePerlinNoise *rnd, int64_t *seed,
-        PerlinNoise *octavesA, PerlinNoise *octavesB, int omin, int len)
+void octaveInit(OctaveNoise *rnd, int64_t *seed, PerlinNoise *octaves,
+        int omin, int len)
 {
-    if (len < 1 || omin+len > 0)
+    int end = omin+len-1;
+    int i;
+    if (len < 1 || end > 0)
     {
-        printf("doublePerlinInit(): unsupported octave range\n");
+        printf("octavePerlinInit(): unsupported octave range\n");
         return;
     }
-    rnd->octaves[0] = octavesA;
-    rnd->octaves[1] = octavesB;
+    rnd->octaves = octaves;
     rnd->octcnt = len;
 
-    rnd->amplitude = (10.0 / 6.0) * len / (len + 1);
-
-    int ab, i;
-    for (ab = 0; ab < 2; ab++)
+    if (end == 0)
     {
-        // octave zero is initialized first
-        if (omin <= 0 && omin+len > 0)
-            perlinInit(&rnd->octaves[ab][-omin], seed);
-        else
-            skipNextN(seed, 262);
-
-        if (omin+len < 0)
-            skipNextN(seed, -(omin+len) * 262);
-        for (i = 0; i < len; i++)
-            if (i+omin < 0)
-                perlinInit(&rnd->octaves[ab][i], seed);
-
-        rnd->persist[ab] = pow(2.0, omin+len - 1);
-        rnd->lacuna[ab] = 1.0 / ((1LL << len) - 1.0);
+        perlinInit(&rnd->octaves[0], seed);
+        i = 1;
     }
+    else
+    {
+        skipNextN(seed, -end*262);
+        i = 0;
+    }
+    for (; i < len; i++)
+    {
+        perlinInit(&rnd->octaves[i], seed);
+    }
+    rnd->persist = pow(2.0, end);
+    rnd->lacuna = 1.0 / ((1LL << len) - 1.0);
 }
 
-
-static double sampleOctave(const PerlinNoise *octaves, int len,
-        double x, double y, double z, double persist, double lacuna)
+double sampleOctave(const OctaveNoise *rnd, double x, double y, double z)
 {
+    double persist = rnd->persist;
+    double lacuna = rnd->lacuna;
     double v = 0;
     int i;
-    for (i = 0; i < len; i++)
+    for (i = 0; i < rnd->octcnt; i++)
     {
-        double ax = x * persist;
-        double ay = y * persist;
-        double az = z * persist;
-        ax -= floor(ax / 33554432.0 + 0.5) * 33554432.0;
-        ay -= floor(ay / 33554432.0 + 0.5) * 33554432.0;
-        az -= floor(az / 33554432.0 + 0.5) * 33554432.0;
-        v += lacuna * samplePerlin(octaves+i, ax, ay, az);
+        double ax = maintainPrecision(x * persist);
+        double ay = maintainPrecision(y * persist);
+        double az = maintainPrecision(z * persist);
+        v += lacuna * samplePerlin(rnd->octaves+i, ax, ay, az, 0, 0);
         persist *= 0.5;
         lacuna *= 2.0;
     }
     return v;
+}
+
+
+void doublePerlinInit(DoublePerlinNoise *rnd, int64_t *seed,
+        PerlinNoise *octavesA, PerlinNoise *octavesB, int omin, int len)
+{   // require: len >= 1 && omin+len <= 0
+    rnd->amplitude = (10.0 / 6.0) * len / (len + 1);
+    octaveInit(&rnd->octA, seed, octavesA, omin, len);
+    octaveInit(&rnd->octB, seed, octavesB, omin, len);
 }
 
 double sampleDoublePerlin(const DoublePerlinNoise *rnd,
@@ -547,13 +584,70 @@ double sampleDoublePerlin(const DoublePerlinNoise *rnd,
     const double f = 337.0 / 331.0;
     double v = 0;
 
-    v += sampleOctave(rnd->octaves[0], rnd->octcnt, x,   y,   z,
-        rnd->persist[0], rnd->lacuna[0]);
-
-    v += sampleOctave(rnd->octaves[1], rnd->octcnt, x*f, y*f, z*f,
-        rnd->persist[1], rnd->lacuna[1]);
+    v += sampleOctave(&rnd->octA, x, y, z);
+    v += sampleOctave(&rnd->octB, x*f, y*f, z*f);
 
     return v * rnd->amplitude;
+}
+
+
+void initSurfaceNoise(SurfaceNoise *rnd, int64_t *seed,
+        double xzScale, double yScale, double xzFactor, double yFactor)
+{
+    rnd->xzScale = xzScale;
+    rnd->yScale = yScale;
+    rnd->xzFactor = xzFactor;
+    rnd->yFactor = yFactor;
+    octaveInit(&rnd->octmin, seed, rnd->oct+0, -15, 16);
+    octaveInit(&rnd->octmax, seed, rnd->oct+16, -15, 16);
+    octaveInit(&rnd->octmain, seed, rnd->oct+32, -7, 8);
+}
+
+void initSurfaceNoiseEnd(SurfaceNoise *rnd, int64_t seed)
+{
+    int64_t s;
+    setSeed(&s, seed);
+    initSurfaceNoise(rnd, &s, 2.0, 1.0, 80.0, 160.0);
+}
+
+double sampleSurfaceNoise(const SurfaceNoise *rnd, int x, int y, int z)
+{
+    double xzScale = 684.412 * rnd->xzScale;
+    double yScale = 684.412 * rnd->yScale;
+    double xzStep = xzScale / rnd->xzFactor;
+    double yStep = yScale / rnd->yFactor;
+
+    double minNoise = 0;
+    double maxNoise = 0;
+    double mainNoise = 0;
+    double persist = 1.0;
+    double dx, dy, dz, sy, ty;
+    int i;
+
+    for (i = 0; i < 16; i++)
+    {
+        dx = maintainPrecision(x * xzScale * persist);
+        dy = maintainPrecision(y * yScale  * persist);
+        dz = maintainPrecision(z * xzScale * persist);
+        sy = yScale * persist;
+        ty = y * sy;
+
+        minNoise += samplePerlin(&rnd->octmin.octaves[i], dx, dy, dz, sy, ty) / persist;
+        maxNoise += samplePerlin(&rnd->octmax.octaves[i], dx, dy, dz, sy, ty) / persist;
+
+        if (i < 8)
+        {
+            dx = maintainPrecision(x * xzStep * persist);
+            dy = maintainPrecision(y * yStep  * persist);
+            dz = maintainPrecision(z * xzStep * persist);
+            sy = yStep * persist;
+            ty = y * sy;
+            mainNoise += samplePerlin(&rnd->octmain.octaves[i], dx, dy, dz, sy, ty) / persist;
+        }
+        persist /= 2.0;
+    }
+
+    return clampedLerp(0.5 + 0.05*mainNoise, minNoise/512.0, maxNoise/512.0);
 }
 
 
@@ -816,6 +910,122 @@ int mapEnd(const EndNoise *en, int *out, int x, int z, int w, int h)
     free(buf);
     return 0;
 }
+
+float getEndHeightNoise(const EndNoise *en, int x, int z)
+{
+    int hx = x / 2;
+    int hz = z / 2;
+    int oddx = x % 2;
+    int oddz = z % 2;
+    int i, j;
+
+    int64_t h = 64 * (x*(int64_t)x + z*(int64_t)z);
+
+    for (j = -12; j <= 12; j++)
+    {
+        for (i = -12; i <= 12; i++)
+        {
+            int64_t rx = hx + i;
+            int64_t rz = hz + j;
+            uint16_t v = 0;
+            if (rx*rx + rz*rz > 4096 && sampleSimplex2D(en, rx, rz) < -0.9f)
+            {
+                v = (llabs(rx) * 3439 + llabs(rz) * 147) % 13 + 9;
+                rx = (oddx - i * 2);
+                rz = (oddz - j * 2);
+                int64_t noise = (rx*rx + rz*rz) * v*v;
+                if (noise < h)
+                    h = noise;
+            }
+        }
+    }
+
+    float ret = 100 - sqrtf((float) h);
+    if (ret < -100) ret = -100;
+    if (ret > 80) ret = 80;
+    return ret;
+}
+
+void sampleNoiseColumnEnd(double column[33], const SurfaceNoise *sn,
+        const EndNoise *en, int x, int z)
+{
+    double depth = getEndHeightNoise(en, x, z) - 8.0f;
+    int y;
+    for (y = 0; y <= 32; y++)
+    {
+        double noise = sampleSurfaceNoise(sn, x, y, z);
+        noise += depth; // falloff for the End is just the depth
+        // clamp top and bottom slides from End settings
+        noise = clampedLerp((32 + 46 - y) / 64.0, -3000, noise);
+        noise = clampedLerp((y - 1) / 7.0, -30, noise);
+        column[y] = noise;
+    }
+}
+
+/* Given bordering noise columns and a fractional position between those,
+ * determine the surface block height (i.e. where the interpolated noise > 0).
+ * Note that the noise columns should be of size: ncolxz[ colheight+1 ]
+ */
+int getSurfaceHeight(
+        const double ncol00[], const double ncol01[],
+        const double ncol10[], const double ncol11[], int colheight,
+        int blockspercell, double dx, double dz)
+{
+    int y, celly;
+    for (celly = colheight-1; celly >= 0; celly--)
+    {
+        double v000 = ncol00[celly];
+        double v001 = ncol01[celly];
+        double v100 = ncol10[celly];
+        double v101 = ncol11[celly];
+        double v010 = ncol00[celly+1];
+        double v011 = ncol01[celly+1];
+        double v110 = ncol10[celly+1];
+        double v111 = ncol11[celly+1];
+
+        for (y = blockspercell - 1; y >= 0; y--)
+        {
+            double dy = y / (double) blockspercell;
+            double noise = lerp3(dy, dx, dz, // Note: not x, y, z
+                v000, v010, v100, v110,
+                v001, v011, v101, v111);
+            if (noise > 0)
+                return celly * blockspercell + y;
+        }
+    }
+
+    return 0;
+}
+
+int getSurfaceHeightEnd(int mc, int64_t seed, int x, int z)
+{
+    (void) mc;
+
+    EndNoise en;
+    setEndSeed(&en, seed);
+
+    SurfaceNoise sn;
+    initSurfaceNoiseEnd(&sn, seed);
+
+    // end noise columns vary on a grid of cell size = eight
+    int cellx = (x >> 3);
+    int cellz = (z >> 3);
+    double dx = (x & 7) / 8.0;
+    double dz = (z & 7) / 8.0;
+
+    double ncol00[33];
+    double ncol01[33];
+    double ncol10[33];
+    double ncol11[33];
+    sampleNoiseColumnEnd(ncol00, &sn, &en, cellx, cellz);
+    sampleNoiseColumnEnd(ncol01, &sn, &en, cellx, cellz+1);
+    sampleNoiseColumnEnd(ncol10, &sn, &en, cellx+1, cellz);
+    sampleNoiseColumnEnd(ncol11, &sn, &en, cellx+1, cellz+1);
+
+    return getSurfaceHeight(ncol00, ncol01, ncol10, ncol11, 32, 4, dx, dz);
+}
+
+
 
 //==============================================================================
 // Layers
@@ -2351,7 +2561,7 @@ int mapOceanTemp(const Layer * l, int * out, int x, int z, int w, int h)
     {
         for (i = 0; i < w; i++)
         {
-            double tmp = samplePerlin(rnd, (i + x) / 8.0, (j + z) / 8.0, 0);
+            double tmp = samplePerlin(rnd, (i + x) / 8.0, (j + z) / 8.0, 0, 0, 0);
 
             if (tmp > 0.4)
                 out[i + j*w] = warm_ocean;

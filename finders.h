@@ -627,7 +627,8 @@ int isViableStructurePos(int structureType, int mc, LayerStack *g,
         int64_t seed, int blockX, int blockZ);
 int isViableNetherStructurePos(int structureType, int mc, NetherNoise *nn,
         int64_t seed, int blockX, int blockZ);
-// TODO: viability checks for end cities
+int isViableEndCityPos(int mc, EndNoise *en, SurfaceNoise *sn,
+        int64_t seed, int blockX, int blockZ);
 
 /* Checks if the specified structure type could generate in the given biome.
  */
@@ -726,7 +727,7 @@ int canBiomeGenerate(int layerId, int mc, int biomeID);
 /* Given a biome 'id' at a generation 'layer', this functions finds which
  * biomes may generate from it. The result is stored in the bitfields:
  * mL : for ids 0-63
- * mM : for ids 128-192
+ * mM : for ids 128-191
  */
 void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id);
 
