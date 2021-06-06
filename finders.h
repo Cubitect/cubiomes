@@ -96,8 +96,9 @@ static const StructureConfig RUINED_PORTAL_CONFIG  = { 34222645, 40, 25, Ruined_
 static const StructureConfig TREASURE_CONFIG       = { 10387320,  1,  1, Treasure, CHUNK_STRUCT};
 
 // nether and end structures
-static const StructureConfig FORTRESS_CONFIG       = { 30084232, 27,  4, Fortress, 0};
-static const StructureConfig BASTION_CONFIG        = { 30084232, 27,  4, Bastion, 0};
+static const StructureConfig FORTRESS_CONFIG_115   = {        0, 16,  8, Fortress, 0};
+static const StructureConfig FORTRESS_CONFIG       = { 30084232, 27, 23, Fortress, 0};
+static const StructureConfig BASTION_CONFIG        = { 30084232, 27, 23, Bastion, 0};
 static const StructureConfig END_CITY_CONFIG       = { 10387313, 20,  9, End_City, LARGE_STRUCT};
 
 

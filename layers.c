@@ -52,6 +52,9 @@ int biomeExists(int mc, int id)
         return mc >= MC_1_14;
     case soul_sand_valley...basalt_deltas:
         return mc >= MC_1_16;
+    case dripstone_caves:
+    case lush_caves:
+        return mc >= MC_1_17;
     default:
         return 0;
     }
@@ -78,6 +81,8 @@ int isOverworld(int mc, int id)
     case tall_birch_hills:
         return mc <= MC_1_8 || mc >= MC_1_11;
     case soul_sand_valley...basalt_deltas:
+        return 0;
+    case dripstone_caves...lush_caves:
         return 0;
     }
     return 1;
@@ -743,16 +748,22 @@ static void fillRad3D(int *out, int x, int z, int w, int h, int y, int yh, int i
     }
 }
 
-int mapNether3D(const NetherNoise *nn, int *out, int x, int z, int w, int h, int y, int yh, float confidence)
+int mapNether3D(const NetherNoise *nn, int *out, int x, int z, int w, int h,
+        int y, int yh, int scale, float confidence)
 {
     int i, j, k;
     memset(out, 0, sizeof(int) * yh*w*h);
+
+    if (scale < 4)
+        scale = 1;
+    else
+        scale /= 4;
 
     // The noisedelta is the distance between the first and second closest
     // biomes within the noise space. Dividing this by the greatest possible
     // gradient (~0.05) gives a minimum diameter of voxels around the sample
     // cell that will have the same biome.
-    float invgrad = 1.0 / (confidence * 0.05 * 2);
+    float invgrad = 1.0 / (confidence * 0.05 * 2) / scale;
 
     for (k = 0; k < yh; k++)
     {
@@ -768,7 +779,8 @@ int mapNether3D(const NetherNoise *nn, int *out, int x, int z, int w, int h, int
                 //continue;
 
                 float noisedelta;
-                int v = getNetherBiome(nn, x+i, y+k, z+j, &noisedelta);
+                int xi = (x+i)*scale, yk = (y+k)*scale, zj = (z+j)*scale;
+                int v = getNetherBiome(nn, xi, yk, zj, &noisedelta);
                 yout[j*w+i] = v;
                 float cellrad = noisedelta * invgrad;
                 fillRad3D(out, i, j, w, h, k, yh, v, cellrad);
@@ -780,7 +792,7 @@ int mapNether3D(const NetherNoise *nn, int *out, int x, int z, int w, int h, int
 
 int mapNether2D(const NetherNoise *nn, int *out, int x, int z, int w, int h)
 {
-    return mapNether3D(nn, out, x, z, w, h, 0, 1, 1.0);
+    return mapNether3D(nn, out, x, z, w, h, 0, 1, 4, 1.0);
 }
 
 
@@ -1026,7 +1038,6 @@ int getSurfaceHeightEnd(int mc, int64_t seed, int x, int z)
 
     return getSurfaceHeight(ncol00, ncol01, ncol10, ncol11, y0, y1, 4, dx, dz);
 }
-
 
 
 //==============================================================================

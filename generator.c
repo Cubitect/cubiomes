@@ -268,3 +268,170 @@ int genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, i
 
 
 
+int genNetherScaled(int mc, int64_t seed, int scale, int *out,
+        int x, int z, int w, int h, int y0, int y1)
+{
+    if (!scale || (scale & (scale-1)) || (scale & ~0x55))
+        return 1; // scale is not a power of 4 <= 64
+
+    if (mc < MC_1_16)
+    {
+        int siz = w*h*(y1-y0+1);
+        for (int i = 0; i < siz; i++)
+            out[i] = nether_wastes;
+        return 0;
+    }
+
+    NetherNoise nn;
+    setNetherSeed(&nn, seed);
+
+    if (scale == 1)
+    {
+        if (y0 != 0 || y1 != 0)
+        {
+            printf("getNetherScaled(): volume voronoi not implemented yet\n");
+            return 1;
+        }
+
+        int vx = x - 2;
+        int vz = z - 2;
+        int pX = vx >> 2;
+        int pZ = vz >> 2;
+        int pW = ((vx + w) >> 2) - pX + 2;
+        int pH = ((vz + h) >> 2) - pZ + 2;
+
+        int err = mapNether2D(&nn, out, pX, pZ, pW, pH);
+        if (err)
+            return err;
+        Layer lvoronoi = {};
+        lvoronoi.startSalt = getVoronoiSHA(seed);
+        return mapVoronoi(&lvoronoi, out, x, z, w, h);
+    }
+    else
+    {
+        return mapNether3D(&nn, out, x, z, w, h, y0, y1+1, scale, 1.0);
+    }
+}
+
+
+int genEndScaled(int mc, int64_t seed, int scale, int *out,
+        int x, int z, int w, int h)
+{
+    if (!scale || (scale & (scale-1)) || (scale & ~0x55))
+        return 1; // scale is not a power of 4 <= 64
+
+    if (mc < MC_1_9)
+    {
+        int siz = w*h;
+        for (int i = 0; i < siz; i++)
+            out[i] = the_end;
+        return 0;
+    }
+
+    EndNoise en;
+    setEndSeed(&en, seed);
+
+    if (scale == 1)
+    {
+        int vx = x - 2;
+        int vz = z - 2;
+        int pX = vx >> 2;
+        int pZ = vz >> 2;
+        int pW = ((vx + w) >> 2) - pX + 2;
+        int pH = ((vz + h) >> 2) - pZ + 2;
+
+        int err = mapEnd(&en, out, pX, pZ, pW, pH);
+        if (err)
+            return err;
+        Layer lvoronoi = {};
+        if (mc >= MC_1_15)
+        {
+            lvoronoi.startSalt = getVoronoiSHA(seed);
+            return mapVoronoi(&lvoronoi, out, x, z, w, h);
+        }
+        else
+        {
+            lvoronoi.startSalt = getLayerSalt(10);
+            return mapVoronoi114(&lvoronoi, out, x, z, w, h);
+        }
+    }
+    else if (scale == 4)
+    {
+        return mapEnd(&en, out, x, z, w, h);
+    }
+    else if (scale == 16)
+    {
+        return mapEndBiome(&en, out, x, z, w, h);
+    }
+    else if (scale == 64)
+    {
+        int i, j, di, dj;
+        int r = 4;
+        int hw = (2+w) * r + 1;
+        int hh = (2+h) * r + 1;
+        int16_t *hmap = (int16_t*) calloc(hw*hh, sizeof(*hmap));
+
+        for (j = 0; j < h; j++)
+        {
+            for (i = 0; i < w; i++)
+            {
+                int64_t hx = (i+x) * r;
+                int64_t hz = (j+z) * r;
+                if (hx*hx + hz*hz <= 4096L)
+                {
+                    out[j*w+i] = the_end;
+                    continue;
+                }
+
+                int64_t h = 64*16*16;
+
+                for (dj = -r; dj < r; dj++)
+                {
+                    for (di = -r; di < r; di++)
+                    {
+                        int64_t rx = hx + di;
+                        int64_t rz = hz + dj;
+                        int hi = i*r + di+r;
+                        int hj = j*r + dj+r;
+                        int16_t *p = &hmap[hj*hw + hi];
+                        if (*p == 0)
+                        {
+                            if (sampleSimplex2D(&en, rx, rz) < -0.9f)
+                            {
+                                *p = (llabs(rx) * 3439 + llabs(rz) * 147) % 13 + 9;
+                                *p *= *p;
+                            }
+                            else
+                            {
+                                *p = -1;
+                            }
+                        }
+
+                        if (*p > 0)
+                        {
+                            int64_t noise = 4*(di*di + dj*dj) * (*p);
+                            if (noise < h)
+                                h = noise;
+                        }
+                    }
+                }
+
+                if (h < 3600)
+                    out[j*w+i] = end_highlands;
+                else if (h <= 10000)
+                    out[j*w+i] = end_midlands;
+                else if (h <= 14400)
+                    out[j*w+i] = end_barrens;
+                else
+                    out[j*w+i] = small_end_islands;
+            }
+        }
+        free(hmap);
+    }
+    return 1;
+}
+
+
+
+
+

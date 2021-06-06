@@ -83,10 +83,10 @@ We can also generate the biomes for a rectangular region using `getArea()` which
 
 int main()
 {
-    unsigned char biomeColours[256][3];
+    unsigned char biomeColors[256][3];
 
-    // Initialize a colour map for biomes.
-    initBiomeColours(biomeColours);
+    // Initialize a color map for biomes.
+    initBiomeColors(biomeColors);
 
     // Initialize a stack of biome layers.
     LayerStack g;
@@ -109,7 +109,7 @@ int main()
     genArea(layer, biomeIds, areaX, areaZ, areaWidth, areaHeight);
 
     // Map the biomes to a color buffer and save to an image.
-    biomesToImage(rgb, biomeColours, biomeIds, areaWidth, areaHeight, scale, 2);
+    biomesToImage(rgb, biomeColors, biomeIds, areaWidth, areaHeight, scale, 2);
     savePPM("biomes_at_layer.ppm", rgb, imgWidth, imgHeight);
 
     // Clean up.

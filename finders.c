@@ -122,10 +122,10 @@ int getConfig(int structureType, int mc, StructureConfig *sconf)
         *sconf = TREASURE_CONFIG;
         return mc >= MC_1_13;
     case Fortress:
-        *sconf = FORTRESS_CONFIG;
+        *sconf = mc <= MC_1_15 ? FORTRESS_CONFIG_115 : FORTRESS_CONFIG;
         return 1;
     case Bastion:
-        *sconf = FORTRESS_CONFIG;
+        *sconf = BASTION_CONFIG;
         return mc >= MC_1_16;
     default:
         memset(sconf, 0, sizeof(StructureConfig));
@@ -154,10 +154,13 @@ int getStructurePos(int structureType, int mc, int64_t seed, int regX, int regZ,
         return 1;
 
     case Monument:
-    case End_City:
     case Mansion:
         *pos = getLargeStructurePos(sconf, seed, regX, regZ);
         return 1;
+
+    case End_City:
+        *pos = getLargeStructurePos(sconf, seed, regX, regZ);
+        return (pos->x*(int64_t)pos->x + pos->z*(int64_t)pos->z) >= 1008*1008LL;
 
     case Outpost:
         *pos = getFeaturePos(sconf, seed, regX, regZ);
@@ -178,15 +181,15 @@ int getStructurePos(int structureType, int mc, int64_t seed, int regX, int regZ,
             return valid;
         } else {
             setSeed(&seed, regX*341873128712 + regZ*132897987541 + seed + sconf.salt);
-            pos->x = (regX * sconf.regionSize + nextInt(&seed, 24)) << 4;
-            pos->z = (regZ * sconf.regionSize + nextInt(&seed, 24)) << 4;
+            pos->x = (regX * sconf.regionSize + nextInt(&seed, sconf.chunkRange)) << 4;
+            pos->z = (regZ * sconf.regionSize + nextInt(&seed, sconf.chunkRange)) << 4;
             return nextInt(&seed, 5) < 2;
         }
 
     case Bastion:
         setSeed(&seed, regX*341873128712 + regZ*132897987541 + seed + sconf.salt);
-        pos->x = (regX * sconf.regionSize + nextInt(&seed, 24)) << 4;
-        pos->z = (regZ * sconf.regionSize + nextInt(&seed, 24)) << 4;
+        pos->x = (regX * sconf.regionSize + nextInt(&seed, sconf.chunkRange)) << 4;
+        pos->z = (regZ * sconf.regionSize + nextInt(&seed, sconf.chunkRange)) << 4;
         return nextInt(&seed, 5) >= 2;
 
     default:

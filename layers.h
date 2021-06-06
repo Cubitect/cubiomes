@@ -30,7 +30,7 @@ enum MCversion
 {
     MC_1_0, MC_1_1, MC_1_2, MC_1_3, MC_1_4, MC_1_5, MC_1_6, //<1.7 Experimental!
     MC_1_7, MC_1_8, MC_1_9, MC_1_10, MC_1_11, MC_1_12, MC_1_13, MC_1_14,
-    MC_1_15, MC_1_16,
+    MC_1_15, MC_1_16, MC_1_17,
 };
 
 enum BiomeID
@@ -127,6 +127,9 @@ enum BiomeID
     crimson_forest                  = 171,
     warped_forest                   = 172,
     basalt_deltas                   = 173,
+    // 1.17
+    dripstone_caves                 = 174,
+    lush_caves                      = 175,
 };
 
 
@@ -266,7 +269,8 @@ double sampleSurfaceNoise(const SurfaceNoise *rnd, int x, int y, int z);
 void setNetherSeed(NetherNoise *nn, int64_t seed);
 int getNetherBiome(const NetherNoise *nn, int x, int y, int z, float *ndel);
 int mapNether2D(const NetherNoise *nn, int *out, int x, int z, int w, int h);
-int mapNether3D(const NetherNoise *nn, int *out, int x, int z, int w, int h, int y, int yh, float confidence);
+int mapNether3D(const NetherNoise *nn, int *out, int x, int z, int w, int h,
+        int y, int yh, int scale, float confidence);
 
 /**
  * End biome generation is based on simplex noise and varies only at a 1:16
@@ -278,6 +282,7 @@ void setEndSeed(EndNoise *en, int64_t seed);
 int mapEndBiome(const EndNoise *en, int *out, int x, int z, int w, int h);
 int mapEnd(const EndNoise *en, int *out, int x, int z, int w, int h);
 int getSurfaceHeightEnd(int mc, int64_t seed, int x, int z);
+
 
 //==============================================================================
 // Seed Helpers

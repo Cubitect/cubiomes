@@ -124,6 +124,22 @@ void applySeed(LayerStack *g, int64_t seed);
 int genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, int areaHeight);
 
 
+/* Generate nether or end biomes at scales: 1:1, 1:4, 1:16, or 1:64
+ * @mc          minecaft version
+ * @seed        world seed
+ * @scale       mapping scale of output, has to be one of 1, 4, 16, or 64
+ * @out         output buffer, out[yi*w*h + zi*w + xi], size = w*h*(y1-y0+1)
+ *              for voronoi (scale=1) add 7 to each dimension as buffer
+ * @x,z,w,h     planar area
+ * @y0,y1       min and max vertical dimensions (inclusive)
+ * @return      zero upon success
+ */
+int genNetherScaled(int mc, int64_t seed, int scale, int *out,
+        int x, int z, int w, int h, int y0, int y1);
+int genEndScaled(int mc, int64_t seed, int scale, int *out,
+        int x, int z, int w, int h);
+
+
 #ifdef __cplusplus
 }
 #endif
