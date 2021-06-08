@@ -74,7 +74,7 @@ $ ./a.out
 Seed 615 has a Junge Edge biome at block position (0, 0).
 ```
 
-We can also generate the biomes for a rectangular region using `getArea()` which also offers control over the entry layer, see the layer documentation for more information.
+We can also generate the biomes for a rectangular region using `genArea()` which also offers control over the entry layer, see the layer documentation for more information.
 
 ```C
 // generate an image of the world
@@ -128,7 +128,7 @@ There is a reference document for the generator layers which contains a summary 
 
 #### Biome Filters
 
-Biome filters provide a way of generating an area, but only if that area contains certain biomes. Rather than generating first and then checking that the area contains what we want, the requirements are tested during the generation process. This can be a dramatic speed up, particularly if we require several wildly different biomes.
+Biome filters provide a way of generating an area, but only if that area contains certain biomes. Rather than generating an area first and then checking that it contains what we want, the requirements are tested during the generation process. This can be a dramatic speed up, particularly if we require several wildly different biomes.
 
 ```C
 // find seeds that have certain biomes near the origin
@@ -152,7 +152,7 @@ int main()
     filter = setupBiomeFilter(wanted, sizeof(wanted) / sizeof(int));
 
     int x = -200, z = -200, w = 400, h = 400;
-    int entry = L_VORONOI_ZOOM_1;
+    int entry = L_VORONOI_1;
     int *area = allocCache(&g.layers[entry], w, h);
 
     printf("Searching...\n");
