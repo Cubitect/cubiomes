@@ -270,7 +270,17 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt);
 /* Selects the structure configuration for a given version. Returns zero upon
  * failure (e.g. version does not support structure type).
  */
-int getConfig(int structureType, int mc, StructureConfig *sconf);
+int getStructureConfig(int structureType, int mc, StructureConfig *sconf);
+
+/* The library can be compiled to use a custom internal getter for structure
+ * configurations. For this, the macro STRUCT_CONFIG_OVERRIDE should be defined
+ * as true and the function getStructureConfig_override() should be defined 
+ * with a custom function body. However, note this is experimental and not all
+ * structure configs may work. (Ideally only change structure salts.)
+ */
+#if STRUCT_CONFIG_OVERRIDE
+int getStructureConfig_override(int stype, int mc, StructureConfig *sconf);
+#endif
 
 /* Finds the block position of the structure generation attempt in a given
  * region. You can use isViableStructurePos() to test if the necessary biome
@@ -310,7 +320,6 @@ Pos getLargeStructureChunkInRegion(StructureConfig config, int64_t seed, int reg
  * or at (2,2) with layer scale=4 from 1.16 onwards.
  */
 int isMineshaftChunk(int64_t seed, int chunkX, int chunkZ);
-int isTreasureChunk(int64_t seed, int chunkX, int chunkZ);
 
 // not exacly a structure
 static inline __attribute__((const))

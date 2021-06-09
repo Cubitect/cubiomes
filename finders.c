@@ -75,7 +75,8 @@ void setAttemptSeed(int64_t *s, int cx, int cz)
     next(s, 31);
 }
 
-int getConfig(int structureType, int mc, StructureConfig *sconf)
+
+int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
 {
     switch (structureType)
     {
@@ -136,8 +137,14 @@ int getConfig(int structureType, int mc, StructureConfig *sconf)
 int getStructurePos(int structureType, int mc, int64_t seed, int regX, int regZ, Pos *pos)
 {
     StructureConfig sconf;
-    if (!getConfig(structureType, mc, &sconf))
+#if STRUCT_CONFIG_OVERRIDE
+    if (!getStructureConfig_override(structureType, mc, &sconf))
+#else
+    if (!getStructureConfig(structureType, mc, &sconf))
+#endif
+    {
         return 0;
+    }
 
     switch (structureType)
     {
@@ -170,7 +177,9 @@ int getStructurePos(int structureType, int mc, int64_t seed, int regX, int regZ,
     case Treasure:
         pos->x = (regX << 4) + 9;
         pos->z = (regZ << 4) + 9;
-        return isTreasureChunk(seed, regX, regZ);
+        seed = regX*341873128712 + regZ*132897987541 + seed + sconf.salt;
+        setSeed(&seed, seed);
+        return nextFloat(&seed) < 0.01;
 
     case Fortress:
         if (mc < MC_1_16) {
@@ -210,14 +219,6 @@ int isMineshaftChunk(int64_t seed, int chunkX, int chunkZ)
     setSeed(&s, s);
     return nextDouble(&s) < 0.004;
 }
-
-int isTreasureChunk(int64_t seed, int chunkX, int chunkZ)
-{
-    seed = chunkX*341873128712 + chunkZ*132897987541 + seed + TREASURE_CONFIG.salt;
-    setSeed(&seed, seed);
-    return nextFloat(&seed) < 0.01;
-}
-
 
 
 //==============================================================================
@@ -1427,13 +1428,13 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
 
     case Fortress:
         return (biomeID == nether_wastes || biomeID == soul_sand_valley ||
-                biomeID == warped_forest || biomeID == crimson_forest);
+                biomeID == warped_forest || biomeID == crimson_forest ||
+                biomeID == basalt_deltas);
 
     case Bastion:
         if (mc < MC_1_16) return 0;
         return (biomeID == nether_wastes || biomeID == soul_sand_valley ||
-                biomeID == warped_forest || biomeID == crimson_forest ||
-                biomeID == basalt_deltas);
+                biomeID == warped_forest || biomeID == crimson_forest);
 
     case End_City:
         if (mc < MC_1_9) return 0;
@@ -1788,8 +1789,10 @@ L_not_viable:
 int isViableNetherStructurePos(int structureType, int mc, NetherNoise *nn,
         int64_t seed, int blockX, int blockZ)
 {
+    if (structureType == Fortress)
+        return 1; // fortresses generate in all nether biomes and mc versions
     if (mc < MC_1_16)
-        return structureType == Fortress;
+        return 0;
 
     blockX = ((blockX >> 4) << 2) + 2;
     blockZ = ((blockZ >> 4) << 2) + 2;

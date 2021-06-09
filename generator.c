@@ -271,13 +271,13 @@ int genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, i
 int genNetherScaled(int mc, int64_t seed, int scale, int *out,
         int x, int z, int w, int h, int y0, int y1)
 {
-    if (!scale || (scale & (scale-1)) || (scale & ~0x55))
-        return 1; // scale is not a power of 4 <= 64
+    if (scale != 1 && scale != 4 && scale != 16 && scale != 64)
+        return 1; // unsupported scale
 
     if (mc < MC_1_16)
     {
-        int siz = w*h*(y1-y0+1);
-        for (int i = 0; i < siz; i++)
+        int i, siz = w*h*(y1-y0+1);
+        for (i = 0; i < siz; i++)
             out[i] = nether_wastes;
         return 0;
     }
@@ -303,13 +303,13 @@ int genNetherScaled(int mc, int64_t seed, int scale, int *out,
         int err = mapNether2D(&nn, out, pX, pZ, pW, pH);
         if (err)
             return err;
-        Layer lvoronoi = {};
+        Layer lvoronoi = {0};
         lvoronoi.startSalt = getVoronoiSHA(seed);
         return mapVoronoi(&lvoronoi, out, x, z, w, h);
     }
     else
     {
-        return mapNether3D(&nn, out, x, z, w, h, y0, y1+1, scale, 1.0);
+        return mapNether3D(&nn, out, x, z, w, h, y0, y1-y0+1, scale, 1.0);
     }
 }
 
@@ -317,13 +317,13 @@ int genNetherScaled(int mc, int64_t seed, int scale, int *out,
 int genEndScaled(int mc, int64_t seed, int scale, int *out,
         int x, int z, int w, int h)
 {
-    if (!scale || (scale & (scale-1)) || (scale & ~0x55))
-        return 1; // scale is not a power of 4 <= 64
+    if (scale != 1 && scale != 4 && scale != 16 && scale != 64)
+        return 1; // unsupported scale
 
     if (mc < MC_1_9)
     {
-        int siz = w*h;
-        for (int i = 0; i < siz; i++)
+        int i, siz = w*h;
+        for (i = 0; i < siz; i++)
             out[i] = the_end;
         return 0;
     }
@@ -343,7 +343,7 @@ int genEndScaled(int mc, int64_t seed, int scale, int *out,
         int err = mapEnd(&en, out, pX, pZ, pW, pH);
         if (err)
             return err;
-        Layer lvoronoi = {};
+        Layer lvoronoi = {0};
         if (mc >= MC_1_15)
         {
             lvoronoi.startSalt = getVoronoiSHA(seed);
