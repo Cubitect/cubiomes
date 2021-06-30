@@ -3,6 +3,7 @@
 
 #include "layers.h"
 
+
 /* Enumeration of the layer indices in the generator. */
 enum
 {
@@ -110,10 +111,10 @@ int *allocCache(const Layer *layer, int sizeX, int sizeZ);
 
 /* Set up custom layers. */
 Layer *setupLayer(LayerStack *g, int layerId, mapfunc_t *map, int mc,
-    int8_t zoom, int8_t edge, int saltbase, Layer *p, Layer *p2);
+    int8_t zoom, int8_t edge, uint64_t saltbase, Layer *p, Layer *p2);
 
 /* Sets the world seed for the generator */
-void applySeed(LayerStack *g, int64_t seed);
+void applySeed(LayerStack *g, uint64_t seed);
 
 /* Generates the specified area using the current generator settings and stores
  * the biomeIDs in 'out'.
@@ -134,9 +135,9 @@ int genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, i
  * @y0,y1       min and max vertical dimensions (inclusive)
  * @return      zero upon success
  */
-int genNetherScaled(int mc, int64_t seed, int scale, int *out,
+int genNetherScaled(int mc, uint64_t seed, int scale, int *out,
         int x, int z, int w, int h, int y0, int y1);
-int genEndScaled(int mc, int64_t seed, int scale, int *out,
+int genEndScaled(int mc, uint64_t seed, int scale, int *out,
         int x, int z, int w, int h);
 
 

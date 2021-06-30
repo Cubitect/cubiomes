@@ -20,17 +20,18 @@
 #endif
 
 
+
 //==============================================================================
 // Saving & Loading Seeds
 //==============================================================================
 
 
-int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt)
+uint64_t *loadSavedSeeds(const char *fnam, uint64_t *scnt)
 {
     FILE *fp = fopen(fnam, "r");
 
-    int64_t seed, i;
-    int64_t *baseSeeds;
+    uint64_t seed, i;
+    uint64_t *baseSeeds;
 
     if (fp == NULL)
         return NULL;
@@ -39,20 +40,20 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt)
 
     while (!feof(fp))
     {
-        if (fscanf(fp, "%" PRId64, &seed) == 1) (*scnt)++;
+        if (fscanf(fp, "%" PRId64, (int64_t*)&seed) == 1) (*scnt)++;
         else while (!feof(fp) && fgetc(fp) != '\n');
     }
 
     if (*scnt == 0)
         return NULL;
 
-    baseSeeds = (int64_t*) calloc(*scnt, sizeof(*baseSeeds));
+    baseSeeds = (uint64_t*) calloc(*scnt, sizeof(*baseSeeds));
 
     rewind(fp);
 
     for (i = 0; i < *scnt && !feof(fp);)
     {
-        if (fscanf(fp, "%" PRId64, &baseSeeds[i]) == 1) i++;
+        if (fscanf(fp, "%" PRId64, (int64_t*)&baseSeeds[i]) == 1) i++;
         else while (!feof(fp) && fgetc(fp) != '\n');
     }
 
@@ -68,9 +69,9 @@ int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt)
 //==============================================================================
 
 
-void setAttemptSeed(int64_t *s, int cx, int cz)
+void setAttemptSeed(uint64_t *s, int cx, int cz)
 {
-    *s ^= (cx >> 4) ^ ( (cz >> 4) << 4 );
+    *s ^= (uint64_t)(cx >> 4) ^ ( (uint64_t)(cz >> 4) << 4 );
     setSeed(s, *s);
     next(s, 31);
 }
@@ -134,7 +135,17 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
     }
 }
 
-int getStructurePos(int structureType, int mc, int64_t seed, int regX, int regZ, Pos *pos)
+
+// like getFeaturePos(), but modifies the rng seed
+static inline
+void getRegPos(Pos *p, uint64_t *s, int rx, int rz, StructureConfig sc)
+{
+    setSeed(s, rx*341873128712ULL + rz*132897987541ULL + *s + sc.salt);
+    p->x = (int)(((uint64_t)rx * sc.regionSize + nextInt(s, sc.chunkRange)) << 4);
+    p->z = (int)(((uint64_t)rz * sc.regionSize + nextInt(s, sc.chunkRange)) << 4);
+}
+
+int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ, Pos *pos)
 {
     StructureConfig sconf;
 #if STRUCT_CONFIG_OVERRIDE
@@ -175,9 +186,9 @@ int getStructurePos(int structureType, int mc, int64_t seed, int regX, int regZ,
         return nextInt(&seed, 5) == 0;
 
     case Treasure:
-        pos->x = (regX << 4) + 9;
-        pos->z = (regZ << 4) + 9;
-        seed = regX*341873128712 + regZ*132897987541 + seed + sconf.salt;
+        pos->x = (int)( ((uint32_t)regX << 4) + 9 );
+        pos->z = (int)( ((uint32_t)regZ << 4) + 9 );
+        seed = regX*341873128712ULL + regZ*132897987541ULL + seed + sconf.salt;
         setSeed(&seed, seed);
         return nextFloat(&seed) < 0.01;
 
@@ -185,20 +196,16 @@ int getStructurePos(int structureType, int mc, int64_t seed, int regX, int regZ,
         if (mc < MC_1_16) {
             setAttemptSeed(&seed, regX << 4, regZ << 4);
             int valid = nextInt(&seed, 3) == 0;
-            pos->x = ((regX << 4) + nextInt(&seed, 8) + 4) << 4;
-            pos->z = ((regZ << 4) + nextInt(&seed, 8) + 4) << 4;
+            pos->x = (int)((((uint64_t)regX << 4) + nextInt(&seed,8) + 4) << 4);
+            pos->z = (int)((((uint64_t)regZ << 4) + nextInt(&seed,8) + 4) << 4);
             return valid;
         } else {
-            setSeed(&seed, regX*341873128712 + regZ*132897987541 + seed + sconf.salt);
-            pos->x = (regX * sconf.regionSize + nextInt(&seed, sconf.chunkRange)) << 4;
-            pos->z = (regZ * sconf.regionSize + nextInt(&seed, sconf.chunkRange)) << 4;
+            getRegPos(pos, &seed, regX, regZ, sconf);
             return nextInt(&seed, 5) < 2;
         }
 
     case Bastion:
-        setSeed(&seed, regX*341873128712 + regZ*132897987541 + seed + sconf.salt);
-        pos->x = (regX * sconf.regionSize + nextInt(&seed, sconf.chunkRange)) << 4;
-        pos->z = (regZ * sconf.regionSize + nextInt(&seed, sconf.chunkRange)) << 4;
+        getRegPos(pos, &seed, regX, regZ, sconf);
         return nextInt(&seed, 5) >= 2;
 
     default:
@@ -209,12 +216,12 @@ int getStructurePos(int structureType, int mc, int64_t seed, int regX, int regZ,
     return 0;
 }
 
-int isMineshaftChunk(int64_t seed, int chunkX, int chunkZ)
+int isMineshaftChunk(uint64_t seed, int chunkX, int chunkZ)
 {
-    int64_t s;
+    uint64_t s;
     setSeed(&s, seed);
-    int64_t i = nextLong(&s);
-    int64_t j = nextLong(&s);
+    uint64_t i = nextLong(&s);
+    uint64_t j = nextLong(&s);
     s = chunkX * i ^ chunkZ * j ^ seed;
     setSeed(&s, s);
     return nextDouble(&s) < 0.004;
@@ -394,7 +401,7 @@ Pos getOptimalAfk(Pos p[4], int ax, int ay, int az, int *spcnt)
 
 STRUCT(linked_seeds_t)
 {
-    int64_t seeds[100];
+    uint64_t seeds[100];
     size_t len;
     linked_seeds_t *next;
 };
@@ -402,13 +409,13 @@ STRUCT(linked_seeds_t)
 STRUCT(threadinfo_t)
 {
     // seed range
-    int64_t start, end;
-    const int64_t *lowBits;
+    uint64_t start, end;
+    const uint64_t *lowBits;
     int lowBitCnt;
     int lowBitN;
 
     // testing function
-    int (*check)(int64_t, void*);
+    int (*check)(uint64_t, void*);
     void *data;
 
     // output
@@ -440,7 +447,7 @@ static int mkdirp(char *path)
         struct stat st;
         if (stat(path, &st) == -1)
             err = mkdir(path, 0773);
-        else if (!(st.st_mode & S_IFDIR))
+        else if (!S_ISDIR(st.st_mode))
             err = 1;
 
         p = q+1;
@@ -461,17 +468,17 @@ static DWORD WINAPI searchAll48Thread(LPVOID data)
 
     threadinfo_t *info = (threadinfo_t*)data;
 
-    int64_t seed = info->start;
-    int64_t end = info->end;
+    uint64_t seed = info->start;
+    uint64_t end = info->end;
     linked_seeds_t *lp = &info->ls;
     lp->len = 0;
     lp->next = NULL;
 
     if (info->lowBits)
     {
-        int64_t hstep = 1LL << info->lowBitN;
-        int64_t hmask = ~(hstep - 1);
-        int64_t mid;
+        uint64_t hstep = 1ULL << info->lowBitN;
+        uint64_t hmask = ~(hstep - 1);
+        uint64_t mid;
         int idx;
 
         mid = info->start & hmask;
@@ -483,14 +490,14 @@ static DWORD WINAPI searchAll48Thread(LPVOID data)
             {
                 if (info->fp)
                 {
-                    fprintf(info->fp, "%" PRId64"\n", seed);
+                    fprintf(info->fp, "%" PRId64"\n", (int64_t)seed);
                     fflush(info->fp);
                 }
                 else
                 {
                     lp->seeds[lp->len] = seed;
                     lp->len++;
-                    if (lp->len >= sizeof(lp->seeds)/sizeof(int64_t))
+                    if (lp->len >= sizeof(lp->seeds)/sizeof(uint64_t))
                     {
                         linked_seeds_t *n =
                             (linked_seeds_t*) malloc(sizeof(linked_seeds_t));
@@ -522,14 +529,14 @@ static DWORD WINAPI searchAll48Thread(LPVOID data)
             {
                 if (info->fp)
                 {
-                    fprintf(info->fp, "%" PRId64"\n", seed);
+                    fprintf(info->fp, "%" PRId64"\n", (int64_t)seed);
                     fflush(info->fp);
                 }
                 else
                 {
                     lp->seeds[lp->len] = seed;
                     lp->len++;
-                    if (lp->len >= sizeof(lp->seeds)/sizeof(int64_t))
+                    if (lp->len >= sizeof(lp->seeds)/sizeof(uint64_t))
                     {
                         linked_seeds_t *n =
                             (linked_seeds_t*) malloc(sizeof(linked_seeds_t));
@@ -554,14 +561,14 @@ static DWORD WINAPI searchAll48Thread(LPVOID data)
 
 
 int searchAll48(
-        int64_t **          seedbuf,
-        int64_t *           buflen,
+        uint64_t **         seedbuf,
+        uint64_t *          buflen,
         const char *        path,
         int                 threads,
-        const int64_t *     lowBits,
+        const uint64_t *    lowBits,
         int                 lowBitCnt,
         int                 lowBitN,
-        int (*check)(int64_t s48, void *data),
+        int (*check)(uint64_t s48, void *data),
         void *              data
         )
 {
@@ -725,7 +732,7 @@ int searchAll48(
             while (lp);
         }
 
-        *seedbuf = (int64_t*) malloc((*buflen) * sizeof(int64_t));
+        *seedbuf = (uint64_t*) malloc((*buflen) * sizeof(uint64_t));
         if (*seedbuf == NULL)
             exit(1);
 
@@ -735,7 +742,7 @@ int searchAll48(
             linked_seeds_t *lp = &info[t].ls;
             do
             {
-                memcpy(*seedbuf + i, lp->seeds, lp->len * sizeof(int64_t));
+                memcpy(*seedbuf + i, lp->seeds, lp->len * sizeof(uint64_t));
                 i += lp->len;
                 linked_seeds_t *tmp = lp;
                 lp = lp->next;
@@ -757,12 +764,12 @@ L_err:
 }
 
 static inline
-int scanForQuadBits(const StructureConfig sconf, int radius, int64_t s48,
-        int64_t lbit, int lbitn, int64_t invB, int64_t x, int64_t z,
+int scanForQuadBits(const StructureConfig sconf, int radius, uint64_t s48,
+        uint64_t lbit, int lbitn, uint64_t invB, int64_t x, int64_t z,
         int64_t w, int64_t h, Pos *qplist, int n)
 {
-    const int64_t m = (1LL << lbitn);
-    const int64_t A = 341873128712LL;
+    const uint64_t m = (1ULL << lbitn);
+    const uint64_t A = 341873128712ULL;
     // for lbitn=20: invB = 132477LL;
 
     if (n < 1)
@@ -773,13 +780,13 @@ int scanForQuadBits(const StructureConfig sconf, int radius, int64_t s48,
     int cnt = 0;
     for (i = x; i <= x+w; i++)
     {
-        int64_t sx = s48 + A * i;
+        uint64_t sx = s48 + A * i;
         j = (z & ~(m-1)) | ((lbit - sx) * invB & (m-1));
         if (j < z)
             j += m;
         for (; j <= z+h; j += m)
         {
-            int64_t sp = moveStructure(s48, -i, -j);
+            uint64_t sp = moveStructure(s48, -i, -j);
             if ((sp & (m-1)) != lbit)
                 continue;
 
@@ -798,18 +805,18 @@ int scanForQuadBits(const StructureConfig sconf, int radius, int64_t s48,
 }
 
 int scanForQuads(
-        const StructureConfig sconf, int radius, int64_t s48,
-        const int64_t *lowBits, int lowBitCnt, int lowBitN, int64_t salt,
+        const StructureConfig sconf, int radius, uint64_t s48,
+        const uint64_t *lowBits, int lowBitCnt, int lowBitN, uint64_t salt,
         int x, int z, int w, int h, Pos *qplist, int n)
 {
     int i, cnt = 0;
-    int64_t invB;
+    uint64_t invB;
     if (lowBitN == 20)
-        invB = 132477LL;
+        invB = 132477ULL;
     else if (lowBitN == 48)
-        invB = 211541297333629LL;
+        invB = 211541297333629ULL;
     else
-        invB = mulInv(132897987541LL, (1LL << lowBitN));
+        invB = mulInv(132897987541ULL, (1ULL << lowBitN));
 
     for (i = 0; i < lowBitCnt; i++)
     {
@@ -846,7 +853,7 @@ Pos findBiomePosition(
         const int centerZ,
         const int range,
         const char *isValid,
-        int64_t *seed,
+        uint64_t *seed,
         int *passes
         )
 {
@@ -1009,10 +1016,10 @@ const char* getValidStrongholdBiomes(int mc)
     }
 }
 
-Pos initFirstStronghold(StrongholdIter *sh, int mc, int64_t s48)
+Pos initFirstStronghold(StrongholdIter *sh, int mc, uint64_t s48)
 {
     double dist, angle;
-    int64_t rnds;
+    uint64_t rnds;
     Pos p;
 
     setSeed(&rnds, s48);
@@ -1080,7 +1087,7 @@ int nextStronghold(StrongholdIter *sh, const LayerStack *g, int *cache)
 }
 
 int findStrongholds(const int mc, const LayerStack *g, int *cache,
-        Pos *locations, int64_t worldSeed, int maxSH, int maxRing)
+        Pos *locations, uint64_t worldSeed, int maxSH, int maxRing)
 {
     const char *validStrongholdBiomes = getValidStrongholdBiomes(mc);
     int i, x, z;
@@ -1089,7 +1096,7 @@ int findStrongholds(const int mc, const LayerStack *g, int *cache,
     int currentRing = 0;
     int currentCount = 0;
     int perRing = 3;
-    int64_t rnd;
+    uint64_t rnd;
 
     setSeed(&rnd, worldSeed);
     double angle = nextDouble(&rnd) * PI * 2.0;
@@ -1156,7 +1163,7 @@ int findStrongholds(const int mc, const LayerStack *g, int *cache,
 }
 
 
-static double getGrassProbability(int64_t seed, int biome, int x, int z)
+static double getGrassProbability(uint64_t seed, int biome, int x, int z)
 {
     (void) seed, (void) biome, (void) x, (void) z;
     // TODO: Use ChunkGeneratorOverworld.generateHeightmap for better estimate.
@@ -1230,7 +1237,7 @@ static const char* getValidSpawnBiomes()
 }
 
 
-Pos getSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t worldSeed)
+Pos getSpawn(const int mcversion, const LayerStack *g, int *cache, uint64_t worldSeed)
 {
     const char *isSpawnBiome = getValidSpawnBiomes();
     Pos spawn;
@@ -1238,7 +1245,7 @@ Pos getSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t world
     int i;
 
     const Layer *l = &g->layers[L_RIVER_MIX_4];
-    int64_t rnd;
+    uint64_t rnd;
 
     setSeed(&rnd, worldSeed);
     spawn = findBiomePosition(mcversion, l, cache, 0, 0, 256, isSpawnBiome,
@@ -1340,14 +1347,14 @@ Pos getSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t world
 }
 
 
-Pos estimateSpawn(const int mcversion, const LayerStack *g, int *cache, int64_t worldSeed)
+Pos estimateSpawn(const int mcversion, const LayerStack *g, int *cache, uint64_t worldSeed)
 {
     const char *isSpawnBiome = getValidSpawnBiomes();
     Pos spawn;
     int found;
 
     const Layer *l = &g->layers[L_RIVER_MIX_4];
-    int64_t rnd;
+    uint64_t rnd;
     setSeed(&rnd, worldSeed);
     spawn = findBiomePosition(mcversion, l, cache, 0, 0, 256, isSpawnBiome,
             &rnd, &found);
@@ -1595,7 +1602,7 @@ static int mapViableShore(const Layer * l, int * out, int x, int z, int w, int h
 
 
 int isViableStructurePos(int structureType, int mc, LayerStack *g,
-        int64_t seed, int blockX, int blockZ)
+        uint64_t seed, int blockX, int blockZ)
 {
     int *ids = NULL;
     Layer *l;
@@ -1671,7 +1678,7 @@ L_feature:
     {
         if (mc < MC_1_14)
             goto L_not_viable;
-        int64_t rnd = seed;
+        uint64_t rnd = seed;
         setAttemptSeed(&rnd, chunkX, chunkZ);
         if (nextInt(&rnd, 5) != 0)
             goto L_not_viable;
@@ -1787,7 +1794,7 @@ L_not_viable:
 }
 
 int isViableNetherStructurePos(int structureType, int mc, NetherNoise *nn,
-        int64_t seed, int blockX, int blockZ)
+        uint64_t seed, int blockX, int blockZ)
 {
     if (structureType == Fortress)
         return 1; // fortresses generate in all nether biomes and mc versions
@@ -1802,7 +1809,7 @@ int isViableNetherStructurePos(int structureType, int mc, NetherNoise *nn,
 }
 
 int isViableEndStructurePos(int structureType, int mc, EndNoise *en,
-        int64_t seed, int blockX, int blockZ)
+        uint64_t seed, int blockX, int blockZ)
 {
     if (structureType != End_City || mc < MC_1_9)
         return 0;
@@ -1852,8 +1859,8 @@ int isViableEndCityTerrain(const EndNoise *en, const SurfaceNoise *sn,
     h00 = getSurfaceHeight(ncol[0][0], ncol[0][1], ncol[1][0], ncol[1][1],
             y0, y1, 4, (blockX & 7) / 8.0, (blockZ & 7) / 8.0);
 
-    int64_t cs;
-    setSeed(&cs, chunkX + chunkZ * 10387313LL);
+    uint64_t cs;
+    setSeed(&cs, chunkX + chunkZ * 10387313ULL);
     switch (nextInt(&cs, 4))
     {
     case 0: // (++) 0
@@ -1917,13 +1924,13 @@ int isViableEndCityTerrain(const EndNoise *en, const SurfaceNoise *sn,
 //==============================================================================
 
 
-VillageType getVillageType(int mc, int64_t seed, int blockX, int blockZ, int biomeID)
+VillageType getVillageType(int mc, uint64_t seed, int blockX, int blockZ, int biomeID)
 {
     VillageType r = { 0, 0, 0 };
     if (!isViableFeatureBiome(mc, Village, biomeID))
         return r;
 
-    int64_t rnd = chunkGenerateRnd(seed, blockX >> 4, blockZ >> 4);
+    uint64_t rnd = chunkGenerateRnd(seed, blockX >> 4, blockZ >> 4);
 
     r.biome = biomeID;
 
@@ -1994,10 +2001,10 @@ VillageType getVillageType(int mc, int64_t seed, int blockX, int blockZ, int bio
 }
 
 
-int64_t getHouseList(const int64_t worldSeed, const int chunkX, const int chunkZ,
+uint64_t getHouseList(uint64_t worldSeed, int chunkX, int chunkZ,
         int *out)
 {
-    int64_t rnd = chunkGenerateRnd(worldSeed, chunkX, chunkZ);
+    uint64_t rnd = chunkGenerateRnd(worldSeed, chunkX, chunkZ);
     skipNextN(&rnd, 1);
 
     out[HouseSmall] = nextInt(&rnd, 4 - 2 + 1) + 2;
@@ -2304,8 +2311,8 @@ static int mapFilterSpecial(const Layer * l, int * out, int x, int z, int w, int
     int specialcnt = f->bf->specialCnt;
     if (specialcnt > 0)
     {
-        int64_t ss = l->startSeed;
-        int64_t cs;
+        uint64_t ss = l->startSeed;
+        uint64_t cs;
 
         for (j = 0; j < h; j++)
         {
@@ -2353,8 +2360,8 @@ static int mapFilterMushroom(const Layer * l, int * out, int x, int z, int w, in
 
     if (w*h < 100 && (f->bf->majorToFind & (1ULL << mushroom_fields)))
     {
-        int64_t ss = l->startSeed;
-        int64_t cs;
+        uint64_t ss = l->startSeed;
+        uint64_t cs;
 
         for (j = 0; j < h; j++)
         {
@@ -2579,7 +2586,7 @@ int checkForBiomes(
         LayerStack *    g,
         int             layerID,
         int *           cache,
-        int64_t         seed,
+        uint64_t        seed,
         int             x,
         int             z,
         unsigned int    w,
@@ -2600,7 +2607,7 @@ int checkForBiomes(
         int bw = w * l->scale;
         int bh = h * l->scale;
         int x0, z0, x1, z1;
-        int64_t ss, cs;
+        uint64_t ss, cs;
         uint64_t potential, required;
 
         int specialcnt = filter.specialCnt;
@@ -2742,10 +2749,10 @@ L_HAS_PROTO_MUSHROOM:
 }
 
 
-int checkForTemps(LayerStack *g, int64_t seed, int x, int z, int w, int h, const int tc[9])
+int checkForTemps(LayerStack *g, uint64_t seed, int x, int z, int w, int h, const int tc[9])
 {
-    int64_t ls = getLayerSalt(3); // L_SPECIAL_1024 layer seed
-    int64_t ss = getStartSeed(seed, ls);
+    uint64_t ls = getLayerSalt(3); // L_SPECIAL_1024 layer seed
+    uint64_t ss = getStartSeed(seed, ls);
 
     int i, j;
     int scnt = 0;
@@ -2865,15 +2872,10 @@ int canBiomeGenerate(int layerId, int mc, int id)
     if (dofilter || layerId == L_RIVER_MIX_4)
     {
         dofilter = 1;
-        switch (id)
-        {
-        case frozen_ocean:
-            if (mc >= MC_1_7)
-                return 0;
-            break;
-        case warm_ocean...deep_frozen_ocean:
+        if (id == frozen_ocean && mc >= MC_1_7)
             return 0;
-        }
+        if (isDeepOcean(id) && id != deep_ocean)
+            return 0;
     }
     if (dofilter || (layerId == L_OCEAN_MIX_4 && mc >= MC_1_13))
     {

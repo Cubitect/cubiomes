@@ -7,7 +7,7 @@
 
 
 Layer *setupLayer(LayerStack *g, int layerId, mapfunc_t *map, int mc,
-    int8_t zoom, int8_t edge, int saltbase, Layer *p, Layer *p2)
+    int8_t zoom, int8_t edge, uint64_t saltbase, Layer *p, Layer *p2)
 {
     Layer *l = g->layers + layerId;
     l->getMap = map;
@@ -15,7 +15,10 @@ Layer *setupLayer(LayerStack *g, int layerId, mapfunc_t *map, int mc,
     l->zoom = zoom;
     l->edge = edge;
     l->scale = 0;
-    l->layerSalt = saltbase > 0 ? getLayerSalt(saltbase) : saltbase;
+    if (saltbase == 0 || saltbase == LAYER_INIT_SHA)
+        l->layerSalt = saltbase;
+    else
+        l->layerSalt = getLayerSalt(saltbase);
     l->startSalt = 0;
     l->startSeed = 0;
     l->noise = NULL;
@@ -184,7 +187,7 @@ static void setupGeneratorImpl(LayerStack *g, int mc, int largeBiomes)
         if (mc <= MC_1_14)
             p = setupLayer(g, L_VORONOI_1, mapVoronoi114, mc, 4, 7, 10, p, 0);
         else
-            p = setupLayer(g, L_VORONOI_1, mapVoronoi, mc, 4, 7, -1, p, 0);
+            p = setupLayer(g, L_VORONOI_1, mapVoronoi, mc, 4, 7, LAYER_INIT_SHA, p, 0);
     }
 
     g->entry_1 = p;
@@ -254,7 +257,7 @@ int *allocCache(const Layer *layer, int sizeX, int sizeZ)
 }
 
 
-void applySeed(LayerStack *g, int64_t seed)
+void applySeed(LayerStack *g, uint64_t seed)
 {
     // the seed has to be applied recursively
     setLayerSeed(g->entry_1, seed);
@@ -268,7 +271,7 @@ int genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, i
 
 
 
-int genNetherScaled(int mc, int64_t seed, int scale, int *out,
+int genNetherScaled(int mc, uint64_t seed, int scale, int *out,
         int x, int z, int w, int h, int y0, int y1)
 {
     if (scale != 1 && scale != 4 && scale != 16 && scale != 64)
@@ -303,7 +306,8 @@ int genNetherScaled(int mc, int64_t seed, int scale, int *out,
         int err = mapNether2D(&nn, out, pX, pZ, pW, pH);
         if (err)
             return err;
-        Layer lvoronoi = {0};
+        Layer lvoronoi;
+        memset(&lvoronoi, 0, sizeof(Layer));
         lvoronoi.startSalt = getVoronoiSHA(seed);
         return mapVoronoi(&lvoronoi, out, x, z, w, h);
     }
@@ -314,7 +318,7 @@ int genNetherScaled(int mc, int64_t seed, int scale, int *out,
 }
 
 
-int genEndScaled(int mc, int64_t seed, int scale, int *out,
+int genEndScaled(int mc, uint64_t seed, int scale, int *out,
         int x, int z, int w, int h)
 {
     if (scale != 1 && scale != 4 && scale != 16 && scale != 64)
@@ -343,7 +347,8 @@ int genEndScaled(int mc, int64_t seed, int scale, int *out,
         int err = mapEnd(&en, out, pX, pZ, pW, pH);
         if (err)
             return err;
-        Layer lvoronoi = {0};
+        Layer lvoronoi;
+        memset(&lvoronoi, 0, sizeof(Layer));
         if (mc >= MC_1_15)
         {
             lvoronoi.startSalt = getVoronoiSHA(seed);

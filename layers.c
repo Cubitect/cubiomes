@@ -11,18 +11,14 @@
 
 int biomeExists(int mc, int id)
 {
+    if (id >= ocean             && id <= mountain_edge)     return 1;
+    if (id >= jungle            && id <= jungle_hills)      return mc >= MC_1_2;
+    if (id >= jungle_edge       && id <= badlands_plateau)  return mc >= MC_1_7;
+    if (id >= small_end_islands && id <= end_barrens)       return mc >= MC_1_9;
+    if (id >= warm_ocean        && id <= deep_frozen_ocean) return mc >= MC_1_13;
+
     switch (id)
     {
-    case ocean...mountain_edge:
-        return 1;
-    case jungle...jungle_hills:
-        return mc >= MC_1_2;
-    case jungle_edge...badlands_plateau:
-        return mc >= MC_1_7;
-    case small_end_islands...end_barrens:
-        return mc >= MC_1_9;
-    case warm_ocean...deep_frozen_ocean:
-        return mc >= MC_1_13;
     case the_void:
         return mc >= MC_1_9;
     case sunflower_plains:
@@ -50,7 +46,10 @@ int biomeExists(int mc, int id)
     case bamboo_jungle:
     case bamboo_jungle_hills:
         return mc >= MC_1_14;
-    case soul_sand_valley...basalt_deltas:
+    case soul_sand_valley:
+    case crimson_forest:
+    case warped_forest:
+    case basalt_deltas:
         return mc >= MC_1_16;
     case dripstone_caves:
     case lush_caves:
@@ -65,6 +64,9 @@ int isOverworld(int mc, int id)
     if (!biomeExists(mc, id))
         return 0;
 
+    if (id >= small_end_islands && id <= end_barrens) return 0;
+    if (id >= soul_sand_valley && id <= basalt_deltas) return 0;
+
     switch (id)
     {
     case nether_wastes:
@@ -74,15 +76,13 @@ int isOverworld(int mc, int id)
         return mc <= MC_1_6 || mc >= MC_1_13;
     case mountain_edge:
         return mc <= MC_1_6;
-    case small_end_islands...end_barrens:
     case deep_warm_ocean:
     case the_void:
         return 0;
     case tall_birch_hills:
         return mc <= MC_1_8 || mc >= MC_1_11;
-    case soul_sand_valley...basalt_deltas:
-        return 0;
-    case dripstone_caves...lush_caves:
+    case dripstone_caves:
+    case lush_caves:
         return 0;
     }
     return 1;
@@ -321,8 +321,7 @@ void initBiomes()
 {
 }
 
-
-void setLayerSeed(Layer *layer, int64_t worldSeed)
+void setLayerSeed(Layer *layer, uint64_t worldSeed)
 {
     if (layer->p2 != NULL)
         setLayerSeed(layer->p2, worldSeed);
@@ -332,25 +331,25 @@ void setLayerSeed(Layer *layer, int64_t worldSeed)
 
     if (layer->noise != NULL)
     {
-        int64_t s;
+        uint64_t s;
         setSeed(&s, worldSeed);
         perlinInit((PerlinNoise*)layer->noise, &s);
     }
 
-    int64_t ls = layer->layerSalt;
-    if (ls == 0) // Pre 1.13 the Hills branch stays zero-initialized
-    {
+    uint64_t ls = layer->layerSalt;
+    if (ls == 0)
+    {   // Pre 1.13 the Hills branch stays zero-initialized
         layer->startSalt = 0;
         layer->startSeed = 0;
     }
-    else if (ls == -1) // Post 1.14 VoronoiZoom uses SHA256 for initialization
-    {
+    else if (ls == LAYER_INIT_SHA)
+    {   // Post 1.14 Voronoi uses SHA256 for initialization
         layer->startSalt = getVoronoiSHA(worldSeed);
         layer->startSeed = 0;
     }
     else
     {
-        int64_t st = worldSeed;
+        uint64_t st = worldSeed;
         st = mcStepSeed(st, ls);
         st = mcStepSeed(st, ls);
         st = mcStepSeed(st, ls);
@@ -409,7 +408,7 @@ static double indexedLerp(int idx, double d1, double d2, double d3)
 }
 
 
-void perlinInit(PerlinNoise *rnd, int64_t *seed)
+void perlinInit(PerlinNoise *rnd, uint64_t *seed)
 {
     int i = 0;
     memset(rnd, 0, sizeof(*rnd));
@@ -525,7 +524,7 @@ double sampleSimplex2D(const PerlinNoise *rnd, double x, double y)
 }
 
 
-void octaveInit(OctaveNoise *rnd, int64_t *seed, PerlinNoise *octaves,
+void octaveInit(OctaveNoise *rnd, uint64_t *seed, PerlinNoise *octaves,
         int omin, int len)
 {
     int end = omin+len-1;
@@ -575,7 +574,7 @@ double sampleOctave(const OctaveNoise *rnd, double x, double y, double z)
 }
 
 
-void doublePerlinInit(DoublePerlinNoise *rnd, int64_t *seed,
+void doublePerlinInit(DoublePerlinNoise *rnd, uint64_t *seed,
         PerlinNoise *octavesA, PerlinNoise *octavesB, int omin, int len)
 {   // require: len >= 1 && omin+len <= 0
     rnd->amplitude = (10.0 / 6.0) * len / (len + 1);
@@ -596,7 +595,7 @@ double sampleDoublePerlin(const DoublePerlinNoise *rnd,
 }
 
 
-void initSurfaceNoise(SurfaceNoise *rnd, int64_t *seed,
+void initSurfaceNoise(SurfaceNoise *rnd, uint64_t *seed,
         double xzScale, double yScale, double xzFactor, double yFactor)
 {
     rnd->xzScale = xzScale;
@@ -608,9 +607,9 @@ void initSurfaceNoise(SurfaceNoise *rnd, int64_t *seed,
     octaveInit(&rnd->octmain, seed, rnd->oct+32, -7, 8);
 }
 
-void initSurfaceNoiseEnd(SurfaceNoise *rnd, int64_t seed)
+void initSurfaceNoiseEnd(SurfaceNoise *rnd, uint64_t seed)
 {
-    int64_t s;
+    uint64_t s;
     setSeed(&s, seed);
     initSurfaceNoise(rnd, &s, 2.0, 1.0, 80.0, 160.0);
 }
@@ -660,9 +659,9 @@ double sampleSurfaceNoise(const SurfaceNoise *rnd, int x, int y, int z)
 // Nether (1.16+) and End (1.9+) Biome Generation
 //==============================================================================
 
-void setNetherSeed(NetherNoise *nn, int64_t seed)
+void setNetherSeed(NetherNoise *nn, uint64_t seed)
 {
-    int64_t s;
+    uint64_t s;
     setSeed(&s, seed);
     doublePerlinInit(&nn->temperature, &s, &nn->oct[0], &nn->oct[2], -7, 2);
     setSeed(&s, seed+1);
@@ -796,9 +795,9 @@ int mapNether2D(const NetherNoise *nn, int *out, int x, int z, int w, int h)
 }
 
 
-void setEndSeed(EndNoise *en, int64_t seed)
+void setEndSeed(EndNoise *en, uint64_t seed)
 {
-    int64_t s;
+    uint64_t s;
     setSeed(&s, seed);
     skipNextN(&s, 17292);
     perlinInit(en, &s);
@@ -1010,7 +1009,7 @@ int getSurfaceHeight(
     return 0;
 }
 
-int getSurfaceHeightEnd(int mc, int64_t seed, int x, int z)
+int getSurfaceHeightEnd(int mc, uint64_t seed, int x, int z)
 {
     (void) mc;
 
@@ -1052,8 +1051,8 @@ static inline int isAny4(int id, int a, int b, int c, int d)
 
 int mapContinent(const Layer * l, int * out, int x, int z, int w, int h)
 {
-    int64_t ss = l->startSeed;
-    int64_t cs;
+    uint64_t ss = l->startSeed;
+    uint64_t cs;
     int i, j;
 
     for (j = 0; j < h; j++)
@@ -1090,8 +1089,8 @@ int mapZoomFuzzy(const Layer * l, int * out, int x, int z, int w, int h)
     int idx, v00, v01, v10, v11;
     int *buf = (int*) malloc((newW+1)*(newH+1)*sizeof(*buf));
 
-    const int st = (int)l->startSalt;
-    const int ss = (int)l->startSeed;
+    const uint32_t st = (uint32_t)l->startSalt;
+    const uint32_t ss = (uint32_t)l->startSeed;
 
     for (j = 0; j < pH; j++)
     {
@@ -1115,10 +1114,10 @@ int mapZoomFuzzy(const Layer * l, int * out, int x, int z, int w, int h)
                 continue;
             }
 
-            int chunkX = (i + pX) << 1;
-            int chunkZ = (j + pZ) << 1;
+            int chunkX = (int)((uint32_t)(i + pX) << 1);
+            int chunkZ = (int)((uint32_t)(j + pZ) << 1);
 
-            int cs = ss;
+            uint32_t cs = ss;
             cs += chunkX;
             cs *= cs * 1284865837 + 4150755663;
             cs += chunkZ;
@@ -1154,7 +1153,7 @@ int mapZoomFuzzy(const Layer * l, int * out, int x, int z, int w, int h)
 }
 
 
-static inline int select4(int cs, int st, int v00, int v01, int v10, int v11)
+static inline int select4(uint32_t cs, uint32_t st, int v00, int v01, int v10, int v11)
 {
     int v;
     int cv00 = (v00 == v10) + (v00 == v01) + (v00 == v11);
@@ -1194,8 +1193,8 @@ int mapZoom(const Layer * l, int * out, int x, int z, int w, int h)
     int idx, v00, v01, v10, v11;
     int *buf = (int*) malloc((newW+1)*(newH+1)*sizeof(*buf));
 
-    const int st = (int)l->startSalt;
-    const int ss = (int)l->startSeed;
+    const uint32_t st = (uint32_t)l->startSalt;
+    const uint32_t ss = (uint32_t)l->startSeed;
 
     for (j = 0; j < pH; j++)
     {
@@ -1219,10 +1218,10 @@ int mapZoom(const Layer * l, int * out, int x, int z, int w, int h)
                 continue;
             }
 
-            int chunkX = (i + pX) << 1;
-            int chunkZ = (j + pZ) << 1;
+            int chunkX = (int)((uint32_t)(i + pX) << 1);
+            int chunkZ = (int)((uint32_t)(j + pZ) << 1);
 
-            int cs = ss;
+            uint32_t cs = ss;
             cs += chunkX;
             cs *= cs * 1284865837 + 4150755663;
             cs += chunkZ;
@@ -1268,9 +1267,9 @@ int mapLand(const Layer * l, int * out, int x, int z, int w, int h)
     if U(err != 0)
         return err;
 
-    int64_t st = l->startSalt;
-    int64_t ss = l->startSeed;
-    int64_t cs;
+    uint64_t st = l->startSalt;
+    uint64_t ss = l->startSeed;
+    uint64_t cs;
 
     for (j = 0; j < h; j++)
     {
@@ -1384,9 +1383,9 @@ int mapLand16(const Layer * l, int * out, int x, int z, int w, int h)
     if U(err != 0)
         return err;
 
-    int64_t st = l->startSalt;
-    int64_t ss = l->startSeed;
-    int64_t cs;
+    uint64_t st = l->startSalt;
+    uint64_t ss = l->startSeed;
+    uint64_t cs;
 
     for (j = 0; j < h; j++)
     {
@@ -1480,8 +1479,8 @@ int mapIsland(const Layer * l, int * out, int x, int z, int w, int h)
     if U(err != 0)
         return err;
 
-    int64_t ss = l->startSeed;
-    int64_t cs;
+    uint64_t ss = l->startSeed;
+    uint64_t cs;
 
     for (j = 0; j < h; j++)
     {
@@ -1521,8 +1520,8 @@ int mapSnow16(const Layer * l, int * out, int x, int z, int w, int h)
     if U(err != 0)
         return err;
 
-    int64_t ss = l->startSeed;
-    int64_t cs;
+    uint64_t ss = l->startSeed;
+    uint64_t cs;
 
     for (j = 0; j < h; j++)
     {
@@ -1554,8 +1553,8 @@ int mapSnow(const Layer * l, int * out, int x, int z, int w, int h)
     if U(err != 0)
         return err;
 
-    int64_t ss = l->startSeed;
-    int64_t cs;
+    uint64_t ss = l->startSeed;
+    uint64_t cs;
 
     for (j = 0; j < h; j++)
     {
@@ -1670,9 +1669,9 @@ int mapSpecial(const Layer * l, int * out, int x, int z, int w, int h)
     if U(err != 0)
         return err;
 
-    int64_t st = l->startSalt;
-    int64_t ss = l->startSeed;
-    int64_t cs;
+    uint64_t st = l->startSalt;
+    uint64_t ss = l->startSeed;
+    uint64_t cs;
 
     int i, j;
     for (j = 0; j < h; j++)
@@ -1710,8 +1709,8 @@ int mapMushroom(const Layer * l, int * out, int x, int z, int w, int h)
     if U(err != 0)
         return err;
 
-    int64_t ss = l->startSeed;
-    int64_t cs;
+    uint64_t ss = l->startSeed;
+    uint64_t cs;
 
     for (j = 0; j < h; j++)
     {
@@ -1813,8 +1812,8 @@ int mapBiome(const Layer * l, int * out, int x, int z, int w, int h)
         return err;
 
     int mc = l->mc;
-    int64_t ss = l->startSeed;
-    int64_t cs;
+    uint64_t ss = l->startSeed;
+    uint64_t cs;
 
     int i, j;
     for (j = 0; j < h; j++)
@@ -1891,8 +1890,8 @@ int mapNoise(const Layer * l, int * out, int x, int z, int w, int h)
     if U(err != 0)
         return err;
 
-    int64_t ss = l->startSeed;
-    int64_t cs;
+    uint64_t ss = l->startSeed;
+    uint64_t cs;
 
     int mod = (l->mc <= MC_1_6) ? 2 : 299999;
 
@@ -1923,8 +1922,8 @@ int mapBamboo(const Layer * l, int * out, int x, int z, int w, int h)
     if U(err != 0)
         return err;
 
-    int64_t ss = l->startSeed;
-    int64_t cs;
+    uint64_t ss = l->startSeed;
+    uint64_t cs;
 
     int i, j;
     for (j = 0; j < h; j++)
@@ -2061,9 +2060,9 @@ int mapHills(const Layer * l, int * out, int x, int z, int w, int h)
     }
 
     int mc = l->mc;
-    int64_t st = l->startSalt;
-    int64_t ss = l->startSeed;
-    int64_t cs;
+    uint64_t st = l->startSalt;
+    uint64_t ss = l->startSeed;
+    uint64_t cs;
 
     for (j = 0; j < h; j++)
     {
@@ -2275,8 +2274,8 @@ int mapSmooth(const Layer * l, int * out, int x, int z, int w, int h)
     if U(err != 0)
         return err;
 
-    int64_t ss = l->startSeed;
-    int64_t cs;
+    uint64_t ss = l->startSeed;
+    uint64_t cs;
 
     for (j = 0; j < h; j++)
     {
@@ -2297,7 +2296,7 @@ int mapSmooth(const Layer * l, int * out, int x, int z, int w, int h)
                 if (v01 == v21 && v10 == v12)
                 {
                     cs = getChunkSeed(ss, i+x, j+z);
-                    if (cs & ((int64_t)1 << 24))
+                    if (cs & ((uint64_t)1 << 24))
                         v11 = v10;
                     else
                         v11 = v01;
@@ -2325,8 +2324,8 @@ int mapSunflower(const Layer * l, int * out, int x, int z, int w, int h)
     if U(err != 0)
         return err;
 
-    int64_t ss = l->startSeed;
-    int64_t cs;
+    uint64_t ss = l->startSeed;
+    uint64_t cs;
 
     for (j = 0; j < h; j++)
     {
@@ -2490,8 +2489,8 @@ int mapSwampRiver(const Layer * l, int * out, int x, int z, int w, int h)
     if U(err != 0)
         return err;
 
-    int64_t ss = l->startSeed;
-    int64_t cs;
+    uint64_t ss = l->startSeed;
+    uint64_t cs;
 
     for (j = 0; j < h; j++)
     {
@@ -2716,7 +2715,7 @@ int mapOceanMix(const Layer * l, int * out, int x, int z, int w, int h)
 static inline void getVoronoiCell(int64_t sha, int a, int b, int c,
         int *x, int *y, int *z)
 {
-    int64_t s = sha;
+    uint64_t s = sha;
     s = mcStepSeed(s, a);
     s = mcStepSeed(s, b);
     s = mcStepSeed(s, c);
@@ -2747,7 +2746,7 @@ int mapVoronoi(const Layer * l, int * out, int x, int z, int w, int h)
             return err;
     }
 
-    int64_t sha = l->startSalt;
+    uint64_t sha = l->startSalt;
     int *buf = (int *) malloc(w*h*sizeof(*buf));
 
     int x000, x001, x010, x011, x100, x101, x110, x111;
@@ -2918,9 +2917,9 @@ int mapVoronoi114(const Layer * l, int * out, int x, int z, int w, int h)
     int *buf = (int *) malloc((newW+1)*(newH+1)*sizeof(*buf));
     int i, j;
 
-    int64_t st = l->startSalt;
-    int64_t ss = l->startSeed;
-    int64_t cs;
+    uint64_t st = l->startSalt;
+    uint64_t ss = l->startSeed;
+    uint64_t cs;
 
     for (j = 0; j < pH-1; j++)
     {
@@ -3016,7 +3015,7 @@ int mapVoronoi114(const Layer * l, int * out, int x, int z, int w, int h)
 inline static __attribute__((always_inline,const))
 uint32_t rotr(uint32_t a, int b) { return (a >> b) | (a << (32-b)); }
 
-int64_t getVoronoiSHA(int64_t seed)
+uint64_t getVoronoiSHA(uint64_t seed)
 {
     static const uint32_t K[64] = {
         0x428a2f98,0x71374491, 0xb5c0fbcf,0xe9b5dba5,
@@ -3091,10 +3090,10 @@ int64_t getVoronoiSHA(int64_t seed)
     a0 += B[0];
     a1 += B[1];
 
-    return __builtin_bswap32(a0) | ((int64_t)__builtin_bswap32(a1) << 32);
+    return __builtin_bswap32(a0) | ((uint64_t)__builtin_bswap32(a1) << 32);
 }
 
-void voronoiAccess3D(int64_t sha, int x, int y, int z, int *x4, int *y4, int *z4)
+void voronoiAccess3D(uint64_t sha, int x, int y, int z, int *x4, int *y4, int *z4)
 {
     x -= 2;
     y -= 2;

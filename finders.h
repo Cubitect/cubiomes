@@ -135,7 +135,7 @@ STRUCT(StrongholdIter)
     int ringidx;    // index within ring
     double angle;   // next angle within ring
     double dist;    // next distance from origin (in chunks)
-    int64_t rnds;   // random number seed (48 bit)
+    uint64_t rnds;  // random number seed (48 bit)
     int mc;         // minecraft version
 };
 
@@ -201,13 +201,13 @@ STRUCT(VillageType)
 
 // lower 20 bits, only the very best constellations
 // (the structure salt has to be subtracted before use)
-static const int64_t low20QuadIdeal[] =
+static const uint64_t low20QuadIdeal[] =
 {
         0x43f18,0xc751a,0xf520a,
 };
 
 // lower 20 bits, the classic quad-structure constellations
-static const int64_t low20QuadClassic[] =
+static const uint64_t low20QuadClassic[] =
 {
         0x43f18,0x79a0a,0xc751a,0xf520a,
 };
@@ -215,7 +215,7 @@ static const int64_t low20QuadClassic[] =
 // for any valid quad-structure constellation with a structure size:
 // (7+1,7+43+1,9+1) which corresponds to a fall-damage based quad-witch-farm,
 // but may require a perfect player position
-static const int64_t low20QuadHutNormal[] =
+static const uint64_t low20QuadHutNormal[] =
 {
         0x43f18,0x65118,0x75618,0x79a0a, 0x89718,0x9371a,0xa5a08,0xb5e18,
         0xc751a,0xf520a,
@@ -223,7 +223,7 @@ static const int64_t low20QuadHutNormal[] =
 
 // for any valid quad-structure constellation with a structure size:
 // (7+1,7+1,9+1) which corresponds to quad-witch-farms without drop chute
-static const int64_t low20QuadHutBarely[] =
+static const uint64_t low20QuadHutBarely[] =
 {
         0x1272d,0x17908,0x367b9,0x43f18, 0x487c9,0x487ce,0x50aa7,0x647b5,
         0x65118,0x75618,0x79a0a,0x89718, 0x9371a,0x967ec,0xa3d0a,0xa5918,
@@ -238,8 +238,7 @@ static const int64_t low20QuadHutBarely[] =
 /* Transposes a base seed such that structures are moved by the specified region
  * vector, (regX, regZ).
  */
-static inline int64_t moveStructure(const int64_t baseSeed,
-        const int regX, const int regZ)
+static inline uint64_t moveStructure(uint64_t baseSeed, int regX, int regZ)
 {
     return (baseSeed - regX*341873128712 - regZ*132897987541) & 0xffffffffffff;
 }
@@ -258,7 +257,7 @@ static inline int64_t moveStructure(const int64_t baseSeed,
  *
  * Return a pointer to a dynamically allocated seed list.
  */
-int64_t *loadSavedSeeds(const char *fnam, int64_t *scnt);
+uint64_t *loadSavedSeeds(const char *fnam, uint64_t *scnt);
 
 
 
@@ -296,7 +295,7 @@ int getStructureConfig_override(int stype, int mc, StructureConfig *sconf);
  *
  * Returns zero if the position is invalid, or non-zero otherwise.
  */
-int getStructurePos(int structureType, int mc, int64_t seed, int regX, int regZ, Pos *pos);
+int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ, Pos *pos);
 
 /* The inline functions below get the generation attempt position given a
  * structure configuration. Most small structures use the getFeature..
@@ -304,33 +303,33 @@ int getStructurePos(int structureType, int mc, int64_t seed, int regX, int regZ,
  * (monuments and mansions) have a triangular distribution.
  */
 static inline __attribute__((const))
-Pos getFeaturePos(StructureConfig config, int64_t seed, int regX, int regZ);
+Pos getFeaturePos(StructureConfig config, uint64_t seed, int regX, int regZ);
 
 static inline __attribute__((const))
-Pos getFeatureChunkInRegion(StructureConfig config, int64_t seed, int regX, int regZ);
+Pos getFeatureChunkInRegion(StructureConfig config, uint64_t seed, int regX, int regZ);
 
 static inline __attribute__((const))
-Pos getLargeStructurePos(StructureConfig config, int64_t seed, int regX, int regZ);
+Pos getLargeStructurePos(StructureConfig config, uint64_t seed, int regX, int regZ);
 
 static inline __attribute__((const))
-Pos getLargeStructureChunkInRegion(StructureConfig config, int64_t seed, int regX, int regZ);
+Pos getLargeStructureChunkInRegion(StructureConfig config, uint64_t seed, int regX, int regZ);
 
 /* Some structures check each chunk individually for viability.
  * The placement and biome check within a valid chunk is at block position (9,9)
  * or at (2,2) with layer scale=4 from 1.16 onwards.
  */
-int isMineshaftChunk(int64_t seed, int chunkX, int chunkZ);
+int isMineshaftChunk(uint64_t seed, int chunkX, int chunkZ);
 
 // not exacly a structure
 static inline __attribute__((const))
-int isSlimeChunk(int64_t seed, int chunkX, int chunkZ)
+int isSlimeChunk(uint64_t seed, int chunkX, int chunkZ)
 {
-    int64_t rnd = seed;
+    uint64_t rnd = seed;
     rnd += (int)(chunkX * 0x5ac0db);
     rnd += (int)(chunkX * chunkX * 0x4c1906);
     rnd += (int)(chunkZ * 0x5f24f);
-    rnd += (int)(chunkZ * chunkZ) * 0x4307a7LL;
-    rnd ^= 0x3ad8025fLL;
+    rnd += (int)(chunkZ * chunkZ) * 0x4307a7ULL;
+    rnd ^= 0x3ad8025fULL;
     setSeed(&rnd, rnd);
     return nextInt(&rnd, 10) == 0;
 }
@@ -358,7 +357,7 @@ int isSlimeChunk(int64_t seed, int chunkX, int chunkZ)
  * radius of the enclosing sphere if it is, and can be used as a measure of
  * quality for the quad-base (smaller is better).
  */
-static inline float isQuadBase(const StructureConfig sconf, int64_t seed, int radius);
+static inline float isQuadBase(const StructureConfig sconf, uint64_t seed, int radius);
 
 /* Determines if the specified seed qualifies as a quad-base, given a required
  * structure size. The structure size should include the actual dimensions of
@@ -389,18 +388,18 @@ static inline float isQuadBase(const StructureConfig sconf, int64_t seed, int ra
  * so quickly that the function call is a major contributor to the overall time.
  */
 static inline __attribute__((always_inline, const))
-float isQuadBaseFeature24Classic (const StructureConfig sconf, int64_t seed);
+float isQuadBaseFeature24Classic (const StructureConfig sconf, uint64_t seed);
 
 static inline __attribute__((always_inline, const))
-float isQuadBaseFeature24 (const StructureConfig sconf, int64_t seed,
+float isQuadBaseFeature24 (const StructureConfig sconf, uint64_t seed,
         int ax, int ay, int az);
 
 static inline __attribute__((always_inline, const))
-float isQuadBaseFeature (const StructureConfig sconf, int64_t seed,
+float isQuadBaseFeature (const StructureConfig sconf, uint64_t seed,
         int ax, int ay, int az, int radius);
 
 static inline __attribute__((always_inline, const))
-float isQuadBaseLarge (const StructureConfig sconf, int64_t seed,
+float isQuadBaseLarge (const StructureConfig sconf, uint64_t seed,
         int ax, int ay, int az, int radius);
 
 
@@ -425,14 +424,14 @@ float isQuadBaseLarge (const StructureConfig sconf, int64_t seed,
  * Returns zero upon success.
  */
 int searchAll48(
-        int64_t **          seedbuf,
-        int64_t *           buflen,
+        uint64_t **         seedbuf,
+        uint64_t *          buflen,
         const char *        path,
         int                 threads,
-        const int64_t *     lowBits,
+        const uint64_t *    lowBits,
         int                 lowBitCnt,
         int                 lowBitN,
-        int (*check)(int64_t s48, void *data),
+        int (*check)(uint64_t s48, void *data),
         void *              data
         );
 
@@ -472,8 +471,8 @@ Pos getOptimalAfk(Pos p[4], int ax, int ay, int az, int *spcnt);
  * Returns the number of quad-structures found (up to 'n').
  */
 int scanForQuads(
-        const StructureConfig sconf, int radius, int64_t s48,
-        const int64_t *lowBits, int lowBitCnt, int lowBitN, int64_t salt,
+        const StructureConfig sconf, int radius, uint64_t s48,
+        const uint64_t *lowBits, int lowBitCnt, int lowBitN, uint64_t salt,
         int x, int z, int w, int h, Pos *qplist, int n);
 
 //==============================================================================
@@ -487,7 +486,7 @@ int getBiomeAtPos(const LayerStack *g, const Pos pos);
 
 /* Get the shadow seed.
  */
-static inline int64_t getShadow(int64_t seed)
+static inline uint64_t getShadow(uint64_t seed)
 {
     return -7379792620528906219LL - seed;
 }
@@ -514,7 +513,7 @@ Pos findBiomePosition(
         const int           centerZ,
         const int           range,
         const char *        isValid,
-        int64_t *           seed,
+        uint64_t *          seed,
         int *               passes
         );
 
@@ -555,7 +554,7 @@ int areBiomesViable(
  *
  * Returns the approximate block position of the first stronghold.
  */
-Pos initFirstStronghold(StrongholdIter *sh, int mc, int64_t s48);
+Pos initFirstStronghold(StrongholdIter *sh, int mc, uint64_t s48);
 
 /* Performs the biome checks for the stronghold iterator and finds its accurate
  * location, as well as the approximate location of the next stronghold.
@@ -590,7 +589,7 @@ int findStrongholds(
         const LayerStack *  g,
         int *               cache,
         Pos *               locations,
-        int64_t             worldSeed,
+        uint64_t            worldSeed,
         int                 maxSH,
         int                 maxRing
         );
@@ -604,7 +603,7 @@ int findStrongholds(
  * @cache     : biome buffer, set to NULL for temporary allocation
  * @worldSeed : world seed used for the generator
  */
-Pos getSpawn(const int mc, const LayerStack *g, int *cache, int64_t worldSeed);
+Pos getSpawn(const int mc, const LayerStack *g, int *cache, uint64_t worldSeed);
 
 /* Finds the approximate spawn point in the world.
  *
@@ -613,7 +612,7 @@ Pos getSpawn(const int mc, const LayerStack *g, int *cache, int64_t worldSeed);
  * @cache     : biome buffer, set to NULL for temporary allocation
  * @worldSeed : world seed used for the generator
  */
-Pos estimateSpawn(const int mc, const LayerStack *g, int *cache, int64_t worldSeed);
+Pos estimateSpawn(const int mc, const LayerStack *g, int *cache, uint64_t worldSeed);
 
 
 //==============================================================================
@@ -634,11 +633,11 @@ Pos estimateSpawn(const int mc, const LayerStack *g, int *cache, int64_t worldSe
  * The return value is non-zero if the position is valid.
  */
 int isViableStructurePos(int structureType, int mc, LayerStack *g,
-        int64_t seed, int blockX, int blockZ);
+        uint64_t seed, int blockX, int blockZ);
 int isViableNetherStructurePos(int structureType, int mc, NetherNoise *nn,
-        int64_t seed, int blockX, int blockZ);
+        uint64_t seed, int blockX, int blockZ);
 int isViableEndStructurePos(int structureType, int mc, EndNoise *en,
-        int64_t seed, int blockX, int blockZ);
+        uint64_t seed, int blockX, int blockZ);
 
 /* Checks if the specified structure type could generate in the given biome.
  */
@@ -659,17 +658,17 @@ int isViableEndCityTerrain(const EndNoise *en, const SurfaceNoise *sn,
  * This random object is used for recursiveGenerate() which is responsible for
  * generating caves, ravines, mineshafts, and virtually all other structures.
  */
-inline static int64_t chunkGenerateRnd(const int64_t worldSeed,
+inline static int64_t chunkGenerateRnd(const uint64_t worldSeed,
         const int chunkX, const int chunkZ)
 {
-    int64_t rnd;
+    uint64_t rnd;
     setSeed(&rnd, worldSeed);
     rnd = (nextLong(&rnd) * chunkX) ^ (nextLong(&rnd) * chunkZ) ^ worldSeed;
     setSeed(&rnd, rnd);
     return rnd;
 }
 
-VillageType getVillageType(int mc, int64_t seed, int blockX, int blockZ, int biomeID);
+VillageType getVillageType(int mc, uint64_t seed, int blockX, int blockZ, int biomeID);
 
 
 /* Finds the number of each type of house that generate in a village
@@ -681,8 +680,7 @@ VillageType getVillageType(int mc, int64_t seed, int blockX, int blockZ, int bio
  *
  * Returns the random object seed after finding these numbers.
  */
-int64_t getHouseList(const int64_t worldSeed, const int chunkX, const int chunkZ,
-        int *housesOut);
+uint64_t getHouseList(uint64_t worldSeed, int chunkX, int chunkZ, int *housesOut);
 
 
 //==============================================================================
@@ -713,7 +711,7 @@ int checkForBiomes(
         LayerStack *    g,
         int             layerID,
         int *           cache,
-        int64_t         seed,
+        uint64_t        seed,
         int             x,
         int             z,
         unsigned int    w,
@@ -730,7 +728,7 @@ int checkForBiomes(
  * Oceanic, Warm, Lush, Cold, Freeing, Special+Warm, Special+Lush, Special+Cold
  * For 1.7+ only.
  */
-int checkForTemps(LayerStack *g, int64_t seed, int x, int z, int w, int h, const int tc[9]);
+int checkForTemps(LayerStack *g, uint64_t seed, int x, int z, int w, int h, const int tc[9]);
 
 /* Checks if a biome may generate given a version and layer ID as entry point.
  * The supported layers are:
@@ -753,7 +751,7 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id);
 
 
 static inline __attribute__((const))
-Pos getFeatureChunkInRegion(StructureConfig config, int64_t seed, int regX, int regZ)
+Pos getFeatureChunkInRegion(StructureConfig config, uint64_t seed, int regX, int regZ)
 {
     /*
     // Vanilla like implementation.
@@ -764,54 +762,55 @@ Pos getFeatureChunkInRegion(StructureConfig config, int64_t seed, int regX, int 
     pos.z = nextInt(&seed, 24);
     */
     Pos pos;
-    const int64_t K = 0x5deece66dLL;
-    const int64_t M = (1ULL << 48) - 1;
-    const int64_t b = 0xb;
+    const uint64_t K = 0x5deece66dULL;
+    const uint64_t M = (1ULL << 48) - 1;
+    const uint64_t b = 0xb;
 
     // set seed
-    seed = seed + regX*341873128712 + regZ*132897987541 + config.salt;
+    seed = seed + regX*341873128712ULL + regZ*132897987541ULL + config.salt;
     seed = (seed ^ K);
     seed = (seed * K + b) & M;
 
-    if (config.chunkRange & (config.chunkRange-1))
+    uint64_t r = config.chunkRange;
+    if (r & (r-1))
     {
-        pos.x = (int)(seed >> 17) % config.chunkRange;
+        pos.x = (int)(seed >> 17) % r;
         seed = (seed * K + b) & M;
-        pos.z = (int)(seed >> 17) % config.chunkRange;
+        pos.z = (int)(seed >> 17) % r;
     }
     else
     {
         // Java RNG treats powers of 2 as a special case.
-        pos.x = (config.chunkRange * (seed >> 17)) >> 31;
+        pos.x = (int)((r * (seed >> 17)) >> 31);
         seed = (seed * K + b) & M;
-        pos.z = (config.chunkRange * (seed >> 17)) >> 31;
+        pos.z = (int)((r * (seed >> 17)) >> 31);
     }
 
     return pos;
 }
 
 static inline __attribute__((const))
-Pos getFeaturePos(StructureConfig config, int64_t seed, int regX, int regZ)
+Pos getFeaturePos(StructureConfig config, uint64_t seed, int regX, int regZ)
 {
     Pos pos = getFeatureChunkInRegion(config, seed, regX, regZ);
 
-    pos.x = ((regX*config.regionSize + pos.x) << 4);
-    pos.z = ((regZ*config.regionSize + pos.z) << 4);
+    pos.x = (int)(((uint64_t)regX*config.regionSize + pos.x) << 4);
+    pos.z = (int)(((uint64_t)regZ*config.regionSize + pos.z) << 4);
     return pos;
 }
 
 static inline __attribute__((const))
-Pos getLargeStructureChunkInRegion(StructureConfig config, int64_t seed, int regX, int regZ)
+Pos getLargeStructureChunkInRegion(StructureConfig config, uint64_t seed, int regX, int regZ)
 {
     Pos pos;
-    const int64_t K = 0x5deece66dLL;
-    const int64_t M = (1ULL << 48) - 1;
-    const int64_t b = 0xb;
+    const uint64_t K = 0x5deece66dULL;
+    const uint64_t M = (1ULL << 48) - 1;
+    const uint64_t b = 0xb;
 
     //TODO: power of two chunk ranges...
 
     // set seed
-    seed = seed + regX*341873128712 + regZ*132897987541 + config.salt;
+    seed = seed + regX*341873128712ULL + regZ*132897987541ULL + config.salt;
     seed = (seed ^ K);
 
     seed = (seed * K + b) & M;
@@ -831,14 +830,12 @@ Pos getLargeStructureChunkInRegion(StructureConfig config, int64_t seed, int reg
 }
 
 static inline __attribute__((const))
-Pos getLargeStructurePos(StructureConfig config, int64_t seed, int regX, int regZ)
+Pos getLargeStructurePos(StructureConfig config, uint64_t seed, int regX, int regZ)
 {
     Pos pos = getLargeStructureChunkInRegion(config, seed, regX, regZ);
 
-    pos.x = regX*config.regionSize + pos.x;
-    pos.z = regZ*config.regionSize + pos.z;
-    pos.x = pos.x*16;
-    pos.z = pos.z*16;
+    pos.x = (int)(((uint64_t)regX*config.regionSize + pos.x) << 4);
+    pos.z = (int)(((uint64_t)regZ*config.regionSize + pos.z) << 4);
     return pos;
 }
 
@@ -888,7 +885,7 @@ float getEnclosingRadius(
 }
 
 
-static inline float isQuadBase(const StructureConfig sconf, int64_t seed, int radius)
+static inline float isQuadBase(const StructureConfig sconf, uint64_t seed, int radius)
 {
     switch(sconf.structType)
     {
@@ -934,13 +931,13 @@ static inline float isQuadBase(const StructureConfig sconf, int64_t seed, int ra
 
 // optimised version for regionSize=32,chunkRange=24,radius=128
 static inline __attribute__((always_inline, const))
-float isQuadBaseFeature24(const StructureConfig sconf, int64_t seed,
+float isQuadBaseFeature24(const StructureConfig sconf, uint64_t seed,
         int ax, int ay, int az)
 {
     seed += sconf.salt;
-    int64_t s00 = seed;
-    int64_t s11 = 341873128712 + 132897987541 + seed;
-    const int64_t K = 0x5deece66dLL;
+    uint64_t s00 = seed;
+    uint64_t s11 = 341873128712ULL + 132897987541ULL + seed;
+    const uint64_t K = 0x5deece66dULL;
 
     int x0, z0, x1, z1, x2, z2, x3, z3;
     int x, z;
@@ -960,8 +957,8 @@ float isQuadBaseFeature24(const StructureConfig sconf, int64_t seed,
     if (x*x + z*z > 255)
         return 0;
 
-    int64_t s01 = 341873128712 + seed;
-    int64_t s10 = 132897987541 + seed;
+    uint64_t s01 = 341873128712ULL + seed;
+    uint64_t s10 = 132897987541ULL + seed;
 
     s01 ^= K;
     JAVA_NEXT_INT24(s01, x2); if L(x2 >= 4) return 0;
@@ -986,12 +983,12 @@ float isQuadBaseFeature24(const StructureConfig sconf, int64_t seed,
 
 // variant of isQuadBaseFeature24 which finds only the classic constellations
 static inline __attribute__((always_inline, const))
-float isQuadBaseFeature24Classic(const StructureConfig sconf, int64_t seed)
+float isQuadBaseFeature24Classic(const StructureConfig sconf, uint64_t seed)
 {
     seed += sconf.salt;
-    int64_t s00 = seed;
-    int64_t s11 = 341873128712 + 132897987541 + seed;
-    const int64_t K = 0x5deece66dLL;
+    uint64_t s00 = seed;
+    uint64_t s11 = 341873128712ULL + 132897987541ULL + seed;
+    const uint64_t K = 0x5deece66dULL;
     int p;
 
     // check that the two structures in the opposing diagonal quadrants are
@@ -1004,8 +1001,8 @@ float isQuadBaseFeature24Classic(const StructureConfig sconf, int64_t seed)
     JAVA_NEXT_INT24(s11, p); if L(p > 1) return 0;
     JAVA_NEXT_INT24(s11, p); if L(p > 1) return 0;
 
-    int64_t s01 = 341873128712 + seed;
-    int64_t s10 = 132897987541 + seed;
+    uint64_t s01 = 341873128712ULL + seed;
+    uint64_t s10 = 132897987541ULL + seed;
 
     s01 ^= K;
     JAVA_NEXT_INT24(s01, p); if L(p > 1) return 0;
@@ -1019,15 +1016,15 @@ float isQuadBaseFeature24Classic(const StructureConfig sconf, int64_t seed)
 }
 
 static inline __attribute__((always_inline, const))
-float isQuadBaseFeature(const StructureConfig sconf, int64_t seed,
+float isQuadBaseFeature(const StructureConfig sconf, uint64_t seed,
         int ax, int ay, int az, int radius)
 {
     seed += sconf.salt;
-    int64_t s00 = seed;
-    int64_t s11 = 341873128712 + 132897987541 + seed;
-    const int64_t M = (1ULL << 48) - 1;
-    const int64_t K = 0x5deece66dLL;
-    const int64_t b = 0xbLL;
+    uint64_t s00 = seed;
+    uint64_t s11 = 341873128712ULL + 132897987541ULL + seed;
+    const uint64_t M = (1ULL << 48) - 1;
+    const uint64_t K = 0x5deece66dULL;
+    const uint64_t b = 0xb;
 
     int x0, z0, x1, z1, x2, z2, x3, z3;
     int x, z;
@@ -1037,7 +1034,7 @@ float isQuadBaseFeature(const StructureConfig sconf, int64_t seed,
     int cd = radius/8;
     int rm = R - (int)sqrtf(cd*cd - (R-C+1)*(R-C+1));
 
-    int64_t s;
+    uint64_t s;
 
     s = s00 ^ K;
     s = (s * K + b) & M; x0 = (int)(s >> 17) % C; if L(x0 <= rm) return 0;
@@ -1055,8 +1052,8 @@ float isQuadBaseFeature(const StructureConfig sconf, int64_t seed,
     if L(x*x + z*z > cd*cd)
         return 0;
 
-    int64_t s01 = 341873128712 + seed;
-    int64_t s10 = 132897987541 + seed;
+    uint64_t s01 = 341873128712ULL + seed;
+    uint64_t s10 = 132897987541ULL + seed;
 
     s = s01 ^ K;
     s = (s * K + b) & M; x2 = (int)(s >> 17) % C; if L(x2 >= C-rm) return 0;
@@ -1078,29 +1075,29 @@ float isQuadBaseFeature(const StructureConfig sconf, int64_t seed,
 
 
 static inline __attribute__((always_inline, const))
-float isQuadBaseLarge(const StructureConfig sconf, int64_t seed,
+float isQuadBaseLarge(const StructureConfig sconf, uint64_t seed,
         int ax, int ay, int az, int radius)
 {
     // Good quad-monument bases are very rare indeed and the search takes much
     // longer since it cannot be abbreviated by the low-20-bit method. For a
     // complete list of bases see the implementation of cubiomes-viewer.
 
-    const int64_t M = (1ULL << 48) - 1;
-    const int64_t K = 0x5deece66dLL;
-    const int64_t b = 0xbLL;
+    const uint64_t M = (1ULL << 48) - 1;
+    const uint64_t K = 0x5deece66dULL;
+    const uint64_t b = 0xb;
 
     seed += sconf.salt;
-    int64_t s00 = seed;
-    int64_t s01 = 341873128712 + seed;
-    int64_t s10 = 132897987541 + seed;
-    int64_t s11 = 341873128712 + 132897987541 + seed;
+    uint64_t s00 = seed;
+    uint64_t s01 = 341873128712ULL + seed;
+    uint64_t s10 = 132897987541ULL + seed;
+    uint64_t s11 = 341873128712ULL + 132897987541ULL + seed;
 
     // p1 = nextInt(range); p2 = nextInt(range); pos = (p1+p2)>>1
     const int R = sconf.regionSize;
     const int C = sconf.chunkRange;
     int rm = (int)(2 * R + ((ax<az?ax:az) - 2*radius + 7) / 8);
 
-    int64_t s;
+    uint64_t s;
     int p;
     int x0,z0,x1,z1,x2,z2,x3,z3;
 
@@ -1121,7 +1118,7 @@ float isQuadBaseLarge(const StructureConfig sconf, int64_t seed,
     z1 = p;
 
     s = ((x1-x0)>>1)*((x1-x0)>>1) + ((z1-z0)>>1)*((z1-z0)>>1);
-    if (s > 4*radius*radius)
+    if (s > (uint64_t)4*radius*radius)
         return 0;
 
     s = s01 ^ K;

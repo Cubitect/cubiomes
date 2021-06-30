@@ -25,6 +25,9 @@
 #define U(COND)                 (COND)
 #endif
 
+#define LAYER_INIT_SHA          (~0ULL)
+
+
 /* Minecraft versions */
 enum MCversion
 {
@@ -172,9 +175,9 @@ STRUCT(Layer)
     int8_t edge;        // maximum border required from parent layer
     int scale;          // scale of this layer (cell = scale x scale blocks)
 
-    int64_t layerSalt;  // processed salt or initialization mode
-    int64_t startSalt;  // (depends on world seed) used to step PRNG forward
-    int64_t startSeed;  // (depends on world seed) starting point for chunk seeds
+    uint64_t layerSalt; // processed salt or initialization mode
+    uint64_t startSalt; // (depends on world seed) used to step PRNG forward
+    uint64_t startSeed; // (depends on world seed) starting point for chunk seeds
 
     void *noise;        // (depends on world seed) noise map data
     void *data;         // generic data for custom layers
@@ -215,30 +218,30 @@ extern "C"
 void initBiomes();
 
 /* Applies the given world seed to the layer and all dependent layers. */
-void setLayerSeed(Layer *layer, int64_t worldSeed);
+void setLayerSeed(Layer *layer, uint64_t worldSeed);
 
 
 //==============================================================================
 // Noise
 //==============================================================================
 
-void perlinInit(PerlinNoise *rnd, int64_t *seed);
+void perlinInit(PerlinNoise *rnd, uint64_t *seed);
 double samplePerlin(const PerlinNoise *rnd, double x, double y, double z,
         double yamp, double ymin);
 double sampleSimplex2D(const PerlinNoise *rnd, double x, double y);
 
-void octaveInit(OctaveNoise *rnd, int64_t *seed, PerlinNoise *octaves,
+void octaveInit(OctaveNoise *rnd, uint64_t *seed, PerlinNoise *octaves,
         int omin, int len);
 double sampleOctave(const OctaveNoise *rnd, double x, double y, double z);
 
-void doublePerlinInit(DoublePerlinNoise *rnd, int64_t *seed,
+void doublePerlinInit(DoublePerlinNoise *rnd, uint64_t *seed,
         PerlinNoise *octavesA, PerlinNoise *octavesB, int omin, int len);
 double sampleDoublePerlin(const DoublePerlinNoise *rnd,
         double x, double y, double z);
 
-void initSurfaceNoise(SurfaceNoise *rnd, int64_t *seed,
+void initSurfaceNoise(SurfaceNoise *rnd, uint64_t *seed,
         double xzScale, double yScale, double xzFactor, double yFactor);
-void initSurfaceNoiseEnd(SurfaceNoise *rnd, int64_t seed);
+void initSurfaceNoiseEnd(SurfaceNoise *rnd, uint64_t seed);
 double sampleSurfaceNoise(const SurfaceNoise *rnd, int x, int y, int z);
 
 
@@ -266,7 +269,7 @@ double sampleSurfaceNoise(const SurfaceNoise *rnd, int x, int y, int z);
  * The output buffer for the map-functions need only be of sufficient size to
  * hold the generated area (i.e. w*h or w*h*yh).
  */
-void setNetherSeed(NetherNoise *nn, int64_t seed);
+void setNetherSeed(NetherNoise *nn, uint64_t seed);
 int getNetherBiome(const NetherNoise *nn, int x, int y, int z, float *ndel);
 int mapNether2D(const NetherNoise *nn, int *out, int x, int z, int w, int h);
 int mapNether3D(const NetherNoise *nn, int *out, int x, int z, int w, int h,
@@ -278,10 +281,10 @@ int mapNether3D(const NetherNoise *nn, int *out, int x, int z, int w, int h,
  * is a variation which also scales this up on a regular grid to 1:4. The final
  * access at a 1:1 scale is the standard voronoi layer.
  */
-void setEndSeed(EndNoise *en, int64_t seed);
+void setEndSeed(EndNoise *en, uint64_t seed);
 int mapEndBiome(const EndNoise *en, int *out, int x, int z, int w, int h);
 int mapEnd(const EndNoise *en, int *out, int x, int z, int w, int h);
-int getSurfaceHeightEnd(int mc, int64_t seed, int x, int z);
+int getSurfaceHeightEnd(int mc, uint64_t seed, int x, int z);
 
 
 //==============================================================================
@@ -302,53 +305,53 @@ int getSurfaceHeightEnd(int mc, int64_t seed, int x, int z);
  *   cs_next = mcStepSeed(cs, st)
  */
 
-static inline int64_t mcStepSeed(int64_t s, int64_t salt)
+static inline uint64_t mcStepSeed(uint64_t s, uint64_t salt)
 {
-    return s * (s * 6364136223846793005LL + 1442695040888963407LL) + salt;
+    return s * (s * 6364136223846793005ULL + 1442695040888963407ULL) + salt;
 }
 
-static inline int mcFirstInt(int64_t s, int mod)
+static inline int mcFirstInt(uint64_t s, int mod)
 {
-    int ret = (int)((s >> 24) % mod);
+    int ret = (int)(((int64_t)s >> 24) % mod);
     if (ret < 0)
         ret += mod;
     return ret;
 }
 
-static inline int mcFirstIsZero(int64_t s, int mod)
+static inline int mcFirstIsZero(uint64_t s, int mod)
 {
-    return (int)((s >> 24) % mod) == 0;
+    return (int)(((int64_t)s >> 24) % mod) == 0;
 }
 
-static inline int64_t getChunkSeed(int64_t ss, int x, int z)
+static inline uint64_t getChunkSeed(uint64_t ss, int x, int z)
 {
-    int64_t cs = ss + x;
+    uint64_t cs = ss + x;
     cs = mcStepSeed(cs, z);
     cs = mcStepSeed(cs, x);
     cs = mcStepSeed(cs, z);
     return cs;
 }
 
-static inline int64_t getLayerSalt(int64_t salt)
+static inline uint64_t getLayerSalt(uint64_t salt)
 {
-    int64_t ls = mcStepSeed(salt, salt);
+    uint64_t ls = mcStepSeed(salt, salt);
     ls = mcStepSeed(ls, salt);
     ls = mcStepSeed(ls, salt);
     return ls;
 }
 
-static inline int64_t getStartSalt(int64_t ws, int64_t ls)
+static inline uint64_t getStartSalt(uint64_t ws, uint64_t ls)
 {
-    int64_t st = ws;
+    uint64_t st = ws;
     st = mcStepSeed(st, ls);
     st = mcStepSeed(st, ls);
     st = mcStepSeed(st, ls);
     return st;
 }
 
-static inline int64_t getStartSeed(int64_t ws, int64_t ls)
+static inline uint64_t getStartSeed(uint64_t ws, uint64_t ls)
 {
-    int64_t ss = ws;
+    uint64_t ss = ws;
     ss = getStartSalt(ss, ls);
     ss = mcStepSeed(ss, 0);
     return ss;
@@ -411,8 +414,8 @@ mapfunc_t mapVoronoi114;
 // Biome generation now stops at scale 1:4 OceanMix and voronoi is just an
 // access algorithm, mapping the 1:1 scale onto its 1:4 correspondent.
 // It is seeded by the first 8-bytes of the SHA-256 hash of the world seed.
-int64_t getVoronoiSHA(int64_t worldSeed) __attribute__((const));
-void voronoiAccess3D(int64_t sha, int x, int y, int z, int *x4, int *y4, int *z4);
+uint64_t getVoronoiSHA(uint64_t worldSeed) __attribute__((const));
+void voronoiAccess3D(uint64_t sha, int x, int y, int z, int *x4, int *y4, int *z4);
 
 
 #ifdef __cplusplus

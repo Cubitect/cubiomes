@@ -7,23 +7,26 @@
 /********************** C copy of the Java Random methods **********************
  */
 
-static inline void setSeed(int64_t *seed, int64_t value)
+static inline void setSeed(uint64_t *seed, uint64_t value)
 {
-    *seed = (value ^ 0x5deece66d) & ((1LL << 48) - 1);
+    *seed = (value ^ 0x5deece66d) & ((1ULL << 48) - 1);
 }
 
-static inline int next(int64_t *seed, const int bits)
+static inline int next(uint64_t *seed, const int bits)
 {
-    *seed = (*seed * 0x5deece66d + 0xb) & ((1LL << 48) - 1);
-    return (int) (*seed >> (48 - bits));
+    *seed = (*seed * 0x5deece66d + 0xb) & ((1ULL << 48) - 1);
+    return (int) ((int64_t)*seed >> (48 - bits));
 }
 
-static inline int nextInt(int64_t *seed, const int n)
+static inline int nextInt(uint64_t *seed, const int n)
 {
     int bits, val;
     const int m = n - 1;
 
-    if((m & n) == 0) return (int) ((n * (int64_t)next(seed, 31)) >> 31);
+    if ((m & n) == 0) {
+        uint64_t x = n * (uint64_t)next(seed, 31);
+        return (int) ((int64_t) x >> 31);
+    }
 
     do {
         bits = next(seed, 31);
@@ -33,19 +36,22 @@ static inline int nextInt(int64_t *seed, const int n)
     return val;
 }
 
-static inline int64_t nextLong(int64_t *seed)
+static inline uint64_t nextLong(uint64_t *seed)
 {
-    return ((int64_t) next(seed, 32) << 32) + next(seed, 32);
+    return ((uint64_t) next(seed, 32) << 32) + next(seed, 32);
 }
 
-static inline float nextFloat(int64_t *seed)
+static inline float nextFloat(uint64_t *seed)
 {
     return next(seed, 24) / (float) (1 << 24);
 }
 
-static inline double nextDouble(int64_t *seed)
+static inline double nextDouble(uint64_t *seed)
 {
-    return (((int64_t) next(seed, 26) << 27) + next(seed, 27)) / (double) (1LL << 53);
+    uint64_t x = (uint64_t)next(seed, 26);
+    x <<= 27;
+    x += next(seed, 27);
+    return (int64_t) x / (double) (1ULL << 53);
 }
 
 /* A macro to generate the ideal assembly for X = nextInt(S, 24)
@@ -54,13 +60,13 @@ static inline double nextDouble(int64_t *seed)
  */
 #define JAVA_NEXT_INT24(S,X)                \
     do {                                    \
-        int64_t a = (1ULL << 48) - 1;       \
-        int64_t c = 0x5deece66dLL * (S);    \
+        uint64_t a = (1ULL << 48) - 1;      \
+        uint64_t c = 0x5deece66dULL * (S);  \
         c += 11; a &= c;                    \
         (S) = a;                            \
-        a >>= 17;                           \
+        a = (uint64_t) ((int64_t)a >> 17);  \
         c = 0xaaaaaaab * a;                 \
-        c >>= 36;                           \
+        c = (uint64_t) ((int64_t)c >> 36);  \
         (X) = (int)a - (int)(c << 3) * 3;   \
     } while (0)
 
@@ -69,12 +75,12 @@ static inline double nextDouble(int64_t *seed)
  * ---------
  * Jumps forwards in the random number sequence by simulating 'n' calls to next.
  */
-static inline void skipNextN(int64_t *seed, uint64_t n)
+static inline void skipNextN(uint64_t *seed, uint64_t n)
 {
-    int64_t m = 1;
-    int64_t a = 0;
-    int64_t im = 0x5deece66dLL;
-    int64_t ia = 0xbLL;
+    uint64_t m = 1;
+    uint64_t a = 0;
+    uint64_t im = 0x5deece66dULL;
+    uint64_t ia = 0xb;
     uint64_t k;
 
     for (k = n; k; k >>= 1)
@@ -89,59 +95,24 @@ static inline void skipNextN(int64_t *seed, uint64_t n)
     }
 
     *seed = *seed * m + a;
-    *seed &= 0xffffffffffffLL;
-}
-
-/* invSeed48
- * ---------
- * Returns the previous 48-bit seed which will generate 'nseed'.
- * The upper 16 bits are ignored, both here and in the generator.
- */
-static inline __attribute__((const))
-int64_t invSeed48(int64_t nseed)
-{
-    const int64_t x = 0x5deece66d;
-    const int64_t xinv = 0xdfe05bcb1365LL;
-    const int64_t y = 0xbLL;
-    const int64_t m48 = 0xffffffffffffLL;
-
-    int64_t a = nseed >> 32;
-    int64_t b = nseed & 0xffffffffLL;
-    if (b & 0x80000000LL) a++;
-
-    int64_t q = ((b << 16) - y - (a << 16)*x) & m48;
-    int64_t k;
-    for (k = 0; k <= 5; k++)
-    {
-        int64_t d = (x - (q + (k << 48))) % x;
-        d = (d + x) % x; // force the modulo and keep it positive
-        if (d < 65536)
-        {
-            int64_t c = ((q + d) * xinv) & m48;
-            if (c < 65536)
-            {
-                return ((((a << 16) + c) - y) * xinv) & m48;
-            }
-        }
-    }
-    return -1;
+    *seed &= 0xffffffffffffULL;
 }
 
 
 /* Find the modular inverse: (1/x) | mod m.
- * Assumes x and m are positive and co-prime.
+ * Assumes x and m are positive (less than 2^63), co-prime.
  */
 static inline __attribute__((const))
-int64_t mulInv(int64_t x, int64_t m)
+uint64_t mulInv(uint64_t x, uint64_t m)
 {
-    int64_t t, q, a, b, n;
-    if (m <= 1)
+    uint64_t t, q, a, b, n;
+    if ((int64_t)m <= 1)
         return 0; // no solution
 
     n = m;
     a = 0; b = 1;
 
-    while (x > 1)
+    while ((int64_t)x > 1)
     {
         if (m == 0)
             return 0; // x and m are co-prime
@@ -150,7 +121,7 @@ int64_t mulInv(int64_t x, int64_t m)
         t = a; a = b - q * a; b = t;
     }
 
-    if (b < 0)
+    if ((int64_t)b < 0)
         b += n;
     return b;
 }
