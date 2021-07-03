@@ -1,8 +1,46 @@
 #include "util.h"
-#include "layers.h"
+#include "finders.h"
 
 #include <stdio.h>
 #include <string.h>
+
+
+const char* mc2str(int mc)
+{
+    switch (mc)
+    {
+    case MC_1_6:  return "1.6"; break;
+    case MC_1_7:  return "1.7"; break;
+    case MC_1_8:  return "1.8"; break;
+    case MC_1_9:  return "1.9"; break;
+    case MC_1_10: return "1.10"; break;
+    case MC_1_11: return "1.11"; break;
+    case MC_1_12: return "1.12"; break;
+    case MC_1_13: return "1.13"; break;
+    case MC_1_14: return "1.14"; break;
+    case MC_1_15: return "1.15"; break;
+    case MC_1_16: return "1.16"; break;
+    case MC_1_17: return "1.17"; break;
+    default: return NULL;
+    }
+}
+
+int str2mc(const char *s)
+{
+    if (!strcmp(s, "1.17")) return MC_1_17;
+    if (!strcmp(s, "1.16")) return MC_1_16;
+    if (!strcmp(s, "1.15")) return MC_1_15;
+    if (!strcmp(s, "1.14")) return MC_1_14;
+    if (!strcmp(s, "1.13")) return MC_1_13;
+    if (!strcmp(s, "1.12")) return MC_1_12;
+    if (!strcmp(s, "1.11")) return MC_1_11;
+    if (!strcmp(s, "1.10")) return MC_1_10;
+    if (!strcmp(s, "1.9")) return MC_1_9;
+    if (!strcmp(s, "1.8")) return MC_1_8;
+    if (!strcmp(s, "1.7")) return MC_1_7;
+    if (!strcmp(s, "1.6")) return MC_1_6;
+    return -1;
+}
 
 
 const char *biome2str(int id)
@@ -232,7 +270,7 @@ void initBiomeTypeColors(unsigned char biomeColors[256][3])
 
 
 int biomesToImage(unsigned char *pixels,
-        const unsigned char biomeColors[256][3], const int *biomes,
+        unsigned char biomeColors[256][3], const int *biomes,
         const unsigned int sx, const unsigned int sy,
         const unsigned int pixscale, const int flip)
 {

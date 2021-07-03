@@ -45,10 +45,12 @@ enum StructureType
     Mansion,
     Outpost,
     Ruined_Portal,
+    Ruined_Portal_N,
     Treasure,
     Fortress,
     Bastion,
     End_City,
+    End_Gateway,
 };
 
 enum // village house types prior to 1.14
@@ -67,40 +69,45 @@ STRUCT(StructureConfig)
     unsigned char   properties;
 };
 
+#define _sc static const StructureConfig
+
 /* for desert pyramids, jungle temples, witch huts and igloos prior to 1.13 */
-static const StructureConfig FEATURE_CONFIG        = { 14357617, 32, 24, Feature, 0};
-static const StructureConfig IGLOO_CONFIG_112      = { 14357617, 32, 24, Igloo, 0};
-static const StructureConfig SWAMP_HUT_CONFIG_112  = { 14357617, 32, 24, Swamp_Hut, 0};
-static const StructureConfig DESERT_PYRAMID_CONFIG_112 = { 14357617, 32, 24, Desert_Pyramid, 0};
-static const StructureConfig JUNGLE_PYRAMID_CONFIG_112 = { 14357617, 32, 24, Jungle_Pyramid, 0};
+_sc FEATURE_CONFIG            = { 14357617, 32, 24, Feature, 0};
+_sc IGLOO_CONFIG_112          = { 14357617, 32, 24, Igloo, 0};
+_sc SWAMP_HUT_CONFIG_112      = { 14357617, 32, 24, Swamp_Hut, 0};
+_sc DESERT_PYRAMID_CONFIG_112 = { 14357617, 32, 24, Desert_Pyramid, 0};
+_sc JUNGLE_PYRAMID_CONFIG_112 = { 14357617, 32, 24, Jungle_Pyramid, 0};
 
 /* ocean features before 1.16 */
-static const StructureConfig OCEAN_RUIN_CONFIG_115 = { 14357621, 16,  8, Ocean_Ruin, 0};
-static const StructureConfig SHIPWRECK_CONFIG_115  = {165745295, 15,  7, Shipwreck, 0};
+_sc OCEAN_RUIN_CONFIG_115     = { 14357621, 16,  8, Ocean_Ruin, 0};
+_sc SHIPWRECK_CONFIG_115      = {165745295, 15,  7, Shipwreck, 0};
 
 /* 1.13 separated feature seeds by type */
-static const StructureConfig DESERT_PYRAMID_CONFIG = { 14357617, 32, 24, Desert_Pyramid, 0};
-static const StructureConfig IGLOO_CONFIG          = { 14357618, 32, 24, Igloo, 0};
-static const StructureConfig JUNGLE_PYRAMID_CONFIG = { 14357619, 32, 24, Jungle_Pyramid, 0};
-static const StructureConfig SWAMP_HUT_CONFIG      = { 14357620, 32, 24, Swamp_Hut, 0};
+_sc DESERT_PYRAMID_CONFIG     = { 14357617, 32, 24, Desert_Pyramid, 0};
+_sc IGLOO_CONFIG              = { 14357618, 32, 24, Igloo, 0};
+_sc JUNGLE_PYRAMID_CONFIG     = { 14357619, 32, 24, Jungle_Pyramid, 0};
+_sc SWAMP_HUT_CONFIG          = { 14357620, 32, 24, Swamp_Hut, 0};
+_sc OUTPOST_CONFIG            = {165745296, 32, 24, Outpost, 0};
+_sc VILLAGE_CONFIG            = { 10387312, 32, 24, Village, 0};
+_sc OCEAN_RUIN_CONFIG         = { 14357621, 20, 12, Ocean_Ruin, 0};
+_sc SHIPWRECK_CONFIG          = {165745295, 24, 20, Shipwreck, 0};
+_sc MONUMENT_CONFIG           = { 10387313, 32, 27, Monument, LARGE_STRUCT};
+_sc MANSION_CONFIG            = { 10387319, 80, 60, Mansion, LARGE_STRUCT};
+_sc RUINED_PORTAL_CONFIG      = { 34222645, 40, 25, Ruined_Portal, 0}; // overworld
+_sc RUINED_PORTAL_N_CONFIG    = { 34222645, 25, 15, Ruined_Portal_N, 0}; // nether
 
-static const StructureConfig OUTPOST_CONFIG        = {165745296, 32, 24, Outpost, 0};
-static const StructureConfig VILLAGE_CONFIG        = { 10387312, 32, 24, Village, 0};
-static const StructureConfig OCEAN_RUIN_CONFIG     = { 14357621, 20, 12, Ocean_Ruin, 0};
-static const StructureConfig SHIPWRECK_CONFIG      = {165745295, 24, 20, Shipwreck, 0};
-static const StructureConfig MONUMENT_CONFIG       = { 10387313, 32, 27, Monument, LARGE_STRUCT};
-static const StructureConfig MANSION_CONFIG        = { 10387319, 80, 60, Mansion, LARGE_STRUCT};
-static const StructureConfig RUINED_PORTAL_CONFIG  = { 34222645, 40, 25, Ruined_Portal, 0}; // overworld variant
-
-// structures that check each chunk individually
-static const StructureConfig TREASURE_CONFIG       = { 10387320,  1,  1, Treasure, CHUNK_STRUCT};
+_sc TREASURE_CONFIG           = { 10387320,  1,  1, Treasure, CHUNK_STRUCT};
 
 // nether and end structures
-static const StructureConfig FORTRESS_CONFIG_115   = {        0, 16,  8, Fortress, 0};
-static const StructureConfig FORTRESS_CONFIG       = { 30084232, 27, 23, Fortress, 0};
-static const StructureConfig BASTION_CONFIG        = { 30084232, 27, 23, Bastion, 0};
-static const StructureConfig END_CITY_CONFIG       = { 10387313, 20,  9, End_City, LARGE_STRUCT};
+_sc FORTRESS_CONFIG_115       = {        0, 16,  8, Fortress, 0};
+_sc FORTRESS_CONFIG           = { 30084232, 27, 23, Fortress, 0};
+_sc BASTION_CONFIG            = { 30084232, 27, 23, Bastion, 0};
+_sc END_CITY_CONFIG           = { 10387313, 20,  9, End_City, LARGE_STRUCT};
 
+// for the scattered return gateways
+_sc END_GATEWAY_CONFIG        = {    40013,  1,  1, End_Gateway, CHUNK_STRUCT};
+
+#undef _sc
 
 STRUCT(Pos)
 {
@@ -634,6 +641,7 @@ Pos estimateSpawn(const int mc, const LayerStack *g, int *cache, uint64_t worldS
  */
 int isViableStructurePos(int structureType, int mc, LayerStack *g,
         uint64_t seed, int blockX, int blockZ);
+
 int isViableNetherStructurePos(int structureType, int mc, NetherNoise *nn,
         uint64_t seed, int blockX, int blockZ);
 int isViableEndStructurePos(int structureType, int mc, EndNoise *en,

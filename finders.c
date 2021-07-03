@@ -76,6 +76,26 @@ void setAttemptSeed(uint64_t *s, int cx, int cz)
     next(s, 31);
 }
 
+uint64_t getPopulationSeed(int mc, uint64_t ws, int x, int z)
+{
+    uint64_t s;
+    uint64_t a, b;
+
+    setSeed(&s, ws);
+    a = nextLong(&s);
+    b = nextLong(&s);
+    if (mc >= MC_1_13)
+    {
+        a |= 1; b |= 1;
+    }
+    else
+    {
+        a = (int64_t)a / 2 * 2 + 1;
+        b = (int64_t)b / 2 * 2 + 1;
+    }
+    return (x * a + z * b) ^ ws;
+}
+
 
 int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
 {
@@ -108,6 +128,9 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
     case Ruined_Portal:
         *sconf = RUINED_PORTAL_CONFIG;
         return mc >= MC_1_16;
+    case Ruined_Portal_N:
+        *sconf = RUINED_PORTAL_N_CONFIG;
+        return mc >= MC_1_16;
     case Monument:
         *sconf = MONUMENT_CONFIG;
         return mc >= MC_1_8;
@@ -129,6 +152,9 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
     case Bastion:
         *sconf = BASTION_CONFIG;
         return mc >= MC_1_16;
+    case End_Gateway:
+        *sconf = END_GATEWAY_CONFIG;
+        return mc >= MC_1_13;
     default:
         memset(sconf, 0, sizeof(StructureConfig));
         return 0;
@@ -168,6 +194,7 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
     case Ocean_Ruin:
     case Shipwreck:
     case Ruined_Portal:
+    case Ruined_Portal_N:
         *pos = getFeaturePos(sconf, seed, regX, regZ);
         return 1;
 
@@ -207,6 +234,16 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
     case Bastion:
         getRegPos(pos, &seed, regX, regZ, sconf);
         return nextInt(&seed, 5) >= 2;
+
+    case End_Gateway:
+        pos->x = (int)( ((uint32_t)regX << 4) );
+        pos->z = (int)( ((uint32_t)regZ << 4) );
+        setSeed(&seed, getPopulationSeed(mc, seed, pos->x, pos->z) + sconf.salt);
+        if (nextInt(&seed, 700) != 0)
+            return 0;
+        pos->x += nextInt(&seed, 16);
+        pos->z += nextInt(&seed, 16);
+        return 1;
 
     default:
         fprintf(stderr,
@@ -1407,6 +1444,7 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
         return isOceanic(biomeID) || biomeID == beach || biomeID == snowy_beach;
 
     case Ruined_Portal:
+    case Ruined_Portal_N:
         return mc >= MC_1_16;
 
     case Treasure:
@@ -1446,6 +1484,10 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
     case End_City:
         if (mc < MC_1_9) return 0;
         return biomeID == end_midlands || biomeID == end_highlands;
+
+    case End_Gateway:
+        if (mc < MC_1_13) return 0;
+        return biomeID == end_highlands;
 
     default:
         fprintf(stderr,
@@ -1769,6 +1811,7 @@ L_feature:
         goto L_not_viable;
 
     case Ruined_Portal:
+    case Ruined_Portal_N:
         if (mc >= MC_1_16)
             goto L_viable;
         goto L_not_viable;
@@ -1800,6 +1843,8 @@ int isViableNetherStructurePos(int structureType, int mc, NetherNoise *nn,
         return 1; // fortresses generate in all nether biomes and mc versions
     if (mc < MC_1_16)
         return 0;
+    if (structureType == Ruined_Portal_N)
+        return 1;
 
     blockX = ((blockX >> 4) << 2) + 2;
     blockZ = ((blockZ >> 4) << 2) + 2;
@@ -1811,18 +1856,28 @@ int isViableNetherStructurePos(int structureType, int mc, NetherNoise *nn,
 int isViableEndStructurePos(int structureType, int mc, EndNoise *en,
         uint64_t seed, int blockX, int blockZ)
 {
-    if (structureType != End_City || mc < MC_1_9)
+    switch (structureType)
+    {
+    case End_City:
+        if (mc < MC_1_9) return 0;
+        break;
+    case End_Gateway:
+        if (mc < MC_1_13) return 0;
+        break;
+    default:
         return 0;
+    }
 
     setEndSeed(en, seed);
 
     // end biomes vary only on a per-chunk scale (1:16)
-    // voronoi shouldn't matter as the check will be near the chunk center
+    // voronoi pre-1.15 shouldn't matter for End Cities as the check will be
+    // near the chunk center
     int id;
     int chunkX = blockX >> 4;
     int chunkZ = blockZ >> 4;
     mapEndBiome(en, &id, chunkX, chunkZ, 1, 1);
-    return isViableFeatureBiome(mc, End_City, id) ? id : 0;
+    return isViableFeatureBiome(mc, structureType, id) ? id : 0;
 }
 
 /* Given bordering noise columns and a fractional position between those,

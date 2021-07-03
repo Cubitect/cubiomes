@@ -30,11 +30,12 @@ Let's create a simple program called `find_jedge.c` which tests seeds for a Jung
 int main()
 {
     // Initialize a stack of biome layers that reflects the biome generation of
-    // Minecraft 1.16
+    // Minecraft 1.17
     LayerStack g;
-    setupGenerator(&g, MC_1_16);
+    setupGenerator(&g, MC_1_17);
 
-    int64_t seed;
+    // seeds are internally represented as unsigned 64-bit integers
+    uint64_t seed;
     Pos pos = {0,0}; // block position to be checked
 
     for (seed = 0; ; seed++)
@@ -50,7 +51,7 @@ int main()
     }
 
     printf("Seed %" PRId64 " has a Junge Edge biome at block position "
-        "(%d, %d).\n", seed, pos.x, pos.z);
+        "(%d, %d).\n", (int64_t) seed, pos.x, pos.z);
 
     return 0;
 }
@@ -90,11 +91,11 @@ int main()
 
     // Initialize a stack of biome layers.
     LayerStack g;
-    setupGenerator(&g, MC_1_16);
+    setupGenerator(&g, MC_1_17);
     // Extract the desired layer.
     Layer *layer = &g.layers[L_SHORE_16];
 
-    int64_t seed = 1661454332289LL;
+    uint64_t seed = 1661454332289LL;
     int areaX = -60, areaZ = -60;
     unsigned int areaWidth = 120, areaHeight = 120;
     unsigned int scale = 4;
@@ -137,7 +138,7 @@ Biome filters provide a way of generating an area, but only if that area contain
 
 int main()
 {
-    int mc = MC_1_16;
+    int mc = MC_1_17;
     LayerStack g;
     BiomeFilter filter;
 
@@ -156,13 +157,13 @@ int main()
     int *area = allocCache(&g.layers[entry], w, h);
 
     printf("Searching...\n");
-    int64_t seed;
+    uint64_t seed;
     for (seed = 0; ; seed++)
         if (checkForBiomes(&g, entry, area, seed, x, z, w, h, filter, 1) > 0)
             break;
 
     printf("Seed %" PRId64 " has the required biomes in (%d, %d) - (%d, %d).\n",
-        seed, x, z, x+w, z+h);
+        (int64_t) seed, x, z, x+w, z+h);
 
     free(area);
     return 0;
@@ -182,12 +183,12 @@ The generation of structures can usually be regarded as a two stage process: gen
 int main()
 {
     int structType = Outpost;
-    int mc = MC_1_16;
+    int mc = MC_1_17;
 
     LayerStack g;
     setupGenerator(&g, mc);
 
-    int64_t lower48;
+    uint64_t lower48;
     for (lower48 = 0; ; lower48++)
     {
         // The structure position depends only on the region coordinates and
@@ -201,14 +202,14 @@ int main()
             continue;
 
         // Look for a full 64-bit seed with viable biomes.
-        int64_t upper16;
+        uint64_t upper16;
         for (upper16 = 0; upper16 < 0x10000; upper16++)
         {
-            int64_t seed = lower48 | (upper16 << 48);
+            uint64_t seed = lower48 | (upper16 << 48);
             if (isViableStructurePos(structType, mc, &g, seed, p.x, p.z))
             {
                 printf("Seed %" PRId64 " has a Pillager Outpost at (%d, %d).\n",
-                    seed, p.x, p.z);
+                    (int64_t) seed, p.x, p.z);
                 return 0;
             }
         }
@@ -228,7 +229,7 @@ The function `searchAll48` can be used to find a complete set of 48-bit seed bas
 #include "finders.h"
 #include <stdio.h>
 
-int check(int64_t s48, void *data)
+int check(uint64_t s48, void *data)
 {
     const StructureConfig sconf = *(const StructureConfig*) data;
     return isQuadBase(sconf, s48 - sconf.salt, 128);
@@ -237,24 +238,21 @@ int check(int64_t s48, void *data)
 int main()
 {
     int styp = Swamp_Hut;
-    int mc = MC_1_16;
-    int64_t basecnt = 0;
-    int64_t *bases = NULL;
+    int mc = MC_1_17;
+    uint64_t basecnt = 0;
+    uint64_t *bases = NULL;
     int threads = 8;
     LayerStack g;
 
     StructureConfig sconf;
-    if (mc <= MC_1_12)
-        sconf = SWAMP_HUT_CONFIG_112;
-    else
-        sconf = SWAMP_HUT_CONFIG;
+    getStructureConfig(styp, mc, &sconf);
 
     printf("Preparing seed bases...\n");
     // Get all 48-bit quad-witch-hut bases, but consider only the best 20-bit
     // constellations where the structures are the closest together.
     int err = searchAll48(
         &bases, &basecnt, NULL, threads,
-        low20QuadIdeal, sizeof(low20QuadIdeal) / sizeof(int64_t), 20,
+        low20QuadIdeal, sizeof(low20QuadIdeal) / sizeof(uint64_t), 20,
         check, &sconf
         );
 
@@ -266,12 +264,12 @@ int main()
 
     setupGenerator(&g, mc);
 
-    int64_t i;
+    uint64_t i;
     for (i = 0; i < basecnt; i++)
     {
         // The quad bases by themselves have structures in regions (0,0)-(1,1)
         // so we can move them by -1 regions to have them around the origin.
-        int64_t s48 = moveStructure(bases[i] - sconf.salt, -1, -1);
+        uint64_t s48 = moveStructure(bases[i] - sconf.salt, -1, -1);
 
         Pos pos[4];
         getStructurePos(styp, mc, s48, -1, -1, &pos[0]);
@@ -279,17 +277,17 @@ int main()
         getStructurePos(styp, mc, s48,  0, -1, &pos[2]);
         getStructurePos(styp, mc, s48,  0,  0, &pos[3]);
 
-        int64_t high;
+        uint64_t high;
         for (high = 0; high < 0x10000; high++)
         {
-            int64_t seed = s48 | (high << 48);
+            uint64_t seed = s48 | (high << 48);
 
             if (isViableStructurePos(styp, mc, &g, seed, pos[0].x, pos[0].z) &&
                 isViableStructurePos(styp, mc, &g, seed, pos[1].x, pos[1].z) &&
                 isViableStructurePos(styp, mc, &g, seed, pos[2].x, pos[2].z) &&
                 isViableStructurePos(styp, mc, &g, seed, pos[3].x, pos[3].z))
             {
-                printf("%" PRId64 "\n", seed);
+                printf("%" PRId64 "\n", (int64_t) seed);
             }
         }
     }
@@ -311,15 +309,15 @@ Strongholds as well as the world spawn point actually search until they find a s
 
 int main()
 {
-    int mc = MC_1_16;
-    int64_t seed = 3055141959546LL;
+    int mc = MC_1_17;
+    uint64_t seed = 3055141959546LL;
 
     // Only the first stronghold has a position which can be estimated
     // (+/-112 blocks) without biome check.
     StrongholdIter sh;
     Pos pos = initFirstStronghold(&sh, mc, seed);
 
-    printf("Seed: %" PRId64 "\n", seed);
+    printf("Seed: %" PRId64 "\n", (int64_t) seed);
     printf("Estimated position of first stronghold: (%d, %d)\n", pos.x, pos.z);
 
     // The finders for the strongholds and spawn require that the seed is
