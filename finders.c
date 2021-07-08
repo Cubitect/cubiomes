@@ -146,6 +146,9 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
     case Treasure:
         *sconf = TREASURE_CONFIG;
         return mc >= MC_1_13;
+    case Mineshaft:
+        *sconf = MINESHAFT_CONFIG;
+        return 1;
     case Fortress:
         *sconf = mc <= MC_1_15 ? FORTRESS_CONFIG_115 : FORTRESS_CONFIG;
         return 1;
@@ -218,6 +221,11 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
         seed = regX*341873128712ULL + regZ*132897987541ULL + seed + sconf.salt;
         setSeed(&seed, seed);
         return nextFloat(&seed) < 0.01;
+
+    case Mineshaft:
+        pos->x = (int)( ((uint32_t)regX << 4) );
+        pos->z = (int)( ((uint32_t)regZ << 4) );
+        return isMineshaftChunk(seed, regX, regZ);
 
     case Fortress:
         if (mc < MC_1_16) {
@@ -1451,6 +1459,9 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
         if (mc < MC_1_13) return 0;
         return biomeID == beach || biomeID == snowy_beach;
 
+    case Mineshaft:
+        return isOverworld(mc, biomeID);
+
     case Monument:
         if (mc < MC_1_8) return 0;
         return isDeepOcean(biomeID);
@@ -1746,11 +1757,14 @@ L_feature:
         int cx0 = (chunkX-10), cx1 = (chunkX+10);
         int cz0 = (chunkZ-10), cz1 = (chunkZ+10);
         int rx, rz;
+        StructureConfig vilconf;
+        if (!getStructureConfig(Village, mc, &vilconf))
+            goto L_not_viable;
         for (rz = cz0 >> 5; rz <= cz1 >> 5; rz++)
         {
             for (rx = cx0 >> 5; rx <= cx1 >> 5; rx++)
             {
-                Pos p = getFeaturePos(VILLAGE_CONFIG, seed, rx, rz);
+                Pos p = getFeaturePos(vilconf, seed, rx, rz);
                 int cx = p.x >> 4, cz = p.z >> 4;
                 if (cx >= cx0 && cx <= cx1 && cz >= cz0 && cz <= cz1)
                 {
@@ -1815,6 +1829,9 @@ L_feature:
         if (mc >= MC_1_16)
             goto L_viable;
         goto L_not_viable;
+
+    case Mineshaft:
+        goto L_viable;
 
     default:
         fprintf(stderr,

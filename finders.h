@@ -47,6 +47,7 @@ enum StructureType
     Ruined_Portal,
     Ruined_Portal_N,
     Treasure,
+    Mineshaft,
     Fortress,
     Bastion,
     End_City,
@@ -97,6 +98,7 @@ _sc RUINED_PORTAL_CONFIG      = { 34222645, 40, 25, Ruined_Portal, 0}; // overwo
 _sc RUINED_PORTAL_N_CONFIG    = { 34222645, 25, 15, Ruined_Portal_N, 0}; // nether
 
 _sc TREASURE_CONFIG           = { 10387320,  1,  1, Treasure, CHUNK_STRUCT};
+_sc MINESHAFT_CONFIG          = {        0,  1,  1, Mineshaft, CHUNK_STRUCT};
 
 // nether and end structures
 _sc FORTRESS_CONFIG_115       = {        0, 16,  8, Fortress, 0};
