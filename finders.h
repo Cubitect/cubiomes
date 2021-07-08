@@ -327,7 +327,7 @@ Pos getLargeStructureChunkInRegion(StructureConfig config, uint64_t seed, int re
  * The placement and biome check within a valid chunk is at block position (9,9)
  * or at (2,2) with layer scale=4 from 1.16 onwards.
  */
-int isMineshaftChunk(uint64_t seed, int chunkX, int chunkZ);
+int isMineshaftChunk(int mc, uint64_t seed, int chunkX, int chunkZ);
 
 // not exacly a structure
 static inline __attribute__((const))

@@ -225,7 +225,7 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
     case Mineshaft:
         pos->x = (int)( ((uint32_t)regX << 4) );
         pos->z = (int)( ((uint32_t)regZ << 4) );
-        return isMineshaftChunk(seed, regX, regZ);
+        return isMineshaftChunk(mc, seed, regX, regZ);
 
     case Fortress:
         if (mc < MC_1_16) {
@@ -261,15 +261,27 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
     return 0;
 }
 
-int isMineshaftChunk(uint64_t seed, int chunkX, int chunkZ)
+
+int isMineshaftChunk(int mc, uint64_t seed, int chunkX, int chunkZ)
 {
     uint64_t s;
     setSeed(&s, seed);
     uint64_t i = nextLong(&s);
     uint64_t j = nextLong(&s);
-    s = chunkX * i ^ chunkZ * j ^ seed;
-    setSeed(&s, s);
-    return nextDouble(&s) < 0.004;
+    setSeed(&s, chunkX * i ^ chunkZ * j ^ seed);
+    if (mc >= MC_1_13)
+    {
+        return nextDouble(&s) < 0.004;
+    }
+    else
+    {
+        int d = chunkX;
+        if (-chunkX > d) d = -chunkX;
+        if (+chunkZ > d) d = +chunkZ;
+        if (-chunkZ > d) d = -chunkZ;
+        skipNextN(&s, 1);
+        return nextDouble(&s) < 0.004 && nextInt(&s, 80) < d;
+    }
 }
 
 
