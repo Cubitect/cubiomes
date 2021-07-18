@@ -2712,7 +2712,7 @@ int mapOceanMix(const Layer * l, int * out, int x, int z, int w, int h)
     return 0;
 }
 
-static inline void getVoronoiCell(int64_t sha, int a, int b, int c,
+static inline void getVoronoiCell(uint64_t sha, int a, int b, int c,
         int *x, int *y, int *z)
 {
     uint64_t s = sha;

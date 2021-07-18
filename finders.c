@@ -223,9 +223,7 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
         return nextFloat(&seed) < 0.01;
 
     case Mineshaft:
-        pos->x = (int)( ((uint32_t)regX << 4) );
-        pos->z = (int)( ((uint32_t)regZ << 4) );
-        return isMineshaftChunk(mc, seed, regX, regZ);
+        return getMineshafts(mc, seed, regX, regZ, regX, regZ, pos, 1);
 
     case Fortress:
         if (mc < MC_1_16) {
@@ -262,27 +260,62 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
 }
 
 
-int isMineshaftChunk(int mc, uint64_t seed, int chunkX, int chunkZ)
+int getMineshafts(int mc, uint64_t seed, int cx0, int cz0, int cx1, int cz1,
+        Pos *out, int nout)
 {
     uint64_t s;
     setSeed(&s, seed);
-    uint64_t i = nextLong(&s);
-    uint64_t j = nextLong(&s);
-    setSeed(&s, chunkX * i ^ chunkZ * j ^ seed);
-    if (mc >= MC_1_13)
+    uint64_t a = nextLong(&s);
+    uint64_t b = nextLong(&s);
+    int i, j;
+    int n = 0;
+
+    for (i = cx0; i <= cx1; i++)
     {
-        return nextDouble(&s) < 0.004;
+        uint64_t aix = i * a ^ seed;
+
+        for (j = cz0; j <= cz1; j++)
+        {
+            setSeed(&s, aix ^ j * b);
+
+            if (mc >= MC_1_13)
+            {
+                if U(nextDouble(&s) < 0.004)
+                {
+                    if (out && n < nout)
+                    {
+                        out[n].x = (int)((uint32_t)i << 4);
+                        out[n].z = (int)((uint32_t)j << 4);
+                    }
+                    n++;
+                }
+            }
+            else
+            {
+                skipNextN(&s, 1);
+                if U(nextDouble(&s) < 0.004)
+                {
+                    int d = i;
+                    if (-i > d) d = -i;
+                    if (+j > d) d = +j;
+                    if (-j > d) d = -j;
+                    if (d >= 80 || nextInt(&s, 80) < d)
+                    {
+                        if (out && n < nout)
+                        {
+                            out[n].x = (int)((uint32_t)i << 4);
+                            out[n].z = (int)((uint32_t)j << 4);
+                        }
+                        n++;
+                    }
+                }
+            }
+        }
     }
-    else
-    {
-        int d = chunkX;
-        if (-chunkX > d) d = -chunkX;
-        if (+chunkZ > d) d = +chunkZ;
-        if (-chunkZ > d) d = -chunkZ;
-        skipNextN(&s, 1);
-        return nextDouble(&s) < 0.004 && nextInt(&s, 80) < d;
-    }
+
+    return n;
 }
+
 
 
 //==============================================================================

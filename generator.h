@@ -66,8 +66,10 @@ enum
     L_VORONOI_1,            L_VORONOI_ZOOM_1 = L_VORONOI_1,
 
     // largeBiomes layers
-    L_ZOOM_LARGE_BIOME_A,
-    L_ZOOM_LARGE_BIOME_B,
+    L_ZOOM_LARGE_A,
+    L_ZOOM_LARGE_B,
+    L_ZOOM_L_RIVER_A,
+    L_ZOOM_L_RIVER_B,
 
     L_NUM
 };
@@ -95,7 +97,7 @@ extern "C"
 void setupGenerator(LayerStack *g, int mc);
 
 /* Initialise an instance of a generator with largeBiomes configuration. */
-void setupLargeBiomesGenerator(LayerStack *g, int mc);
+void setupGeneratorLargeBiomes(LayerStack *g, int mc, int largeBiomes);
 
 
 /* Calculates the minimum size of the buffers required to generate an area of

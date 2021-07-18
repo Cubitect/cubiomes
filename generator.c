@@ -37,7 +37,7 @@ static void setupScale(Layer *l, int scale)
         setupScale(l->p2, scale * l->zoom);
 }
 
-static void setupGeneratorImpl(LayerStack *g, int mc, int largeBiomes)
+void setupGeneratorLargeBiomes(LayerStack *g, int mc, int largeBiomes)
 {
     memset(g, 0, sizeof(LayerStack));
     Layer *p;
@@ -144,8 +144,8 @@ static void setupGeneratorImpl(LayerStack *g, int mc, int largeBiomes)
 
         if (largeBiomes)
         {
-            p = setupLayer(g, L_ZOOM_LARGE_BIOME_A, mapZoom, mc, 2, 3, 1004, p, 0);
-            p = setupLayer(g, L_ZOOM_LARGE_BIOME_B, mapZoom, mc, 2, 3, 1005, p, 0);
+            p = setupLayer(g, L_ZOOM_LARGE_A, mapZoom,      mc, 2, 3, 1004, p, 0);
+            p = setupLayer(g, L_ZOOM_LARGE_B, mapZoom,      mc, 2, 3, 1005, p, 0);
         }
 
         p = setupLayer(g, L_SMOOTH_4,       mapSmooth,      mc, 1, 2, 1000, p, 0);
@@ -158,6 +158,13 @@ static void setupGeneratorImpl(LayerStack *g, int mc, int largeBiomes)
         p = setupLayer(g, L_ZOOM_16_RIVER,  mapZoom,        mc, 2, 3, 1001, p, 0);
         p = setupLayer(g, L_ZOOM_8_RIVER,   mapZoom,        mc, 2, 3, 1002, p, 0);
         p = setupLayer(g, L_ZOOM_4_RIVER,   mapZoom,        mc, 2, 3, 1003, p, 0);
+
+        if (largeBiomes)
+        {
+            p = setupLayer(g, L_ZOOM_L_RIVER_A, mapZoom,    mc, 2, 3, 1004, p, 0);
+            p = setupLayer(g, L_ZOOM_L_RIVER_B, mapZoom,    mc, 2, 3, 1005, p, 0);
+        }
+
         p = setupLayer(g, L_RIVER_4,        mapRiver,       mc, 1, 2, 1,    p, 0);
         p = setupLayer(g, L_SMOOTH_4_RIVER, mapSmooth,      mc, 1, 2, 1000, p, 0);
     }
@@ -192,22 +199,25 @@ static void setupGeneratorImpl(LayerStack *g, int mc, int largeBiomes)
 
     g->entry_1 = p;
     g->entry_4 = g->layers + (mc <= MC_1_12 ? L_RIVER_MIX_4 : L_OCEAN_MIX_4);
-    g->entry_16 = g->layers + (mc <= MC_1_6 ? L_SWAMP_RIVER_16 : L_SHORE_16);
-    g->entry_64 = g->layers + (mc <= MC_1_7 ? L_HILLS_64 : L_SUNFLOWER_64);
-    g->entry_256 = g->layers + (mc <= MC_1_14 ? L_BIOME_256 : L_BAMBOO_256);
+    if (largeBiomes)
+    {
+        g->entry_16 = g->layers + L_ZOOM_4;
+        g->entry_64 = g->layers + (mc <= MC_1_6 ? L_SWAMP_RIVER_16 : L_SHORE_16);
+        g->entry_256 = g->layers + (mc <= MC_1_7 ? L_HILLS_64 : L_SUNFLOWER_64);
+    }
+    else
+    {
+        g->entry_16 = g->layers + (mc <= MC_1_6 ? L_SWAMP_RIVER_16 : L_SHORE_16);
+        g->entry_64 = g->layers + (mc <= MC_1_7 ? L_HILLS_64 : L_SUNFLOWER_64);
+        g->entry_256 = g->layers + (mc <= MC_1_14 ? L_BIOME_256 : L_BAMBOO_256);
+    }
     setupScale(g->entry_1, 1);
 }
 
 void setupGenerator(LayerStack *g, int mc)
 {
-    setupGeneratorImpl(g, mc, 0);
+    setupGeneratorLargeBiomes(g, mc, 0);
 }
-
-void setupLargeBiomesGenerator(LayerStack *g, int mc)
-{
-    setupGeneratorImpl(g, mc, 1);
-}
-
 
 /* Recursively calculates the minimum buffer size required to generate an area
  * of the specified size from the current layer onwards.

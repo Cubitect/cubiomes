@@ -52,6 +52,7 @@ enum StructureType
     Bastion,
     End_City,
     End_Gateway,
+    FEATURE_NUM
 };
 
 enum // village house types prior to 1.14
@@ -323,11 +324,13 @@ Pos getLargeStructurePos(StructureConfig config, uint64_t seed, int regX, int re
 static inline __attribute__((const))
 Pos getLargeStructureChunkInRegion(StructureConfig config, uint64_t seed, int regX, int regZ);
 
-/* Some structures check each chunk individually for viability.
- * The placement and biome check within a valid chunk is at block position (9,9)
- * or at (2,2) with layer scale=4 from 1.16 onwards.
+/* Checks a chunk area, starting at (chunkX, chunkZ) with size (chunkW, chunkH)
+ * for Mineshaft positions. If not NULL, positions are written to the buffer
+ * 'out' up to a maximum number of 'nout'. The return value is the number of
+ * chunks with Mineshafts in the area.
  */
-int isMineshaftChunk(int mc, uint64_t seed, int chunkX, int chunkZ);
+int getMineshafts(int mc, uint64_t seed, int chunkX, int chunkZ,
+        int chunkW, int chunkH, Pos *out, int nout);
 
 // not exacly a structure
 static inline __attribute__((const))
@@ -668,8 +671,8 @@ int isViableEndCityTerrain(const EndNoise *en, const SurfaceNoise *sn,
  * This random object is used for recursiveGenerate() which is responsible for
  * generating caves, ravines, mineshafts, and virtually all other structures.
  */
-inline static int64_t chunkGenerateRnd(const uint64_t worldSeed,
-        const int chunkX, const int chunkZ)
+inline static
+uint64_t chunkGenerateRnd(uint64_t worldSeed, int chunkX, int chunkZ)
 {
     uint64_t rnd;
     setSeed(&rnd, worldSeed);
