@@ -89,6 +89,12 @@ void setupGeneratorLargeBiomes(LayerStack *g, int mc, int largeBiomes)
         p = setupLayer(g, L_ZOOM_8,         mapZoom,        mc, 2, 3, 1002, p, 0);
         p = setupLayer(g, L_ZOOM_4,         mapZoom,        mc, 2, 3, 1003, p, 0);
 
+        if (largeBiomes)
+        {
+            p = setupLayer(g, L_ZOOM_LARGE_A, mapZoom,      mc, 2, 3, 1004, p, 0);
+            p = setupLayer(g, L_ZOOM_LARGE_B, mapZoom,      mc, 2, 3, 1005, p, 0);
+        }
+
         p = setupLayer(g, L_SMOOTH_4,       mapSmooth,      mc, 1, 2, 1000, p, 0);
 
         // river layer chain
@@ -99,6 +105,13 @@ void setupGeneratorLargeBiomes(LayerStack *g, int mc, int largeBiomes)
         p = setupLayer(g, L_ZOOM_16_RIVER,  mapZoom,        mc, 2, 3, 1003, p, 0);
         p = setupLayer(g, L_ZOOM_8_RIVER,   mapZoom,        mc, 2, 3, 1004, p, 0);
         p = setupLayer(g, L_ZOOM_4_RIVER,   mapZoom,        mc, 2, 3, 1005, p, 0);
+
+        if (largeBiomes)
+        {
+            p = setupLayer(g, L_ZOOM_L_RIVER_A, mapZoom,    mc, 2, 3, 1006, p, 0);
+            p = setupLayer(g, L_ZOOM_L_RIVER_B, mapZoom,    mc, 2, 3, 1007, p, 0);
+        }
+
         p = setupLayer(g, L_RIVER_4,        mapRiver,       mc, 1, 2, 1,    p, 0);
         p = setupLayer(g, L_SMOOTH_4_RIVER, mapSmooth,      mc, 1, 2, 1000, p, 0);
     }
@@ -159,7 +172,7 @@ void setupGeneratorLargeBiomes(LayerStack *g, int mc, int largeBiomes)
         p = setupLayer(g, L_ZOOM_8_RIVER,   mapZoom,        mc, 2, 3, 1002, p, 0);
         p = setupLayer(g, L_ZOOM_4_RIVER,   mapZoom,        mc, 2, 3, 1003, p, 0);
 
-        if (largeBiomes)
+        if (largeBiomes && mc == MC_1_7)
         {
             p = setupLayer(g, L_ZOOM_L_RIVER_A, mapZoom,    mc, 2, 3, 1004, p, 0);
             p = setupLayer(g, L_ZOOM_L_RIVER_B, mapZoom,    mc, 2, 3, 1005, p, 0);
