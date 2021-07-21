@@ -245,8 +245,13 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
         pos->x = (int)( ((uint32_t)regX << 4) );
         pos->z = (int)( ((uint32_t)regZ << 4) );
         setSeed(&seed, getPopulationSeed(mc, seed, pos->x, pos->z) + sconf.salt);
-        if (nextInt(&seed, 700) != 0)
-            return 0;
+        if (mc <= MC_1_16) {
+            if (nextInt(&seed, 700) != 0)
+                return 0;
+        } else {
+            if (nextFloat(&seed) >= 1.0/700)
+                return 0;
+        }
         pos->x += nextInt(&seed, 16);
         pos->z += nextInt(&seed, 16);
         return 1;
