@@ -111,43 +111,46 @@ int testBiomeGen1x1(const int *mc, const uint32_t *expect, int bits, int cnt)
 
     for (test = 0; test < cnt; test++)
     {
-        printf("  [%d/%d] MC 1.%-2d: expecting %08x ... ",
-            test+1, cnt, mc[test], expect[test]);
+        printf("  [%*d/%*d] MC 1.%-2d: expecting %08x ... ",
+               1+(cnt>9), test+1, 1+(cnt>9),cnt, mc[test], expect[test]);
         fflush(stdout);
 
+        double t = -now();
         h = getRef(mc[test], bits, NULL);
-        printf("got %08x %s\e[0m\n", 
-            h, h == expect[test] ? "\e[1;92mOK" : "\e[1;91mFAILED");
+        t += now();
+        printf("got %08x %s\e[0m (%ld msec)\n",
+            h, h == expect[test] ? "\e[1;92mOK" : "\e[1;91mFAILED",
+            (long)(t*1e3));
         ok &= (h == expect[test]);
     }
 
     return ok;
 }
 
-int testOverworldBiomes()
+int testOverworldBiomes(int thorough)
 {
     const int mc_vers[] = {
         MC_1_16, MC_1_15, MC_1_13, MC_1_12, MC_1_9, MC_1_7,
-        MC_1_6,
+        MC_1_6, MC_1_2, MC_1_1, MC_1_0,
     };
     const uint32_t b6_hashes[] = {
         0xde9a6574, 0x3a568a6d, 0x96c97323, 0xbc75e996, 0xe27a45a2, 0xbc75e996,
-        0x15b47206,
+        0x15b47206, 0x2d7e0fed, 0x5cbf4709, 0xbd794adb,
     };
     const uint32_t b10_hashes[] = {
         0xfdede71d, 0xca8005d7, 0x399f7cc8, 0xb3363967, 0x17e5592f, 0xb3363967,
-        0xa52e377c,
+        0xa52e377c, 0xdb1df71d, 0x58e86947, 0xe1e89cc3,
     };
     const int testcnt = sizeof(mc_vers) / sizeof(int);
 
     printf("Testing 1x1 biome generation (quick):\n");
     if (!testBiomeGen1x1(mc_vers, b6_hashes, 6, testcnt))
         return -1;
-
+    if (!thorough)
+        return 0;
     printf("Testing 1x1 biome generation (thorough):\n");
     if (!testBiomeGen1x1(mc_vers, b10_hashes, 10, testcnt))
         return -1;
-
     return 0;
 }
 
@@ -206,8 +209,8 @@ int testPerformance()
 
 int main()
 {
-    //testOverworldBiomes();
-    testPerformance();
+    testOverworldBiomes(0);
+    //testPerformance();
     return 0;
 }
 

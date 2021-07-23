@@ -31,9 +31,10 @@
 /* Minecraft versions */
 enum MCversion
 {
-    MC_1_0, MC_1_1, MC_1_2, MC_1_3, MC_1_4, MC_1_5, MC_1_6, //<1.7 Experimental!
-    MC_1_7, MC_1_8, MC_1_9, MC_1_10, MC_1_11, MC_1_12, MC_1_13, MC_1_14,
-    MC_1_15, MC_1_16, MC_1_17,
+    MC_1_0, // <=1.0 Experimental!
+    MC_1_1,  MC_1_2,  MC_1_3,  MC_1_4,  MC_1_5,  MC_1_6,
+    MC_1_7,  MC_1_8,  MC_1_9,  MC_1_10, MC_1_11, MC_1_12,
+    MC_1_13, MC_1_14, MC_1_15, MC_1_16, MC_1_17,
     MC_NEWEST = MC_1_17,
 };
 

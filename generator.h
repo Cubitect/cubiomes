@@ -40,7 +40,7 @@ enum
     L_ZOOM_32,
     L_LAND_32,              L_ADD_ISLAND_32 = L_LAND_32,
     L_ZOOM_16,
-    L_SHORE_16,
+    L_SHORE_16,             // NOTE: in 1.0 this slot is scale 1:32
     L_SWAMP_RIVER_16,                                               // 1.6-
     L_ZOOM_8,
     L_ZOOM_4,

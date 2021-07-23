@@ -2410,6 +2410,11 @@ int mapShore(const Layer * l, int * out, int x, int z, int w, int h)
                     out[i + j*w] = v11;
                 continue;
             }
+            if (mc <= MC_1_0)
+            {
+                out[i + j*w] = v11;
+                continue;
+            }
 
             if (mc <= MC_1_6)
             {
