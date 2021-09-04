@@ -1745,7 +1745,7 @@ int isViableStructurePos(int structureType, int mc, LayerStack *g,
 L_feature:
         if (mc < MC_1_16)
         {
-            l = &g->layers[L_VORONOI_ZOOM_1];
+            l = &g->layers[L_VORONOI_1];
             biomeX = (chunkX << 4) + 9;
             biomeZ = (chunkZ << 4) + 9;
         }
@@ -1787,7 +1787,7 @@ L_feature:
             goto L_not_viable;
         if (mc < MC_1_16)
         {
-            l = &g->layers[L_VORONOI_ZOOM_1];
+            l = &g->layers[L_VORONOI_1];
             biomeX = (chunkX << 4) + 9;
             biomeZ = (chunkZ << 4) + 9;
         }
@@ -1852,7 +1852,7 @@ L_feature:
         if (!isDeepOcean(ids[0]))
             goto L_not_viable;
         if (mc >= MC_1_13)
-            l = &g->layers[L13_OCEAN_MIX_4];
+            l = &g->layers[L_OCEAN_MIX_4];
         else
             l = &g->layers[L_RIVER_MIX_4];
         biomeX = (chunkX << 4) + 8; // areBiomesViable expects block positions

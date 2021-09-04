@@ -179,7 +179,7 @@ STRUCT(Layer)
 
     uint64_t layerSalt; // processed salt or initialization mode
     uint64_t startSalt; // (depends on world seed) used to step PRNG forward
-    uint64_t startSeed; // (depends on world seed) starting point for chunk seeds
+    uint64_t startSeed; // (depends on world seed) start for chunk seeds
 
     void *noise;        // (depends on world seed) noise map data
     void *data;         // generic data for custom layers

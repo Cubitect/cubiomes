@@ -103,7 +103,7 @@ void setupGeneratorLargeBiomes(LayerStack *g, int mc, int largeBiomes);
 /* Calculates the minimum size of the buffers required to generate an area of
  * dimensions 'sizeX' by 'sizeZ' at the specified layer.
  */
-int calcRequiredBuf(const Layer *layer, int areaX, int areaZ);
+size_t calcRequiredBuf(const Layer *layer, int areaX, int areaZ);
 
 /* Allocates an amount of memory required to generate an area of dimensions
  * 'sizeX' by 'sizeZ' for the magnification of the given layer.

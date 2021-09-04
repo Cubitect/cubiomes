@@ -224,7 +224,7 @@ void setupGeneratorLargeBiomes(LayerStack *g, int mc, int largeBiomes)
 
     if (mc <= MC_1_12)
     {
-        p = setupLayer(g, L_VORONOI_1, mapVoronoi114, mc, 4, 7, 10, p, 0);
+        p = setupLayer(g, L_VORONOI_1, mapVoronoi114, mc, 4, 3, 10, p, 0);
     }
     else
     {
@@ -241,9 +241,9 @@ void setupGeneratorLargeBiomes(LayerStack *g, int mc, int largeBiomes)
                 g->layers+L_RIVER_MIX_4, g->layers+L_ZOOM_4_OCEAN);
 
         if (mc <= MC_1_14)
-            p = setupLayer(g, L_VORONOI_1, mapVoronoi114, mc, 4, 7, 10, p, 0);
+            p = setupLayer(g, L_VORONOI_1, mapVoronoi114, mc, 4, 3, 10, p, 0);
         else
-            p = setupLayer(g, L_VORONOI_1, mapVoronoi, mc, 4, 7, LAYER_INIT_SHA, p, 0);
+            p = setupLayer(g, L_VORONOI_1, mapVoronoi, mc, 4, 3, LAYER_INIT_SHA, p, 0);
     }
 
     g->entry_1 = p;
@@ -277,10 +277,17 @@ void setupGenerator(LayerStack *g, int mc)
 /* Recursively calculates the minimum buffer size required to generate an area
  * of the specified size from the current layer onwards.
  */
-static void getMaxArea(const Layer *layer, int areaX, int areaZ, int *maxX, int *maxZ)
+static void getMaxArea(
+    const Layer *layer, int areaX, int areaZ, int *maxX, int *maxZ, size_t *siz)
 {
     if (layer == NULL)
         return;
+
+    areaX += layer->edge;
+    areaZ += layer->edge;
+
+    if (areaX > *maxX) *maxX = areaX;
+    if (areaZ > *maxZ) *maxZ = areaZ;
 
     if (layer->zoom == 2)
     {
@@ -293,31 +300,28 @@ static void getMaxArea(const Layer *layer, int areaX, int areaZ, int *maxX, int 
         areaZ >>= 2;
     }
 
-    areaX += layer->edge;
-    areaZ += layer->edge;
+    // multi-layers and zoom-layers use a temporary copy of their parent area
+    if (layer->p2 || layer->zoom != 1)
+        *siz += areaX * areaZ;
 
-    if (areaX > *maxX) *maxX = areaX;
-    if (areaZ > *maxZ) *maxZ = areaZ;
-
-    getMaxArea(layer->p, areaX, areaZ, maxX, maxZ);
-    getMaxArea(layer->p2, areaX, areaZ, maxX, maxZ);
+    getMaxArea(layer->p, areaX, areaZ, maxX, maxZ, siz);
+    if (layer->p2)
+        getMaxArea(layer->p2, areaX, areaZ, maxX, maxZ, siz);
 }
 
-int calcRequiredBuf(const Layer *layer, int areaX, int areaZ)
+size_t calcRequiredBuf(const Layer *layer, int areaX, int areaZ)
 {
     int maxX = areaX, maxZ = areaZ;
-    getMaxArea(layer, areaX, areaZ, &maxX, &maxZ);
-
-    return maxX * maxZ;
+    size_t bufsiz = 0;
+    getMaxArea(layer, areaX, areaZ, &maxX, &maxZ, &bufsiz);
+    return bufsiz + maxX * (size_t)maxZ;
 }
 
 int *allocCache(const Layer *layer, int sizeX, int sizeZ)
 {
-    int size = calcRequiredBuf(layer, sizeX, sizeZ);
-
-    int *ret = (int *) malloc(sizeof(*ret)*size);
-    memset(ret, 0, sizeof(*ret)*size);
-
+    size_t bytes = calcRequiredBuf(layer, sizeX, sizeZ) * sizeof(int);
+    int *ret = (int *) malloc(bytes);
+    memset(ret, 0, bytes);
     return ret;
 }
 
