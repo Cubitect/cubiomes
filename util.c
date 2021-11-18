@@ -27,12 +27,14 @@ const char* mc2str(int mc)
     case MC_1_15: return "1.15"; break;
     case MC_1_16: return "1.16"; break;
     case MC_1_17: return "1.17"; break;
+    case MC_1_18: return "1.18"; break;
     default: return NULL;
     }
 }
 
 int str2mc(const char *s)
 {
+    if (!strcmp(s, "1.18")) return MC_1_18;
     if (!strcmp(s, "1.17")) return MC_1_17;
     if (!strcmp(s, "1.16")) return MC_1_16;
     if (!strcmp(s, "1.15")) return MC_1_15;
@@ -151,6 +153,13 @@ const char *biome2str(int id)
     // 1.17
     case dripstone_caves: return "dripstone_caves";
     case lush_caves: return "lush_caves";
+    // 1.18
+    case meadow: return "meadow";
+    case grove: return "grove";
+    case snowy_slopes: return "snowy_slopes";
+    case stony_peaks: return "stony_peaks";
+    case jagged_peaks: return "jagged_peaks";
+    case frozen_peaks: return "frozen_peaks";
     }
     return NULL;
 }
@@ -265,8 +274,15 @@ void initBiomeColors(unsigned char biomeColors[256][3])
     setBiomeColor(biomeColors, warped_forest, 73, 144, 123);
     setBiomeColor(biomeColors, basalt_deltas, 100, 95, 99);
 
-    setBiomeColor(biomeColors, dripstone_caves, 149, 127, 104); // TBD
-    setBiomeColor(biomeColors, lush_caves, 109, 143, 62); // TBD
+    setBiomeColor(biomeColors, dripstone_caves, 78, 48, 18); // TBD
+    setBiomeColor(biomeColors, lush_caves, 40, 60, 0); // TBD
+
+    setBiomeColor(biomeColors, meadow, 96, 164, 69); // TBD
+    setBiomeColor(biomeColors, grove, 71, 114, 108); // TBD
+    setBiomeColor(biomeColors, snowy_slopes, 196, 196, 196); // TBD
+    setBiomeColor(biomeColors, stony_peaks, 123, 143, 116); // TBD
+    setBiomeColor(biomeColors, jagged_peaks, 220, 220, 200); // TBD
+    setBiomeColor(biomeColors, frozen_peaks, 176, 179, 206); // TBD
 }
 
 void initBiomeTypeColors(unsigned char biomeColors[256][3])
@@ -315,11 +331,11 @@ int biomesToImage(unsigned char *pixels,
             for (m = 0; m < pixscale; m++) {
                 for (n = 0; n < pixscale; n++) {
                     int idx = pixscale * i + n;
-                    if (flip) 
+                    if (flip)
                         idx += (sx * pixscale) * ((pixscale * j) + m);
-                    else 
+                    else
                         idx += (sx * pixscale) * ((pixscale * (sy-1-j)) + m);
-                    
+
                     unsigned char *pix = pixels + 3*idx;
                     pix[0] = (unsigned char)r;
                     pix[1] = (unsigned char)g;

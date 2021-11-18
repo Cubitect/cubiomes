@@ -931,84 +931,79 @@ int scanForQuads(
 //==============================================================================
 
 
-int getBiomeAtPos(const LayerStack *g, const Pos pos)
+Pos locateBiome(
+    const Generator *g, int x, int y, int z, int radius,
+    const char *validBiomes, uint64_t *rng, int *passes)
 {
-    int *ids = allocCache(g->entry_1, 1, 1);
-    genArea(g->entry_1, ids, pos.x, pos.z, 1, 1);
-    int biomeID = ids[0];
-    free(ids);
-    return biomeID;
-}
-
-Pos findBiomePosition(
-        const int mcversion,
-        const Layer *l,
-        int *cache,
-        const int centerX,
-        const int centerZ,
-        const int range,
-        const char *isValid,
-        uint64_t *seed,
-        int *passes
-        )
-{
-    int x1 = (centerX-range) >> 2;
-    int z1 = (centerZ-range) >> 2;
-    int x2 = (centerX+range) >> 2;
-    int z2 = (centerZ+range) >> 2;
-    int width  = x2 - x1 + 1;
-    int height = z2 - z1 + 1;
-    int *ids;
+    Pos out = {x, z};
     int i, j, found;
-
-    Pos out;
-
-    if (l->scale != 4)
-    {
-        printf("WARN findBiomePosition: require scale = 4, but have %d.\n",
-                l->scale);
-    }
-
-    ids = cache ? cache : allocCache(l, width, height);
-
-    genArea(l, ids, x1, z1, width, height);
-
-    out.x = centerX;
-    out.z = centerZ;
     found = 0;
 
-    if (mcversion >= MC_1_13)
+    if (g->mc >= MC_1_18)
     {
-        for (i = 0, j = 2; i < width*height; i++)
+        x >>= 2;
+        z >>= 2;
+        radius >>= 2;
+
+        for (i = -radius; i <= radius; i++)
         {
-            if (!isValid[ids[i]]) continue;
-            if ((found == 0 || nextInt(seed, j++) == 0))
+            for (j = -radius; j <= radius; j++)
             {
-                out.x = (x1 + i%width) << 2;
-                out.z = (z1 + i/width) << 2;
-                found = 1;
+                int id = getBiomeAt(g, 4, x+i, y, z+j);
+                if (!validBiomes[id]) continue;
+                if (found == 0 || nextInt(rng, found+1) == 0)
+                {
+                    out.x = (x+i) << 2;
+                    out.z = (z+j) << 2;
+                    found++;
+                }
             }
         }
-        found = j - 2;
     }
     else
     {
-        for (i = 0; i < width*height; i++)
+        int x1 = (x-radius) >> 2;
+        int z1 = (z-radius) >> 2;
+        int x2 = (x+radius) >> 2;
+        int z2 = (z+radius) >> 2;
+        int width  = x2 - x1 + 1;
+        int height = z2 - z1 + 1;
+
+        Range r = {4, x1, z1, width, height, y, 1};
+        int *ids = allocCache(g, r);
+        genBiomes(g, ids, r);
+
+        if (g->mc >= MC_1_13)
         {
-            if (isValid[ids[i]] && (found == 0 || nextInt(seed, found + 1) == 0))
+            for (i = 0, j = 2; i < width*height; i++)
             {
-                out.x = (x1 + i%width) << 2;
-                out.z = (z1 + i/width) << 2;
-                ++found;
+                if (!validBiomes[ids[i]]) continue;
+                if (found == 0 || nextInt(rng, j++) == 0)
+                {
+                    out.x = (x1 + i%width) << 2;
+                    out.z = (z1 + i/width) << 2;
+                    found = 1;
+                }
+            }
+            found = j - 2;
+        }
+        else
+        {
+            for (i = 0; i < width*height; i++)
+            {
+                if (!validBiomes[ids[i]]) continue;
+                if (found == 0 || nextInt(rng, found + 1) == 0)
+                {
+                    out.x = (x1 + i%width) << 2;
+                    out.z = (z1 + i/width) << 2;
+                    ++found;
+                }
             }
         }
-    }
 
-
-    if (cache == NULL)
-    {
         free(ids);
     }
+
 
     if (passes != NULL)
     {
@@ -1019,48 +1014,80 @@ Pos findBiomePosition(
 }
 
 
-int areBiomesViable(
-        const Layer *       l,
-        int *               cache,
-        const int           posX,
-        const int           posZ,
-        const int           radius,
-        const char *        isValid
-        )
-{
-    int x1 = (posX - radius) >> 2;
-    int z1 = (posZ - radius) >> 2;
-    int x2 = (posX + radius) >> 2;
-    int z2 = (posZ + radius) >> 2;
-    int width = x2 - x1 + 1;
-    int height = z2 - z1 + 1;
-    int i;
-    int *ids;
-    int viable;
 
-    if (l->scale != 4)
+static inline int valid_1x1(const Generator *g, int x, int y, int z,
+    Range r, int *buf, const char *valid)
+{
+    int *p = buf + (x-r.x) + (z-r.z)*r.sx + (y-r.y)*(r.sx*r.sz);
+    if (*p)
+        return 1;
+    *p = -1;
+    int id = getBiomeAt(g, 4, x, y, z);
+    return valid[id];
+}
+
+int areBiomesViable(
+    const Generator *g, int x, int y, int z, int rad,
+    const char *validBiomes, int approx)
+{
+    int x1 = (x - rad) >> 2, x2 = (x + rad) >> 2, sx = x2 - x1 + 1;
+    int z1 = (z - rad) >> 2, z2 = (z + rad) >> 2, sz = z2 - z1 + 1;
+    int y1, y2, sy;
+    if (g->mc >= MC_1_18)
     {
-        printf("WARN areBiomesViable: require scale = 4, but have %d.\n",
-                l->scale);
+        y1 = (y - rad) >> 2, y2 = (y + rad) >> 2, sy = y2 - y1 + 1;
+    }
+    else
+    {
+        y1 = y2 = 0, sy = 1;
     }
 
-    ids = cache ? cache : allocCache(l, width, height);
-    viable = !genArea(l, ids, x1, z1, width, height);
+    Range r = {4, x1, z1, sx, sz, y1, sy};
+    int *ids = allocCache(g, r);
+    int i, j, k;
+    int viable = 1;
+    const char *v = validBiomes;
 
-    if (viable)
+    // check corners
+    if (!valid_1x1(g, x1, y1, z1, r, ids, v)) goto L_no;
+    if (!valid_1x1(g, x2, y2, z2, r, ids, v)) goto L_no;
+    if (!valid_1x1(g, x1, y1, z2, r, ids, v)) goto L_no;
+    if (!valid_1x1(g, x2, y2, z1, r, ids, v)) goto L_no;
+    if (g->mc >= MC_1_18)
+    {   // 3D
+        if (!valid_1x1(g, x1, y2, z1, r, ids, v)) goto L_no;
+        if (!valid_1x1(g, x2, y1, z2, r, ids, v)) goto L_no;
+        if (!valid_1x1(g, x1, y2, z2, r, ids, v)) goto L_no;
+        if (!valid_1x1(g, x2, y1, z1, r, ids, v)) goto L_no;
+    }
+    if (approx >= 1) goto L_yes;
+
+    if (g->mc >= MC_1_18)
     {
-        for (i = 0; i < width*height; i++)
+        for (i = 0; i < sx; i++)
         {
-            if (!isValid[ ids[i] ])
+            for (j = 0; j < sy; j++)
             {
-                viable = 0;
-                break;
+                for (k = 0; k < sz; k++)
+                {
+                    if (!valid_1x1(g, x1+i, y1+j, z1+k, r, ids, v))
+                        goto L_no;
+                }
             }
         }
     }
+    else if ((viable = !genBiomes(g, ids, r)))
+    {
+        for (i = 0; i < sx*sy*sz; i++)
+        {
+            if (!v[ids[i]])
+                goto L_no;
+        }
+    }
 
-    if (cache == NULL)
-        free(ids);
+    if (0) L_yes: viable = 1;
+    if (0) L_no:  viable = 0;
+    free(ids);
     return viable;
 }
 
@@ -1145,10 +1172,9 @@ Pos initFirstStronghold(StrongholdIter *sh, int mc, uint64_t s48)
     return p;
 }
 
-int nextStronghold(StrongholdIter *sh, const LayerStack *g, int *cache)
+int nextStronghold(StrongholdIter *sh, const Generator *g)
 {
-    sh->pos = findBiomePosition(sh->mc, &g->layers[L_RIVER_MIX_4], cache,
-        sh->nextapprox.x, sh->nextapprox.z, 112,
+    sh->pos = locateBiome(g, sh->nextapprox.x, 0, sh->nextapprox.z, 112,
         getValidStrongholdBiomes(sh->mc), &sh->rnds, NULL);
 
     sh->ringidx++;
@@ -1179,82 +1205,6 @@ int nextStronghold(StrongholdIter *sh, const LayerStack *g, int *cache)
     sh->index++;
 
     return (sh->mc >= MC_1_9 ? 128 : 3) - (sh->index-1);
-}
-
-int findStrongholds(const int mc, const LayerStack *g, int *cache,
-        Pos *locations, uint64_t worldSeed, int maxSH, int maxRing)
-{
-    const char *validStrongholdBiomes = getValidStrongholdBiomes(mc);
-    int i, x, z;
-    double distance;
-
-    int currentRing = 0;
-    int currentCount = 0;
-    int perRing = 3;
-    uint64_t rnd;
-
-    setSeed(&rnd, worldSeed);
-    double angle = nextDouble(&rnd) * PI * 2.0;
-
-    const Layer *l = &g->layers[L_RIVER_MIX_4];
-
-    if (mc >= MC_1_9)
-    {
-        if (maxSH <= 0) maxSH = 128;
-
-        for (i = 0; i < maxSH; i++)
-        {
-            distance = (4.0 * 32.0) + (6.0 * currentRing * 32.0) +
-                (nextDouble(&rnd) - 0.5) * 32 * 2.5;
-
-            x = (int)round(cos(angle) * distance);
-            z = (int)round(sin(angle) * distance);
-
-            locations[i] = findBiomePosition(mc, l, cache,
-                    (x << 4) + 8, (z << 4) + 8, 112, validStrongholdBiomes,
-                    &rnd, NULL);
-
-            angle += 2 * PI / perRing;
-
-            currentCount++;
-            if (currentCount == perRing)
-            {
-                // Current ring is complete, move to next ring.
-                currentRing++;
-                if (currentRing == maxRing)
-                {
-                    i++;
-                    break;
-                }
-
-                currentCount = 0;
-                perRing = perRing + 2*perRing/(currentRing+1);
-                if (perRing > 128-i)
-                    perRing = 128-i;
-                angle = angle + nextDouble(&rnd) * PI * 2.0;
-            }
-        }
-    }
-    else
-    {
-        if (maxSH <= 0) maxSH = 3;
-
-        for (i = 0; i < maxSH; i++)
-        {
-            distance = (1.25 + nextDouble(&rnd)) * 32.0;
-
-            x = (int)round(cos(angle) * distance);
-            z = (int)round(sin(angle) * distance);
-
-            locations[i] = findBiomePosition(mc, l, cache,
-                    (x << 4) + 8, (z << 4) + 8, 112, validStrongholdBiomes,
-                    &rnd, NULL);
-
-            angle += 2 * PI / 3.0;
-        }
-    }
-
-    return i;
 }
 
 
@@ -1320,7 +1270,9 @@ static double getGrassProbability(uint64_t seed, int biome, int x, int z)
 
 static const char* getValidSpawnBiomes()
 {
-    static const int biomesToSpawnIn[] = {forest, plains, taiga, taiga_hills, wooded_hills, jungle, jungle_hills};
+    static const int biomesToSpawnIn[] = {
+        forest, plains, taiga, taiga_hills, wooded_hills, jungle, jungle_hills
+    };
     static char isValid[256];
     unsigned int i;
 
@@ -1332,19 +1284,75 @@ static const char* getValidSpawnBiomes()
 }
 
 
-Pos getSpawn(const int mcversion, const LayerStack *g, int *cache, uint64_t worldSeed)
+static int findServerSpawn(const Generator *g, int chunkX, int chunkZ,
+    double *bx, double *bz, double *bn, double *accum)
+{
+    int x, z;
+
+    if (g->mc >= MC_1_18)
+    {
+        // It seems the search for spawn in 1.18 looks for a block with a
+        // solid top and a height above sea level. We can approximate this by
+        // looking for a non-ocean biome at y=63 ~> y=16 at scale 1:4.
+        for (x = 0; x < 4; x++)
+        {
+            for (z = 0; z < 4; z++)
+            {
+                int x4 = (chunkX << 2) + x, z4 = (chunkZ << 2) + z;
+                int id = getBiomeAt(g, 4, x4, 16, z4);
+                if (isOceanic(id) || id == river)
+                    continue;
+                *bx = x4 << 2;
+                *bz = z4 << 2;
+                *bn = 1;
+                return 1;
+            }
+        }
+        return 0;
+    }
+    else
+    {
+        Range r = {1, chunkX << 4, chunkZ << 4, 16, 16, 0, 1};
+        int *area = allocCache(g, r);
+        genBiomes(g, area, r);
+
+        for (x = 0; x < 16; x++)
+        {
+            for (z = 0; z < 16; z++)
+            {
+                Pos pos = {r.x+x, r.z+z};
+                int id = area[z*16 + x];
+                double gp = getGrassProbability(g->mc, id, pos.x, pos.z);
+                if (gp == 0)
+                    continue;
+
+                *bx += *accum * gp * pos.x;
+                *bz += *accum * gp * pos.z;
+                *bn += *accum * gp;
+
+                *accum *= 1 - gp;
+                if (*accum < 0.001)
+                {
+                    free(area);
+                    return 1;
+                }
+            }
+        }
+        free(area);
+        return 0;
+    }
+}
+
+Pos getSpawn(const Generator *g)
 {
     const char *isSpawnBiome = getValidSpawnBiomes();
     Pos spawn;
     int found;
     int i;
 
-    const Layer *l = &g->layers[L_RIVER_MIX_4];
     uint64_t rnd;
-
-    setSeed(&rnd, worldSeed);
-    spawn = findBiomePosition(mcversion, l, cache, 0, 0, 256, isSpawnBiome,
-            &rnd, &found);
+    setSeed(&rnd, g->seed);
+    spawn = locateBiome(g, 0, 63, 0, 256, isSpawnBiome, &rnd, &found);
 
     if (!found)
     {
@@ -1356,70 +1364,41 @@ Pos getSpawn(const int mcversion, const LayerStack *g, int *cache, uint64_t worl
     double bx = 0;
     double bz = 0;
     double bn = 0;
+    double gp;
 
-    if (mcversion >= MC_1_13)
+    if (g->mc >= MC_1_13)
     {
-        int *area = allocCache(g->entry_1, 16, 16);
-        int n2 = 0;
-        int n3 = 0;
-        int n4 = 0;
-        int n5 = -1;
-
+        int j, k, u, v;
+        j = k = u = v = 0;
         for (i = 0; i < 1024; i++)
         {
-            if (n2 > -16 && n2 <= 16 && n3 > -16 && n3 <= 16)
+            if (j > -16 && j <= 16 && k > -16 && k <= 16)
             {
-                int cx = ((spawn.x >> 4) + n2) << 4;
-                int cz = ((spawn.z >> 4) + n3) << 4;
-                int x, z;
-
-                genArea(g->entry_1, area, cx, cz, 16, 16);
-
-                for (x = 0; x < 16; x++)
+                if (findServerSpawn(g, (spawn.x>>4)+j, (spawn.x>>4)+k,
+                    &bx, &bz, &bn, &accum))
                 {
-                    for (z = 0; z < 16; z++)
-                    {
-                        Pos pos = {cx+x, cz+z};
-                        int biome = area[z*16 + x];
-                        double gp = getGrassProbability(worldSeed, biome,
-                            pos.x, pos.z);
-                        if (gp == 0)
-                            continue;
-
-                        bx += accum * gp * pos.x;
-                        bz += accum * gp * pos.z;
-                        bn += accum * gp;
-
-                        accum *= 1 - gp;
-                        if (accum < 0.001)
-                        {
-                            free(area);
-                            spawn.x = (int) round(bx / bn);
-                            spawn.z = (int) round(bz / bn);
-                            return spawn;
-                        }
-                    }
+                    spawn.x = (int) round(bx / bn);
+                    spawn.z = (int) round(bz / bn);
+                    return spawn;
                 }
             }
 
-            if (n2 == n3 || (n2 < 0 && n2 == - n3) || (n2 > 0 && n2 == 1 - n3))
+            if (j == k || (j < 0 && j == -k) || (j > 0 && j == 1 - k))
             {
-                int n7 = n4;
-                n4 = -n5;
-                n5 = n7;
+                int tmp = u;
+                u = -v;
+                v = tmp;
             }
-            n2 += n4;
-            n3 += n5;
+            j += u;
+            k += v;
         }
-
-        free(area);
     }
     else
     {
         for (i = 0; i < 1000; i++)
         {
-            int biome = getBiomeAtPos(g, spawn);
-            double gp = getGrassProbability(worldSeed, biome, spawn.x, spawn.z);
+            int biome = getBiomeAt(g, 1, spawn.x, 0, spawn.z);
+            gp = getGrassProbability(g->seed, biome, spawn.x, spawn.z);
 
             bx += accum * gp * spawn.x;
             bz += accum * gp * spawn.z;
@@ -1442,24 +1421,21 @@ Pos getSpawn(const int mcversion, const LayerStack *g, int *cache, uint64_t worl
 }
 
 
-Pos estimateSpawn(const int mcversion, const LayerStack *g, int *cache, uint64_t worldSeed)
+Pos estimateSpawn(const Generator *g)
 {
     const char *isSpawnBiome = getValidSpawnBiomes();
     Pos spawn;
     int found;
-
-    const Layer *l = &g->layers[L_RIVER_MIX_4];
     uint64_t rnd;
-    setSeed(&rnd, worldSeed);
-    spawn = findBiomePosition(mcversion, l, cache, 0, 0, 256, isSpawnBiome,
-            &rnd, &found);
+    setSeed(&rnd, g->seed);
+    spawn = locateBiome(g, 0, 63, 0, 256, isSpawnBiome, &rnd, &found);
 
     if (!found)
     {
         spawn.x = spawn.z = 8;
     }
 
-    if (mcversion >= MC_1_13)
+    if (g->mc >= MC_1_13)
     {
         spawn.x &= ~0xf;
         spawn.z &= ~0xf;
@@ -1704,123 +1680,157 @@ static int mapViableShore(const Layer * l, int * out, int x, int z, int w, int h
 }
 
 
-int isViableStructurePos(int structureType, int mc, LayerStack *g,
-        uint64_t seed, int blockX, int blockZ)
+int isViableStructurePos(int structureType, Generator *g, int x, int z)
 {
-    int *ids = NULL;
-    Layer *l;
+    int approx = 0; // enables approximation levels
     int viable = 0;
 
-    int64_t chunkX = blockX >> 4;
-    int64_t chunkZ = blockZ >> 4;
+    int64_t chunkX = x >> 4;
+    int64_t chunkZ = z >> 4;
 
     // Structures are positioned at the chunk origin, but the biome check is
     // performed near the middle of the chunk [(9,9) in 1.13, TODO: check 1.7]
     // In 1.16 the biome check is always performed at (2,2) with layer scale=4.
-    int biomeX, biomeZ;
+    int sampleX, sampleZ;
+    int id;
 
-    Layer lbiome = g->layers[L_BIOME_256];
-    Layer lshore = g->layers[L_SHORE_16];
 
-    int data[2] = { structureType, mc };
+    if (g->dim == -1) // Nether
+    {
+        if (structureType == Fortress)
+            return 1; // fortresses generate in all Nether biomes and versions
+        if (g->mc < MC_1_16)
+            return 0;
+        if (structureType == Ruined_Portal_N)
+            return 1;
 
-    g->layers[L_BIOME_256].data = (void*) data;
-    g->layers[L_BIOME_256].getMap = mapViableBiome;
-    g->layers[L_SHORE_16].data = (void*) data;
-    g->layers[L_SHORE_16].getMap = mapViableShore;
+        sampleX = (chunkX << 2) + 2;
+        sampleZ = (chunkZ << 2) + 2;
+        id = getBiomeAt(g, 4, sampleX, 0, sampleZ);
+        return isViableFeatureBiome(g->mc, structureType, id);
+    }
+    else if (g->dim == +1) // End
+    {
+        switch (structureType)
+        {
+        case End_City:
+            if (g->mc < MC_1_9) return 0;
+            break;
+        case End_Gateway:
+            if (g->mc < MC_1_13) return 0;
+            break;
+        default:
+            return 0;
+        }
+        // End biomes vary only on a per-chunk scale (1:16)
+        // voronoi pre-1.15 shouldn't matter for End Cities as the check will
+        // be near the chunk center
+        id = getBiomeAt(g, 16, chunkX, 0, chunkZ);
+        return isViableFeatureBiome(g->mc, structureType, id) ? id : 0;
+    }
+
+    // Overworld
+
+    Layer lbiome, lshore, *entry = 0;
+    int data[2] = { structureType, g->mc };
+
+    if (g->mc <= MC_1_17)
+    {
+        lbiome = g->ls.layers[L_BIOME_256];
+        lshore = g->ls.layers[L_SHORE_16];
+        entry = g->entry;
+
+        g->ls.layers[L_BIOME_256].data = (void*) data;
+        g->ls.layers[L_BIOME_256].getMap = mapViableBiome;
+        g->ls.layers[L_SHORE_16].data = (void*) data;
+        g->ls.layers[L_SHORE_16].getMap = mapViableShore;
+    }
 
     switch (structureType)
     {
     case Ocean_Ruin:
     case Shipwreck:
     case Treasure:
-        if (mc < MC_1_13) goto L_not_viable;
+        if (g->mc < MC_1_13) goto L_not_viable;
         goto L_feature;
     case Igloo:
-        if (mc < MC_1_9) goto L_not_viable;
+        if (g->mc < MC_1_9) goto L_not_viable;
         goto L_feature;
     case Desert_Pyramid:
     case Jungle_Pyramid:
     case Swamp_Hut:
 L_feature:
-        if (mc < MC_1_16)
+        if (g->mc >= MC_1_16)
         {
-            l = &g->layers[L_VORONOI_1];
-            biomeX = (chunkX << 4) + 9;
-            biomeZ = (chunkZ << 4) + 9;
+            if (g->mc < MC_1_18)
+                g->entry = &g->ls.layers[L_RIVER_MIX_4];
+            sampleX = (chunkX << 2) + 2;
+            sampleZ = (chunkZ << 2) + 2;
         }
         else
-        {   // NOTE: L_RIVER_MIX_4 skips the ocean types, should be fine for
-            // ocean ruins and ship wrecks.
-            l = &g->layers[L_RIVER_MIX_4];
-            biomeX = (chunkX << 2) + 2;
-            biomeZ = (chunkZ << 2) + 2;
+        {
+            g->entry = &g->ls.layers[L_VORONOI_1];
+            sampleX = (chunkX << 4) + 9;
+            sampleZ = (chunkZ << 4) + 9;
         }
-        setLayerSeed(l, seed);
-        ids = allocCache(l, 1, 1);
-        if (genArea(l, ids, biomeX, biomeZ, 1, 1))
-            goto L_not_viable;
-        if (!isViableFeatureBiome(mc, structureType, ids[0]))
+        id = getBiomeAt(g, 0, sampleX, 0, sampleZ);
+        if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
             goto L_not_viable;
         goto L_viable;
 
     case Village:
-        l = &g->layers[L_RIVER_MIX_4];
-        biomeX = (chunkX << 2) + 2;
-        biomeZ = (chunkZ << 2) + 2;
-        setLayerSeed(l, seed);
-        ids = allocCache(l, 1, 1);
-        if (genArea(l, ids, biomeX, biomeZ, 1, 1))
+        if (g->mc <= MC_1_17)
+            g->entry = &g->ls.layers[L_RIVER_MIX_4];
+        sampleX = (chunkX << 2) + 2;
+        sampleZ = (chunkZ << 2) + 2;
+        id = getBiomeAt(g, 0, sampleX, 0, sampleZ);
+        if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
             goto L_not_viable;
-        if (!isViableFeatureBiome(mc, structureType, ids[0]))
-            goto L_not_viable;
-        viable = ids[0]; // biome for viablility value as it may be useful for further analysis
+        viable = id; // use biome for viablility, useful for further analysis
         goto L_viable;
 
     case Outpost:
     {
-        if (mc < MC_1_14)
+        if (g->mc < MC_1_14)
             goto L_not_viable;
-        uint64_t rnd = seed;
-        setAttemptSeed(&rnd, chunkX, chunkZ);
-        if (nextInt(&rnd, 5) != 0)
+        uint64_t rng = g->seed;
+        setAttemptSeed(&rng, chunkX, chunkZ);
+        if (nextInt(&rng, 5) != 0)
             goto L_not_viable;
-        if (mc < MC_1_16)
+        if (g->mc >= MC_1_16)
         {
-            l = &g->layers[L_VORONOI_1];
-            biomeX = (chunkX << 4) + 9;
-            biomeZ = (chunkZ << 4) + 9;
+            if (g->mc < MC_1_18)
+                g->entry = &g->ls.layers[L_RIVER_MIX_4];
+            sampleX = (chunkX << 2) + 2;
+            sampleZ = (chunkZ << 2) + 2;
         }
         else
-        {   // NOTE: this skips the ocean type check
-            l = &g->layers[L_RIVER_MIX_4];
-            biomeX = (chunkX << 2) + 2;
-            biomeZ = (chunkZ << 2) + 2;
+        {
+            g->entry = &g->ls.layers[L_VORONOI_1];
+            sampleX = (chunkX << 4) + 9;
+            sampleZ = (chunkZ << 4) + 9;
         }
-        setLayerSeed(l, seed);
-        ids = allocCache(l, 1, 1);
-        if (genArea(l, ids, biomeX, biomeZ, 1, 1))
-            goto L_not_viable;
-        if (!isViableFeatureBiome(mc, structureType, ids[0]))
+        id = getBiomeAt(g, 0, sampleX, 0, sampleZ);
+        if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
             goto L_not_viable;
         // look for villages within 10 chunks
         int cx0 = (chunkX-10), cx1 = (chunkX+10);
         int cz0 = (chunkZ-10), cz1 = (chunkZ+10);
         int rx, rz;
         StructureConfig vilconf;
-        if (!getStructureConfig(Village, mc, &vilconf))
+        if (!getStructureConfig(Village, g->mc, &vilconf))
             goto L_not_viable;
         for (rz = cz0 >> 5; rz <= cz1 >> 5; rz++)
         {
             for (rx = cx0 >> 5; rx <= cx1 >> 5; rx++)
             {
-                Pos p = getFeaturePos(vilconf, seed, rx, rz);
+                Pos p = getFeaturePos(vilconf, g->seed, rx, rz);
                 int cx = p.x >> 4, cz = p.z >> 4;
                 if (cx >= cx0 && cx <= cx1 && cz >= cz0 && cz <= cz1)
                 {
-                    if (mc >= MC_1_16)
+                    if (g->mc >= MC_1_16)
                         goto L_not_viable;
-                    if (isViableStructurePos(Village, mc, g, seed, p.x, p.z))
+                    if (isViableStructurePos(Village, g, p.x, p.z))
                         goto L_not_viable;
                     goto L_viable;
                 }
@@ -1830,53 +1840,58 @@ L_feature:
     }
 
     case Monument:
-        if (mc < MC_1_8)
+        if (g->mc < MC_1_8)
             goto L_not_viable;
-        else if (mc == MC_1_8)
+        else if (g->mc == MC_1_8)
         {   // In 1.8 monuments require only a single deep ocean block.
-            l = g->entry_1;
-            setLayerSeed(l, seed);
-            ids = allocCache(l, 1, 1);
-            if (genArea(l, ids, (chunkX << 4) + 8, (chunkZ << 4) + 8, 1, 1))
+            id = getBiomeAt(g, 1, (chunkX << 4) + 8, 0, (chunkZ << 4) + 8);
+            if (id < 0 || !isDeepOcean(id))
                 goto L_not_viable;
         }
-        else
+        else if (g->mc <= MC_1_17)
         {   // Monuments require two viability checks with the ocean layer
             // branch => worth checking for potential deep ocean beforehand.
-            l = &g->layers[L_SHORE_16];
-            setLayerSeed(l, seed);
-            ids = allocCache(l, 1, 1);
-            if (genArea(l, ids, chunkX, chunkZ, 1, 1))
+            g->entry = &g->ls.layers[L_SHORE_16];
+            id = getBiomeAt(g, 0, chunkX, 0, chunkZ);
+            if (id < 0 || !isDeepOcean(id))
                 goto L_not_viable;
         }
-        if (!isDeepOcean(ids[0]))
-            goto L_not_viable;
-        if (mc >= MC_1_13)
-            l = &g->layers[L_OCEAN_MIX_4];
-        else
-            l = &g->layers[L_RIVER_MIX_4];
-        biomeX = (chunkX << 4) + 8; // areBiomesViable expects block positions
-        biomeZ = (chunkZ << 4) + 8;
-        setLayerSeed(l, seed);
-        if (mc < MC_1_9 || areBiomesViable(l, NULL, biomeX, biomeZ, 16, getValidMonumentBiomes2()))
-            if (areBiomesViable(l, NULL, biomeX, biomeZ, 29, getValidMonumentBiomes1()))
-                goto L_viable;
-        goto L_not_viable;
-
-    case Mansion:
-        if (mc < MC_1_11)
-            goto L_not_viable;
-        l = &g->layers[L_RIVER_MIX_4];
-        biomeX = (chunkX << 4) + 8;
-        biomeZ = (chunkZ << 4) + 8;
-        setLayerSeed(l, seed);
-        if (areBiomesViable(l, NULL, biomeX, biomeZ, 32, getValidMansionBiomes()))
+        sampleX = (chunkX << 4) + 8;
+        sampleZ = (chunkZ << 4) + 8;
+        if (g->mc >= MC_1_9 && g->mc <= MC_1_17)
+        {   // check for deep ocean center
+            if (!areBiomesViable(g, sampleX, 63, sampleZ, 16, getValidMonumentBiomes2(), approx))
+                goto L_not_viable;
+        }
+        if (areBiomesViable(g, sampleX, 63, sampleZ, 29, getValidMonumentBiomes1(), approx))
             goto L_viable;
         goto L_not_viable;
 
+    case Mansion:
+        if (g->mc < MC_1_11)
+            goto L_not_viable;
+        sampleX = (chunkX << 4) + 8;
+        sampleZ = (chunkZ << 4) + 8;
+        if (g->mc <= MC_1_17)
+        {
+            if (!areBiomesViable(g, sampleX, 0, sampleZ, 32, getValidMansionBiomes(), approx))
+                goto L_not_viable;
+        }
+        else
+        {   // In 1.18 the generation gets the minimum surface height among the
+            // four structure corners (note structure has rotation).
+            // This minimum height has to be y >= 60. The biome check is done
+            // at the center position at that height.
+            // TODO: get surface height
+            id = getBiomeAt(g, 4, sampleX>>2, 60>>2, sampleZ>>2);
+            if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
+                goto L_not_viable;
+        }
+        goto L_viable;
+
     case Ruined_Portal:
     case Ruined_Portal_N:
-        if (mc >= MC_1_16)
+        if (g->mc >= MC_1_16)
             goto L_viable;
         goto L_not_viable;
 
@@ -1894,58 +1909,15 @@ L_viable:
     if (!viable)
         viable = 1;
 L_not_viable:
-
-    g->layers[L_BIOME_256] = lbiome;
-    g->layers[L_SHORE_16] = lshore;
-    if (ids)
-        free(ids);
-
+    if (g->mc <= MC_1_17)
+    {
+        g->ls.layers[L_BIOME_256] = lbiome;
+        g->ls.layers[L_SHORE_16] = lshore;
+        g->entry = entry;
+    }
     return viable;
 }
 
-int isViableNetherStructurePos(int structureType, int mc, NetherNoise *nn,
-        uint64_t seed, int blockX, int blockZ)
-{
-    if (structureType == Fortress)
-        return 1; // fortresses generate in all nether biomes and mc versions
-    if (mc < MC_1_16)
-        return 0;
-    if (structureType == Ruined_Portal_N)
-        return 1;
-
-    blockX = ((blockX >> 4) << 2) + 2;
-    blockZ = ((blockZ >> 4) << 2) + 2;
-    setNetherSeed(nn, seed);
-    int biomeID = getNetherBiome(nn, blockX, 0, blockZ, NULL);
-    return isViableFeatureBiome(mc, structureType, biomeID);
-}
-
-int isViableEndStructurePos(int structureType, int mc, EndNoise *en,
-        uint64_t seed, int blockX, int blockZ)
-{
-    switch (structureType)
-    {
-    case End_City:
-        if (mc < MC_1_9) return 0;
-        break;
-    case End_Gateway:
-        if (mc < MC_1_13) return 0;
-        break;
-    default:
-        return 0;
-    }
-
-    setEndSeed(en, seed);
-
-    // end biomes vary only on a per-chunk scale (1:16)
-    // voronoi pre-1.15 shouldn't matter for End Cities as the check will be
-    // near the chunk center
-    int id;
-    int chunkX = blockX >> 4;
-    int chunkZ = blockZ >> 4;
-    mapEndBiome(en, &id, chunkX, chunkZ, 1, 1);
-    return isViableFeatureBiome(mc, structureType, id) ? id : 0;
-}
 
 /* Given bordering noise columns and a fractional position between those,
  * determine the surface block height (i.e. where the interpolated noise > 0).
@@ -2819,7 +2791,11 @@ L_HAS_PROTO_MUSHROOM:
     }
 
     l = g->layers;
-    int *ids = cache ? cache : allocCache(&l[layerID], w, h);
+    int *ids;
+    if (cache)
+        ids = cache;
+    else
+        ids = (int*) calloc(getMinLayerCacheSize(&l[layerID], w, h), sizeof(int));
 
     filter_data_t fd[9];
     swapMap(fd+0, &filter, l+L_OCEAN_MIX_4,     mapFilterOceanMix);
@@ -2899,7 +2875,7 @@ int checkForTemps(LayerStack *g, uint64_t seed, int x, int z, int w, int h, cons
 
     Layer *l = &g->layers[L_SPECIAL_1024];
     int ccnt[9] = {0};
-    int *area = allocCache(l, w, h);
+    int *area = (int*) calloc(getMinLayerCacheSize(l, w, h), sizeof(int));
     int ret = 1;
 
     setLayerSeed(l, seed);

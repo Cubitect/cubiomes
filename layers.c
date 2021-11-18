@@ -11,6 +11,73 @@
 
 int biomeExists(int mc, int id)
 {
+    if (mc >= MC_1_18)
+    {
+        if (id >= soul_sand_valley && id <= basalt_deltas)
+            return 1;
+        if (id >= small_end_islands && id <= end_barrens)
+            return 1;
+
+        switch (id)
+        {
+        case ocean:
+        case plains:
+        case desert:
+        case mountains:                 // windswept_hills
+        case forest:
+        case taiga:
+        case swamp:
+        case river:
+        case nether_wastes:
+        case frozen_ocean:
+        case frozen_river:
+        case snowy_tundra:              // snowy_plains
+        case mushroom_fields:
+        case beach:
+        case jungle:
+        case jungle_edge:               // sparse_jungle
+        case deep_ocean:
+        case stone_shore:               // stony_shore
+        case snowy_beach:
+        case birch_forest:
+        case dark_forest:
+        case snowy_taiga:
+        case giant_tree_taiga:          // old_growth_pine_taiga
+        case wooded_mountains:          // windswept_forest
+        case savanna:
+        case savanna_plateau:
+        case badlands:
+        case wooded_badlands_plateau:   // wooded_badlands
+        case warm_ocean:
+        case lukewarm_ocean:
+        case cold_ocean:
+        case deep_warm_ocean:
+        case deep_lukewarm_ocean:
+        case deep_cold_ocean:
+        case deep_frozen_ocean:
+        case sunflower_plains:
+        case gravelly_mountains:        // windswept_gravelly_hills
+        case flower_forest:
+        case ice_spikes:
+        case tall_birch_forest:         // old_growth_birch_forest
+        case giant_spruce_taiga:        // old_growth_spruce_taiga
+        case shattered_savanna:         // windswept_savanna
+        case eroded_badlands:
+        case bamboo_jungle:
+        case dripstone_caves:
+        case lush_caves:
+        case meadow:
+        case grove:
+        case snowy_slopes:
+        case stony_peaks:
+        case jagged_peaks:
+        case frozen_peaks:
+            return 1;
+        default:
+            return 0;
+        }
+    }
+
     if (id >= ocean             && id <= mountain_edge)     return 1;
     if (id >= jungle            && id <= jungle_hills)      return mc >= MC_1_2;
     if (id >= jungle_edge       && id <= badlands_plateau)  return mc >= MC_1_7;
@@ -83,7 +150,7 @@ int isOverworld(int mc, int id)
         return mc <= MC_1_8 || mc >= MC_1_11;
     case dripstone_caves:
     case lush_caves:
-        return 0;
+        return mc >= MC_1_18;
     }
     return 1;
 }
@@ -267,7 +334,7 @@ int isShallowOcean(int id)
             (1ULL << warm_ocean) |
             (1ULL << lukewarm_ocean) |
             (1ULL << cold_ocean);
-    return id < 64 && ((1ULL << id) & shallow_bits);
+    return (uint32_t) id < 64 && ((1ULL << id) & shallow_bits);
 }
 
 int isDeepOcean(int id)
@@ -278,7 +345,7 @@ int isDeepOcean(int id)
             (1ULL << deep_lukewarm_ocean) |
             (1ULL << deep_cold_ocean) |
             (1ULL << deep_frozen_ocean);
-    return id < 64 && ((1ULL << id) & deep_bits);
+    return (uint32_t) id < 64 && ((1ULL << id) & deep_bits);
 }
 
 int isOceanic(int id)
@@ -294,7 +361,7 @@ int isOceanic(int id)
             (1ULL << deep_lukewarm_ocean) |
             (1ULL << deep_cold_ocean) |
             (1ULL << deep_frozen_ocean);
-    return id < 64 && ((1ULL << id) & ocean_bits);
+    return (uint32_t) id < 64 && ((1ULL << id) & ocean_bits);
 }
 
 int isSnowy(int id)
@@ -364,237 +431,6 @@ void setLayerSeed(Layer *layer, uint64_t worldSeed)
 //==============================================================================
 
 
-static double lerp(double part, double from, double to)
-{
-    return from + part * (to - from);
-}
-
-static double lerp2(double dx, double dy, double v00, double v10, double v01, double v11)
-{
-    return lerp(dy, lerp(dx, v00, v10), lerp(dx, v01, v11));
-}
-
-static double lerp3(double dx, double dy, double dz,
-        double v000, double v100, double v010, double v110,
-        double v001, double v101, double v011, double v111)
-{
-    v000 = lerp2(dx, dy, v000, v100, v010, v110);
-    v001 = lerp2(dx, dy, v001, v101, v011, v111);
-    return lerp(dz, v000, v001);
-}
-
-static double clampedLerp(double part, double from, double to)
-{
-    if (part <= 0) return from;
-    if (part >= 1) return to;
-    return lerp(part, from, to);
-}
-
-static double maintainPrecision(double x)
-{
-    return x - floor(x / 33554432.0 + 0.5) * 33554432.0;
-}
-
-/* Table of vectors to cube edge centres (12 + 4 extra) */
-const double cEdgeX[] = {1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 0.0, 0.0, 0.0, 0.0,  1.0, 0.0,-1.0, 0.0};
-const double cEdgeY[] = {1.0, 1.0,-1.0,-1.0, 0.0, 0.0, 0.0, 0.0, 1.0,-1.0, 1.0,-1.0,  1.0,-1.0, 1.0,-1.0};
-const double cEdgeZ[] = {0.0, 0.0, 0.0, 0.0, 1.0, 1.0,-1.0,-1.0, 1.0, 1.0,-1.0,-1.0,  0.0, 1.0, 0.0,-1.0};
-
-// grad()
-static double indexedLerp(int idx, double d1, double d2, double d3)
-{
-    idx &= 0xf;
-    return cEdgeX[idx] * d1 + cEdgeY[idx] * d2 + cEdgeZ[idx] * d3;
-}
-
-
-void perlinInit(PerlinNoise *rnd, uint64_t *seed)
-{
-    int i = 0;
-    memset(rnd, 0, sizeof(*rnd));
-    rnd->a = nextDouble(seed) * 256.0;
-    rnd->b = nextDouble(seed) * 256.0;
-    rnd->c = nextDouble(seed) * 256.0;
-
-    for (i = 0; i < 256; i++)
-    {
-        rnd->d[i] = i;
-    }
-    for (i = 0; i < 256; i++)
-    {
-        int n3 = nextInt(seed, 256 - i) + i;
-        int n4 = rnd->d[i];
-        rnd->d[i] = rnd->d[n3];
-        rnd->d[n3] = n4;
-        rnd->d[i + 256] = rnd->d[i];
-    }
-}
-
-
-double samplePerlin(const PerlinNoise *rnd, double d1, double d2, double d3,
-        double yamp, double ymin)
-{
-    d1 += rnd->a;
-    d2 += rnd->b;
-    d3 += rnd->c;
-    int i1 = (int)d1 - (int)(d1 < 0);
-    int i2 = (int)d2 - (int)(d2 < 0);
-    int i3 = (int)d3 - (int)(d3 < 0);
-    d1 -= i1;
-    d2 -= i2;
-    d3 -= i3;
-    double t1 = d1*d1*d1 * (d1 * (d1*6.0-15.0) + 10.0);
-    double t2 = d2*d2*d2 * (d2 * (d2*6.0-15.0) + 10.0);
-    double t3 = d3*d3*d3 * (d3 * (d3*6.0-15.0) + 10.0);
-
-    if (yamp)
-    {
-        double yclamp = ymin < d2 ? ymin : d2;
-        d2 -= floor(yclamp / yamp) * yamp;
-    }
-
-    i1 &= 0xff;
-    i2 &= 0xff;
-    i3 &= 0xff;
-
-    int a1 = rnd->d[i1]   + i2;
-    int a2 = rnd->d[a1]   + i3;
-    int a3 = rnd->d[a1+1] + i3;
-    int b1 = rnd->d[i1+1] + i2;
-    int b2 = rnd->d[b1]   + i3;
-    int b3 = rnd->d[b1+1] + i3;
-
-    double l1 = indexedLerp(rnd->d[a2],   d1,   d2,   d3);
-    double l2 = indexedLerp(rnd->d[b2],   d1-1, d2,   d3);
-    double l3 = indexedLerp(rnd->d[a3],   d1,   d2-1, d3);
-    double l4 = indexedLerp(rnd->d[b3],   d1-1, d2-1, d3);
-    double l5 = indexedLerp(rnd->d[a2+1], d1,   d2,   d3-1);
-    double l6 = indexedLerp(rnd->d[b2+1], d1-1, d2,   d3-1);
-    double l7 = indexedLerp(rnd->d[a3+1], d1,   d2-1, d3-1);
-    double l8 = indexedLerp(rnd->d[b3+1], d1-1, d2-1, d3-1);
-
-    l1 = lerp(t1, l1, l2);
-    l3 = lerp(t1, l3, l4);
-    l5 = lerp(t1, l5, l6);
-    l7 = lerp(t1, l7, l8);
-
-    l1 = lerp(t2, l1, l3);
-    l5 = lerp(t2, l5, l7);
-
-    return lerp(t3, l1, l5);
-}
-
-static double simplexGrad(int idx, double x, double y, double z, double d)
-{
-    double con = d - x*x - y*y - z*z;
-    if (con < 0)
-        return 0;
-    con *= con;
-    return con * con * indexedLerp(idx, x, y, z);
-}
-
-double sampleSimplex2D(const PerlinNoise *rnd, double x, double y)
-{
-    const double SKEW = 0.5 * (sqrt(3) - 1.0);
-    const double UNSKEW = (3.0 - sqrt(3)) / 6.0;
-
-    double hf = (x + y) * SKEW;
-    int hx = (int)floor(x + hf);
-    int hz = (int)floor(y + hf);
-    double mhxz = (hx + hz) * UNSKEW;
-    double x0 = x - (hx - mhxz);
-    double y0 = y - (hz - mhxz);
-    int offx = (x0 > y0);
-    int offz = !offx;
-    double x1 = x0 - offx + UNSKEW;
-    double y1 = y0 - offz + UNSKEW;
-    double x2 = x0 - 1.0 + 2.0 * UNSKEW;
-    double y2 = y0 - 1.0 + 2.0 * UNSKEW;
-    int gi0 = rnd->d[0xff & (hz)];
-    int gi1 = rnd->d[0xff & (hz + offz)];
-    int gi2 = rnd->d[0xff & (hz + 1)];
-    gi0 = rnd->d[0xff & (gi0 + hx)];
-    gi1 = rnd->d[0xff & (gi1 + hx + offx)];
-    gi2 = rnd->d[0xff & (gi2 + hx + 1)];
-    double t = 0;
-    t += simplexGrad(gi0 % 12, x0, y0, 0.0, 0.5);
-    t += simplexGrad(gi1 % 12, x1, y1, 0.0, 0.5);
-    t += simplexGrad(gi2 % 12, x2, y2, 0.0, 0.5);
-    return 70.0 * t;
-}
-
-
-void octaveInit(OctaveNoise *rnd, uint64_t *seed, PerlinNoise *octaves,
-        int omin, int len)
-{
-    int end = omin+len-1;
-    int i;
-    if (len < 1 || end > 0)
-    {
-        printf("octavePerlinInit(): unsupported octave range\n");
-        return;
-    }
-    rnd->octaves = octaves;
-    rnd->octcnt = len;
-
-    if (end == 0)
-    {
-        perlinInit(&rnd->octaves[0], seed);
-        i = 1;
-    }
-    else
-    {
-        skipNextN(seed, -end*262);
-        i = 0;
-    }
-    for (; i < len; i++)
-    {
-        perlinInit(&rnd->octaves[i], seed);
-    }
-    rnd->persist = pow(2.0, end);
-    rnd->lacuna = 1.0 / ((1LL << len) - 1.0);
-}
-
-double sampleOctave(const OctaveNoise *rnd, double x, double y, double z)
-{
-    double persist = rnd->persist;
-    double lacuna = rnd->lacuna;
-    double v = 0;
-    int i;
-    for (i = 0; i < rnd->octcnt; i++)
-    {
-        double ax = maintainPrecision(x * persist);
-        double ay = maintainPrecision(y * persist);
-        double az = maintainPrecision(z * persist);
-        v += lacuna * samplePerlin(rnd->octaves+i, ax, ay, az, 0, 0);
-        persist *= 0.5;
-        lacuna *= 2.0;
-    }
-    return v;
-}
-
-
-void doublePerlinInit(DoublePerlinNoise *rnd, uint64_t *seed,
-        PerlinNoise *octavesA, PerlinNoise *octavesB, int omin, int len)
-{   // require: len >= 1 && omin+len <= 0
-    rnd->amplitude = (10.0 / 6.0) * len / (len + 1);
-    octaveInit(&rnd->octA, seed, octavesA, omin, len);
-    octaveInit(&rnd->octB, seed, octavesB, omin, len);
-}
-
-double sampleDoublePerlin(const DoublePerlinNoise *rnd,
-        double x, double y, double z)
-{
-    const double f = 337.0 / 331.0;
-    double v = 0;
-
-    v += sampleOctave(&rnd->octA, x, y, z);
-    v += sampleOctave(&rnd->octB, x*f, y*f, z*f);
-
-    return v * rnd->amplitude;
-}
-
-
 void initSurfaceNoise(SurfaceNoise *rnd, uint64_t *seed,
         double xzScale, double yScale, double xzFactor, double yFactor)
 {
@@ -656,7 +492,7 @@ double sampleSurfaceNoise(const SurfaceNoise *rnd, int x, int y, int z)
 
 
 //==============================================================================
-// Nether (1.16+) and End (1.9+) Biome Generation
+// Nether (1.16-1.17) and End (1.9+) Biome Generation
 //==============================================================================
 
 void setNetherSeed(NetherNoise *nn, uint64_t seed)
@@ -709,7 +545,8 @@ int getNetherBiome(const NetherNoise *nn, int x, int y, int z, float *ndel)
 }
 
 
-static void fillRad3D(int *out, int x, int z, int w, int h, int y, int yh, int id, float rad)
+static void fillRad3D(int *out, int x, int y, int z, int sx, int sy, int sz,
+    int id, float rad)
 {
     int r, rsq;
     int i, j, k;
@@ -721,42 +558,45 @@ static void fillRad3D(int *out, int x, int z, int w, int h, int y, int yh, int i
     for (k = -r; k <= r; k++)
     {
         int ak = y+k;
-        if (ak < 0 || ak >= yh)
+        if (ak < 0 || ak >= sy)
             continue;
         int ksq = k*k;
-        int *yout = &out[(w*h)*ak];
+        int *yout = &out[(sx*sz)*ak];
 
         for (j = -r; j <= r; j++)
         {
             int aj = z+j;
-            if (aj < 0 || aj >= h)
+            if (aj < 0 || aj >= sz)
                 continue;
             int jksq = j*j + ksq;
             for (i = -r; i <= r; i++)
             {
                 int ai = x+i;
-                if (ai < 0 || ai >= w)
+                if (ai < 0 || ai >= sx)
                     continue;
                 int ijksq = i*i + jksq;
                 if (ijksq > rsq)
                     continue;
 
-                yout[aj*w+ai] = id;
+                yout[aj*sx+ai] = id;
             }
         }
     }
 }
 
-int mapNether3D(const NetherNoise *nn, int *out, int x, int z, int w, int h,
-        int y, int yh, int scale, float confidence)
+int mapNether3D(const NetherNoise *nn, int *out, Range r, float confidence)
 {
     int i, j, k;
-    memset(out, 0, sizeof(int) * yh*w*h);
+    if (r.sy <= 0)
+        r.sy = 1;
+    if (r.scale <= 3)
+    {
+        printf("mapNether3D() invalid scale for this function\n");
+        return 1;
+    }
+    int scale = r.scale / 4;
 
-    if (scale < 4)
-        scale = 1;
-    else
-        scale /= 4;
+    memset(out, 0, sizeof(int) * r.sx*r.sy*r.sz);
 
     // The noisedelta is the distance between the first and second closest
     // biomes within the noise space. Dividing this by the greatest possible
@@ -764,25 +604,27 @@ int mapNether3D(const NetherNoise *nn, int *out, int x, int z, int w, int h,
     // cell that will have the same biome.
     float invgrad = 1.0 / (confidence * 0.05 * 2) / scale;
 
-    for (k = 0; k < yh; k++)
+    for (k = 0; k < r.sy; k++)
     {
-        int *yout = &out[(w*h)*k];
+        int *yout = &out[(r.sx*r.sz)*k];
 
-        for (j = 0; j < h; j++)
+        for (j = 0; j < r.sz; j++)
         {
-            for (i = 0; i < w; i++)
+            for (i = 0; i < r.sx; i++)
             {
-                if (yout[j*w+i])
+                if (yout[j*r.sx+i])
                     continue;
                 //yout[j*w+i] = getNetherBiome(nn, x+i, y+k, z+j, NULL);
                 //continue;
 
                 float noisedelta;
-                int xi = (x+i)*scale, yk = (y+k)*scale, zj = (z+j)*scale;
+                int xi = (r.x+i)*scale;
+                int yk = (r.y+k);
+                int zj = (r.z+j)*scale;
                 int v = getNetherBiome(nn, xi, yk, zj, &noisedelta);
-                yout[j*w+i] = v;
+                yout[j*r.sx+i] = v;
                 float cellrad = noisedelta * invgrad;
-                fillRad3D(out, i, j, w, h, k, yh, v, cellrad);
+                fillRad3D(out, i, j, k, r.sx, r.sy, r.sz, v, cellrad);
             }
         }
     }
@@ -791,7 +633,73 @@ int mapNether3D(const NetherNoise *nn, int *out, int x, int z, int w, int h,
 
 int mapNether2D(const NetherNoise *nn, int *out, int x, int z, int w, int h)
 {
-    return mapNether3D(nn, out, x, z, w, h, 0, 1, 4, 1.0);
+    Range r = {4, x, z, w, h, 0, 1};
+    return mapNether3D(nn, out, r, 1.0);
+}
+
+int genNetherScaled(const NetherNoise *nn, int *out, Range r, int mc, uint64_t sha)
+{
+    if (mc >= MC_1_18)
+        return 1; // bad version
+
+    if (r.scale <= 0) r.scale = 4;
+    if (r.sy == 0) r.sy = 1;
+
+    uint64_t siz = (uint64_t)r.sx*r.sy*r.sz;
+
+    if (mc < MC_1_16)
+    {
+        uint64_t i;
+        for (i = 0; i < siz; i++)
+            out[i] = nether_wastes;
+        return 0;
+    }
+
+    if (r.scale == 1)
+    {
+        Range s = getVoronoiSrcRange(r);
+        int *src;
+        if (siz > 1)
+        {   // the source range is large enough that we can try optimizing
+            src = out + siz;
+            int err = mapNether3D(nn, src, s, 1.0);
+            if (err)
+                return err;
+        }
+        else
+        {
+            src = NULL;
+        }
+
+        int i, j, k;
+        int *p = out;
+        for (k = 0; k < r.sy; k++)
+        {
+            for (j = 0; j < r.sz; j++)
+            {
+                for (i = 0; i < r.sx; i++)
+                {
+                    int x4, z4, y4;
+                    voronoiAccess3D(sha, r.x+i, r.y+k, r.z+j, &x4, &y4, &z4);
+                    if (src)
+                    {
+                        x4 -= s.x; y4 -= s.y; z4 -= s.z;
+                        *p = src[y4*s.sx*s.sz + z4*s.sx + x4];
+                    }
+                    else
+                    {
+                        *p = getNetherBiome(nn, x4, y4, z4, NULL);
+                    }
+                    p++;
+                }
+            }
+        }
+        return 0;
+    }
+    else
+    {
+        return mapNether3D(nn, out, r, 1.0);
+    }
 }
 
 
@@ -1036,6 +944,546 @@ int getSurfaceHeightEnd(int mc, uint64_t seed, int x, int z)
     sampleNoiseColumnEnd(ncol11, &sn, &en, cellx+1, cellz+1, y0, y1);
 
     return getSurfaceHeight(ncol00, ncol01, ncol10, ncol11, y0, y1, 4, dx, dz);
+}
+
+int genEndScaled(const EndNoise *en, int *out, Range r, int mc, uint64_t sha)
+{
+    if (r.scale != 1 && r.scale != 4 && r.scale != 16 && r.scale != 64)
+        return 1; // unsupported scale
+
+    if (r.sy == 0)
+        r.sy = 1;
+
+    if (mc < MC_1_9)
+    {
+        uint64_t i, siz = (uint64_t)r.sx*r.sy*r.sz;
+        for (i = 0; i < siz; i++)
+            out[i] = the_end;
+        return 0;
+    }
+
+    int err, iy;
+
+    if (r.scale == 1)
+    {
+        Range s = getVoronoiSrcRange(r);
+        err = mapEnd(en, out, s.x, s.z, s.sx, s.sz);
+        if (err) return err;
+
+        if (mc <= MC_1_14)
+        {   // up to 1.14 voronoi noise is planar
+            Layer lvoronoi;
+            memset(&lvoronoi, 0, sizeof(Layer));
+            lvoronoi.startSalt = getLayerSalt(10);
+            err = mapVoronoi114(&lvoronoi, out, r.x, r.z, r.sx, r.sz);
+            if (err) return err;
+        }
+        else
+        {   // in 1.15 voronoi noise varies vertically in the End
+            int *src = out + r.sx*r.sy*r.sz;
+            memmove(src, out, s.sx*s.sz*sizeof(int));
+            for (iy = 0; iy < r.sy; iy++)
+            {
+                mapVoronoiPlane(
+                    sha, out+r.sx*r.sz*iy, src,
+                    r.x,r.z,r.sx,r.sz, r.y+iy,
+                    s.x,s.z,s.sx,s.sz);
+            }
+            return 0; // 3D expansion is done => return
+        }
+    }
+    else if (r.scale == 4)
+    {
+        err = mapEnd(en, out, r.x, r.z, r.sx, r.sz);
+        if (err) return err;
+    }
+    else if (r.scale == 16)
+    {
+        err = mapEndBiome(en, out, r.x, r.z, r.sx, r.sz);
+        if (err) return err;
+    }
+    else if (r.scale == 64)
+    {
+        int i, j, di, dj;
+        int d = 4;
+        int hw = (2+r.sx) * d + 1;
+        int hh = (2+r.sz) * d + 1;
+        int16_t *hmap = (int16_t*) calloc(hw*hh, sizeof(*hmap));
+
+        for (j = 0; j < r.sz; j++)
+        {
+            for (i = 0; i < r.sx; i++)
+            {
+                int64_t hx = (i+r.x) * d;
+                int64_t hz = (j+r.z) * d;
+                if (hx*hx + hz*hz <= 4096L)
+                {
+                    out[j*r.sx+i] = the_end;
+                    continue;
+                }
+
+                int64_t h = 64*16*16;
+
+                for (dj = -d; dj < d; dj++)
+                {
+                    for (di = -d; di < d; di++)
+                    {
+                        int64_t rx = hx + di;
+                        int64_t rz = hz + dj;
+                        int hi = i*d + di+d;
+                        int hj = j*d + dj+d;
+                        int16_t *p = &hmap[hj*hw + hi];
+                        if (*p == 0)
+                        {
+                            if (sampleSimplex2D(en, rx, rz) < -0.9f)
+                            {
+                                *p = (llabs(rx) * 3439 + llabs(rz) * 147) % 13 + 9;
+                                *p *= *p;
+                            }
+                            else
+                            {
+                                *p = -1;
+                            }
+                        }
+
+                        if (*p > 0)
+                        {
+                            int64_t noise = 4*(di*di + dj*dj) * (*p);
+                            if (noise < h)
+                                h = noise;
+                        }
+                    }
+                }
+
+                if (h < 3600)
+                    out[j*r.sx+i] = end_highlands;
+                else if (h <= 10000)
+                    out[j*r.sx+i] = end_midlands;
+                else if (h <= 14400)
+                    out[j*r.sx+i] = end_barrens;
+                else
+                    out[j*r.sx+i] = small_end_islands;
+            }
+        }
+        free(hmap);
+    }
+    else
+    {   // A scale higher than 1:64 is discouraged and not well defined.
+        // TODO...
+        return 1;
+    }
+
+    // expanding 2D into 3D
+    for (iy = 1; iy < r.sy; iy++)
+    {
+        int i, siz = r.sx*r.sz;
+        for (i = 0; i < siz; i++)
+            out[iy*siz + i] = out[i];
+    }
+
+    return 0;
+}
+
+
+//==============================================================================
+// Overworld and Nether Biome Generation 1.18
+//==============================================================================
+
+void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int dim, int large)
+{
+    Xoroshiro pxr;
+    int n = 0;
+
+    xSetSeed(&pxr, seed);
+    uint64_t xlo = xNextLong(&pxr);
+    uint64_t xhi = xNextLong(&pxr);
+
+    double amp_s[] = {1, 1, 1, 0};
+    // md5 "minecraft:offset"
+    pxr.lo = xlo ^ 0x080518cf6af25384;
+    pxr.hi = xhi ^ 0x3f3dfb40a54febd5;
+    n += xDoublePerlinInit(&bn->shift, &pxr, bn->oct+n,
+            amp_s, -3, sizeof(amp_s)/sizeof(double));
+
+    double amp_t[] = {1.5, 0, 1, 0, 0, 0};
+    // md5 "minecraft:temperature" or "minecraft:temperature_large"
+    pxr.lo = xlo ^ (large ? 0x944b0073edf549db : 0x5c7e6b29735f0d7f);
+    pxr.hi = xhi ^ (large ? 0x4ff44347e9d22b96 : 0xf7d86f1bbc734988);
+    n += xDoublePerlinInit(&bn->temperature, &pxr, bn->oct+n,
+            amp_t, large ? -12 : -10, sizeof(amp_t)/sizeof(double));
+
+    double amp_h[] = {1, 1, 0, 0, 0, 0};
+    // md5 "minecraft:vegetation" or "minecraft:vegetation_large"
+    pxr.lo = xlo ^ (large ? 0x71b8ab943dbd5301 : 0x81bb4d22e8dc168e);
+    pxr.hi = xhi ^ (large ? 0xbb63ddcf39ff7a2b : 0xf1c8b4bea16303cd);
+    n += xDoublePerlinInit(&bn->humidity, &pxr, bn->oct+n,
+            amp_h, large ? -10 : -8, sizeof(amp_h)/sizeof(double));
+
+    if (dim == 0)
+    {
+        double amp_c[] = {1, 1, 2, 2, 2, 1, 1, 1, 1};
+        // md5 "minecraft:continentalness" or "minecraft:continentalness_large"
+        pxr.lo = xlo ^ (large ? 0x9a3f51a113fce8dc : 0x83886c9d0ae3a662);
+        pxr.hi = xhi ^ (large ? 0xee2dbd157e5dcdad : 0xafa638a61b42e8ad);
+        n += xDoublePerlinInit(&bn->continentalness, &pxr, bn->oct+n,
+                amp_c, large ? -11 : -9, sizeof(amp_c)/sizeof(double));
+
+        double amp_e[] = {1, 1, 0, 1, 1};
+        // md5 "minecraft:erosion" or "minecraft:erosion_large"
+        pxr.lo = xlo ^ (large ? 0x8c984b1f8702a951 : 0xd02491e6058f6fd8);
+        pxr.hi = xhi ^ (large ? 0xead7b1f92bae535f : 0x4792512c94c17a80);
+        n += xDoublePerlinInit(&bn->erosion, &pxr, bn->oct+n,
+                amp_e, large ? -11 : -9, sizeof(amp_e)/sizeof(double));
+
+        double amp_w[] = {1, 2, 1, 0, 0, 0};
+        // md5 "minecraft:ridge"
+        pxr.lo = xlo ^ 0xefc8ef4d36102b34;
+        pxr.hi = xhi ^ 0x1beeeb324a0f24ea;
+        n += xDoublePerlinInit(&bn->weirdness, &pxr, bn->oct+n,
+            amp_w, -7, sizeof(amp_w)/sizeof(double));
+    }
+
+    if ((size_t)n > sizeof(bn->oct) / sizeof(*bn->oct))
+    {
+        printf("setBiomeSeed(): BiomeNoise is malformed, buffer too small\n");
+        exit(1);
+    }
+    bn->previdx = 0;
+}
+
+
+enum { CONTINENTALNESS, EROSION, RIDGES, WEIRDNESS };
+
+static void addSplineVal(Spline *rsp, float loc, Spline *val, float der)
+{
+    rsp->loc[rsp->len] = loc;
+    rsp->val[rsp->len] = val;
+    rsp->der[rsp->len] = der;
+    rsp->len++;
+    //if (rsp->len > 12) {
+    //    printf("addSplineVal(): too many spline points\n");
+    //    exit(1);
+    //}
+}
+
+static Spline *createFixSpline(SplineStack *ss, float val)
+{
+    FixSpline *sp = &ss->fstack[ss->flen++];
+    sp->len = 1;
+    sp->val = val;
+    return (Spline*)sp;
+}
+
+static float getOffsetValue(float weirdness, float continentalness)
+{
+    float f0 = 1.0F - (1.0F - continentalness) * 0.5F;
+    float f1 = 0.5F * (1.0F - continentalness);
+    float f2 = (weirdness + 1.17F) * 0.46082947F;
+    float off = f2 * f0 - f1;
+    if (weirdness < -0.7F)
+        return off > -0.2222F ? off : -0.2222F;
+    else
+        return off > 0 ? off : 0;
+}
+
+static Spline *createSpline_38219(SplineStack *ss, float f, int bl)
+{
+    Spline *sp = &ss->stack[ss->len++];
+    sp->typ = RIDGES;
+
+    float i = getOffsetValue(-1.0F, f);
+    float k = getOffsetValue( 1.0F, f);
+    float l = 1.0F - (1.0F - f) * 0.5F;
+    float u = 0.5F * (1.0F - f);
+    l = u / (0.46082947F * l) - 1.17F;
+
+    if (-0.65F < l && l < 1.0F)
+    {
+        float p, q, r, s;
+        u = getOffsetValue(-0.65F, f);
+        p = getOffsetValue(-0.75F, f);
+        q = (p - i) * 4.0F;
+        r = getOffsetValue(l, f);
+        s = (k - r) / (1.0F - l);
+
+        addSplineVal(sp, -1.0F,     createFixSpline(ss, i), q);
+        addSplineVal(sp, -0.75F,    createFixSpline(ss, p), 0);
+        addSplineVal(sp, -0.65F,    createFixSpline(ss, u), 0);
+        addSplineVal(sp, l-0.01F,   createFixSpline(ss, r), 0);
+        addSplineVal(sp, l,         createFixSpline(ss, r), s);
+        addSplineVal(sp, 1.0F,      createFixSpline(ss, k), s);
+    }
+    else
+    {
+        u = (k - i) * 0.5F;
+        if (bl) {
+            addSplineVal(sp, -1.0F, createFixSpline(ss, i > 0.2 ? i : 0.2), 0);
+            addSplineVal(sp,  0.0F, createFixSpline(ss, lerp(0.5F, i, k)), u);
+        } else {
+            addSplineVal(sp, -1.0F, createFixSpline(ss, i), u);
+        }
+        addSplineVal(sp, 1.0F,      createFixSpline(ss, k), u);
+    }
+    return sp;
+}
+
+static Spline *createFlatOffsetSpline(
+    SplineStack *ss, float f, float g, float h, float i, float j, float k)
+{
+    Spline *sp = &ss->stack[ss->len++];
+    sp->typ = RIDGES;
+
+    float l = 0.5F * (g - f); if (l < k) l = k;
+    float m = 5.0F * (h - g);
+
+    addSplineVal(sp, -1.0F, createFixSpline(ss, f), l);
+    addSplineVal(sp, -0.4F, createFixSpline(ss, g), l < m ? l : m);
+    addSplineVal(sp,  0.0F, createFixSpline(ss, h), m);
+    addSplineVal(sp,  0.4F, createFixSpline(ss, i), 2.0F*(i-h));
+    addSplineVal(sp,  1.0F, createFixSpline(ss, j), 0.7F*(j-i));
+
+    return sp;
+}
+
+static Spline *createLandSpline(
+    SplineStack *ss, float f, float g, float h, float i, float j, float k, int bl)
+{
+    Spline *sp1 = createSpline_38219(ss, lerp(i, 0.6F, 1.5F), bl);
+    Spline *sp2 = createSpline_38219(ss, lerp(i, 0.6F, 1.0F), bl);
+    Spline *sp3 = createSpline_38219(ss, i, bl);
+    const float ih = 0.5F * i;
+    Spline *sp4 = createFlatOffsetSpline(ss, f-0.15F, ih, ih, ih, i*0.6F, 0.5F);
+    Spline *sp5 = createFlatOffsetSpline(ss, f, j*i, g*i, ih, i*0.6F, 0.5F);
+    Spline *sp6 = createFlatOffsetSpline(ss, f, j, j, g, h, 0.5F);
+    Spline *sp7 = createFlatOffsetSpline(ss, f, j, j, g, h, 0.5F);
+
+    Spline *sp8 = &ss->stack[ss->len++];
+    sp8->typ = RIDGES;
+    addSplineVal(sp8, -1.0F, createFixSpline(ss, f), 0.0F);
+    addSplineVal(sp8, -0.4F, sp6, 0.0F);
+    addSplineVal(sp8,  0.0F, createFixSpline(ss, h + 0.07F), 0.0F);
+
+    Spline *sp9 = createFlatOffsetSpline(ss, -0.02F, k, k, g, h, 0.0F);
+    Spline *sp = &ss->stack[ss->len++];
+    sp->typ = EROSION;
+    addSplineVal(sp, -0.85F, sp1, 0.0F);
+    addSplineVal(sp, -0.7F,  sp2, 0.0F);
+    addSplineVal(sp, -0.4F,  sp3, 0.0F);
+    addSplineVal(sp, -0.35F, sp4, 0.0F);
+    addSplineVal(sp, -0.1F,  sp5, 0.0F);
+    addSplineVal(sp,  0.2F,  sp6, 0.0F);
+    if (bl) {
+        addSplineVal(sp, 0.4F,  sp7, 0.0F);
+        addSplineVal(sp, 0.45F, sp8, 0.0F);
+        addSplineVal(sp, 0.55F, sp8, 0.0F);
+        addSplineVal(sp, 0.58F, sp7, 0.0F);
+    }
+    addSplineVal(sp, 0.7F, sp9, 0.0F);
+    return sp;
+}
+
+float getSpline(const Spline *sp, const float *vals)
+{
+    if (!sp || sp->len <= 0 || sp->len >= 12)
+    {
+        printf("getSpline(): bad parameters\n");
+        exit(1);
+    }
+
+    if (sp->len == 1)
+        return ((FixSpline*)sp)->val;
+
+    float f = vals[sp->typ];
+    int i;
+
+    for (i = 0; i < sp->len; i++)
+        if (sp->loc[i] >= f)
+            break;
+    if (i == 0 || i == sp->len)
+    {
+        if (i) i--;
+        float v = getSpline(sp->val[i], vals);
+        return v + sp->der[i] * (f - sp->loc[i]);
+    }
+    const Spline *sp1 = sp->val[i-1];
+    const Spline *sp2 = sp->val[i];
+    float g = sp->loc[i-1];
+    float h = sp->loc[i];
+    float k = (f - g) / (h - g);
+    float l = sp->der[i-1];
+    float m = sp->der[i];
+    float n = getSpline(sp1, vals);
+    float o = getSpline(sp2, vals);
+    float p = l * (h - g) - (o - n);
+    float q = -m * (h - g) + (o - n);
+    float r = lerp(k, n, o) + k * (1.0F - k) * lerp(k, p, q);
+    return r;
+}
+
+void initBiomeNoise(BiomeNoise *bn, int mc)
+{
+    (void)mc;
+    SplineStack *ss = &bn->ss;
+    memset(ss, 0, sizeof(*ss));
+    Spline *sp = &ss->stack[ss->len++];
+    sp->typ = CONTINENTALNESS;
+
+    Spline *sp1 = createLandSpline(ss, -0.15F, 0.00F, 0.0F, 0.1F, 0.00F, -0.03F, 0);
+    Spline *sp2 = createLandSpline(ss, -0.10F, 0.03F, 0.1F, 0.1F, 0.01F, -0.03F, 0);
+    Spline *sp3 = createLandSpline(ss, -0.10F, 0.03F, 0.1F, 0.7F, 0.01F, -0.03F, 1);
+    Spline *sp4 = createLandSpline(ss, -0.05F, 0.03F, 0.1F, 1.0F, 0.01F,  0.01F, 1);
+
+    addSplineVal(sp, -1.10F, createFixSpline(ss,  0.044F), 0.0F);
+    addSplineVal(sp, -1.02F, createFixSpline(ss, -0.2222F), 0.0F);
+    addSplineVal(sp, -0.51F, createFixSpline(ss, -0.2222F), 0.0F);
+    addSplineVal(sp, -0.44F, createFixSpline(ss, -0.12F), 0.0F);
+    addSplineVal(sp, -0.18F, createFixSpline(ss, -0.12F), 0.0F);
+    addSplineVal(sp, -0.16F, sp1, 0.0F);
+    addSplineVal(sp, -0.15F, sp1, 0.0F);
+    addSplineVal(sp, -0.10F, sp2, 0.0F);
+    addSplineVal(sp,  0.25F, sp3, 0.0F);
+    addSplineVal(sp,  1.00F, sp4, 0.0F);
+
+    bn->sp = sp;
+}
+
+#if __cplusplus
+extern "C"
+{
+#endif
+
+int p2overworld(const uint64_t np[6], uint64_t *dat);
+int p2nether(const uint64_t np[2], uint64_t *dat);
+
+#if __cplusplus
+}
+#endif
+
+/// Biome sampler for MC 1.18
+int sampleBiomeNoise(const BiomeNoise *bn, int x, int y, int z, int dim, uint64_t *dat)
+{
+    float t = 0, h = 0, c = 0, e = 0, d = 0, w = 0;
+    double px = x + sampleDoublePerlin(&bn->shift, x, 0, z) * 4.0;
+    double pz = z + sampleDoublePerlin(&bn->shift, z, x, 0) * 4.0;
+
+    if (dim == 0)
+    {
+        c = sampleDoublePerlin(&bn->continentalness, px, 0, pz);
+        e = sampleDoublePerlin(&bn->erosion, px, 0, pz);
+        w = sampleDoublePerlin(&bn->weirdness, px, 0, pz);
+
+        float np_param[] = {
+            c, e, -3.0F * ( fabsf( fabsf(w) - 0.6666667F ) - 0.33333334F ), w,
+        };
+        double off = getSpline(bn->sp, np_param) + 0.015F;
+
+        //double py = y + sampleDoublePerlin(&bn->shift, y, z, x) * 4.0;
+        d = 1.0 - (y << 2) / 128.0 - 83.0/160.0 + off;
+    }
+
+    t = sampleDoublePerlin(&bn->temperature, px, 0, pz);
+    h = sampleDoublePerlin(&bn->humidity, px, 0, pz);
+
+    int64_t np[] = {
+        (int64_t)(10000.0F*t),
+        (int64_t)(10000.0F*h),
+        (int64_t)(10000.0F*c),
+        (int64_t)(10000.0F*e),
+        (int64_t)(10000.0F*d),
+        (int64_t)(10000.0F*w),
+    };
+
+    int id = none;
+    if (dim == 0)
+        id = p2overworld((const uint64_t*)np, dat);
+    if (dim == -1)
+        id = p2nether((const uint64_t*)np, dat);
+    return id;
+}
+
+
+static void genBiomeNoise3D(const BiomeNoise *bn, int *out, Range r, int dim, int opt)
+{
+    uint64_t dat = 0;
+    int i, j, k;
+    int *p = out;
+    int scale = r.scale > 4 ? r.scale / 4 : 1;
+    int mid = scale / 2;
+    for (k = 0; k < r.sy; k++)
+    {
+        int yk = (r.y+k);
+        for (j = 0; j < r.sz; j++)
+        {
+            int zj = (r.z+j)*scale + mid;
+            for (i = 0; i < r.sx; i++)
+            {
+                int xi = (r.x+i)*scale + mid;
+                *p = sampleBiomeNoise(bn, xi, yk, zj, dim, opt ? &dat : NULL);
+                p++;
+            }
+        }
+    }
+}
+
+int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int dim,
+        int mc, uint64_t sha)
+{
+    if (mc <= MC_1_17)
+        return 1; // bad version
+
+    if (r.sy == 0)
+        r.sy = 1;
+
+    uint64_t siz = (uint64_t)r.sx*r.sy*r.sz;
+    int i, j, k;
+
+    if (r.scale == 1)
+    {
+        Range s = getVoronoiSrcRange(r);
+        int *src;
+        if (siz > 1)
+        {   // the source range is large enough that we can try optimizing
+            src = out + siz;
+            genBiomeNoise3D(bn, src, s, dim, 0);
+        }
+        else
+        {
+            src = NULL;
+        }
+
+        int *p = out;
+        for (k = 0; k < r.sy; k++)
+        {
+            for (j = 0; j < r.sz; j++)
+            {
+                for (i = 0; i < r.sx; i++)
+                {
+                    int x4, z4, y4;
+                    voronoiAccess3D(sha, r.x+i, r.y+k, r.z+j, &x4, &y4, &z4);
+                    if (src)
+                    {
+                        x4 -= s.x; y4 -= s.y; z4 -= s.z;
+                        *p = src[y4*s.sx*s.sz + z4*s.sx + x4];
+                    }
+                    else
+                    {
+                        *p = sampleBiomeNoise(bn, x4, y4, z4, dim, 0);
+                    }
+                    p++;
+                }
+            }
+        }
+    }
+    else
+    {
+        // There is (was?) an optimization that causes MC-241546, and should
+        // not be enabled for accurate results. However, if the scale is higher
+        // than 1:4, the accuracy becomes questionable anyway. Furthermore
+        // situations that want to use a higher scale are usually better off
+        // with a faster, if imperfect, result.
+        genBiomeNoise3D(bn, out, r, dim, r.scale > 4);
+    }
+    return 0;
 }
 
 
@@ -2686,6 +3134,36 @@ int mapOceanMix(const Layer * l, int * out, int x, int z, int w, int h)
     return 0;
 }
 
+
+Range getVoronoiSrcRange(Range r)
+{
+    if (r.scale != 1)
+    {
+        printf("getVoronoiSrcRange() expects input range with scale 1:1\n");
+        exit(1);
+    }
+
+    Range s; // output has scale 1:4
+    int tx = r.x - 2;
+    int tz = r.z - 2;
+    s.scale = 4;
+    s.x = tx >> 2;
+    s.z = tz >> 2;
+    s.sx = ((tx + r.sx) >> 2) - s.x + 2;
+    s.sz = ((tz + r.sz) >> 2) - s.z + 2;
+    if (r.sy < 1)
+    {
+        s.y = s.sy = 0;
+    }
+    else
+    {
+        int ty = r.y - 2;
+        s.y = ty >> 2;
+        s.sy = ((ty + r.sy) >> 2) - s.y + 2;
+    }
+    return s;
+}
+
 static inline void getVoronoiCell(uint64_t sha, int a, int b, int c,
         int *x, int *y, int *z)
 {
@@ -2704,25 +3182,9 @@ static inline void getVoronoiCell(uint64_t sha, int a, int b, int c,
     *z = (((s >> 24) & 1023) - 512) * 36;
 }
 
-int mapVoronoi(const Layer * l, int * out, int x, int z, int w, int h)
+void mapVoronoiPlane(uint64_t sha, int *out, int *src,
+    int x, int z, int w, int h, int y, int px, int pz, int pw, int ph)
 {
-    x -= 2;
-    z -= 2;
-    int pX = x >> 2;
-    int pZ = z >> 2;
-    int pW = ((x + w) >> 2) - pX + 2;
-    int pH = ((z + h) >> 2) - pZ + 2;
-
-    if (l->p)
-    {
-        int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-        if (err != 0)
-            return err;
-    }
-
-    uint64_t sha = l->startSalt;
-    int *buf = out + pW * pH; //(int *) malloc(w*h*sizeof(*buf));
-
     int x000, x001, x010, x011, x100, x101, x110, x111;
     int y000, y001, y010, y011, y100, y101, y110, y111;
     int z000, z001, z010, z011, z100, z101, z110, z111;
@@ -2733,24 +3195,24 @@ int mapVoronoi(const Layer * l, int * out, int x, int z, int w, int h)
     uint64_t d, dmin;
     int i, j;
 
-    for (pj = 0; pj < pH-1; pj++)
+    for (pj = 0; pj < ph-1; pj++)
     {
-        v00 = out[(pj+0)*pW];
-        v10 = out[(pj+1)*pW];
-        pjz = pZ + pj;
+        v00 = src[(pj+0)*pw];
+        v10 = src[(pj+1)*pw];
+        pjz = pz + pj;
         j4 = ((pjz) << 2) - z;
         prev_skip = 1;
 
-        for (pi = 0; pi < pW-1; pi++)
+        for (pi = 0; pi < pw-1; pi++)
         {
-            PREFETCH( buf + ((pjz << 2) + 0) * w + pi, 1, 1 );
-            PREFETCH( buf + ((pjz << 2) + 1) * w + pi, 1, 1 );
-            PREFETCH( buf + ((pjz << 2) + 2) * w + pi, 1, 1 );
-            PREFETCH( buf + ((pjz << 2) + 3) * w + pi, 1, 1 );
+            PREFETCH( out + ((pjz << 2) + 0) * w + pi, 1, 1 );
+            PREFETCH( out + ((pjz << 2) + 1) * w + pi, 1, 1 );
+            PREFETCH( out + ((pjz << 2) + 2) * w + pi, 1, 1 );
+            PREFETCH( out + ((pjz << 2) + 3) * w + pi, 1, 1 );
 
-            v01 = out[(pj+0)*pW + (pi+1)];
-            v11 = out[(pj+1)*pW + (pi+1)];
-            pix = pX + pi;
+            v01 = src[(pj+0)*pw + (pi+1)];
+            v11 = src[(pj+1)*pw + (pi+1)];
+            pix = px + pi;
             i4 = ((pix) << 2) - x;
 
             if (v00 == v01 && v00 == v10 && v00 == v11)
@@ -2763,7 +3225,7 @@ int mapVoronoi(const Layer * l, int * out, int x, int z, int w, int h)
                     {
                         i = i4 + ii;
                         if (i < 0 || i >= w) continue;
-                        buf[j*w + i] = v00;
+                        out[j*w + i] = v00;
                     }
                 }
                 prev_skip = 1;
@@ -2771,16 +3233,16 @@ int mapVoronoi(const Layer * l, int * out, int x, int z, int w, int h)
             }
             if (prev_skip)
             {
-                getVoronoiCell(sha, pix, -1, pjz+0, &x000, &y000, &z000);
-                getVoronoiCell(sha, pix,  0, pjz+0, &x001, &y001, &z001);
-                getVoronoiCell(sha, pix, -1, pjz+1, &x100, &y100, &z100);
-                getVoronoiCell(sha, pix,  0, pjz+1, &x101, &y101, &z101);
+                getVoronoiCell(sha, pix, y-1, pjz+0, &x000, &y000, &z000);
+                getVoronoiCell(sha, pix, y+0, pjz+0, &x001, &y001, &z001);
+                getVoronoiCell(sha, pix, y-1, pjz+1, &x100, &y100, &z100);
+                getVoronoiCell(sha, pix, y+0, pjz+1, &x101, &y101, &z101);
                 prev_skip = 0;
             }
-            getVoronoiCell(sha, pix+1, -1, pjz+0, &x010, &y010, &z010);
-            getVoronoiCell(sha, pix+1,  0, pjz+0, &x011, &y011, &z011);
-            getVoronoiCell(sha, pix+1, -1, pjz+1, &x110, &y110, &z110);
-            getVoronoiCell(sha, pix+1,  0, pjz+1, &x111, &y111, &z111);
+            getVoronoiCell(sha, pix+1, y-1, pjz+0, &x010, &y010, &z010);
+            getVoronoiCell(sha, pix+1, y+0, pjz+0, &x011, &y011, &z011);
+            getVoronoiCell(sha, pix+1, y-1, pjz+1, &x110, &y110, &z110);
+            getVoronoiCell(sha, pix+1, y+0, pjz+1, &x111, &y111, &z111);
 
 
             for (jj = 0; jj < 4; jj++)
@@ -2843,7 +3305,7 @@ int mapVoronoi(const Layer * l, int * out, int x, int z, int w, int h)
                     r = z111 - A + dz;  d += r*r;
                     if (d < dmin) { dmin = d; v = v11; }
 
-                    buf[j*w + i] = v;
+                    out[j*w + i] = v;
                 }
             }
 
@@ -2863,8 +3325,27 @@ int mapVoronoi(const Layer * l, int * out, int x, int z, int w, int h)
             v10 = v11;
         }
     }
+}
 
-    memmove(out, buf, w*h*sizeof(*buf));
+int mapVoronoi(const Layer * l, int * out, int x, int z, int w, int h)
+{
+    x -= 2;
+    z -= 2;
+    int px = x >> 2;
+    int pz = z >> 2;
+    int pw = ((x + w) >> 2) - px + 2;
+    int ph = ((z + h) >> 2) - pz + 2;
+
+    if (l->p)
+    {
+        int err = l->p->getMap(l->p, out, px, pz, pw, ph);
+        if (err != 0)
+            return err;
+    }
+
+    int *src = out + w*h;
+    memmove(src, out, pw*ph*sizeof(int));
+    mapVoronoiPlane(l->startSalt, out, src, x,z,w,h, 0, px,pz,pw,ph);
 
     return 0;
 }
@@ -2996,9 +3477,6 @@ int mapVoronoi114(const Layer * l, int * out, int x, int z, int w, int h)
 }
 
 
-inline static __attribute__((always_inline,const))
-uint32_t rotr(uint32_t a, int b) { return (a >> b) | (a << (32-b)); }
-
 uint64_t getVoronoiSHA(uint64_t seed)
 {
     static const uint32_t K[64] = {
@@ -3027,8 +3505,8 @@ uint64_t getVoronoiSHA(uint64_t seed)
     uint32_t m[64];
     uint32_t a0,a1,a2,a3,a4,a5,a6,a7;
     uint32_t i, x, y;
-    m[0] = __builtin_bswap32((uint32_t)(seed));
-    m[1] = __builtin_bswap32((uint32_t)(seed >> 32));
+    m[0] = BSWAP32((uint32_t)(seed));
+    m[1] = BSWAP32((uint32_t)(seed >> 32));
     m[2] = 0x80000000;
     for (i = 3; i < 15; i++)
         m[i] = 0;
@@ -3038,9 +3516,9 @@ uint64_t getVoronoiSHA(uint64_t seed)
     {
         m[i] = m[i - 7] + m[i - 16];
         x = m[i - 15];
-        m[i] += rotr(x,7) ^ rotr(x,18) ^ (x >> 3);
+        m[i] += rotr32(x,7) ^ rotr32(x,18) ^ (x >> 3);
         x = m[i - 2];
-        m[i] += rotr(x,17) ^ rotr(x,19) ^ (x >> 10);
+        m[i] += rotr32(x,17) ^ rotr32(x,19) ^ (x >> 10);
     }
 
     a0 = B[0];
@@ -3055,10 +3533,10 @@ uint64_t getVoronoiSHA(uint64_t seed)
     for (i = 0; i < 64; i++)
     {
         x = a7 + K[i] + m[i];
-        x += rotr(a4,6) ^ rotr(a4,11) ^ rotr(a4,25);
+        x += rotr32(a4,6) ^ rotr32(a4,11) ^ rotr32(a4,25);
         x += (a4 & a5) ^ (~a4 & a6);
 
-        y = rotr(a0,2) ^ rotr(a0,13) ^ rotr(a0,22);
+        y = rotr32(a0,2) ^ rotr32(a0,13) ^ rotr32(a0,22);
         y += (a0 & a1) ^ (a0 & a2) ^ (a1 & a2);
 
         a7 = a6;
@@ -3074,7 +3552,7 @@ uint64_t getVoronoiSHA(uint64_t seed)
     a0 += B[0];
     a1 += B[1];
 
-    return __builtin_bswap32(a0) | ((uint64_t)__builtin_bswap32(a1) << 32);
+    return BSWAP32(a0) | ((uint64_t)BSWAP32(a1) << 32);
 }
 
 void voronoiAccess3D(uint64_t sha, int x, int y, int z, int *x4, int *y4, int *z4)

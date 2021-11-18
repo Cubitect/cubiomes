@@ -1,6 +1,7 @@
 #include "finders.h"
 #include "util.h"
 
+#include <sys/time.h>
 #include <time.h>
 #include <float.h>
 #include <stdlib.h>
@@ -68,17 +69,13 @@ benchmark(int64_t (*f)(int64_t n, void*), void *dat, double *tmin, double *tavg)
     return cnt;
 }
 
-uint32_t getRef(int mc, int bits, const char *path)
+uint32_t getRef(int mc, int dim, int bits, int spread, const char *path)
 {
-    initBiomes();
-    LayerStack g;
-    setupGenerator(&g, mc);
-    Layer *l = g.entry_4;
-    int *ids = allocCache(l, 1, 1);
+    Generator g;
+    setupGenerator(&g, mc, 0);
 
     FILE *fp = NULL;
-    if (path)
-        fp = fopen(path, "w");
+    if (path) fp = fopen(path, "w");
 
     int r = 1 << (bits-1);
     int h = 0;
@@ -88,22 +85,21 @@ uint32_t getRef(int mc, int bits, const char *path)
         for (z = -r; z < r; z++)
         {
             int64_t s = (int64_t)( (z << bits) ^ x );
-            setLayerSeed(l, s);
-            //applySeed(&g, s);
-            genArea(l, ids, x, z, 1, 1);
-            h ^= hash32( (int) s ^ (ids[0] << 2*bits) );
-
+            applySeed(&g, dim, s);
+            int y = (int)((hash32((int)s) & 0x7fffffff) % 384 - 64) >> 2;
+            int id = getBiomeAt(&g, 4, x, y, z);
+            h ^= hash32( (int) s ^ (id << 2*bits) );
             if (fp)
-                fprintf(fp, "%5d%6d%4d\n", x, z, ids[0]);
+                //fprintf(fp, "%5d%6d%4d\n", x*spread, z*spread, id);
+                fprintf(fp, "%2ld @ %2d %4d %2d - %4d %08x\n", s, x, y, z, id, h);
         }
     }
-    if (fp)
+    if (fp && fp != stdout)
         fclose(fp);
-    free(ids);
     return h;
 }
 
-int testBiomeGen1x1(const int *mc, const uint32_t *expect, int bits, int cnt)
+int testBiomeGen1x1(const int *mc, const uint32_t *expect, int dim, int bits, int spread, int cnt)
 {
     int test;
     uint32_t h;
@@ -111,12 +107,12 @@ int testBiomeGen1x1(const int *mc, const uint32_t *expect, int bits, int cnt)
 
     for (test = 0; test < cnt; test++)
     {
-        printf("  [%*d/%*d] MC 1.%-2d: expecting %08x ... ",
-               1+(cnt>9), test+1, 1+(cnt>9),cnt, mc[test], expect[test]);
+        printf("  [%*d/%*d] MC 1.%-2d dim=%-2d: expecting %08x ... ",
+               1+(cnt>9), test+1, 1+(cnt>9), cnt, mc[test], dim, expect[test]);
         fflush(stdout);
 
         double t = -now();
-        h = getRef(mc[test], bits, NULL);
+        h = getRef(mc[test], dim, bits, spread, "t16");
         t += now();
         printf("got %08x %s\e[0m (%ld msec)\n",
             h, h == expect[test] ? "\e[1;92mOK" : "\e[1;91mFAILED",
@@ -127,90 +123,81 @@ int testBiomeGen1x1(const int *mc, const uint32_t *expect, int bits, int cnt)
     return ok;
 }
 
-int testOverworldBiomes(int thorough)
+
+uint32_t testAreas(int mc, int dim, int scale)
+{
+    Generator g;
+    setupGenerator(&g, mc, 0);
+
+    double t = -now();
+    uint32_t hash = 0;
+    uint64_t s;
+    for (s = 0; s < 100; s++)
+    {
+        int d = 10000;
+        int x = hash32(s << 5) % d - d/2;
+        int y = ((int)(hash32(s << 7) % 384) - 64);
+        int z = hash32(s << 9) % d - d/2;
+        int w = 1 + hash32(s << 11) % 128; w = 128;
+        int h = 1 + hash32(s << 13) % 128; h = 128;
+
+        applySeed(&g, dim, s);
+        Range r = {scale, x, z, w, h, y, 1};
+        int *ids = allocCache(&g, r);
+        genBiomes(&g, ids, r);
+        int i = 0;
+        hash = 0;
+        for (i = 0; i < w*h; i++)
+            hash = hash32(hash ^ hash32(ids[i] + (i << 17)));
+        free(ids);
+    }
+    t += now();
+    printf("  MC 1.%-2d dim %-2d @ 1:%-3d - %08x [%ld msec]\n",
+        mc, dim, scale, hash, (long)(t*1e3));
+    return hash;
+}
+
+
+int testGeneration()
 {
     const int mc_vers[] = {
+        MC_1_18,
         MC_1_16, MC_1_15, MC_1_13, MC_1_12, MC_1_9, MC_1_7,
-        MC_1_6, MC_1_2, MC_1_1, MC_1_0,
+        MC_1_6,  MC_1_2,  MC_1_1,  MC_1_0,
     };
     const uint32_t b6_hashes[] = {
+        0xade7f891,
         0xde9a6574, 0x3a568a6d, 0x96c97323, 0xbc75e996, 0xe27a45a2, 0xbc75e996,
         0x15b47206, 0x2d7e0fed, 0x5cbf4709, 0xbd794adb,
-    };
-    const uint32_t b10_hashes[] = {
-        0xfdede71d, 0xca8005d7, 0x399f7cc8, 0xb3363967, 0x17e5592f, 0xb3363967,
-        0xa52e377c, 0xdb1df71d, 0x58e86947, 0xe1e89cc3,
     };
     const int testcnt = sizeof(mc_vers) / sizeof(int);
 
     printf("Testing 1x1 biome generation (quick):\n");
-    if (!testBiomeGen1x1(mc_vers, b6_hashes, 6, testcnt))
-        return -1;
-    if (!thorough)
-        return 0;
-    printf("Testing 1x1 biome generation (thorough):\n");
-    if (!testBiomeGen1x1(mc_vers, b10_hashes, 10, testcnt))
-        return -1;
+    if (!testBiomeGen1x1(mc_vers, b6_hashes, 0, 6, 1, 1))// testcnt))
+        ;//return -1;
+
+    printf("Area generation tests:\n");
+    testAreas(MC_1_18, 0, 1);
+    testAreas(MC_1_18, 0, 4);
+    testAreas(MC_1_18, 0, 16);
+    testAreas(MC_1_18, 0, 64);
+
+    //const uint32_t b10_hashes[] = {
+    //    0x00000000,
+    //    0xfdede71d, 0xca8005d7, 0x399f7cc8, 0xb3363967, 0x17e5592f, 0xb3363967,
+    //    0xa52e377c, 0xdb1df71d, 0x58e86947, 0xe1e89cc3,
+    //};
+    //printf("Testing 1x1 biome generation (thorough):\n");
+    //if (!testBiomeGen1x1(mc_vers, b10_hashes, 0, 10, 1, testcnt))
+    //    return -1;
     return 0;
-}
-
-
-int gw = 16, gh = 16;
-
-int64_t testPerfEnd(int64_t n, void *data)
-{
-    EndNoise *en = (EndNoise*) data;
-    int ids[gw*gh];
-    int64_t r = 0;
-
-    while (n-->0)
-    {
-        int x = rand() % 10000 - 5000;
-        int z = rand() % 10000 - 5000;
-        mapEndBiome(en, ids, x, z, gw, gh);
-        r ^= ids[0];
-    }
-    return r;
-}
-
-int64_t testPerfNether(int64_t n, void *data)
-{
-    NetherNoise *nn = (NetherNoise*) data;
-    int ids[gw*gh];
-    int64_t r = 0;
-
-    while (n-->0)
-    {
-        int x = rand() % 10000 - 5000;
-        int z = rand() % 10000 - 5000;
-        mapNether2D(nn, ids, x, z, gw, gh);
-        r ^= ids[0];
-    }
-    return r;
-}
-
-int testPerformance()
-{
-    double tmin, tavg;
-
-    EndNoise en;
-    setEndSeed(&en, 12345);
-    benchmark(testPerfEnd, &en, &tmin, &tavg);
-    printf("End %dx%d    -> min:%10.0lf ns | avg:%10.0lf ns | conf:%4.2lf %%\n",
-        gw, gh, 1e9*tmin, 1e9*tavg, 100 * (tavg-tmin) / (tavg+tmin));
-
-    NetherNoise nn;
-    setNetherSeed(&nn, 12345);
-    benchmark(testPerfNether, &nn, &tmin, &tavg);
-    printf("Nether %dx%d -> min:%10.0lf ns | avg:%10.0lf ns | conf:%4.2lf %%\n",
-        gw, gh, 1e9*tmin, 1e9*tavg, 100 * (tavg-tmin) / (tavg+tmin));
 }
 
 
 int main()
 {
-    testOverworldBiomes(0);
-    //testPerformance();
+    testGeneration();
+
     return 0;
 }
 

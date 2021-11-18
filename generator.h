@@ -3,88 +3,31 @@
 
 #include "layers.h"
 
+// generator flags
+#define LARGE_BIOMES            0x1
+#define FORCE_OCEAN_VARIANTS    0x4
 
-/* Enumeration of the layer indices in the generator. */
-enum
+
+STRUCT(Generator)
 {
-    // new                  [[deprecated]]
-    L_CONTINENT_4096 = 0,   L_ISLAND_4096 = L_CONTINENT_4096,
-    L_ZOOM_2048,
-    L_LAND_2048,            L_ADD_ISLAND_2048 = L_LAND_2048,
-    L_ZOOM_1024,
-    L_LAND_1024_A,          L_ADD_ISLAND_1024A = L_LAND_1024_A,
-    L_LAND_1024_B,          L_ADD_ISLAND_1024B = L_LAND_1024_B,     // 1.7+
-    L_LAND_1024_C,          L_ADD_ISLAND_1024C = L_LAND_1024_C,     // 1.7+
-    L_ISLAND_1024,          L_REMOVE_OCEAN_1024 = L_ISLAND_1024,    // 1.7+
-    L_SNOW_1024,            L_ADD_SNOW_1024 = L_SNOW_1024,
-    L_LAND_1024_D,          L_ADD_ISLAND_1024D = L_LAND_1024_D,     // 1.7+
-    L_COOL_1024,            L_COOL_WARM_1024 = L_COOL_1024,         // 1.7+
-    L_HEAT_1024,            L_HEAT_ICE_1024 = L_HEAT_1024,          // 1.7+
-    L_SPECIAL_1024,                                                 // 1.7+
-    L_ZOOM_512,
-    L_LAND_512,                                                     // 1.6-
-    L_ZOOM_256,
-    L_LAND_256,             L_ADD_ISLAND_256 = L_LAND_256,
-    L_MUSHROOM_256,         L_ADD_MUSHROOM_256 = L_MUSHROOM_256,
-    L_DEEP_OCEAN_256,                                               // 1.7+
-    L_BIOME_256,
-    L_BAMBOO_256,           L14_BAMBOO_256 = L_BAMBOO_256,          // 1.14+
-    L_ZOOM_128,
-    L_ZOOM_64,
-    L_BIOME_EDGE_64,
-    L_NOISE_256,            L_RIVER_INIT_256 = L_NOISE_256,
-    L_ZOOM_128_HILLS,
-    L_ZOOM_64_HILLS,
-    L_HILLS_64,
-    L_SUNFLOWER_64,         L_RARE_BIOME_64 = L_SUNFLOWER_64,       // 1.7+
-    L_ZOOM_32,
-    L_LAND_32,              L_ADD_ISLAND_32 = L_LAND_32,
-    L_ZOOM_16,
-    L_SHORE_16,             // NOTE: in 1.0 this slot is scale 1:32
-    L_SWAMP_RIVER_16,                                               // 1.6-
-    L_ZOOM_8,
-    L_ZOOM_4,
-    L_SMOOTH_4,
-    L_ZOOM_128_RIVER,
-    L_ZOOM_64_RIVER,
-    L_ZOOM_32_RIVER,
-    L_ZOOM_16_RIVER,
-    L_ZOOM_8_RIVER,
-    L_ZOOM_4_RIVER,
-    L_RIVER_4,
-    L_SMOOTH_4_RIVER,
-    L_RIVER_MIX_4,
-    L_OCEAN_TEMP_256,       L13_OCEAN_TEMP_256 = L_OCEAN_TEMP_256,  // 1.13+
-    L_ZOOM_128_OCEAN,       L13_ZOOM_128 = L_ZOOM_128_OCEAN,        // 1.13+
-    L_ZOOM_64_OCEAN,        L13_ZOOM_64 = L_ZOOM_64_OCEAN,          // 1.13+
-    L_ZOOM_32_OCEAN,        L13_ZOOM_32 = L_ZOOM_32_OCEAN,          // 1.13+
-    L_ZOOM_16_OCEAN,        L13_ZOOM_16 = L_ZOOM_16_OCEAN,          // 1.13+
-    L_ZOOM_8_OCEAN,         L13_ZOOM_8 = L_ZOOM_8_OCEAN,            // 1.13+
-    L_ZOOM_4_OCEAN,         L13_ZOOM_4 = L_ZOOM_4_OCEAN,            // 1.13+
-    L_OCEAN_MIX_4,          L13_OCEAN_MIX_4 = L_OCEAN_MIX_4,        // 1.13+
+    int mc;
+    int dim;
+    uint32_t flags;
+    uint64_t seed;
+    uint64_t sha;
 
-    L_VORONOI_1,            L_VORONOI_ZOOM_1 = L_VORONOI_1,
-
-    // largeBiomes layers
-    L_ZOOM_LARGE_A,
-    L_ZOOM_LARGE_B,
-    L_ZOOM_L_RIVER_A,
-    L_ZOOM_L_RIVER_B,
-
-    L_NUM
-};
-
-
-STRUCT(LayerStack)
-{
-    Layer layers[L_NUM];
-    Layer *entry_1;     // entry scale (1:1) [L_VORONOI_1]
-    Layer *entry_4;     // entry scale (1:4) [L_RIVER_MIX_4|L_OCEAN_MIX_4]
-    // unofficial entries for other scales (latest sensible layers):
-    Layer *entry_16;    // [L_SWAMP_RIVER_16|L_SHORE_16]
-    Layer *entry_64;    // [L_HILLS_64|L_SUNFLOWER_64]
-    Layer *entry_256;   // [L_BIOME_256|L_BAMBOO_256]
-    PerlinNoise oceanRnd;
+    union {
+        struct { // MC 1.0 - 1.17
+            LayerStack ls;
+            Layer xlayer[5]; // buffer for custom entry layers @{1,4,16,64,256}
+            Layer *entry;
+            NetherNoise nn; // MC 1.16
+        };
+        struct { // MC 1.18
+            BiomeNoise bn;
+        };
+    };
+    EndNoise en; // MC 1.9
 };
 
 
@@ -93,30 +36,81 @@ extern "C"
 {
 #endif
 
-/* Initialise an instance of a generator. */
-void setupGenerator(LayerStack *g, int mc);
+///=============================================================================
+/// Biome Generation
+///=============================================================================
 
-/* Initialise an instance of a generator with largeBiomes configuration. */
-void setupGeneratorLargeBiomes(LayerStack *g, int mc, int largeBiomes);
+/**
+ * Sets up a biome generator for a given MC version. The 'flags' can be used to
+ * control LARGE_BIOMES or to FORCE_OCEAN_VARIANTS to enable ocean variants at
+ * scales higher than normal.
+ */
+void setupGenerator(Generator *g, int mc, uint32_t flags);
 
+/**
+ * Initializes the generator dimension using a given seed.
+ *
+ * dim=0:   Overworld
+ * dim=-1:  Nether
+ * dim=+1:  End
+ */
+void applySeed(Generator *g, int dim, uint64_t seed);
+
+/**
+ * Calculates the buffer size (number of ints) required to generate a cuboidal
+ * volume of size (sx, sy, sz). If 'sy' is zero the buffer is calculated for a
+ * 2D plane (which is equivalent to sy=1 here).
+ * The function allocCache() can be used to allocate the corresponding int
+ * buffer using malloc().
+ */
+size_t getMinCacheSize(const Generator *g, int scale, int sx, int sy, int sz);
+int *allocCache(const Generator *g, Range r);
+
+/**
+ * Generates the biomes for a cuboidal scaled range given by 'r'.
+ * (See description of Range for more detail.)
+ *
+ * The output is generated inside the cache. Upon success the biome ids can be
+ * accessed by indexing as:
+ *  cache[ y*r.sx*r.sz + z*r.sx + x ]
+ * where (x,y,z) is an relative position inside the range cuboid.
+ *
+ * The required length of the cache can be determined with getMinCacheSize().
+ *
+ * The return value is zero upon success.
+ */
+int genBiomes(const Generator *g, int *cache, Range r);
+/**
+ * Gets the biome for a specified scaled position. Note that the scale should
+ * be either 1 or 4, for block or biome coordinates respectively.
+ * Returns none (-1) upon failure.
+ */
+int getBiomeAt(const Generator *g, int scale, int x, int y, int z);
+
+/**
+ * Returns the default layer that corresponds to the given scale.
+ * Supported scales are {0, 1, 4, 16, 64, 256}. A scale of zero indicates the
+ * custom entry layer 'g->entry'.
+ * (Overworld, MC <= 1.17)
+ */
+const Layer *getLayerForScale(const Generator *g, int scale);
+
+
+///=============================================================================
+/// Layered Biome Generation (interface up to 1.17)
+///=============================================================================
+
+/* Initialize an instance of a layered generator. */
+void setupLayerStack(LayerStack *g, int mc, int largeBiomes);
 
 /* Calculates the minimum size of the buffers required to generate an area of
  * dimensions 'sizeX' by 'sizeZ' at the specified layer.
  */
-size_t calcRequiredBuf(const Layer *layer, int areaX, int areaZ);
-
-/* Allocates an amount of memory required to generate an area of dimensions
- * 'sizeX' by 'sizeZ' for the magnification of the given layer.
- */
-int *allocCache(const Layer *layer, int sizeX, int sizeZ);
-
+size_t getMinLayerCacheSize(const Layer *layer, int sizeX, int sizeZ);
 
 /* Set up custom layers. */
-Layer *setupLayer(LayerStack *g, int layerId, mapfunc_t *map, int mc,
+Layer *setupLayer(Layer *l, mapfunc_t *map, int mc,
     int8_t zoom, int8_t edge, uint64_t saltbase, Layer *p, Layer *p2);
-
-/* Sets the world seed for the generator */
-void applySeed(LayerStack *g, uint64_t seed);
 
 /* Generates the specified area using the current generator settings and stores
  * the biomeIDs in 'out'.
@@ -126,21 +120,6 @@ void applySeed(LayerStack *g, uint64_t seed);
  */
 int genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, int areaHeight);
 
-
-/* Generate nether or end biomes at scales: 1:1, 1:4, 1:16, or 1:64
- * @mc          minecaft version
- * @seed        world seed
- * @scale       mapping scale of output, has to be one of 1, 4, 16, or 64
- * @out         output buffer, out[yi*w*h + zi*w + xi], size = w*h*(y1-y0+1)
- *              for voronoi (scale=1) add 7 to each dimension as buffer
- * @x,z,w,h     planar area
- * @y0,y1       min and max vertical dimensions (inclusive)
- * @return      zero upon success
- */
-int genNetherScaled(int mc, uint64_t seed, int scale, int *out,
-        int x, int z, int w, int h, int y0, int y1);
-int genEndScaled(int mc, uint64_t seed, int scale, int *out,
-        int x, int z, int w, int h);
 
 
 #ifdef __cplusplus

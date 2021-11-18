@@ -1,29 +1,8 @@
 #ifndef LAYER_H_
 #define LAYER_H_
 
-#include "javarnd.h"
+#include "noise.h"
 
-#define __STDC_FORMAT_MACROS 1
-
-#include <stdlib.h>
-#include <stdint.h>
-#include <inttypes.h>
-
-#ifndef NULL
-#define NULL ((void*)0)
-#endif
-
-#define STRUCT(S) typedef struct S S; struct S
-
-#if __GNUC__
-#define PREFETCH(PTR,RW,LOC)    __builtin_prefetch(PTR,RW,LOC)
-#define L(COND)                 (__builtin_expect(!!(COND),1))  // [[likely]]
-#define U(COND)                 (__builtin_expect((COND),0))    // [[unlikely]]
-#else
-#define PREFETCH(PTR,RW,LOC)
-#define L(COND)                 (COND)
-#define U(COND)                 (COND)
-#endif
 
 #define LAYER_INIT_SHA          (~0ULL)
 
@@ -34,8 +13,8 @@ enum MCversion
     MC_1_0, // <=1.0 Experimental!
     MC_1_1,  MC_1_2,  MC_1_3,  MC_1_4,  MC_1_5,  MC_1_6,
     MC_1_7,  MC_1_8,  MC_1_9,  MC_1_10, MC_1_11, MC_1_12,
-    MC_1_13, MC_1_14, MC_1_15, MC_1_16, MC_1_17,
-    MC_NEWEST = MC_1_17,
+    MC_1_13, MC_1_14, MC_1_15, MC_1_16, MC_1_17, MC_1_18,
+    MC_NEWEST = MC_1_18,
 };
 
 enum BiomeID
@@ -135,6 +114,24 @@ enum BiomeID
     // 1.17
     dripstone_caves                 = 174,
     lush_caves                      = 175,
+    // 1.18
+    meadow                          = 177,
+    grove                           = 178,
+    snowy_slopes                    = 179,
+    jagged_peaks                    = 180,
+    frozen_peaks                    = 181,
+    stony_peaks                     = 182,
+    old_growth_birch_forest         = tall_birch_forest,
+    old_growth_pine_taiga           = giant_tree_taiga,
+    old_growth_spruce_taiga         = giant_spruce_taiga,
+    snowy_plains                    = snowy_tundra,
+    sparse_jungle                   = jungle_edge,
+    stony_shore                     = stone_shore,
+    windswept_hills                 = mountains,
+    windswept_forest                = wooded_mountains,
+    windswept_gravelly_hills        = gravelly_mountains,
+    windswept_savanna               = shattered_savanna,
+    wooded_badlands                 = wooded_badlands_plateau,
 };
 
 
@@ -144,26 +141,118 @@ enum BiomeTempCategory
 };
 
 
-STRUCT(PerlinNoise)
+/* Enumeration of the layer indices in the layer stack. */
+enum LayerId
 {
-    int d[512];
-    double a, b, c;
+    // new                  [[deprecated]]
+    L_CONTINENT_4096 = 0,   L_ISLAND_4096 = L_CONTINENT_4096,
+    L_ZOOM_2048,
+    L_LAND_2048,            L_ADD_ISLAND_2048 = L_LAND_2048,
+    L_ZOOM_1024,
+    L_LAND_1024_A,          L_ADD_ISLAND_1024A = L_LAND_1024_A,
+    L_LAND_1024_B,          L_ADD_ISLAND_1024B = L_LAND_1024_B,     // 1.7+
+    L_LAND_1024_C,          L_ADD_ISLAND_1024C = L_LAND_1024_C,     // 1.7+
+    L_ISLAND_1024,          L_REMOVE_OCEAN_1024 = L_ISLAND_1024,    // 1.7+
+    L_SNOW_1024,            L_ADD_SNOW_1024 = L_SNOW_1024,
+    L_LAND_1024_D,          L_ADD_ISLAND_1024D = L_LAND_1024_D,     // 1.7+
+    L_COOL_1024,            L_COOL_WARM_1024 = L_COOL_1024,         // 1.7+
+    L_HEAT_1024,            L_HEAT_ICE_1024 = L_HEAT_1024,          // 1.7+
+    L_SPECIAL_1024,                                                 // 1.7+
+    L_ZOOM_512,
+    L_LAND_512,                                                     // 1.6-
+    L_ZOOM_256,
+    L_LAND_256,             L_ADD_ISLAND_256 = L_LAND_256,
+    L_MUSHROOM_256,         L_ADD_MUSHROOM_256 = L_MUSHROOM_256,
+    L_DEEP_OCEAN_256,                                               // 1.7+
+    L_BIOME_256,
+    L_BAMBOO_256,           L14_BAMBOO_256 = L_BAMBOO_256,          // 1.14+
+    L_ZOOM_128,
+    L_ZOOM_64,
+    L_BIOME_EDGE_64,
+    L_NOISE_256,            L_RIVER_INIT_256 = L_NOISE_256,
+    L_ZOOM_128_HILLS,
+    L_ZOOM_64_HILLS,
+    L_HILLS_64,
+    L_SUNFLOWER_64,         L_RARE_BIOME_64 = L_SUNFLOWER_64,       // 1.7+
+    L_ZOOM_32,
+    L_LAND_32,              L_ADD_ISLAND_32 = L_LAND_32,
+    L_ZOOM_16,
+    L_SHORE_16,             // NOTE: in 1.0 this slot is scale 1:32
+    L_SWAMP_RIVER_16,                                               // 1.6-
+    L_ZOOM_8,
+    L_ZOOM_4,
+    L_SMOOTH_4,
+    L_ZOOM_128_RIVER,
+    L_ZOOM_64_RIVER,
+    L_ZOOM_32_RIVER,
+    L_ZOOM_16_RIVER,
+    L_ZOOM_8_RIVER,
+    L_ZOOM_4_RIVER,
+    L_RIVER_4,
+    L_SMOOTH_4_RIVER,
+    L_RIVER_MIX_4,
+    L_OCEAN_TEMP_256,       L13_OCEAN_TEMP_256 = L_OCEAN_TEMP_256,  // 1.13+
+    L_ZOOM_128_OCEAN,       L13_ZOOM_128 = L_ZOOM_128_OCEAN,        // 1.13+
+    L_ZOOM_64_OCEAN,        L13_ZOOM_64 = L_ZOOM_64_OCEAN,          // 1.13+
+    L_ZOOM_32_OCEAN,        L13_ZOOM_32 = L_ZOOM_32_OCEAN,          // 1.13+
+    L_ZOOM_16_OCEAN,        L13_ZOOM_16 = L_ZOOM_16_OCEAN,          // 1.13+
+    L_ZOOM_8_OCEAN,         L13_ZOOM_8 = L_ZOOM_8_OCEAN,            // 1.13+
+    L_ZOOM_4_OCEAN,         L13_ZOOM_4 = L_ZOOM_4_OCEAN,            // 1.13+
+    L_OCEAN_MIX_4,          L13_OCEAN_MIX_4 = L_OCEAN_MIX_4,        // 1.13+
+
+    L_VORONOI_1,            L_VORONOI_ZOOM_1 = L_VORONOI_1,
+
+    // largeBiomes layers
+    L_ZOOM_LARGE_A,
+    L_ZOOM_LARGE_B,
+    L_ZOOM_L_RIVER_A,
+    L_ZOOM_L_RIVER_B,
+
+    L_NUM
 };
 
-STRUCT(OctaveNoise)
+
+STRUCT(Range)
 {
-    double lacuna;
-    double persist;
-    int octcnt;
-    PerlinNoise *octaves;
+    // Cuboidal range, given by a position, size and scaling in the horizontal
+    // axes, used to define a generation range. The parameters for the vertical
+    // control can be left at zero when dealing with versions without 3D volume
+    // support. The vertical scaling is equal to 1:1 iff scale == 1, and 1:4
+    // (default biome scale) in all other cases!
+    //
+    // @scale:  Horizontal scale factor, should be one of 1, 4, 16, 64, or 256
+    //          additionally a value of zero bypasses scaling and expects a
+    //          manual generation entry layer.
+    // @x,z:    Horizontal position, i.e. coordinates of north-west corner.
+    // @sx,sz:  Horizontal size (width and height for 2D), should be positive.
+    // @y       Vertical position, 1:1 iff scale==1, 1:4 otherwise.
+    // @sy      Vertical size. Values <= 0 are treated equivalent to 1.
+    //
+    // Volumes generated with a range are generally indexed as:
+    //  out [ i_y*sx*sz + i_z*sx + i_x ]
+    // where i_x, i_y, i_z are indecies in their respective directions.
+    //
+    // EXAMPLES
+    // Area at normal biome scale (1:4):
+    //  Range r_2d = {4, x,z, sx,sz};
+    // (C99 syntax allows ommission of the trailing zero-initialization.)
+    //
+    // Area at block scale (1:1) at sea level:
+    //  Range r_surf = {1, x,z, sx,sz, 63};
+    // (Block level scale uses voronoi sampling with 1:1 vertical scaling.)
+    //
+    // Area at chunk scale (1:16) near sea level:
+    //  Range r_surf16 = {16, x,z, sx,sz, 15};
+    // (Note that the vertical scaling is always 1:4 for non-voronoi scales.)
+    //
+    // Volume at scale (1:4):
+    //  Range r_vol = {4, x,z, sx,sz, y,sy};
+
+    int scale;
+    int x, z, sx, sz;
+    int y, sy;
 };
 
-STRUCT(DoublePerlinNoise)
-{
-    double amplitude;
-    OctaveNoise octA;
-    OctaveNoise octB;
-};
 
 struct Layer;
 typedef int (mapfunc_t)(const struct Layer *, int *, int, int, int, int);
@@ -187,15 +276,29 @@ STRUCT(Layer)
     Layer *p, *p2;      // parent layers
 };
 
-STRUCT(NetherNoise)
+// Overworld biome generator up to 1.17
+STRUCT(LayerStack)
 {
-    // altitude and wierdness don't affect nether biomes
+    Layer layers[L_NUM];
+    Layer *entry_1;     // entry scale (1:1) [L_VORONOI_1]
+    Layer *entry_4;     // entry scale (1:4) [L_RIVER_MIX_4|L_OCEAN_MIX_4]
+    // unofficial entries for other scales (latest sensible layers):
+    Layer *entry_16;    // [L_SWAMP_RIVER_16|L_SHORE_16]
+    Layer *entry_64;    // [L_HILLS_64|L_SUNFLOWER_64]
+    Layer *entry_256;   // [L_BIOME_256|L_BAMBOO_256]
+    PerlinNoise oceanRnd;
+};
+
+// Nether biome generator 1.16-1.17
+STRUCT(NetherNoise)
+{   // altitude and wierdness don't affect nether biomes
     // and the weight is a 5th noise parameter which is constant
     DoublePerlinNoise temperature;
     DoublePerlinNoise humidity;
     PerlinNoise oct[8]; // buffer for octaves in double perlin noise
 };
 
+// End biome generator 1.9+
 typedef PerlinNoise EndNoise;
 
 STRUCT(SurfaceNoise)
@@ -207,6 +310,43 @@ STRUCT(SurfaceNoise)
     OctaveNoise octmain;
     PerlinNoise oct[16+16+8];
 };
+
+STRUCT(Spline)
+{
+    int len, typ;
+    float loc[12];
+    float der[12];
+    Spline *val[12];
+};
+
+STRUCT(FixSpline)
+{
+    int len;
+    float val;
+};
+
+STRUCT(SplineStack)
+{   // the stack size here is just sufficient for overworld generation
+    Spline stack[42];
+    FixSpline fstack[151];
+    int len, flen;
+};
+
+/// Overworld and Nether biome generator for 1.18
+STRUCT(BiomeNoise)
+{
+    DoublePerlinNoise shift;
+    DoublePerlinNoise temperature;
+    DoublePerlinNoise humidity;
+    DoublePerlinNoise continentalness;
+    DoublePerlinNoise erosion;
+    DoublePerlinNoise weirdness;
+    PerlinNoise oct[2*23]; // buffer for octaves in double perlin noise
+    Spline *sp;
+    SplineStack ss;
+    int previdx;
+};
+
 
 #ifdef __cplusplus
 extern "C"
@@ -227,20 +367,6 @@ void setLayerSeed(Layer *layer, uint64_t worldSeed);
 // Noise
 //==============================================================================
 
-void perlinInit(PerlinNoise *rnd, uint64_t *seed);
-double samplePerlin(const PerlinNoise *rnd, double x, double y, double z,
-        double yamp, double ymin);
-double sampleSimplex2D(const PerlinNoise *rnd, double x, double y);
-
-void octaveInit(OctaveNoise *rnd, uint64_t *seed, PerlinNoise *octaves,
-        int omin, int len);
-double sampleOctave(const OctaveNoise *rnd, double x, double y, double z);
-
-void doublePerlinInit(DoublePerlinNoise *rnd, uint64_t *seed,
-        PerlinNoise *octavesA, PerlinNoise *octavesB, int omin, int len);
-double sampleDoublePerlin(const DoublePerlinNoise *rnd,
-        double x, double y, double z);
-
 void initSurfaceNoise(SurfaceNoise *rnd, uint64_t *seed,
         double xzScale, double yScale, double xzFactor, double yFactor);
 void initSurfaceNoiseEnd(SurfaceNoise *rnd, uint64_t seed);
@@ -248,10 +374,11 @@ double sampleSurfaceNoise(const SurfaceNoise *rnd, int x, int y, int z);
 
 
 //==============================================================================
-// Nether (1.16+) and End (1.9+) Biome Generation
+// End (1.9+), Nether (1.16+) and Overworld (1.18+) Biome Noise Generation
 //==============================================================================
 
 /**
+ * Nether generation (1.16-1.17)
  * Nether biomes are 3D, and generated at scale 1:4. Use voronoiAccess3D() to
  * convert coordinates at 1:1 scale to their 1:4 access. Biome checks for
  * structures are generally done at y=0.
@@ -263,101 +390,64 @@ double sampleSurfaceNoise(const SurfaceNoise *rnd, int x, int y, int z);
  * Use mapNether2D() to get a 2D area of nether biomes at y=0, scale 1:4.
  *
  * The mapNether3D() function attempts to optimize the generation of a volume
- * at scale 1:4, ranging from (x,y,z) to (x+w, y+yh, z+h) [exclusive] and the
- * output is indexed with out[y_k*(w*h) + z_j*w + x_i]. If the optimization
- * parameter 'confidence' has a value less than 1.0, the generation will
- * generally be faster, but can yield incorrect results in some circumstances.
+ * at scale 1:4. The output is indexed as:
+ * out[i_y*(r.sx*r.sz) + i_z*r.sx + i_x].
+ * If the optimization parameter 'confidence' has a value less than 1.0, the
+ * generation will generally be faster, but can yield incorrect results in some
+ * circumstances.
  *
  * The output buffer for the map-functions need only be of sufficient size to
- * hold the generated area (i.e. w*h or w*h*yh).
+ * hold the generated area (i.e. w*h or r.sx*r.sy*r.sz).
  */
 void setNetherSeed(NetherNoise *nn, uint64_t seed);
 int getNetherBiome(const NetherNoise *nn, int x, int y, int z, float *ndel);
 int mapNether2D(const NetherNoise *nn, int *out, int x, int z, int w, int h);
-int mapNether3D(const NetherNoise *nn, int *out, int x, int z, int w, int h,
-        int y, int yh, int scale, float confidence);
+int mapNether3D(const NetherNoise *nn, int *out, Range r, float confidence);
+/**
+ * The scaled Nether generation supports scales 1, 4, 16, 64, and 256.
+ * It is similar to mapNether3D(), but applies voronoi zoom if necessary, and
+ * fills the output buffer with nether_wastes for versions older than 1.16.
+ */
+int genNetherScaled(const NetherNoise *nn, int *out, Range r, int mc, uint64_t sha);
 
 /**
  * End biome generation is based on simplex noise and varies only at a 1:16
  * chunk scale which can be generated with mapEndBiome(). The function mapEnd()
  * is a variation which also scales this up on a regular grid to 1:4. The final
- * access at a 1:1 scale is the standard voronoi layer.
+ * access at a 1:1 scale uses voronoi.
  */
 void setEndSeed(EndNoise *en, uint64_t seed);
 int mapEndBiome(const EndNoise *en, int *out, int x, int z, int w, int h);
 int mapEnd(const EndNoise *en, int *out, int x, int z, int w, int h);
 int getSurfaceHeightEnd(int mc, uint64_t seed, int x, int z);
-
-
-//==============================================================================
-// Seed Helpers
-//==============================================================================
+/**
+ * The scaled End generation supports scales 1, 4, 16, and 64.
+ * The End biomes are usually 2D, but in 1.15+ there is 3D voronoi noise, which
+ * is controlled by the 'sha' hash of the seed. For scales higher than 1:1, and
+ * versions up to 1.14, 'sha' is ignored.
+ */
+int genEndScaled(const EndNoise *en, int *out, Range r, int mc, uint64_t sha);
 
 /**
- * The seed pipeline:
+ * In 1.18 the Overworld and Nether use a new noise map system for the biome
+ * generation. The random number generation has also updated to a Xiroshiro128
+ * algorithm. The scale is 1:4, and is sampled at each point individually as
+ * there is currently not much benefit from generating a volume as a whole.
  *
- * getLayerSalt(n)                -> layerSalt (ls)
- * layerSalt (ls), worldSeed (ws) -> startSalt (st), startSeed (ss)
- * startSeed (ss), coords (x,z)   -> chunkSeed (cs)
- *
- * The chunkSeed alone is enough to generate the first PRNG integer with:
- *   mcFirstInt(cs, mod)
- * subsequent PRNG integers are generated by stepping the chunkSeed forwards,
- * salted with startSalt:
- *   cs_next = mcStepSeed(cs, st)
+ * The 1.18 End generation remains similar to 1.17 and does NOT use the
+ * biome noise.
  */
-
-static inline uint64_t mcStepSeed(uint64_t s, uint64_t salt)
-{
-    return s * (s * 6364136223846793005ULL + 1442695040888963407ULL) + salt;
-}
-
-static inline int mcFirstInt(uint64_t s, int mod)
-{
-    int ret = (int)(((int64_t)s >> 24) % mod);
-    if (ret < 0)
-        ret += mod;
-    return ret;
-}
-
-static inline int mcFirstIsZero(uint64_t s, int mod)
-{
-    return (int)(((int64_t)s >> 24) % mod) == 0;
-}
-
-static inline uint64_t getChunkSeed(uint64_t ss, int x, int z)
-{
-    uint64_t cs = ss + x;
-    cs = mcStepSeed(cs, z);
-    cs = mcStepSeed(cs, x);
-    cs = mcStepSeed(cs, z);
-    return cs;
-}
-
-static inline uint64_t getLayerSalt(uint64_t salt)
-{
-    uint64_t ls = mcStepSeed(salt, salt);
-    ls = mcStepSeed(ls, salt);
-    ls = mcStepSeed(ls, salt);
-    return ls;
-}
-
-static inline uint64_t getStartSalt(uint64_t ws, uint64_t ls)
-{
-    uint64_t st = ws;
-    st = mcStepSeed(st, ls);
-    st = mcStepSeed(st, ls);
-    st = mcStepSeed(st, ls);
-    return st;
-}
-
-static inline uint64_t getStartSeed(uint64_t ws, uint64_t ls)
-{
-    uint64_t ss = ws;
-    ss = getStartSalt(ss, ls);
-    ss = mcStepSeed(ss, 0);
-    return ss;
-}
+void initBiomeNoise(BiomeNoise *bn, int mc);
+void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int dim, int large);
+int sampleBiomeNoise(const BiomeNoise *bn, int x, int y, int z, int dim,
+    uint64_t *dat);
+/**
+ * The scaled biome noise generation applies for the Overworld and Nether for
+ * version 1.18. The 'sha' hash of the seed is only required for voronoi at
+ * scale 1:1. A scale of zero is interpreted as the default 1:4 scale.
+ */
+int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int dim,
+    int mc, uint64_t sha);
 
 
 //==============================================================================
@@ -416,8 +506,17 @@ mapfunc_t mapVoronoi114;
 // Biome generation now stops at scale 1:4 OceanMix and voronoi is just an
 // access algorithm, mapping the 1:1 scale onto its 1:4 correspondent.
 // It is seeded by the first 8-bytes of the SHA-256 hash of the world seed.
-uint64_t getVoronoiSHA(uint64_t worldSeed) __attribute__((const));
+ATTR(const)
+uint64_t getVoronoiSHA(uint64_t worldSeed);
 void voronoiAccess3D(uint64_t sha, int x, int y, int z, int *x4, int *y4, int *z4);
+
+// Gets the range in the parent/source layer which may be accessed by voronoi.
+Range getVoronoiSrcRange(Range r);
+
+// Applies a 2D voronoi mapping at height 'y' to a 'src' plane, where
+// src_range [px,pz,pw,ph] -> out_range [x,z,w,h] have to match the scaling.
+void mapVoronoiPlane(uint64_t sha, int *out, int *src,
+    int x, int z, int w, int h, int y, int px, int pz, int pw, int ph);
 
 
 #ifdef __cplusplus

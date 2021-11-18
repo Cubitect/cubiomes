@@ -13,7 +13,7 @@ const char *biome2str(int id);
 void initBiomeColors(unsigned char biomeColors[256][3]);
 void initBiomeTypeColors(unsigned char biomeColors[256][3]);
 
-int biomesToImage(unsigned char *pixels, 
+int biomesToImage(unsigned char *pixels,
         unsigned char biomeColors[256][3], const int *biomes,
         const unsigned int sx, const unsigned int sy,
         const unsigned int pixscale, const int flip);
