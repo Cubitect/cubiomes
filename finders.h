@@ -133,6 +133,9 @@ STRUCT(BiomeFilter)
     uint64_t oceanToFind; // all required ocean types
 
     int specialCnt; // number of special temperature categories required
+
+    // excluded biomes that shall not be present
+    uint64_t biomeToExcl, biomeToExclM;
 };
 
 STRUCT(StrongholdIter)
@@ -283,7 +286,7 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf);
 
 /* The library can be compiled to use a custom internal getter for structure
  * configurations. For this, the macro STRUCT_CONFIG_OVERRIDE should be defined
- * as true and the function getStructureConfig_override() should be defined 
+ * as true and the function getStructureConfig_override() should be defined
  * with a custom function body. However, note this is experimental and not all
  * structure configs may work. (Ideally only change structure salts.)
  */
@@ -616,29 +619,62 @@ uint64_t getHouseList(uint64_t worldSeed, int chunkX, int chunkZ, int *housesOut
 //==============================================================================
 
 
-/* Creates a biome filter configuration from a given list of biomes.
+/* Creates a biome filter configuration from a given list of required and
+ * excluded biomes. Biomes should not appear in both lists. Lists of length
+ * zero may be passed as null.
  */
-BiomeFilter setupBiomeFilter(const int *biomeList, int listLen);
+BiomeFilter setupBiomeFilter(
+    const int *required, int requiredLen,
+    const int *excluded, int excludedLen
+    );
 
-/* Starts to generate the specified area and checks if all biomes in the filter
- * are present. If so, the area will be fully generated inside the cache
- * (if != NULL) up to the entry 'layerID', and the return value will be > 0.
+/* Starts to generate the specified range and checks if the biomes meet the
+ * requirements of the biome filter. If so, the area will be fully generated
+ * inside the cache (if != NULL), and the return value will be > 0.
  * Otherwise, the contents of 'cache' is undefined and a value <= 0 is returned.
- * More aggressive filtering can be enabled with 'protoCheck' which may yield
+ * More aggressive filtering can be enabled with 'approx' which may yield some
  * some false negatives in exchange for speed.
  *
- * @g           : generator (will be modified!)
- * @layerID     : layer enum of generation entry point
+ * The generator should be set up for the correct version, but the dimension
+ * and seed will be applied internally. This will modify the generator into a
+ * partially initialized state that is not valid to use outside this function
+ * without re-applying a seed.
+ *
+ * @g           : biome generator
+ * @cache       : working buffer and output (nullable)
+ * @r           : range to be checked
+ * @dim         : dimension (0:Overworld, -1:Nether, +1:End)
+ * @seed        : world seed
+ * @filter      : biome requirements to be met
+ * @approx      : enables approximations with more aggressive filtering
+ * @timeout     : occasional check for abort (nullable)
+ */
+int checkForBiomes(
+        Generator     * g,
+        int           * cache,
+        Range           r,
+        int             dim,
+        uint64_t        seed,
+        BiomeFilter     filter,
+        int             approx,
+        int           (*timeout)()
+        );
+
+/* Specialization of checkForBiomes() for a LayerStack, i.e. the Overworld up
+ * to 1.17.
+ *
+ * @ls          : layered generator (will be modified!)
+ * @entry       : generation entry point (setLayerSeed() may be applied here)
  * @cache       : working buffer, and output (if != NULL)
  * @seed        : world seed
  * @x,z,w,h     : requested area
  * @filter      : biomes to be checked for
  * @protoCheck  : enables more aggressive filtering when non-zero (MC >= 1.7)
  */
-int checkForBiomes(
-        LayerStack *    g,
-        int             layerID,
-        int *           cache,
+int checkForBiomesAtLayer(
+        LayerStack    * ls,
+        Layer         * entry,
+        int           * cache,
         uint64_t        seed,
         int             x,
         int             z,

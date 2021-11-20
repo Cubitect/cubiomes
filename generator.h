@@ -21,12 +21,12 @@ STRUCT(Generator)
             LayerStack ls;
             Layer xlayer[5]; // buffer for custom entry layers @{1,4,16,64,256}
             Layer *entry;
-            NetherNoise nn; // MC 1.16
         };
         struct { // MC 1.18
             BiomeNoise bn;
         };
     };
+    NetherNoise nn; // MC 1.16
     EndNoise en; // MC 1.9
 };
 
@@ -48,8 +48,7 @@ extern "C"
 void setupGenerator(Generator *g, int mc, uint32_t flags);
 
 /**
- * Initializes the generator dimension using a given seed.
- *
+ * Initializes the generator for a given dimension and seed.
  * dim=0:   Overworld
  * dim=-1:  Nether
  * dim=+1:  End
@@ -97,7 +96,7 @@ const Layer *getLayerForScale(const Generator *g, int scale);
 
 
 ///=============================================================================
-/// Layered Biome Generation (interface up to 1.17)
+/// Layered Biome Generation (old interface up to 1.17)
 ///=============================================================================
 
 /* Initialize an instance of a layered generator. */

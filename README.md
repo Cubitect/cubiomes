@@ -18,40 +18,41 @@ You should be familiar with the C programming language, also a basic understandi
 
 This section is meant to give you a quick starting point with small example programs if you want to use this library to find your own biome dependent features.
 
+
 ### Biome Generator
 
-Let's create a simple program called `find_jedge.c` which tests seeds for a Junge Edge biome at a predefined location.
+Let's create a simple program called `find_biome_at.c` which tests seeds for a Mushroom Fields biome at a predefined location.
 
 ```C
 // check the biome at a block position
-#include "finders.h"
+#include "generator.h"
 #include <stdio.h>
 
 int main()
 {
-    // Initialize a stack of biome layers that reflects the biome generation of
-    // Minecraft 1.17
-    LayerStack g;
-    setupGenerator(&g, MC_1_17);
+    // Set up a biome generator that reflects the biome generation of
+    // Minecraft 1.18.
+    Generator g;
+    setupGenerator(&g, MC_1_18, 0);
 
-    // seeds are internally represented as unsigned 64-bit integers
+    // Seeds are internally represented as unsigned 64-bit integers.
     uint64_t seed;
-    Pos pos = {0,0}; // block position to be checked
-
     for (seed = 0; ; seed++)
     {
-        // Go through the layers in the layer stack and initialize the seed
-        // dependent aspects of the generator.
-        applySeed(&g, seed);
+        // Apply the seed to the generator for the Overworld dismension.
+        applySeed(&g, 0, seed);
 
-        // To get the biome at single block position we can use getBiomeAtPos().
-        int biomeID = getBiomeAtPos(&g, pos);
-        if (biomeID == jungle_edge)
+        // To get the biome at a single block position, we can use getBiomeAt().
+        int scale = 1; // scale=1: block coordinates, scale=4: biome coordinates
+        int x = 0, y = 63, z = 0;
+        int biomeID = getBiomeAt(&g, scale, x, y, z);
+        if (biomeID == mushroom_fields)
+        {
+            printf("Seed %" PRId64 " has a Mushroom Fields biome at "
+                "block position (%d, %d).\n", (int64_t) seed, x, z);
             break;
+        }
     }
-
-    printf("Seed %" PRId64 " has a Junge Edge biome at block position "
-        "(%d, %d).\n", (int64_t) seed, pos.x, pos.z);
 
     return 0;
 }
@@ -64,18 +65,24 @@ $ make libcubiomes
 ```
 To compile, and link the cubiomes library you can use one of
 ```
-$ gcc find_jedge.c libcubiomes.a -fwrapv -lm   # static
-$ gcc find_jedge.c -L. -lcubiomes -fwrapv -lm  # dynamic
+$ gcc find_biome_at.c libcubiomes.a -fwrapv -lm   # static
+$ gcc find_biome_at.c -L. -lcubiomes -fwrapv -lm  # dynamic
 ```
-Both commands assume that your source code is saved as `find_jedge.c` in the cubiomes working directory. If your makefile is configured to use pthreads you also may need to add the `-lpthread` option to the compiler.
+Both commands assume that your source code is saved as `find_biome_at.c` in the cubiomes working directory. If your makefile is configured to use pthreads you also may need to add the `-lpthread` option to the compiler.
 The option `-fwrapv` enforces two's complement for signed integer overflow, which this library relies on. It is not strictly necessary for this example as the library should already be compiled with this flag, but it is good practice to prevent undefined behaviour.
 Running the program should output:
 ```
 $ ./a.out
-Seed 615 has a Junge Edge biome at block position (0, 0).
+Seed 262 has a Junge Edge biome at block position (0, 0).
 ```
 
-We can also generate the biomes for a rectangular region using `genArea()` which also offers control over the entry layer, see the layer documentation for more information.
+### Biome Generation in a Range
+
+We can also generate biomes for an area or volume using `genBiomes()`. This will utilize whatever optimizations are available for the generator and can be much faster than generating each position individually. (The layered generators for versions up to 1.17 will benefit significantly more from this than the noise-based ones.)
+
+Before we can generate an area or volume, we need to define the bounds with a `Range` structure and allocate the necessary buffer using `allocCache`. The `Range` is described by a scale, position and size and each cell inside the `Range` represents `scale` many blocks in the horizontal axes. The vertical direction is treated seperately and always follows the biome coordinate scaling of 1:4, with an exception when `scale == 1`, in which case the vertical scaling is also 1:1.
+
+The only supported values for `scale` are 1, 4, 16, 64, and for the Overworld also 256. For versions up to 1.17 the scale is matched to an appropriate biome layer and will influence the biomes that can generate.
 
 ```C
 // generate an image of the world
@@ -84,34 +91,39 @@ We can also generate the biomes for a rectangular region using `genArea()` which
 
 int main()
 {
+    Generator g;
+    setupGenerator(&g, MC_1_18, LARGE_BIOMES);
+
+    uint64_t seed = 123LL;
+    applySeed(&g, 0, seed);
+
+    Range r;
+    // 1:16, a.k.a. horizontal chunk scaling
+    r.scale = 16;
+    // Define the position and size for a horizontal area:
+    r.x = -60, r.z = -60;   // position (x,z)
+    r.sx = 120, r.sz = 120; // size (width,height)
+    // Set the vertical range as a plane near sea level at scale 1:4.
+    r.y = 15, r.sy = 1;
+
+    // Allocate the necessary cache for this range.
+    int *biomeIds = allocCache(&g, r);
+
+    // Generate the area inside biomeIds, indexed as:
+    // biomeIds[i_y*r.sx*r.sz + i_z*r.sx + i_x]
+    // where (i_x, i_y, i_z) is a position relative to the range cuboid.
+    genBiomes(&g, biomeIds, r);
+
+    // Map the biomes to an image buffer, with 4 pixels per biome cell.
+    int pix4cell = 4;
+    int imgWidth = pix4cell*r.sx, imgHeight = pix4cell*r.sz;
     unsigned char biomeColors[256][3];
-
-    // Initialize a color map for biomes.
     initBiomeColors(biomeColors);
-
-    // Initialize a stack of biome layers.
-    LayerStack g;
-    setupGenerator(&g, MC_1_17);
-    // Extract the desired layer.
-    Layer *layer = &g.layers[L_SHORE_16];
-
-    uint64_t seed = 1661454332289LL;
-    int areaX = -60, areaZ = -60;
-    unsigned int areaWidth = 120, areaHeight = 120;
-    unsigned int scale = 4;
-    unsigned int imgWidth = areaWidth*scale, imgHeight = areaHeight*scale;
-
-    // Allocate a sufficient buffer for the biomes and for the image pixels.
-    int *biomeIds = allocCache(layer, areaWidth, areaHeight);
     unsigned char *rgb = (unsigned char *) malloc(3*imgWidth*imgHeight);
+    biomesToImage(rgb, biomeColors, biomeIds, r.sx, r.sz, pix4cell, 2);
 
-    // Apply the seed only for the required layers and generate the area.
-    setLayerSeed(layer, seed);
-    genArea(layer, biomeIds, areaX, areaZ, areaWidth, areaHeight);
-
-    // Map the biomes to a color buffer and save to an image.
-    biomesToImage(rgb, biomeColors, biomeIds, areaWidth, areaHeight, scale, 2);
-    savePPM("biomes_at_layer.ppm", rgb, imgWidth, imgHeight);
+    // Save the RGB buffer to a PPM image file.
+    savePPM("map.ppm", rgb, imgWidth, imgHeight);
 
     // Clean up.
     free(biomeIds);
@@ -122,58 +134,9 @@ int main()
 ```
 
 
-#### Layer Documentation
-
-There is a reference document for the generator layers which contains a summary for most generator layers and their function within the generation process (a little out of date, since 1.13).
-
-
-#### Biome Filters
-
-Biome filters provide a way of generating an area, but only if that area contains certain biomes. Rather than generating an area first and then checking that it contains what we want, the requirements are tested during the generation process. This can be a dramatic speed up, particularly if we require several wildly different biomes.
-
-```C
-// find seeds that have certain biomes near the origin
-#include "finders.h"
-#include <stdio.h>
-
-int main()
-{
-    int mc = MC_1_17;
-    LayerStack g;
-    BiomeFilter filter;
-
-    setupGenerator(&g, mc);
-
-    // Define the required biomes.
-    int wanted[] = {
-        dark_forest,
-        ice_spikes,
-        mushroom_fields,
-    };
-    filter = setupBiomeFilter(wanted, sizeof(wanted) / sizeof(int));
-
-    int x = -200, z = -200, w = 400, h = 400;
-    int entry = L_VORONOI_1;
-    int *area = allocCache(&g.layers[entry], w, h);
-
-    printf("Searching...\n");
-    uint64_t seed;
-    for (seed = 0; ; seed++)
-        if (checkForBiomes(&g, entry, area, seed, x, z, w, h, filter, 1) > 0)
-            break;
-
-    printf("Seed %" PRId64 " has the required biomes in (%d, %d) - (%d, %d).\n",
-        (int64_t) seed, x, z, x+w, z+h);
-
-    free(area);
-    return 0;
-}
-```
-
-
 ### Structure Generation
 
-The generation of structures can usually be regarded as a two stage process: generation attempts and biome checks. For most structures, Minecraft divides the world into a grid of regions (usually 32x32 chunks) and performs one generation attempt in each. We can use `getStructurePos` to get the position of such a generation attempt and then test whether a structure will actually generate there with `isViableStructurePos`, however, this is more expensive to compute (a few µsec rather than nsec).
+The generation of structures can usually be regarded as a two stage process: generation attempts and biome checks. For most structures, Minecraft divides the world into a grid of regions (usually 32x32 chunks) and performs one generation attempt in each. We can use `getStructurePos` to get the position of such a generation attempt and then test whether a structure will actually generate there with `isViableStructurePos`, however, this is more expensive to compute (many µsec rather than nsec).
 
 ```C
 // find a seed with a certain structure at the origin chunk
@@ -185,8 +148,8 @@ int main()
     int structType = Outpost;
     int mc = MC_1_17;
 
-    LayerStack g;
-    setupGenerator(&g, mc);
+    Generator g;
+    setupGenerator(&g, mc, 0);
 
     uint64_t lower48;
     for (lower48 = 0; ; lower48++)
@@ -206,7 +169,8 @@ int main()
         for (upper16 = 0; upper16 < 0x10000; upper16++)
         {
             uint64_t seed = lower48 | (upper16 << 48);
-            if (isViableStructurePos(structType, mc, &g, seed, p.x, p.z))
+            applySeed(&g, 0, seed);
+            if (isViableStructurePos(structType, &g, p.x, p.z))
             {
                 printf("Seed %" PRId64 " has a Pillager Outpost at (%d, %d).\n",
                     (int64_t) seed, p.x, p.z);
@@ -238,11 +202,11 @@ int check(uint64_t s48, void *data)
 int main()
 {
     int styp = Swamp_Hut;
-    int mc = MC_1_17;
+    int mc = MC_1_18;
     uint64_t basecnt = 0;
     uint64_t *bases = NULL;
     int threads = 8;
-    LayerStack g;
+    Generator g;
 
     StructureConfig sconf;
     getStructureConfig(styp, mc, &sconf);
@@ -262,7 +226,7 @@ int main()
         exit(1);
     }
 
-    setupGenerator(&g, mc);
+    setupGenerator(&g, mc, 0);
 
     uint64_t i;
     for (i = 0; i < basecnt; i++)
@@ -281,11 +245,12 @@ int main()
         for (high = 0; high < 0x10000; high++)
         {
             uint64_t seed = s48 | (high << 48);
+            applySeed(&g, 0, seed);
 
-            if (isViableStructurePos(styp, mc, &g, seed, pos[0].x, pos[0].z) &&
-                isViableStructurePos(styp, mc, &g, seed, pos[1].x, pos[1].z) &&
-                isViableStructurePos(styp, mc, &g, seed, pos[2].x, pos[2].z) &&
-                isViableStructurePos(styp, mc, &g, seed, pos[3].x, pos[3].z))
+            if (isViableStructurePos(styp, &g, pos[0].x, pos[0].z) &&
+                isViableStructurePos(styp, &g, pos[1].x, pos[1].z) &&
+                isViableStructurePos(styp, &g, pos[2].x, pos[2].z) &&
+                isViableStructurePos(styp, &g, pos[3].x, pos[3].z))
             {
                 printf("%" PRId64 "\n", (int64_t) seed);
             }
@@ -309,7 +274,7 @@ Strongholds as well as the world spawn point actually search until they find a s
 
 int main()
 {
-    int mc = MC_1_17;
+    int mc = MC_1_18;
     uint64_t seed = 3055141959546LL;
 
     // Only the first stronghold has a position which can be estimated
@@ -322,17 +287,17 @@ int main()
 
     // The finders for the strongholds and spawn require that the seed is
     // applied to the generator beforehand.
-    LayerStack g;
-    setupGenerator(&g, mc);
-    applySeed(&g, seed);
+    Generator g;
+    setupGenerator(&g, mc, 0);
+    applySeed(&g, 0, seed);
 
-    pos = getSpawn(mc, &g, NULL, seed);
+    pos = getSpawn(&g);
     printf("Spawn: (%d, %d)\n", pos.x, pos.z);
 
     int i, N = 12;
     for (i = 1; i <= N; i++)
     {
-        if (nextStronghold(&sh, &g, NULL) <= 0)
+        if (nextStronghold(&sh, &g) <= 0)
             break;
         printf("Stronghold #%-3d: (%6d, %6d)\n", i, sh.pos.x, sh.pos.z);
     }

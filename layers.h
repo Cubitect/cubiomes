@@ -289,7 +289,7 @@ STRUCT(LayerStack)
     PerlinNoise oceanRnd;
 };
 
-// Nether biome generator 1.16-1.17
+// Nether biome generator 1.16+
 STRUCT(NetherNoise)
 {   // altitude and wierdness don't affect nether biomes
     // and the weight is a 5th noise parameter which is constant
@@ -378,7 +378,6 @@ double sampleSurfaceNoise(const SurfaceNoise *rnd, int x, int y, int z);
 //==============================================================================
 
 /**
- * Nether generation (1.16-1.17)
  * Nether biomes are 3D, and generated at scale 1:4. Use voronoiAccess3D() to
  * convert coordinates at 1:1 scale to their 1:4 access. Biome checks for
  * structures are generally done at y=0.
@@ -429,25 +428,23 @@ int getSurfaceHeightEnd(int mc, uint64_t seed, int x, int z);
 int genEndScaled(const EndNoise *en, int *out, Range r, int mc, uint64_t sha);
 
 /**
- * In 1.18 the Overworld and Nether use a new noise map system for the biome
- * generation. The random number generation has also updated to a Xiroshiro128
- * algorithm. The scale is 1:4, and is sampled at each point individually as
- * there is currently not much benefit from generating a volume as a whole.
+ * In 1.18 the Overworld uses a new noise map system for the biome generation.
+ * The random number generation has also updated to a Xiroshiro128 algorithm.
+ * The scale is 1:4, and is sampled at each point individually as there is
+ * currently not much benefit from generating a volume as a whole.
  *
  * The 1.18 End generation remains similar to 1.17 and does NOT use the
  * biome noise.
  */
 void initBiomeNoise(BiomeNoise *bn, int mc);
-void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int dim, int large);
-int sampleBiomeNoise(const BiomeNoise *bn, int x, int y, int z, int dim,
-    uint64_t *dat);
+void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int large);
+int sampleBiomeNoise(const BiomeNoise *bn, int x, int y, int z, uint64_t *dat);
 /**
- * The scaled biome noise generation applies for the Overworld and Nether for
- * version 1.18. The 'sha' hash of the seed is only required for voronoi at
- * scale 1:1. A scale of zero is interpreted as the default 1:4 scale.
+ * The scaled biome noise generation applies for the Overworld version 1.18.
+ * The 'sha' hash of the seed is only required for voronoi at scale 1:1.
+ * A scale of zero is interpreted as the default 1:4 scale.
  */
-int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int dim,
-    int mc, uint64_t sha);
+int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int mc, uint64_t sha);
 
 
 //==============================================================================

@@ -492,7 +492,7 @@ double sampleSurfaceNoise(const SurfaceNoise *rnd, int x, int y, int z)
 
 
 //==============================================================================
-// Nether (1.16-1.17) and End (1.9+) Biome Generation
+// Nether (1.16+) and End (1.9+) Biome Generation
 //==============================================================================
 
 void setNetherSeed(NetherNoise *nn, uint64_t seed)
@@ -516,6 +516,7 @@ int getNetherBiome(const NetherNoise *nn, int x, int y, int z, float *ndel)
         {-0.5,  0,      0.175*0.175,    basalt_deltas       },
     };
 
+    y = 0;
     float temp = sampleDoublePerlin(&nn->temperature, x, y, z);
     float humidity = sampleDoublePerlin(&nn->humidity, x, y, z);
 
@@ -639,9 +640,6 @@ int mapNether2D(const NetherNoise *nn, int *out, int x, int z, int w, int h)
 
 int genNetherScaled(const NetherNoise *nn, int *out, Range r, int mc, uint64_t sha)
 {
-    if (mc >= MC_1_18)
-        return 1; // bad version
-
     if (r.scale <= 0) r.scale = 4;
     if (r.sy == 0) r.sy = 1;
 
@@ -1089,7 +1087,7 @@ int genEndScaled(const EndNoise *en, int *out, Range r, int mc, uint64_t sha)
 // Overworld and Nether Biome Generation 1.18
 //==============================================================================
 
-void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int dim, int large)
+void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int large)
 {
     Xoroshiro pxr;
     int n = 0;
@@ -1119,29 +1117,26 @@ void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int dim, int large)
     n += xDoublePerlinInit(&bn->humidity, &pxr, bn->oct+n,
             amp_h, large ? -10 : -8, sizeof(amp_h)/sizeof(double));
 
-    if (dim == 0)
-    {
-        double amp_c[] = {1, 1, 2, 2, 2, 1, 1, 1, 1};
-        // md5 "minecraft:continentalness" or "minecraft:continentalness_large"
-        pxr.lo = xlo ^ (large ? 0x9a3f51a113fce8dc : 0x83886c9d0ae3a662);
-        pxr.hi = xhi ^ (large ? 0xee2dbd157e5dcdad : 0xafa638a61b42e8ad);
-        n += xDoublePerlinInit(&bn->continentalness, &pxr, bn->oct+n,
-                amp_c, large ? -11 : -9, sizeof(amp_c)/sizeof(double));
+    double amp_c[] = {1, 1, 2, 2, 2, 1, 1, 1, 1};
+    // md5 "minecraft:continentalness" or "minecraft:continentalness_large"
+    pxr.lo = xlo ^ (large ? 0x9a3f51a113fce8dc : 0x83886c9d0ae3a662);
+    pxr.hi = xhi ^ (large ? 0xee2dbd157e5dcdad : 0xafa638a61b42e8ad);
+    n += xDoublePerlinInit(&bn->continentalness, &pxr, bn->oct+n,
+            amp_c, large ? -11 : -9, sizeof(amp_c)/sizeof(double));
 
-        double amp_e[] = {1, 1, 0, 1, 1};
-        // md5 "minecraft:erosion" or "minecraft:erosion_large"
-        pxr.lo = xlo ^ (large ? 0x8c984b1f8702a951 : 0xd02491e6058f6fd8);
-        pxr.hi = xhi ^ (large ? 0xead7b1f92bae535f : 0x4792512c94c17a80);
-        n += xDoublePerlinInit(&bn->erosion, &pxr, bn->oct+n,
-                amp_e, large ? -11 : -9, sizeof(amp_e)/sizeof(double));
+    double amp_e[] = {1, 1, 0, 1, 1};
+    // md5 "minecraft:erosion" or "minecraft:erosion_large"
+    pxr.lo = xlo ^ (large ? 0x8c984b1f8702a951 : 0xd02491e6058f6fd8);
+    pxr.hi = xhi ^ (large ? 0xead7b1f92bae535f : 0x4792512c94c17a80);
+    n += xDoublePerlinInit(&bn->erosion, &pxr, bn->oct+n,
+            amp_e, large ? -11 : -9, sizeof(amp_e)/sizeof(double));
 
-        double amp_w[] = {1, 2, 1, 0, 0, 0};
-        // md5 "minecraft:ridge"
-        pxr.lo = xlo ^ 0xefc8ef4d36102b34;
-        pxr.hi = xhi ^ 0x1beeeb324a0f24ea;
-        n += xDoublePerlinInit(&bn->weirdness, &pxr, bn->oct+n,
-            amp_w, -7, sizeof(amp_w)/sizeof(double));
-    }
+    double amp_w[] = {1, 2, 1, 0, 0, 0};
+    // md5 "minecraft:ridge"
+    pxr.lo = xlo ^ 0xefc8ef4d36102b34;
+    pxr.hi = xhi ^ 0x1beeeb324a0f24ea;
+    n += xDoublePerlinInit(&bn->weirdness, &pxr, bn->oct+n,
+        amp_w, -7, sizeof(amp_w)/sizeof(double));
 
     if ((size_t)n > sizeof(bn->oct) / sizeof(*bn->oct))
     {
@@ -1353,33 +1348,29 @@ extern "C"
 #endif
 
 int p2overworld(const uint64_t np[6], uint64_t *dat);
-int p2nether(const uint64_t np[2], uint64_t *dat);
 
 #if __cplusplus
 }
 #endif
 
 /// Biome sampler for MC 1.18
-int sampleBiomeNoise(const BiomeNoise *bn, int x, int y, int z, int dim, uint64_t *dat)
+int sampleBiomeNoise(const BiomeNoise *bn, int x, int y, int z, uint64_t *dat)
 {
     float t = 0, h = 0, c = 0, e = 0, d = 0, w = 0;
     double px = x + sampleDoublePerlin(&bn->shift, x, 0, z) * 4.0;
     double pz = z + sampleDoublePerlin(&bn->shift, z, x, 0) * 4.0;
 
-    if (dim == 0)
-    {
-        c = sampleDoublePerlin(&bn->continentalness, px, 0, pz);
-        e = sampleDoublePerlin(&bn->erosion, px, 0, pz);
-        w = sampleDoublePerlin(&bn->weirdness, px, 0, pz);
+    c = sampleDoublePerlin(&bn->continentalness, px, 0, pz);
+    e = sampleDoublePerlin(&bn->erosion, px, 0, pz);
+    w = sampleDoublePerlin(&bn->weirdness, px, 0, pz);
 
-        float np_param[] = {
-            c, e, -3.0F * ( fabsf( fabsf(w) - 0.6666667F ) - 0.33333334F ), w,
-        };
-        double off = getSpline(bn->sp, np_param) + 0.015F;
+    float np_param[] = {
+        c, e, -3.0F * ( fabsf( fabsf(w) - 0.6666667F ) - 0.33333334F ), w,
+    };
+    double off = getSpline(bn->sp, np_param) + 0.015F;
 
-        //double py = y + sampleDoublePerlin(&bn->shift, y, z, x) * 4.0;
-        d = 1.0 - (y << 2) / 128.0 - 83.0/160.0 + off;
-    }
+    //double py = y + sampleDoublePerlin(&bn->shift, y, z, x) * 4.0;
+    d = 1.0 - (y << 2) / 128.0 - 83.0/160.0 + off;
 
     t = sampleDoublePerlin(&bn->temperature, px, 0, pz);
     h = sampleDoublePerlin(&bn->humidity, px, 0, pz);
@@ -1393,16 +1384,12 @@ int sampleBiomeNoise(const BiomeNoise *bn, int x, int y, int z, int dim, uint64_
         (int64_t)(10000.0F*w),
     };
 
-    int id = none;
-    if (dim == 0)
-        id = p2overworld((const uint64_t*)np, dat);
-    if (dim == -1)
-        id = p2nether((const uint64_t*)np, dat);
+    int id = p2overworld((const uint64_t*)np, dat);
     return id;
 }
 
 
-static void genBiomeNoise3D(const BiomeNoise *bn, int *out, Range r, int dim, int opt)
+static void genBiomeNoise3D(const BiomeNoise *bn, int *out, Range r, int opt)
 {
     uint64_t dat = 0;
     int i, j, k;
@@ -1418,15 +1405,14 @@ static void genBiomeNoise3D(const BiomeNoise *bn, int *out, Range r, int dim, in
             for (i = 0; i < r.sx; i++)
             {
                 int xi = (r.x+i)*scale + mid;
-                *p = sampleBiomeNoise(bn, xi, yk, zj, dim, opt ? &dat : NULL);
+                *p = sampleBiomeNoise(bn, xi, yk, zj, opt ? &dat : NULL);
                 p++;
             }
         }
     }
 }
 
-int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int dim,
-        int mc, uint64_t sha)
+int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int mc, uint64_t sha)
 {
     if (mc <= MC_1_17)
         return 1; // bad version
@@ -1444,7 +1430,7 @@ int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int dim,
         if (siz > 1)
         {   // the source range is large enough that we can try optimizing
             src = out + siz;
-            genBiomeNoise3D(bn, src, s, dim, 0);
+            genBiomeNoise3D(bn, src, s, 0);
         }
         else
         {
@@ -1467,7 +1453,7 @@ int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int dim,
                     }
                     else
                     {
-                        *p = sampleBiomeNoise(bn, x4, y4, z4, dim, 0);
+                        *p = sampleBiomeNoise(bn, x4, y4, z4, 0);
                     }
                     p++;
                 }
@@ -1481,7 +1467,7 @@ int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int dim,
         // than 1:4, the accuracy becomes questionable anyway. Furthermore
         // situations that want to use a higher scale are usually better off
         // with a faster, if imperfect, result.
-        genBiomeNoise3D(bn, out, r, dim, r.scale > 4);
+        genBiomeNoise3D(bn, out, r, r.scale > 4);
     }
     return 0;
 }

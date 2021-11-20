@@ -62,7 +62,7 @@ int mapOceanMixMod(const Layer * l, int * out, int x, int z, int w, int h)
 void setupGenerator(Generator *g, int mc, uint32_t flags)
 {
     g->mc = mc;
-    g->dim = 0;
+    g->dim = 1000; // not initialized
     g->flags = flags;
     g->seed = 0;
     g->sha = 0;
@@ -98,21 +98,20 @@ void applySeed(Generator *g, int dim, uint64_t seed)
     g->seed = seed;
     g->sha = 0;
 
-    if (g->mc <= MC_1_17)
+    if (dim == 0)
     {
-        if (dim == 0)
+        if (g->mc <= MC_1_17)
             setLayerSeed(g->entry ? g->entry : g->ls.entry_1, seed);
-        else if (dim == -1 && g->mc >= MC_1_16)
-            setNetherSeed(&g->nn, seed);
-        else if (dim == +1 && g->mc >= MC_1_9)
-            setEndSeed(&g->en, seed);
-    }
-    else
-    {
-        if (dim == 0 || dim == -1)
-            setBiomeSeed(&g->bn, seed, dim, g->flags & LARGE_BIOMES);
         else
-            setEndSeed(&g->en, seed);
+            setBiomeSeed(&g->bn, seed, g->flags & LARGE_BIOMES);
+    }
+    else if (dim == -1 && g->mc >= MC_1_16)
+    {
+        setNetherSeed(&g->nn, seed);
+    }
+    else if (dim == +1 && g->mc >= MC_1_9)
+    {
+        setEndSeed(&g->en, seed);
     }
     if (g->mc >= MC_1_15)
     {
@@ -162,9 +161,9 @@ int genBiomes(const Generator *g, int *cache, Range r)
     int err = 1;
     int i, k;
 
-    if (g->mc <= MC_1_17)
+    if (g->dim == 0)
     {
-        if (g->dim == 0)
+        if (g->mc <= MC_1_17)
         {
             const Layer *entry = getLayerForScale(g, r.scale);
             if (!entry) return -1;
@@ -177,25 +176,18 @@ int genBiomes(const Generator *g, int *cache, Range r)
             }
             return 0;
         }
-        else if (g->dim == -1)
+        else
         {
-            return genNetherScaled(&g->nn, cache, r, g->mc, g->sha);
-        }
-        else if (g->dim == +1)
-        {
-            return genEndScaled(&g->en, cache, r, g->mc, g->sha);
+            return genBiomeNoiseScaled(&g->bn, cache, r, g->mc, g->sha);
         }
     }
-    else
+    else if (g->dim == -1)
     {
-        if (g->dim == 0 || g->dim == -1)
-        {
-            return genBiomeNoiseScaled(&g->bn, cache, r, g->dim, g->mc, g->sha);
-        }
-        else if (g->dim == +1)
-        {
-            return genEndScaled(&g->en, cache, r, g->mc, g->sha);
-        }
+        return genNetherScaled(&g->nn, cache, r, g->mc, g->sha);
+    }
+    else if (g->dim == +1)
+    {
+        return genEndScaled(&g->en, cache, r, g->mc, g->sha);
     }
 
     return err;

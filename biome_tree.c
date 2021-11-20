@@ -2249,43 +2249,6 @@ int p2overworld(const uint64_t np[6], uint64_t *dat)
 }
 
 
-int p2nether(const uint64_t np[2], uint64_t *dat)
-{
-    (void) dat;
-    const int64_t ranges[5][4] = {
-        {   0,      0,      0,          nether_wastes       },
-        {   4000,   0,      0,          crimson_forest      },
-        {   0,     -5000,   0,          soul_sand_valley    },
-        {  -5000,   0,      1750*1750,  basalt_deltas       },
-        {   0,      5000,   3750*3750,  warped_forest       },
-    };
-
-    uint64_t dmin = -1;
-    int i, id = 0;
-
-    for (i = 0; i < 5; i++)
-    {
-        uint64_t a, b, q, j;
-        uint64_t ds;
-
-        ds = ranges[i][2];
-        for (j = 0; j < 2; j++)
-        {
-            a = +np[j] - (uint64_t) ranges[i][j];
-            b = -np[j] + (uint64_t) ranges[i][j];
-            q = (int64_t)a > 0 ? a : (int64_t)b > 0 ? b : 0;
-            ds += q * q;
-        }
-        if (ds < dmin)
-        {
-            dmin = ds;
-            id = i;
-        }
-    }
-
-    return (int) ranges[id][3];
-}
-
 #if __cplusplus
 }
 #endif

@@ -2119,16 +2119,27 @@ uint64_t getHouseList(uint64_t worldSeed, int chunkX, int chunkZ,
 //==============================================================================
 
 
-BiomeFilter setupBiomeFilter(const int *biomeList, int listLen)
+BiomeFilter setupBiomeFilter(
+    const int *required, int requiredLen,
+    const int *excluded, int excludedLen)
 {
     BiomeFilter bf;
     int i, id;
 
     memset(&bf, 0, sizeof(bf));
 
-    for (i = 0; i < listLen; i++)
+    for (i = 0; i < excludedLen; i++)
     {
-        id = biomeList[i];
+        id = excluded[i];
+        if (id < 128)
+            bf.biomeToExcl |= (1ULL << id);
+        else
+            bf.biomeToExclM |= (1ULL << (id-128));
+    }
+
+    for (i = 0; i < requiredLen; i++)
+    {
+        id = required[i];
         if (id & ~0xbf) // i.e. not in ranges [0,64),[128,192)
         {
             fprintf(stderr, "setupBiomeFilter: biomeID=%d not supported.\n", id);
@@ -2386,6 +2397,76 @@ BiomeFilter setupBiomeFilter(const int *biomeList, int listLen)
     bf.specialCnt += !!(bf.tempsToFind & (1ULL << (Cold+Special)));
 
     return bf;
+}
+
+
+int checkForBiomes(
+        Generator     * g,
+        int           * cache,
+        Range           r,
+        int             dim,
+        uint64_t        seed,
+        BiomeFilter     filter,
+        int             approx,
+        int           (*timeout)()
+        )
+{
+    (void) timeout;
+    int i, j, ret;
+
+    if (g->mc <= MC_1_17 && dim == 0)
+    {
+        Layer *entry = (Layer*) getLayerForScale(g, r.scale);
+        ret = checkForBiomesAtLayer(&g->ls, entry, cache, seed,
+            r.x, r.z, r.sx, r.sz, filter, approx);
+        if (ret == 0 && r.sy > 1 && cache)
+        {
+            for (i = 0; i < r.sy; i++)
+            {   // overworld has no vertical noise: expanding 2D into 3D
+                for (j = 0; j < r.sx*r.sz; j++)
+                    cache[i*r.sx*r.sz + j] = cache[j];
+            }
+        }
+        return ret;
+    }
+
+    // TODO: check optimization ideas...
+    // 1) excluded biomes can terminate noise generation early
+    // 2) set of biomes in the End might be determined by min,max heights
+    // 3) each biome in the 1.18 noise generator might have min.max biome
+    //    parameter ranged
+
+    int *ids;
+    if (cache)
+        ids = cache;
+    else
+        ids = allocCache(g, r);
+
+    if (g->dim != dim || g->seed != seed)
+    {
+        applySeed(g, dim, seed);
+    }
+
+    ret = !genBiomes(g, ids, r);
+
+    if (ret)
+    {
+        uint64_t b = 0, bm = 0;
+        for (int i = 0; i < r.sx*r.sy*r.sz; i++)
+        {
+            int id = ids[i];
+            if (id < 128) b |= (1ULL << id);
+            else bm |= (1ULL << (id-128));
+        }
+        ret = !(((b & filter.riverToFind) ^ filter.riverToFind) ||
+                ((bm & filter.riverToFindM) ^ filter.riverToFindM) ||
+                (b & filter.biomeToExcl) ||
+                (bm & filter.biomeToExclM));
+    }
+
+    if (ids != cache)
+        free(ids);
+    return ret;
 }
 
 
@@ -2676,10 +2757,10 @@ void restoreMap(filter_data_t *fd, Layer *l)
 }
 
 
-int checkForBiomes(
-        LayerStack *    g,
-        int             layerID,
-        int *           cache,
+int checkForBiomesAtLayer(
+        LayerStack    * g,
+        Layer         * entry,
+        int           * cache,
         uint64_t        seed,
         int             x,
         int             z,
@@ -2693,7 +2774,7 @@ int checkForBiomes(
 
     if (protoCheck) // TODO: protoCheck for 1.6-
     {
-        l = &g->layers[layerID];
+        l = entry;
 
         int i, j;
         int bx = x * l->scale;
@@ -2795,7 +2876,7 @@ L_HAS_PROTO_MUSHROOM:
     if (cache)
         ids = cache;
     else
-        ids = (int*) calloc(getMinLayerCacheSize(&l[layerID], w, h), sizeof(int));
+        ids = (int*) calloc(getMinLayerCacheSize(entry, w, h), sizeof(int));
 
     filter_data_t fd[9];
     swapMap(fd+0, &filter, l+L_OCEAN_MIX_4,     mapFilterOceanMix);
@@ -2808,11 +2889,11 @@ L_HAS_PROTO_MUSHROOM:
     swapMap(fd+7, &filter, l+L_MUSHROOM_256,    mapFilterMushroom);
     swapMap(fd+8, &filter, l+L_SPECIAL_1024,    mapFilterSpecial);
 
-    setLayerSeed(&l[layerID], seed);
-    int ret = !l[layerID].getMap(&l[layerID], ids, x, z, w, h);
+    setLayerSeed(entry, seed);
+    int ret = !entry->getMap(entry, ids, x, z, w, h);
     if (ret)
     {
-        uint64_t required, b = 0, bm = 0;
+        uint64_t req, b = 0, bm = 0;
         unsigned int i;
         for (i = 0; i < w*h; i++)
         {
@@ -2820,14 +2901,16 @@ L_HAS_PROTO_MUSHROOM:
             if (id < 128) b |= (1ULL << id);
             else bm |= (1ULL << (id-128));
         }
-        required = filter.riverToFind;
-        required &= ~((1ULL << ocean) | (1ULL << deep_ocean));
-        required |= filter.oceanToFind;
-        if ((b & required) ^ required)
-            ret = -1;
-        required = filter.riverToFindM;
-        if ((bm & required) ^ required)
-            ret = -1;
+        req = filter.riverToFind;
+        req &= ~((1ULL << ocean) | (1ULL << deep_ocean));
+        req |= filter.oceanToFind;
+        if ((b & req) ^ req)
+            ret = 0;
+        req = filter.riverToFindM;
+        if ((bm & req) ^ req)
+            ret = 0;
+        if ((b & filter.biomeToExcl) || (bm & filter.biomeToExclM))
+            ret = 0;
     }
 
     restoreMap(fd+8, l+L_SPECIAL_1024);
