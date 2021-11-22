@@ -73,14 +73,14 @@ The option `-fwrapv` enforces two's complement for signed integer overflow, whic
 Running the program should output:
 ```
 $ ./a.out
-Seed 262 has a Junge Edge biome at block position (0, 0).
+Seed 262 has a Mushroom Fields biome at block position (0, 0).
 ```
 
 ### Biome Generation in a Range
 
 We can also generate biomes for an area or volume using `genBiomes()`. This will utilize whatever optimizations are available for the generator and can be much faster than generating each position individually. (The layered generators for versions up to 1.17 will benefit significantly more from this than the noise-based ones.)
 
-Before we can generate an area or volume, we need to define the bounds with a `Range` structure and allocate the necessary buffer using `allocCache`. The `Range` is described by a scale, position and size and each cell inside the `Range` represents `scale` many blocks in the horizontal axes. The vertical direction is treated seperately and always follows the biome coordinate scaling of 1:4, with an exception when `scale == 1`, in which case the vertical scaling is also 1:1.
+Before we can generate the biomes for an area or volume, we need to define the bounds with a `Range` structure and allocate the necessary buffer using `allocCache()`. The `Range` is described by a scale, position and size and each cell inside the `Range` represents `scale` many blocks in the horizontal axes. The vertical direction is treated seperately and always follows the biome coordinate scaling of 1:4, with an exception when `scale == 1`, in which case the vertical scaling is also 1:1.
 
 The only supported values for `scale` are 1, 4, 16, 64, and for the Overworld also 256. For versions up to 1.17 the scale is matched to an appropriate biome layer and will influence the biomes that can generate.
 
@@ -136,7 +136,10 @@ int main()
 
 ### Structure Generation
 
-The generation of structures can usually be regarded as a two stage process: generation attempts and biome checks. For most structures, Minecraft divides the world into a grid of regions (usually 32x32 chunks) and performs one generation attempt in each. We can use `getStructurePos` to get the position of such a generation attempt and then test whether a structure will actually generate there with `isViableStructurePos`, however, this is more expensive to compute (many µsec rather than nsec).
+The generation of structures can usually be regarded as a two stage process: generation attempts and biome checks. For most structures, Minecraft divides the world into a grid of regions (usually 32x32 chunks) and performs one generation attempt in each. We can use `getStructurePos()` to get the position of such a generation attempt and then test whether a structure will actually generate there with `isViableStructurePos()`, however, this is more expensive to compute (many µsec rather than nsec).
+
+Structures in 1.18 no longer depend solely on the biomes and can also fail to generate based on the surface height near the generation attempt. Unfortunately, cubiomes does not provide block level world generation and cannot check for this, and may therefore yield false positives for structure positions. Support for an approximation for the surface height might be added in the future to improve accuracy.
+
 
 ```C
 // find a seed with a certain structure at the origin chunk
@@ -183,9 +186,9 @@ int main()
 
 #### Quad-Witch-Huts
 
-A commonly desired feature are Quad-Witch-Huts or similar multi-structure clusters. To test for these types of seeds we can look a little deeper into how the generation attemps are determined. Notice that the positions depend only on the structure type, region coordinates and the lower 48 bits of the seed. Also, once we have found a seed with the desired generation attemps, we can move them around by transforming the 48-bit seed using `moveStructure`. This means there is a set of seed bases which can function as a starting point to generate all other seeds with similar structure placement.
+A commonly desired feature are Quad-Witch-Huts or similar multi-structure clusters. To test for these types of seeds we can look a little deeper into how the generation attemps are determined. Notice that the positions depend only on the structure type, region coordinates and the lower 48 bits of the seed. Also, once we have found a seed with the desired generation attemps, we can move them around by transforming the 48-bit seed using `moveStructure()`. This means there is a set of seed bases which can function as a starting point to generate all other seeds with similar structure placement.
 
-The function `searchAll48` can be used to find a complete set of 48-bit seed bases for a custom criterion. Given that in general it can take a very long time to check all 2^48 seeds (days or weeks), the function provides some functionality to save the results to disk which can be loaded again using `loadSavedSeeds`. Luckly, in some cases it is possible to reduce the search space even further. For Swamp Huts and structures with a similar structure configuration there are only a handfull of constellations where the structures are close enough together to run simultaneously. Conveniently, these constellations differ uniquely at the lower 20 bits. (This is hard to prove, or at least I haven't found a riggerous proof that doesn't rely on brute forcing.) By specifying a list of lower 20-bit values we can reduce the search space to the order of 2^28, which can be checked in a reasonable amount of time.
+The function `searchAll48()` can be used to find a complete set of 48-bit seed bases for a custom criterion. Given that in general it can take a very long time to check all 2^48 seeds (days or weeks), the function provides some functionality to save the results to disk which can be loaded again using `loadSavedSeeds()`. Luckly, in some cases it is possible to reduce the search space even further. For Swamp Huts and structures with a similar structure configuration there are only a handfull of constellations where the structures are close enough together to run simultaneously. Conveniently, these constellations differ uniquely at the lower 20 bits. (This is hard to prove, or at least I haven't found a riggerous proof that doesn't rely on brute forcing.) By specifying a list of lower 20-bit values we can reduce the search space to the order of 2^28, which can be checked in a reasonable amount of time.
 
 
 ```C
@@ -202,7 +205,7 @@ int check(uint64_t s48, void *data)
 int main()
 {
     int styp = Swamp_Hut;
-    int mc = MC_1_18;
+    int mc = MC_1_17;
     uint64_t basecnt = 0;
     uint64_t *bases = NULL;
     int threads = 8;
@@ -264,7 +267,7 @@ int main()
 
 #### Strongholds and Spawn
 
-Strongholds as well as the world spawn point actually search until they find a suitable location, rather than checking a single spot like most other structures. This causes them to be particularly performance expensive to find. Furthermore, the positions of stongholds have to be generated in a certain order, which can be done in an iterator fashion with `initFirstStronghold` and `nextStronghold`. For the world spawn, the generation starts with a search for a suitable biome near the origin, but will continue until a grass or podzol block is found. There is no reliable way of checking actual blocks, which means the search relies on a statistic, matching grass presence to biomes. Alternatively, we can simply use `estimateSpawn` and terminate the search after the first biome check and assume that grass is near by.
+Strongholds as well as the world spawn point actually search until they find a suitable location, rather than checking a single spot like most other structures. This causes them to be particularly performance expensive to find. Furthermore, the positions of stongholds have to be generated in a certain order, which can be done in an iterator fashion with `initFirstStronghold()` and `nextStronghold()`. For the world spawn, the generation starts with a search for a suitable biome near the origin, but will continue until a grass or podzol block is found. There is no reliable way of checking actual blocks, which means the search relies on a statistic, matching grass presence to biomes. Alternatively, we can simply use `estimateSpawn()` and terminate the search after the first biome check and assume that grass is near by.
 
 
 ```C
@@ -274,7 +277,7 @@ Strongholds as well as the world spawn point actually search until they find a s
 
 int main()
 {
-    int mc = MC_1_18;
+    int mc = MC_1_17;
     uint64_t seed = 3055141959546LL;
 
     // Only the first stronghold has a position which can be estimated
