@@ -2452,7 +2452,7 @@ int checkForBiomes(
     if (ret)
     {
         uint64_t b = 0, bm = 0;
-        for (int i = 0; i < r.sx*r.sy*r.sz; i++)
+        for (i = 0; i < r.sx*r.sy*r.sz; i++)
         {
             int id = ids[i];
             if (id < 128) b |= (1ULL << id);

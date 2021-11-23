@@ -438,7 +438,7 @@ int genEndScaled(const EndNoise *en, int *out, Range r, int mc, uint64_t sha);
  */
 void initBiomeNoise(BiomeNoise *bn, int mc);
 void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int large);
-int sampleBiomeNoise(const BiomeNoise *bn, int x, int y, int z, uint64_t *dat);
+int sampleBiomeNoise(const BiomeNoise *bn, int x, int y, int z, uint64_t *dat, int approx);
 /**
  * The scaled biome noise generation applies for the Overworld version 1.18.
  * The 'sha' hash of the seed is only required for voronoi at scale 1:1.

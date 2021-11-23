@@ -1354,11 +1354,15 @@ int p2overworld(const uint64_t np[6], uint64_t *dat);
 #endif
 
 /// Biome sampler for MC 1.18
-int sampleBiomeNoise(const BiomeNoise *bn, int x, int y, int z, uint64_t *dat)
+int sampleBiomeNoise(const BiomeNoise *bn, int x, int y, int z, uint64_t *dat, int approx)
 {
     float t = 0, h = 0, c = 0, e = 0, d = 0, w = 0;
-    double px = x + sampleDoublePerlin(&bn->shift, x, 0, z) * 4.0;
-    double pz = z + sampleDoublePerlin(&bn->shift, z, x, 0) * 4.0;
+    double px = x, pz = z;
+    if (approx == 0)
+    {
+        px += sampleDoublePerlin(&bn->shift, x, 0, z) * 4.0;
+        pz += sampleDoublePerlin(&bn->shift, z, x, 0) * 4.0;
+    }
 
     c = sampleDoublePerlin(&bn->continentalness, px, 0, pz);
     e = sampleDoublePerlin(&bn->erosion, px, 0, pz);
@@ -1405,7 +1409,7 @@ static void genBiomeNoise3D(const BiomeNoise *bn, int *out, Range r, int opt)
             for (i = 0; i < r.sx; i++)
             {
                 int xi = (r.x+i)*scale + mid;
-                *p = sampleBiomeNoise(bn, xi, yk, zj, opt ? &dat : NULL);
+                *p = sampleBiomeNoise(bn, xi, yk, zj, opt ? &dat : NULL, opt);
                 p++;
             }
         }
@@ -1453,7 +1457,7 @@ int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int mc, uint64_
                     }
                     else
                     {
-                        *p = sampleBiomeNoise(bn, x4, y4, z4, 0);
+                        *p = sampleBiomeNoise(bn, x4, y4, z4, 0, 0);
                     }
                     p++;
                 }
