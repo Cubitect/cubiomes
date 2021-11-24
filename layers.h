@@ -436,9 +436,15 @@ int genEndScaled(const EndNoise *en, int *out, Range r, int mc, uint64_t sha);
  * The 1.18 End generation remains similar to 1.17 and does NOT use the
  * biome noise.
  */
+enum {
+    SAMPLE_NO_SHIFT = 0x1,
+    SAMPLE_NO_DEPTH = 0x2,
+    SAMPLE_NO_BIOME = 0x4,
+};
 void initBiomeNoise(BiomeNoise *bn, int mc);
 void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int large);
-int sampleBiomeNoise(const BiomeNoise *bn, int x, int y, int z, uint64_t *dat, int approx);
+int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
+    uint64_t *dat, uint32_t flags);
 /**
  * The scaled biome noise generation applies for the Overworld version 1.18.
  * The 'sha' hash of the seed is only required for voronoi at scale 1:1.

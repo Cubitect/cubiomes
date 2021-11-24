@@ -277,7 +277,7 @@ Strongholds as well as the world spawn point actually search until they find a s
 
 int main()
 {
-    int mc = MC_1_17;
+    int mc = MC_1_18;
     uint64_t seed = 3055141959546LL;
 
     // Only the first stronghold has a position which can be estimated

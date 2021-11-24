@@ -944,12 +944,17 @@ Pos locateBiome(
         x >>= 2;
         z >>= 2;
         radius >>= 2;
+        uint64_t dat = 0;
 
-        for (i = -radius; i <= radius; i++)
+        for (j = -radius; j <= radius; j++)
         {
-            for (j = -radius; j <= radius; j++)
+            for (i = -radius; i <= radius; i++)
             {
-                int id = getBiomeAt(g, 4, x+i, y, z+j);
+                int id, xi = x+i, zj = z+j;
+                // emulate dependent biome generation MC-241546
+                //id = getBiomeAt(g, 4, xi, y, zj);
+                id = sampleBiomeNoise(&g->bn, NULL, xi, y, zj, &dat, 0);
+
                 if (!validBiomes[id]) continue;
                 if (found == 0 || nextInt(rng, found+1) == 0)
                 {
@@ -1114,28 +1119,29 @@ const char* getValidStrongholdBiomes(int mc)
         modified_gravelly_mountains, shattered_savanna,
         shattered_savanna_plateau, eroded_badlands,
         modified_wooded_badlands_plateau, modified_badlands_plateau,
-        bamboo_jungle, bamboo_jungle_hills,
+        bamboo_jungle, bamboo_jungle_hills, dripstone_caves, lush_caves, meadow,
+        grove, snowy_slopes, stony_peaks, jagged_peaks, frozen_peaks,
     };
-
-    static char isValid115[256], isValid[256];
     unsigned int i;
+    static char v15[256], v17[256], v18[256];
+    char *valid = (mc <= MC_1_15 ? v15 : mc <= MC_1_17 ? v17 : v18);
 
-    if (mc <= MC_1_15)
+    if (!valid[strongholdBiomes[0]])
     {
-        if (!isValid115[strongholdBiomes[0]])
-            for (i = 0; i < sizeof(strongholdBiomes) / sizeof(int); i++)
-                isValid115[ strongholdBiomes[i] ] = 1;
-        return isValid115;
+        for (i = 0; i < sizeof(strongholdBiomes)/sizeof(int); i++)
+            valid[ strongholdBiomes[i] ] = 1;
+
+        if (mc >= MC_1_18)
+        {
+            valid[stone_shore] = 0;
+        }
+        else if (mc >= MC_1_16)
+        {   // simulate MC-199298
+            valid[bamboo_jungle] = 0;
+            valid[bamboo_jungle_hills] = 0;
+        }
     }
-    else
-    {   // simulate MC-199298
-        if (!isValid[strongholdBiomes[0]])
-            for (i = 0; i < sizeof(strongholdBiomes) / sizeof(int); i++)
-                isValid[ strongholdBiomes[i] ] = 1;
-        isValid[bamboo_jungle] = 0;
-        isValid[bamboo_jungle_hills] = 0;
-        return isValid;
-    }
+    return valid;
 }
 
 Pos initFirstStronghold(StrongholdIter *sh, int mc, uint64_t s48)
@@ -1343,6 +1349,79 @@ static int findServerSpawn(const Generator *g, int chunkX, int chunkZ,
     }
 }
 
+static
+uint64_t getSpawnDist(const Generator *g, int x, int z)
+{
+    int64_t np[6];
+    uint32_t flags = SAMPLE_NO_DEPTH | SAMPLE_NO_BIOME;
+    sampleBiomeNoise(&g->bn, np, x>>2, 0, z>>2, NULL, flags);
+    const int64_t spawn_np[][2] = {
+        {-10000,10000},{-10000,10000},{-1100,10000},{-10000,10000},{0,0},
+        {-10000,-1600},{1600,10000} // [6]: weirdness for the second noise point
+    };
+    uint64_t ds = 0, ds1 = 0, ds2 = 0;
+    uint64_t a, b, q, i;
+    for (i = 0; i < 5; i++)
+    {
+        a = +np[i] - (uint64_t)spawn_np[i][1];
+        b = -np[i] + (uint64_t)spawn_np[i][0];
+        q = (int64_t)a > 0 ? a : (int64_t)b > 0 ? b : 0;
+        ds += q * q;
+    }
+    a = +np[5] - (uint64_t)spawn_np[5][1];
+    b = -np[5] + (uint64_t)spawn_np[5][0];
+    q = (int64_t)a > 0 ? a : (int64_t)b > 0 ? b : 0;
+    ds1 = ds + q*q;
+    a = +np[5] - (uint64_t)spawn_np[6][1];
+    b = -np[5] + (uint64_t)spawn_np[6][0];
+    q = (int64_t)a > 0 ? a : (int64_t)b > 0 ? b : 0;
+    ds2 = ds + q*q;
+    return ds1 <= ds2 ? ds1 : ds2;
+}
+
+static
+void findFittest(const Generator *g, Pos *pos, uint64_t *fitness, double maxrad, double step)
+{
+    double rad = step, ang = 0;
+    Pos p = *pos;
+    while (rad <= maxrad)
+    {
+        int x = p.x + (int)(sin(ang) * rad);
+        int z = p.z + (int)(cos(ang) * rad);
+        // calc fitness
+        double d = ((double)x*x + (double)z*z) / (2500*2500);
+        uint64_t fit = (uint64_t)(d*d * 1e8);
+        // calculate the distance to the noise points for spawn
+        fit += getSpawnDist(g, x, z);
+        if (fit < *fitness)
+        {
+            pos->x = x;
+            pos->z = z;
+            *fitness = fit;
+        }
+
+        ang += step / rad;
+        if (ang <= M_PI*2)
+            continue;
+        ang = 0;
+        rad += step;
+    }
+}
+
+static
+Pos findFittestPos(const Generator *g)
+{
+    Pos spawn = {0, 0};
+    uint64_t fitness = getSpawnDist(g, 0, 0);
+    findFittest(g, &spawn, &fitness, 2048.0, 512.0);
+    findFittest(g, &spawn, &fitness, 512.0, 32.0);
+    // center of chunk
+    spawn.x = ((spawn.x >> 4) << 4) + 8;
+    spawn.z = ((spawn.z >> 4) << 4) + 8;
+    return spawn;
+}
+
+
 Pos getSpawn(const Generator *g)
 {
     const char *isSpawnBiome = getValidSpawnBiomes();
@@ -1351,13 +1430,18 @@ Pos getSpawn(const Generator *g)
     int i;
 
     uint64_t rnd;
-    setSeed(&rnd, g->seed);
-    spawn = locateBiome(g, 0, 63, 0, 256, isSpawnBiome, &rnd, &found);
-
-    if (!found)
+    if (g->mc <= MC_1_17)
     {
-        //printf("Unable to find spawn biome.\n");
-        spawn.x = spawn.z = 8;
+        setSeed(&rnd, g->seed);
+        spawn = locateBiome(g, 0, 63, 0, 256, isSpawnBiome, &rnd, &found);
+        if (!found)
+        {
+            spawn.x = spawn.z = 8;
+        }
+    }
+    else
+    {
+        spawn = findFittestPos(g);
     }
 
     double accum = 1;
@@ -1374,7 +1458,7 @@ Pos getSpawn(const Generator *g)
         {
             if (j > -16 && j <= 16 && k > -16 && k <= 16)
             {
-                if (findServerSpawn(g, (spawn.x>>4)+j, (spawn.x>>4)+k,
+                if (findServerSpawn(g, (spawn.x>>4)+j, (spawn.z>>4)+k,
                     &bx, &bz, &bn, &accum))
                 {
                     spawn.x = (int) round(bx / bn);
@@ -1420,25 +1504,30 @@ Pos getSpawn(const Generator *g)
     return spawn;
 }
 
-
 Pos estimateSpawn(const Generator *g)
 {
     const char *isSpawnBiome = getValidSpawnBiomes();
     Pos spawn;
-    int found;
-    uint64_t rnd;
-    setSeed(&rnd, g->seed);
-    spawn = locateBiome(g, 0, 63, 0, 256, isSpawnBiome, &rnd, &found);
 
-    if (!found)
+    if (g->mc <= MC_1_17)
     {
-        spawn.x = spawn.z = 8;
+        int found;
+        uint64_t rnd;
+        setSeed(&rnd, g->seed);
+        spawn = locateBiome(g, 0, 63, 0, 256, isSpawnBiome, &rnd, &found);
+        if (!found)
+        {
+            spawn.x = spawn.z = 8;
+        }
+        if (g->mc >= MC_1_13)
+        {
+            spawn.x &= ~0xf;
+            spawn.z &= ~0xf;
+        }
     }
-
-    if (g->mc >= MC_1_13)
+    else
     {
-        spawn.x &= ~0xf;
-        spawn.z &= ~0xf;
+        spawn = findFittestPos(g);
     }
 
     return spawn;

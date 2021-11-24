@@ -112,7 +112,7 @@ int testBiomeGen1x1(const int *mc, const uint32_t *expect, int dim, int bits, in
         fflush(stdout);
 
         double t = -now();
-        h = getRef(mc[test], dim, bits, spread, "t16");
+        h = getRef(mc[test], dim, bits, spread, NULL);
         t += now();
         printf("got %08x %s\e[0m (%ld msec)\n",
             h, h == expect[test] ? "\e[1;92mOK" : "\e[1;91mFAILED",
@@ -158,6 +158,8 @@ uint32_t testAreas(int mc, int dim, int scale)
 }
 
 
+
+
 int testGeneration()
 {
     const int mc_vers[] = {
@@ -172,9 +174,20 @@ int testGeneration()
     };
     const int testcnt = sizeof(mc_vers) / sizeof(int);
 
-    printf("Testing 1x1 biome generation (quick):\n");
-    if (!testBiomeGen1x1(mc_vers, b6_hashes, 0, 6, 1, 1))// testcnt))
-        ;//return -1;
+    //printf("Testing 1x1 biome generation (quick):\n");
+    //if (!testBiomeGen1x1(mc_vers, b6_hashes, 0, 6, 1, testcnt))
+    //    return -1;
+
+    Generator g;
+    setupGenerator(&g, MC_1_18, 0);
+    applySeed(&g, 0, 1234);
+    Pos p = getSpawn(&g);
+    printf("%d %d\n", p.x, p.z);
+
+    StrongholdIter sh;
+    initFirstStronghold(&sh, g.mc, g.seed);
+    while (nextStronghold(&sh, &g) > 0)
+        printf("Stronghold #: (%6d, %6d)\n", sh.pos.x, sh.pos.z);
 
     printf("Area generation tests:\n");
     testAreas(MC_1_18, 0, 1);

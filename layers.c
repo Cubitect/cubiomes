@@ -1354,11 +1354,12 @@ int p2overworld(const uint64_t np[6], uint64_t *dat);
 #endif
 
 /// Biome sampler for MC 1.18
-int sampleBiomeNoise(const BiomeNoise *bn, int x, int y, int z, uint64_t *dat, int approx)
+int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
+    uint64_t *dat, uint32_t flags)
 {
     float t = 0, h = 0, c = 0, e = 0, d = 0, w = 0;
     double px = x, pz = z;
-    if (approx == 0)
+    if (!(flags & SAMPLE_NO_SHIFT))
     {
         px += sampleDoublePerlin(&bn->shift, x, 0, z) * 4.0;
         pz += sampleDoublePerlin(&bn->shift, z, x, 0) * 4.0;
@@ -1368,27 +1369,32 @@ int sampleBiomeNoise(const BiomeNoise *bn, int x, int y, int z, uint64_t *dat, i
     e = sampleDoublePerlin(&bn->erosion, px, 0, pz);
     w = sampleDoublePerlin(&bn->weirdness, px, 0, pz);
 
-    float np_param[] = {
-        c, e, -3.0F * ( fabsf( fabsf(w) - 0.6666667F ) - 0.33333334F ), w,
-    };
-    double off = getSpline(bn->sp, np_param) + 0.015F;
+    if (!(flags & SAMPLE_NO_DEPTH))
+    {
+        float np_param[] = {
+            c, e, -3.0F * ( fabsf( fabsf(w) - 0.6666667F ) - 0.33333334F ), w,
+        };
+        double off = getSpline(bn->sp, np_param) + 0.015F;
 
-    //double py = y + sampleDoublePerlin(&bn->shift, y, z, x) * 4.0;
-    d = 1.0 - (y << 2) / 128.0 - 83.0/160.0 + off;
+        //double py = y + sampleDoublePerlin(&bn->shift, y, z, x) * 4.0;
+        d = 1.0 - (y << 2) / 128.0 - 83.0/160.0 + off;
+    }
 
     t = sampleDoublePerlin(&bn->temperature, px, 0, pz);
     h = sampleDoublePerlin(&bn->humidity, px, 0, pz);
 
-    int64_t np[] = {
-        (int64_t)(10000.0F*t),
-        (int64_t)(10000.0F*h),
-        (int64_t)(10000.0F*c),
-        (int64_t)(10000.0F*e),
-        (int64_t)(10000.0F*d),
-        (int64_t)(10000.0F*w),
-    };
+    int64_t l_np[6];
+    int64_t *p_np = np ? np : l_np;
+    p_np[0] = (int64_t)(10000.0F*t);
+    p_np[1] = (int64_t)(10000.0F*h);
+    p_np[2] = (int64_t)(10000.0F*c);
+    p_np[3] = (int64_t)(10000.0F*e);
+    p_np[4] = (int64_t)(10000.0F*d);
+    p_np[5] = (int64_t)(10000.0F*w);
 
-    int id = p2overworld((const uint64_t*)np, dat);
+    int id = none;
+    if (!(flags & SAMPLE_NO_BIOME))
+        id = p2overworld((const uint64_t*)p_np, dat);
     return id;
 }
 
@@ -1396,6 +1402,8 @@ int sampleBiomeNoise(const BiomeNoise *bn, int x, int y, int z, uint64_t *dat, i
 static void genBiomeNoise3D(const BiomeNoise *bn, int *out, Range r, int opt)
 {
     uint64_t dat = 0;
+    uint64_t *p_dat = opt ? &dat : NULL;
+    uint32_t flags = opt ? SAMPLE_NO_SHIFT : 0;
     int i, j, k;
     int *p = out;
     int scale = r.scale > 4 ? r.scale / 4 : 1;
@@ -1409,7 +1417,7 @@ static void genBiomeNoise3D(const BiomeNoise *bn, int *out, Range r, int opt)
             for (i = 0; i < r.sx; i++)
             {
                 int xi = (r.x+i)*scale + mid;
-                *p = sampleBiomeNoise(bn, xi, yk, zj, opt ? &dat : NULL, opt);
+                *p = sampleBiomeNoise(bn, NULL, xi, yk, zj, p_dat, flags);
                 p++;
             }
         }
@@ -1457,7 +1465,7 @@ int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int mc, uint64_
                     }
                     else
                     {
-                        *p = sampleBiomeNoise(bn, x4, y4, z4, 0, 0);
+                        *p = sampleBiomeNoise(bn, 0, x4, y4, z4, 0, 0);
                     }
                     p++;
                 }
