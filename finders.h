@@ -90,7 +90,8 @@ _sc IGLOO_CONFIG              = { 14357618, 32, 24, Igloo, 0};
 _sc JUNGLE_PYRAMID_CONFIG     = { 14357619, 32, 24, Jungle_Pyramid, 0};
 _sc SWAMP_HUT_CONFIG          = { 14357620, 32, 24, Swamp_Hut, 0};
 _sc OUTPOST_CONFIG            = {165745296, 32, 24, Outpost, 0};
-_sc VILLAGE_CONFIG            = { 10387312, 32, 24, Village, 0};
+_sc VILLAGE_CONFIG_117        = { 10387312, 32, 24, Village, 0};
+_sc VILLAGE_CONFIG            = { 10387312, 34, 26, Village, 0};
 _sc OCEAN_RUIN_CONFIG         = { 14357621, 20, 12, Ocean_Ruin, 0};
 _sc SHIPWRECK_CONFIG          = {165745295, 24, 20, Shipwreck, 0};
 _sc MONUMENT_CONFIG           = { 10387313, 32, 27, Monument, LARGE_STRUCT};
@@ -157,7 +158,9 @@ STRUCT(VillageType)
 {
     char abandoned; // is zombie village
     char variant;
-    int biome;
+    short biome;
+    char rotation; // 0:0, 1:cw90, 2:cw180, 3:cw270=ccw90
+    char sx, sy, sz;
 };
 
 

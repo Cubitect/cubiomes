@@ -117,7 +117,7 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
         *sconf = mc <= MC_1_12 ? IGLOO_CONFIG_112 : IGLOO_CONFIG;
         return mc >= MC_1_9;
     case Village:
-        *sconf = VILLAGE_CONFIG;
+        *sconf = mc <= MC_1_17 ? VILLAGE_CONFIG_117 : VILLAGE_CONFIG;
         return 1;
     case Ocean_Ruin:
         *sconf = mc <= MC_1_15 ? OCEAN_RUIN_CONFIG_115 : OCEAN_RUIN_CONFIG;
@@ -1591,6 +1591,8 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
             return 1;
         if (mc >= MC_1_14 && biomeID == snowy_tundra)
             return 1;
+        if (mc >= MC_1_18 && biomeID == meadow)
+            return 1;
         return 0;
 
     case Mansion:
@@ -1869,14 +1871,39 @@ L_feature:
 
     case Village:
         if (g->mc <= MC_1_17)
+        {
             g->entry = &g->ls.layers[L_RIVER_MIX_4];
-        sampleX = (chunkX << 2) + 2;
-        sampleZ = (chunkZ << 2) + 2;
-        id = getBiomeAt(g, 0, sampleX, 0, sampleZ);
-        if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
+            sampleX = (chunkX << 2) + 2;
+            sampleZ = (chunkZ << 2) + 2;
+            id = getBiomeAt(g, 0, sampleX, 15, sampleZ);
+            if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
+                goto L_not_viable;
+            viable = id; // biome for viablility, useful for further analysis
+            goto L_viable;
+        }
+        else
+        {   // In 1.18 village types are checked sepertely...
+            const int vv[] = { plains, desert, savanna, taiga, snowy_tundra };
+            size_t i;
+            for (i = 0; i < sizeof(vv)/sizeof(int); i++) {
+                VillageType vt = getVillageType(g->mc, g->seed, x, z, vv[i]);
+                switch (vt.rotation) {
+                    case 0: sampleX = -1+vt.sx; sampleZ = -1+vt.sz; break;
+                    case 1: sampleX = +1-vt.sz; sampleZ = -1+vt.sx; break;
+                    case 2: sampleX = +1-vt.sx; sampleZ = +1-vt.sz; break;
+                    case 3: sampleX = -1+vt.sz; sampleZ = +1-vt.sx; break;
+                    default: continue;
+                }
+                sampleX = ((chunkX << 5) + sampleX) / 2 >> 2;
+                sampleZ = ((chunkZ << 5) + sampleZ) / 2 >> 2;
+                id = getBiomeAt(g, 0, sampleX, 15, sampleZ);
+                if (id == vv[i]) {
+                    viable = id;
+                    goto L_viable;
+                }
+            }
             goto L_not_viable;
-        viable = id; // use biome for viablility, useful for further analysis
-        goto L_viable;
+        }
 
     case Outpost:
     {
@@ -1950,6 +1977,12 @@ L_feature:
         if (g->mc >= MC_1_9 && g->mc <= MC_1_17)
         {   // check for deep ocean center
             if (!areBiomesViable(g, sampleX, 63, sampleZ, 16, getValidMonumentBiomes2(), approx))
+                goto L_not_viable;
+        }
+        else if (g->mc >= MC_1_18)
+        {   // check is done at y level of ocean floor - approx. with y = 36
+            id = getBiomeAt(g, 4, sampleX>>2, 36>>2, sampleZ>>2);
+            if (!isDeepOcean(id))
                 goto L_not_viable;
         }
         if (areBiomesViable(g, sampleX, 63, sampleZ, 29, getValidMonumentBiomes1(), approx))
@@ -2109,7 +2142,7 @@ int isViableEndCityTerrain(const EndNoise *en, const SurfaceNoise *sn,
 
 VillageType getVillageType(int mc, uint64_t seed, int blockX, int blockZ, int biomeID)
 {
-    VillageType r = { 0, 0, 0 };
+    VillageType r = { 0, 0, 0, 0, 0, 0, 0 };
     if (!isViableFeatureBiome(mc, Village, biomeID))
         return r;
 
@@ -2119,56 +2152,56 @@ VillageType getVillageType(int mc, uint64_t seed, int blockX, int blockZ, int bi
 
     if (mc >= MC_1_14)
     {
-        skipNextN(&rnd, 1);
+        r.rotation = nextInt(&rnd, 4);
         int t;
         switch (biomeID)
         {
         case plains:
             t = nextInt(&rnd, 204);
-            if      (t <  50) { r.variant = 0; } // plains_fountain_01
-            else if (t < 100) { r.variant = 1; } // plains_meeting_point_1
-            else if (t < 150) { r.variant = 2; } // plains_meeting_point_2
-            else if (t < 200) { r.variant = 3; } // plains_meeting_point_3
-            else if (t < 201) { r.variant = 0; r.abandoned = 1; }
-            else if (t < 202) { r.variant = 1; r.abandoned = 1; }
-            else if (t < 203) { r.variant = 2; r.abandoned = 1; }
-            else if (t < 204) { r.variant = 3; r.abandoned = 1; }
+            if      (t <  50) { r.variant = 0; r.sx =  9; r.sy = 4; r.sz =  9; } // plains_fountain_01
+            else if (t < 100) { r.variant = 1; r.sx = 10; r.sy = 7; r.sz = 10; } // plains_meeting_point_1
+            else if (t < 150) { r.variant = 2; r.sx =  8; r.sy = 5; r.sz = 15; } // plains_meeting_point_2
+            else if (t < 200) { r.variant = 3; r.sx = 11; r.sy = 9; r.sz = 11; } // plains_meeting_point_3
+            else if (t < 201) { r.variant = 0; r.sx =  9; r.sy = 4; r.sz =  9; r.abandoned = 1; }
+            else if (t < 202) { r.variant = 1; r.sx = 10; r.sy = 7; r.sz = 10; r.abandoned = 1; }
+            else if (t < 203) { r.variant = 2; r.sx =  8; r.sy = 5; r.sz = 15; r.abandoned = 1; }
+            else if (t < 204) { r.variant = 3; r.sx = 11; r.sy = 9; r.sz = 11; r.abandoned = 1; }
             break;
         case desert:
             t = nextInt(&rnd, 250);
-            if      (t <  98) { r.variant = 1; } // desert_meeting_point_1
-            else if (t < 196) { r.variant = 2; } // desert_meeting_point_2
-            else if (t < 245) { r.variant = 3; } // desert_meeting_point_3
-            else if (t < 247) { r.variant = 1; r.abandoned = 1; }
-            else if (t < 249) { r.variant = 2; r.abandoned = 1; }
-            else if (t < 250) { r.variant = 3; r.abandoned = 1; }
+            if      (t <  98) { r.variant = 1; r.sx = 17; r.sy = 6; r.sz =  9; } // desert_meeting_point_1
+            else if (t < 196) { r.variant = 2; r.sx = 12; r.sy = 6; r.sz = 12; } // desert_meeting_point_2
+            else if (t < 245) { r.variant = 3; r.sx = 15; r.sy = 6; r.sz = 15; } // desert_meeting_point_3
+            else if (t < 247) { r.variant = 1; r.sx = 17; r.sy = 6; r.sz =  9; r.abandoned = 1; }
+            else if (t < 249) { r.variant = 2; r.sx = 12; r.sy = 6; r.sz = 12; r.abandoned = 1; }
+            else if (t < 250) { r.variant = 3; r.sx = 15; r.sy = 6; r.sz = 15; r.abandoned = 1; }
             break;
         case savanna:
             t = nextInt(&rnd, 459);
-            if      (t < 100) { r.variant = 1; } // savanna_meeting_point_1
-            else if (t < 150) { r.variant = 2; } // savanna_meeting_point_2
-            else if (t < 300) { r.variant = 3; } // savanna_meeting_point_3
-            else if (t < 450) { r.variant = 4; } // savanna_meeting_point_4
-            else if (t < 452) { r.variant = 1; r.abandoned = 1; }
-            else if (t < 453) { r.variant = 2; r.abandoned = 1; }
-            else if (t < 456) { r.variant = 3; r.abandoned = 1; }
-            else if (t < 459) { r.variant = 4; r.abandoned = 1; }
+            if      (t < 100) { r.variant = 1; r.sx = 14; r.sy = 5; r.sz = 12; } // savanna_meeting_point_1
+            else if (t < 150) { r.variant = 2; r.sx = 11; r.sy = 6; r.sz = 11; } // savanna_meeting_point_2
+            else if (t < 300) { r.variant = 3; r.sx =  9; r.sy = 6; r.sz = 11; } // savanna_meeting_point_3
+            else if (t < 450) { r.variant = 4; r.sx =  9; r.sy = 6; r.sz =  9; } // savanna_meeting_point_4
+            else if (t < 452) { r.variant = 1; r.sx = 14; r.sy = 5; r.sz = 12; r.abandoned = 1; }
+            else if (t < 453) { r.variant = 2; r.sx = 11; r.sy = 6; r.sz = 11; r.abandoned = 1; }
+            else if (t < 456) { r.variant = 3; r.sx =  9; r.sy = 6; r.sz = 11; r.abandoned = 1; }
+            else if (t < 459) { r.variant = 4; r.sx =  9; r.sy = 6; r.sz =  9; r.abandoned = 1; }
             break;
         case taiga:
             t = nextInt(&rnd, 100);
-            if      (t <  49) { r.variant = 1; } // taiga_meeting_point_1
-            else if (t <  98) { r.variant = 2; } // taiga_meeting_point_2
-            else if (t <  99) { r.variant = 1; r.abandoned = 1; }
-            else if (t < 100) { r.variant = 2; r.abandoned = 1; }
+            if      (t <  49) { r.variant = 1; r.sx = 22; r.sy = 3; r.sz = 18; } // taiga_meeting_point_1
+            else if (t <  98) { r.variant = 2; r.sx =  9; r.sy = 7; r.sz =  9; } // taiga_meeting_point_2
+            else if (t <  99) { r.variant = 1; r.sx = 22; r.sy = 3; r.sz = 18; r.abandoned = 1; }
+            else if (t < 100) { r.variant = 2; r.sx =  9; r.sy = 7; r.sz =  9; r.abandoned = 1; }
             break;
         case snowy_tundra:
             t = nextInt(&rnd, 306);
-            if      (t < 100) { r.variant = 1; } // snowy_meeting_point_1
-            else if (t < 150) { r.variant = 2; } // snowy_meeting_point_2
-            else if (t < 300) { r.variant = 3; } // snowy_meeting_point_3
-            else if (t < 302) { r.variant = 1; r.abandoned = 1; }
-            else if (t < 303) { r.variant = 2; r.abandoned = 1; }
-            else if (t < 306) { r.variant = 3; r.abandoned = 1; }
+            if      (t < 100) { r.variant = 1; r.sx = 12; r.sy = 8; r.sz =  8; } // snowy_meeting_point_1
+            else if (t < 150) { r.variant = 2; r.sx = 11; r.sy = 5; r.sz =  9; } // snowy_meeting_point_2
+            else if (t < 300) { r.variant = 3; r.sx =  7; r.sy = 7; r.sz =  7; } // snowy_meeting_point_3
+            else if (t < 302) { r.variant = 1; r.sx = 12; r.sy = 8; r.sz =  8; r.abandoned = 1; }
+            else if (t < 303) { r.variant = 2; r.sx = 11; r.sy = 5; r.sz =  9; r.abandoned = 1; }
+            else if (t < 306) { r.variant = 3; r.sx =  7; r.sy = 7; r.sz =  7; r.abandoned = 1; }
             break;
         default:
             break;
