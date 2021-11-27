@@ -1556,7 +1556,7 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
 
     case Igloo:
         if (mc < MC_1_9) return 0;
-        return biomeID == snowy_tundra || biomeID == snowy_taiga;
+        return biomeID == snowy_tundra || biomeID == snowy_taiga || biomeID == snowy_slopes;
 
     case Ocean_Ruin:
         if (mc < MC_1_13) return 0;
@@ -1583,6 +1583,24 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
 
     case Outpost:
         if (mc < MC_1_14) return 0;
+        if (mc >= MC_1_18) {
+            switch (biomeID) {
+            case desert:
+            case plains:
+            case savanna:
+            case snowy_plains:
+            case taiga:
+            case meadow:
+            case frozen_peaks:
+            case jagged_peaks:
+            case stony_peaks:
+            case snowy_slopes:
+            case grove:
+                return 1;
+            default:
+                return 0;
+            }
+        }
         // fall through
     case Village:
         if (biomeID == plains || biomeID == desert || biomeID == savanna)
