@@ -138,7 +138,7 @@ int main()
 
 The generation of structures can usually be regarded as a two stage process: generation attempts and biome checks. For most structures, Minecraft divides the world into a grid of regions (usually 32x32 chunks) and performs one generation attempt in each. We can use `getStructurePos()` to get the position of such a generation attempt and then test whether a structure will actually generate there with `isViableStructurePos()`, however, this is more expensive to compute (many µsec rather than nsec).
 
-Structures in 1.18 no longer depend solely on the biomes and can also fail to generate based on the surface height near the generation attempt. Unfortunately, cubiomes does not provide block level world generation and cannot check for this, and may therefore yield false positives for structure positions. Support for an approximation for the surface height might be added in the future to improve accuracy.
+Note: some structures (in particular desert pyramids, jungle temples and woodland mansions) in 1.18 no longer depend solely on the biomes and can also fail to generate based on the surface height near the generation attempt. Unfortunately, cubiomes does not provide block level world generation and cannot check for this, and may therefore yield false positive positions. Support for an approximation for the surface height might be added in the future to improve accuracy.
 
 
 ```C
@@ -149,7 +149,7 @@ Structures in 1.18 no longer depend solely on the biomes and can also fail to ge
 int main()
 {
     int structType = Outpost;
-    int mc = MC_1_17;
+    int mc = MC_1_18;
 
     Generator g;
     setupGenerator(&g, mc, 0);
