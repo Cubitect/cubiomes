@@ -173,7 +173,7 @@ int main()
         {
             uint64_t seed = lower48 | (upper16 << 48);
             applySeed(&g, 0, seed);
-            if (isViableStructurePos(structType, &g, p.x, p.z))
+            if (isViableStructurePos(structType, &g, p.x, p.z, 0))
             {
                 printf("Seed %" PRId64 " has a Pillager Outpost at (%d, %d).\n",
                     (int64_t) seed, p.x, p.z);
@@ -250,10 +250,10 @@ int main()
             uint64_t seed = s48 | (high << 48);
             applySeed(&g, 0, seed);
 
-            if (isViableStructurePos(styp, &g, pos[0].x, pos[0].z) &&
-                isViableStructurePos(styp, &g, pos[1].x, pos[1].z) &&
-                isViableStructurePos(styp, &g, pos[2].x, pos[2].z) &&
-                isViableStructurePos(styp, &g, pos[3].x, pos[3].z))
+            if (isViableStructurePos(styp, &g, pos[0].x, pos[0].z, 0) &&
+                isViableStructurePos(styp, &g, pos[1].x, pos[1].z, 0) &&
+                isViableStructurePos(styp, &g, pos[2].x, pos[2].z, 0) &&
+                isViableStructurePos(styp, &g, pos[3].x, pos[3].z, 0))
             {
                 printf("%" PRId64 "\n", (int64_t) seed);
             }
@@ -288,8 +288,6 @@ int main()
     printf("Seed: %" PRId64 "\n", (int64_t) seed);
     printf("Estimated position of first stronghold: (%d, %d)\n", pos.x, pos.z);
 
-    // The finders for the strongholds and spawn require that the seed is
-    // applied to the generator beforehand.
     Generator g;
     setupGenerator(&g, mc, 0);
     applySeed(&g, 0, seed);

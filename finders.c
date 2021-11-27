@@ -1771,7 +1771,7 @@ static int mapViableShore(const Layer * l, int * out, int x, int z, int w, int h
 }
 
 
-int isViableStructurePos(int structureType, Generator *g, int x, int z)
+int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t flags)
 {
     int approx = 0; // enables approximation levels
     int viable = 0;
@@ -1878,6 +1878,8 @@ L_feature:
             id = getBiomeAt(g, 0, sampleX, 15, sampleZ);
             if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
                 goto L_not_viable;
+            if (flags && (uint32_t) id != flags)
+                goto L_not_viable;
             viable = id; // biome for viablility, useful for further analysis
             goto L_viable;
         }
@@ -1886,6 +1888,8 @@ L_feature:
             const int vv[] = { plains, desert, savanna, taiga, snowy_tundra };
             size_t i;
             for (i = 0; i < sizeof(vv)/sizeof(int); i++) {
+                if (flags && flags != (uint32_t) vv[i])
+                    continue;
                 VillageType vt = getVillageType(g->mc, g->seed, x, z, vv[i]);
                 switch (vt.rotation) {
                     case 0: sampleX = -1+vt.sx; sampleZ = -1+vt.sz; break;
@@ -1897,7 +1901,7 @@ L_feature:
                 sampleX = ((chunkX << 5) + sampleX) / 2 >> 2;
                 sampleZ = ((chunkZ << 5) + sampleZ) / 2 >> 2;
                 id = getBiomeAt(g, 0, sampleX, 15, sampleZ);
-                if (id == vv[i]) {
+                if (id == vv[i] || (id == meadow && vv[i] == plains)) {
                     viable = id;
                     goto L_viable;
                 }
@@ -1946,7 +1950,7 @@ L_feature:
                 {
                     if (g->mc >= MC_1_16)
                         goto L_not_viable;
-                    if (isViableStructurePos(Village, g, p.x, p.z))
+                    if (isViableStructurePos(Village, g, p.x, p.z, 0))
                         goto L_not_viable;
                     goto L_viable;
                 }

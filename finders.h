@@ -564,14 +564,16 @@ Pos estimateSpawn(const Generator *g);
 // Validating Structure Positions
 //==============================================================================
 
-/* Performs a biome check at the specified block coordinates to determine
+/* Performs a biome check near the specified block coordinates to determine
  * whether a structure of the given type could spawn there. You can get the
  * block positions using getStructurePos().
- * The generator, 'g', should be initialized for a scale 1:1 generation of the
- * correct MC version, dimension and seed. The generator may be temporarily
- * modified during the function call, but will be restored upon return.
+ * The generator, 'g', should be initialized for the correct MC version,
+ * dimension and seed. The generator may be temporarily modified during the
+ * function call, but will be restored upon return.
+ * The 'flags' argument is optional structure specific information, such as the
+ * biome variant for villages.
  */
-int isViableStructurePos(int structType, Generator *g, int blockX, int blockZ);
+int isViableStructurePos(int structType, Generator *g, int blockX, int blockZ, uint32_t flags);
 
 /* Checks if the specified structure type could generate in the given biome.
  */
