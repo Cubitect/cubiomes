@@ -2063,6 +2063,49 @@ L_not_viable:
 }
 
 
+int isViableStructureTerrain(int structType, Generator *g, int x, int z)
+{
+    int id, sx, sz;
+    if (g->mc < MC_1_18)
+        return 1;
+    if (structType == Desert_Pyramid || structType == Jungle_Temple)
+    {
+        sx = (structType == Desert_Pyramid ? 21 : 12);
+        sz = (structType == Desert_Pyramid ? 21 : 15);
+    }
+    else if (structType == Mansion)
+    {
+        int cx = x >> 4, cz = z >> 4;
+        uint64_t rng = chunkGenerateRnd(g->seed, cx, cz);
+        int rot = nextInt(&rng, 4);
+        sx = 5;
+        sz = 5;
+        if (rot == 0) { sx = -5; }
+        if (rot == 1) { sx = -5; sz = -5; }
+        if (rot == 2) { sz = -5; }
+        x = (cx << 4) + 7;
+        z = (cz << 4) + 7;
+    }
+    else
+    {
+        return 1;
+    }
+
+    id = getBiomeAt(g, 4, (x+sx)>>2, 15, (z)>>2);
+    if (isOceanic(id) || id == river || id == frozen_river)
+        return 0;
+    id = getBiomeAt(g, 4, (x)>>2, 15, (z+sz)>>2);
+    if (isOceanic(id) || id == river || id == frozen_river)
+        return 0;
+    id = getBiomeAt(g, 4, (x+sx)>>2, 15, (z+sz)>>2);
+    if (isOceanic(id) || id == river || id == frozen_river)
+        return 0;
+
+    return 1;
+}
+
+
+
 /* Given bordering noise columns and a fractional position between those,
  * determine the surface block height (i.e. where the interpolated noise > 0).
  * Note that the noise columns should be of size: ncolxz[ colheight+1 ]

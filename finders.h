@@ -35,7 +35,7 @@ enum StructureType
 {
     Feature, // for locations of temple generation attempts pre 1.13
     Desert_Pyramid,
-    Jungle_Pyramid,
+    Jungle_Temple, Jungle_Pyramid = Jungle_Temple,
     Swamp_Hut,
     Igloo,
     Village,
@@ -578,6 +578,16 @@ int isViableStructurePos(int structType, Generator *g, int blockX, int blockZ, u
 /* Checks if the specified structure type could generate in the given biome.
  */
 int isViableFeatureBiome(int mc, int structureType, int biomeID);
+
+/* Some structures in 1.18 now only spawn if the surface is sufficiently high
+ * at all four bounding box corners. This affects primarily Desert_Pyramids,
+ * Jungle_Temples and Mansions.
+ * Currently cubiomes does not provide overworld surface height and cannot
+ * check it, but we can rule out some unlikely positions based biomes.
+ *
+ * This function is meant only for the 1.18 Overworld and is subject to change.
+ */
+int isViableStructureTerrain(int structType, Generator *g, int blockX, int blockZ);
 
 /* End Cities require a sufficiently high surface in addition to a biome check.
  * The world seed should be applied to the EndNoise and SurfaceNoise before
