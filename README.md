@@ -205,7 +205,7 @@ int check(uint64_t s48, void *data)
 int main()
 {
     int styp = Swamp_Hut;
-    int mc = MC_1_17;
+    int mc = MC_1_18;
     uint64_t basecnt = 0;
     uint64_t *bases = NULL;
     int threads = 8;

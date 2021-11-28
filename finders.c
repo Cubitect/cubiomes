@@ -1429,7 +1429,7 @@ Pos getSpawn(const Generator *g)
     int found;
     int i;
 
-    uint64_t rnd;
+    uint64_t rnd = 0;
     if (g->mc <= MC_1_17)
     {
         setSeed(&rnd, g->seed);
