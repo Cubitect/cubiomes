@@ -960,8 +960,8 @@ Pos locateBiome(
                 {
                     out.x = (x+i) << 2;
                     out.z = (z+j) << 2;
-                    found++;
                 }
+                found++;
             }
         }
     }
