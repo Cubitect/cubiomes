@@ -446,6 +446,18 @@ void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int large);
 int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
     uint64_t *dat, uint32_t flags);
 /**
+ * Currently, in 1.18, we have to generate biomes a chunk at a time to get an
+ * accurate mapping of the biomes in the level storage, as there is no longer a
+ * unique mapping from noise points to biomes (MC-241546). Note that the results
+ * from this are not suitable for chunk population/structure generation.
+ * The output is in the form out[x][y][z] for the 64 biome points in the chunk
+ * section. The coordinates {cx,cy,cz} are all at scale 1:16 and the 'dat'
+ * argument should be the previous noise sampling and can be left NULL.
+ */
+void genBiomeNoiseChunkSection(const BiomeNoise *bn, int out[4][4][4],
+    int cx, int cy, int cz, uint64_t *dat);
+
+/**
  * The scaled biome noise generation applies for the Overworld version 1.18.
  * The 'sha' hash of the seed is only required for voronoi at scale 1:1.
  * A scale of zero is interpreted as the default 1:4 scale.

@@ -1398,6 +1398,28 @@ int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
     return id;
 }
 
+void genBiomeNoiseChunkSection(const BiomeNoise *bn, int out[4][4][4],
+    int cx, int cy, int cz, uint64_t *dat)
+{
+    uint64_t buf = 0;
+    int i, j, k;
+    int x4 = cx << 2, y4 = cy << 2, z4 = cz << 2;
+    if (dat == NULL)
+        dat = &buf;
+    if (*dat == 0)
+    {   // try to determine the ending point of the last chunk section
+        sampleBiomeNoise(bn, NULL, x4+3, y4-1, z4+3, dat, 0);
+    }
+
+    // iteration order is important
+    for (i = 0; i < 4; ++i) {
+        for (j = 0; j < 4; ++j) {
+            for (k = 0; k < 4; ++k) {
+                out[i][j][k] = sampleBiomeNoise(bn, NULL, x4+i, y4+j, z4+k, dat, 0);
+            }
+        }
+    }
+}
 
 static void genBiomeNoise3D(const BiomeNoise *bn, int *out, Range r, int opt)
 {
