@@ -226,20 +226,30 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
         return getMineshafts(mc, seed, regX, regZ, regX, regZ, pos, 1);
 
     case Fortress:
-        if (mc < MC_1_16) {
+        if (mc >= MC_1_18) {
+            *pos = getFeaturePos(sconf, seed, regX, regZ);
+            seed = chunkGenerateRnd(seed, pos->x >> 4, pos->z >> 4);
+            return nextInt(&seed, 5) < 2;
+        } else if (mc >= MC_1_16) {
+            getRegPos(pos, &seed, regX, regZ, sconf);
+            return nextInt(&seed, 5) < 2;
+        } else {
             setAttemptSeed(&seed, regX << 4, regZ << 4);
             int valid = nextInt(&seed, 3) == 0;
             pos->x = (int)((((uint64_t)regX << 4) + nextInt(&seed,8) + 4) << 4);
             pos->z = (int)((((uint64_t)regZ << 4) + nextInt(&seed,8) + 4) << 4);
             return valid;
-        } else {
-            getRegPos(pos, &seed, regX, regZ, sconf);
-            return nextInt(&seed, 5) < 2;
         }
 
     case Bastion:
-        getRegPos(pos, &seed, regX, regZ, sconf);
-        return nextInt(&seed, 5) >= 2;
+        if (mc >= MC_1_18) {
+            *pos = getFeaturePos(sconf, seed, regX, regZ);
+            seed = chunkGenerateRnd(seed, pos->x >> 4, pos->z >> 4);
+            return nextInt(&seed, 5) >= 2;
+        } else {
+            getRegPos(pos, &seed, regX, regZ, sconf);
+            return nextInt(&seed, 5) >= 2;
+        }
 
     case End_Gateway:
         pos->x = (int)( ((uint32_t)regX << 4) );
@@ -1812,9 +1822,23 @@ int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t
             return 0;
         if (structureType == Ruined_Portal_N)
             return 1;
-
-        sampleX = (chunkX << 2) + 2;
-        sampleZ = (chunkZ << 2) + 2;
+        if (g->mc >= MC_1_18 && structureType == Bastion)
+        {
+            StructureVariant sv = getBastionType(g->mc, g->seed, x, z);
+            switch (sv.rotation) {
+                case 0: sampleX = -1+sv.sx; sampleZ = -1+sv.sz; break;
+                case 1: sampleX = +1-sv.sz; sampleZ = -1+sv.sx; break;
+                case 2: sampleX = +1-sv.sx; sampleZ = +1-sv.sz; break;
+                case 3: sampleX = -1+sv.sz; sampleZ = +1-sv.sx; break;
+            }
+            sampleX = ((chunkX << 5) + sampleX) / 2 >> 2;
+            sampleZ = ((chunkZ << 5) + sampleZ) / 2 >> 2;
+        }
+        else
+        {
+            sampleX = (chunkX << 2) + 2;
+            sampleZ = (chunkZ << 2) + 2;
+        }
         id = getBiomeAt(g, 4, sampleX, 0, sampleZ);
         return isViableFeatureBiome(g->mc, structureType, id);
     }
@@ -1908,13 +1932,12 @@ L_feature:
             for (i = 0; i < sizeof(vv)/sizeof(int); i++) {
                 if (flags && flags != (uint32_t) vv[i])
                     continue;
-                VillageType vt = getVillageType(g->mc, g->seed, x, z, vv[i]);
+                StructureVariant vt = getVillageType(g->mc, g->seed, x, z, vv[i]);
                 switch (vt.rotation) {
                     case 0: sampleX = -1+vt.sx; sampleZ = -1+vt.sz; break;
                     case 1: sampleX = +1-vt.sz; sampleZ = -1+vt.sx; break;
                     case 2: sampleX = +1-vt.sx; sampleZ = +1-vt.sz; break;
                     case 3: sampleX = -1+vt.sz; sampleZ = +1-vt.sx; break;
-                    default: continue;
                 }
                 sampleX = ((chunkX << 5) + sampleX) / 2 >> 2;
                 sampleZ = ((chunkZ << 5) + sampleZ) / 2 >> 2;
@@ -1935,32 +1958,20 @@ L_feature:
         setAttemptSeed(&rng, chunkX, chunkZ);
         if (nextInt(&rng, 5) != 0)
             goto L_not_viable;
-        if (g->mc >= MC_1_16)
-        {
-            if (g->mc < MC_1_18)
-                g->entry = &g->ls.layers[L_RIVER_MIX_4];
-            sampleX = (chunkX << 2) + 2;
-            sampleZ = (chunkZ << 2) + 2;
-        }
-        else
-        {
-            g->entry = &g->ls.layers[L_VORONOI_1];
-            sampleX = (chunkX << 4) + 9;
-            sampleZ = (chunkZ << 4) + 9;
-        }
-        id = getBiomeAt(g, 0, sampleX, 0, sampleZ);
-        if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
-            goto L_not_viable;
         // look for villages within 10 chunks
-        int cx0 = (chunkX-10), cx1 = (chunkX+10);
-        int cz0 = (chunkZ-10), cz1 = (chunkZ+10);
-        int rx, rz;
         StructureConfig vilconf;
         if (!getStructureConfig(Village, g->mc, &vilconf))
             goto L_not_viable;
-        for (rz = cz0 >> 5; rz <= cz1 >> 5; rz++)
+        int cx0 = (chunkX-10), cx1 = (chunkX+10);
+        int cz0 = (chunkZ-10), cz1 = (chunkZ+10);
+        int rx0 = cx0 / vilconf.regionSize - (cx0 < 0);
+        int rx1 = cx1 / vilconf.regionSize - (cx1 < 0);
+        int rz0 = cz0 / vilconf.regionSize - (cz0 < 0);
+        int rz1 = cz1 / vilconf.regionSize - (cz1 < 0);
+        int rx, rz;
+        for (rz = rz0; rz <= rz1; rz++)
         {
-            for (rx = cx0 >> 5; rx <= cx1 >> 5; rx++)
+            for (rx = rx0; rx <= rx1; rx++)
             {
                 Pos p = getFeaturePos(vilconf, g->seed, rx, rz);
                 int cx = p.x >> 4, cz = p.z >> 4;
@@ -1974,6 +1985,33 @@ L_feature:
                 }
             }
         }
+        if (g->mc >= MC_1_18)
+        {
+            rng = chunkGenerateRnd(g->seed, chunkX, chunkZ);
+            switch (nextInt(&rng, 4)) {
+                case 0: sampleX = +15; sampleZ = +15; break;
+                case 1: sampleX = -15; sampleZ = +15; break;
+                case 2: sampleX = -15; sampleZ = -15; break;
+                case 3: sampleX = +15; sampleZ = -15; break;
+            }
+            sampleX = ((chunkX << 5) + sampleX) / 2 >> 2;
+            sampleZ = ((chunkZ << 5) + sampleZ) / 2 >> 2;
+        }
+        else if (g->mc >= MC_1_16)
+        {
+            g->entry = &g->ls.layers[L_RIVER_MIX_4];
+            sampleX = (chunkX << 2) + 2;
+            sampleZ = (chunkZ << 2) + 2;
+        }
+        else
+        {
+            g->entry = &g->ls.layers[L_VORONOI_1];
+            sampleX = (chunkX << 4) + 9;
+            sampleZ = (chunkZ << 4) + 9;
+        }
+        id = getBiomeAt(g, 0, sampleX, 15, sampleZ);
+        if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
+            goto L_not_viable;
         goto L_viable;
     }
 
@@ -2205,24 +2243,24 @@ int isViableEndCityTerrain(const EndNoise *en, const SurfaceNoise *sn,
 //==============================================================================
 
 
-VillageType getVillageType(int mc, uint64_t seed, int blockX, int blockZ, int biomeID)
+StructureVariant getVillageType(int mc, uint64_t seed, int blockX, int blockZ, int biomeID)
 {
-    VillageType r = { 0, 0, 0, 0, 0, 0, 0 };
+    StructureVariant r = { 0, 0, 0, 0, 0, 0, 0 };
     if (!isViableFeatureBiome(mc, Village, biomeID))
         return r;
 
-    uint64_t rnd = chunkGenerateRnd(seed, blockX >> 4, blockZ >> 4);
+    uint64_t rng = chunkGenerateRnd(seed, blockX >> 4, blockZ >> 4);
 
     r.biome = biomeID;
 
     if (mc >= MC_1_14)
     {
-        r.rotation = nextInt(&rnd, 4);
+        r.rotation = nextInt(&rng, 4);
         int t;
         switch (biomeID)
         {
         case plains:
-            t = nextInt(&rnd, 204);
+            t = nextInt(&rng, 204);
             if      (t <  50) { r.variant = 0; r.sx =  9; r.sy = 4; r.sz =  9; } // plains_fountain_01
             else if (t < 100) { r.variant = 1; r.sx = 10; r.sy = 7; r.sz = 10; } // plains_meeting_point_1
             else if (t < 150) { r.variant = 2; r.sx =  8; r.sy = 5; r.sz = 15; } // plains_meeting_point_2
@@ -2233,7 +2271,7 @@ VillageType getVillageType(int mc, uint64_t seed, int blockX, int blockZ, int bi
             else if (t < 204) { r.variant = 3; r.sx = 11; r.sy = 9; r.sz = 11; r.abandoned = 1; }
             break;
         case desert:
-            t = nextInt(&rnd, 250);
+            t = nextInt(&rng, 250);
             if      (t <  98) { r.variant = 1; r.sx = 17; r.sy = 6; r.sz =  9; } // desert_meeting_point_1
             else if (t < 196) { r.variant = 2; r.sx = 12; r.sy = 6; r.sz = 12; } // desert_meeting_point_2
             else if (t < 245) { r.variant = 3; r.sx = 15; r.sy = 6; r.sz = 15; } // desert_meeting_point_3
@@ -2242,7 +2280,7 @@ VillageType getVillageType(int mc, uint64_t seed, int blockX, int blockZ, int bi
             else if (t < 250) { r.variant = 3; r.sx = 15; r.sy = 6; r.sz = 15; r.abandoned = 1; }
             break;
         case savanna:
-            t = nextInt(&rnd, 459);
+            t = nextInt(&rng, 459);
             if      (t < 100) { r.variant = 1; r.sx = 14; r.sy = 5; r.sz = 12; } // savanna_meeting_point_1
             else if (t < 150) { r.variant = 2; r.sx = 11; r.sy = 6; r.sz = 11; } // savanna_meeting_point_2
             else if (t < 300) { r.variant = 3; r.sx =  9; r.sy = 6; r.sz = 11; } // savanna_meeting_point_3
@@ -2253,14 +2291,14 @@ VillageType getVillageType(int mc, uint64_t seed, int blockX, int blockZ, int bi
             else if (t < 459) { r.variant = 4; r.sx =  9; r.sy = 6; r.sz =  9; r.abandoned = 1; }
             break;
         case taiga:
-            t = nextInt(&rnd, 100);
+            t = nextInt(&rng, 100);
             if      (t <  49) { r.variant = 1; r.sx = 22; r.sy = 3; r.sz = 18; } // taiga_meeting_point_1
             else if (t <  98) { r.variant = 2; r.sx =  9; r.sy = 7; r.sz =  9; } // taiga_meeting_point_2
             else if (t <  99) { r.variant = 1; r.sx = 22; r.sy = 3; r.sz = 18; r.abandoned = 1; }
             else if (t < 100) { r.variant = 2; r.sx =  9; r.sy = 7; r.sz =  9; r.abandoned = 1; }
             break;
         case snowy_tundra:
-            t = nextInt(&rnd, 306);
+            t = nextInt(&rng, 306);
             if      (t < 100) { r.variant = 1; r.sx = 12; r.sy = 8; r.sz =  8; } // snowy_meeting_point_1
             else if (t < 150) { r.variant = 2; r.sx = 11; r.sy = 5; r.sz =  9; } // snowy_meeting_point_2
             else if (t < 300) { r.variant = 3; r.sx =  7; r.sy = 7; r.sz =  7; } // snowy_meeting_point_3
@@ -2274,31 +2312,48 @@ VillageType getVillageType(int mc, uint64_t seed, int blockX, int blockZ, int bi
     }
     else if (mc >= MC_1_10)
     {
-        skipNextN(&rnd, mc == MC_1_13 ? 10 : 11);
-        r.abandoned = nextInt(&rnd, 50) == 0;
+        skipNextN(&rng, mc == MC_1_13 ? 10 : 11);
+        r.abandoned = nextInt(&rng, 50) == 0;
     }
 
     return r;
 }
 
+StructureVariant getBastionType(int mc, uint64_t seed, int blockX, int blockZ)
+{
+    (void) mc;
+    StructureVariant r = { 0, 0, 0, 0, 0, 0, 0 };
+    uint64_t rng = chunkGenerateRnd(seed, blockX >> 4, blockZ >> 4);
+    r.biome = -1;
+    r.rotation = nextInt(&rng, 4);
+    r.variant = nextInt(&rng, 4);
+    switch (r.variant)
+    {
+    case 0: r.sx = 46; r.sy = 24; r.sz = 46; break; // units/air_base
+    case 1: r.sx = 30; r.sy = 24; r.sz = 48; break; // hoglin_stable/air_base
+    case 2: r.sx = 38; r.sy = 48; r.sz = 38; break; // treasure/big_air_full
+    case 3: r.sx = 16; r.sy = 32; r.sz = 32; break; // bridge/starting_pieces/entrance_base
+    }
+    return r;
+}
 
 uint64_t getHouseList(uint64_t worldSeed, int chunkX, int chunkZ,
         int *out)
 {
-    uint64_t rnd = chunkGenerateRnd(worldSeed, chunkX, chunkZ);
-    skipNextN(&rnd, 1);
+    uint64_t rng = chunkGenerateRnd(worldSeed, chunkX, chunkZ);
+    skipNextN(&rng, 1);
 
-    out[HouseSmall] = nextInt(&rnd, 4 - 2 + 1) + 2;
-    out[Church]     = nextInt(&rnd, 1 - 0 + 1) + 0;
-    out[Library]    = nextInt(&rnd, 2 - 0 + 1) + 0;
-    out[WoodHut]    = nextInt(&rnd, 5 - 2 + 1) + 2;
-    out[Butcher]    = nextInt(&rnd, 2 - 0 + 1) + 0;
-    out[FarmLarge]  = nextInt(&rnd, 4 - 1 + 1) + 1;
-    out[FarmSmall]  = nextInt(&rnd, 4 - 2 + 1) + 2;
-    out[Blacksmith] = nextInt(&rnd, 1 - 0 + 1) + 0;
-    out[HouseLarge] = nextInt(&rnd, 3 - 0 + 1) + 0;
+    out[HouseSmall] = nextInt(&rng, 4 - 2 + 1) + 2;
+    out[Church]     = nextInt(&rng, 1 - 0 + 1) + 0;
+    out[Library]    = nextInt(&rng, 2 - 0 + 1) + 0;
+    out[WoodHut]    = nextInt(&rng, 5 - 2 + 1) + 2;
+    out[Butcher]    = nextInt(&rng, 2 - 0 + 1) + 0;
+    out[FarmLarge]  = nextInt(&rng, 4 - 1 + 1) + 1;
+    out[FarmSmall]  = nextInt(&rng, 4 - 2 + 1) + 2;
+    out[Blacksmith] = nextInt(&rng, 1 - 0 + 1) + 0;
+    out[HouseLarge] = nextInt(&rng, 3 - 0 + 1) + 0;
 
-    return rnd;
+    return rng;
 }
 
 //==============================================================================

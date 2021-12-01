@@ -154,7 +154,7 @@ STRUCT(StrongholdIter)
 };
 
 
-STRUCT(VillageType)
+STRUCT(StructureVariant)
 {
     char abandoned; // is zombie village
     char variant;
@@ -614,7 +614,10 @@ uint64_t chunkGenerateRnd(uint64_t worldSeed, int chunkX, int chunkZ)
     return rnd;
 }
 
-VillageType getVillageType(int mc, uint64_t seed, int blockX, int blockZ, int biomeID);
+StructureVariant getVillageType(int mc, uint64_t seed, int blockX, int blockZ, int biomeID);
+
+// For 1.18
+StructureVariant getBastionType(int mc, uint64_t seed, int blockX, int blockZ);
 
 
 /* Finds the number of each type of house that generate in a village
@@ -627,6 +630,8 @@ VillageType getVillageType(int mc, uint64_t seed, int blockX, int blockZ, int bi
  * Returns the random object seed after finding these numbers.
  */
 uint64_t getHouseList(uint64_t worldSeed, int chunkX, int chunkZ, int *housesOut);
+
+
 
 
 //==============================================================================
