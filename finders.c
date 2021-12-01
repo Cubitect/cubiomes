@@ -1906,7 +1906,7 @@ L_feature:
             sampleX = (chunkX << 4) + 9;
             sampleZ = (chunkZ << 4) + 9;
         }
-        id = getBiomeAt(g, 0, sampleX, 0, sampleZ);
+        id = getBiomeAt(g, 0, sampleX, 319>>2, sampleZ);
         if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
             goto L_not_viable;
         goto L_viable;
@@ -1917,7 +1917,7 @@ L_feature:
             g->entry = &g->ls.layers[L_RIVER_MIX_4];
             sampleX = (chunkX << 2) + 2;
             sampleZ = (chunkZ << 2) + 2;
-            id = getBiomeAt(g, 0, sampleX, 15, sampleZ);
+            id = getBiomeAt(g, 0, sampleX, 0, sampleZ);
             if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
                 goto L_not_viable;
             if (flags && (uint32_t) id != flags)
@@ -1941,7 +1941,7 @@ L_feature:
                 }
                 sampleX = ((chunkX << 5) + sampleX) / 2 >> 2;
                 sampleZ = ((chunkZ << 5) + sampleZ) / 2 >> 2;
-                id = getBiomeAt(g, 0, sampleX, 15, sampleZ);
+                id = getBiomeAt(g, 0, sampleX, 319>>2, sampleZ);
                 if (id == vv[i] || (id == meadow && vv[i] == plains)) {
                     viable = id;
                     goto L_viable;
@@ -2009,7 +2009,7 @@ L_feature:
             sampleX = (chunkX << 4) + 9;
             sampleZ = (chunkZ << 4) + 9;
         }
-        id = getBiomeAt(g, 0, sampleX, 15, sampleZ);
+        id = getBiomeAt(g, 0, sampleX, 319>>2, sampleZ);
         if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
             goto L_not_viable;
         goto L_viable;
@@ -2052,10 +2052,10 @@ L_feature:
     case Mansion:
         if (g->mc < MC_1_11)
             goto L_not_viable;
-        sampleX = (chunkX << 4) + 8;
-        sampleZ = (chunkZ << 4) + 8;
         if (g->mc <= MC_1_17)
         {
+            sampleX = (chunkX << 4) + 8;
+            sampleZ = (chunkZ << 4) + 8;
             if (!areBiomesViable(g, sampleX, 0, sampleZ, 32, getValidMansionBiomes(), approx))
                 goto L_not_viable;
         }
@@ -2065,7 +2065,9 @@ L_feature:
             // This minimum height has to be y >= 60. The biome check is done
             // at the center position at that height.
             // TODO: get surface height
-            id = getBiomeAt(g, 4, sampleX>>2, 60>>2, sampleZ>>2);
+            sampleX = (chunkX << 4) + 7;
+            sampleZ = (chunkZ << 4) + 7;
+            id = getBiomeAt(g, 4, sampleX>>2, 319>>4, sampleZ>>2);
             if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
                 goto L_not_viable;
         }
