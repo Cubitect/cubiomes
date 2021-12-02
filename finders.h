@@ -667,7 +667,7 @@ BiomeFilter setupBiomeFilter(
  * @seed        : world seed
  * @filter      : biome requirements to be met
  * @approx      : enables approximations with more aggressive filtering
- * @timeout     : occasional check for abort (nullable)
+ * @stop        : occasional check for abort (nullable)
  */
 int checkForBiomes(
         Generator     * g,
@@ -677,7 +677,7 @@ int checkForBiomes(
         uint64_t        seed,
         BiomeFilter     filter,
         int             approx,
-        int           (*timeout)()
+        volatile char * stop // should be atomic, but is fine as stop flag
         );
 
 /* Specialization of checkForBiomes() for a LayerStack, i.e. the Overworld up

@@ -1830,6 +1830,7 @@ int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t
                 case 1: sampleX = +1-sv.sz; sampleZ = -1+sv.sx; break;
                 case 2: sampleX = +1-sv.sx; sampleZ = +1-sv.sz; break;
                 case 3: sampleX = -1+sv.sz; sampleZ = +1-sv.sx; break;
+                default: return 0; // unreachable
             }
             sampleX = ((chunkX << 5) + sampleX) / 2 >> 2;
             sampleZ = ((chunkZ << 5) + sampleZ) / 2 >> 2;
@@ -1938,6 +1939,7 @@ L_feature:
                     case 1: sampleX = +1-vt.sz; sampleZ = -1+vt.sx; break;
                     case 2: sampleX = +1-vt.sx; sampleZ = +1-vt.sz; break;
                     case 3: sampleX = -1+vt.sz; sampleZ = +1-vt.sx; break;
+                    default: return 0; // unreachable
                 }
                 sampleX = ((chunkX << 5) + sampleX) / 2 >> 2;
                 sampleZ = ((chunkZ << 5) + sampleZ) / 2 >> 2;
@@ -1993,6 +1995,7 @@ L_feature:
                 case 1: sampleX = -15; sampleZ = +15; break;
                 case 2: sampleX = -15; sampleZ = -15; break;
                 case 3: sampleX = +15; sampleZ = -15; break;
+                default: return 0; // unreachable
             }
             sampleX = ((chunkX << 5) + sampleX) / 2 >> 2;
             sampleZ = ((chunkZ << 5) + sampleZ) / 2 >> 2;
@@ -2652,11 +2655,12 @@ int checkForBiomes(
         uint64_t        seed,
         BiomeFilter     filter,
         int             approx,
-        int           (*timeout)()
+        volatile char * stop
         )
 {
-    (void) timeout;
-    int i, j, ret;
+    if (stop && *stop)
+        return 0;
+    int i, j, k, ret;
 
     if (g->mc <= MC_1_17 && dim == 0)
     {
@@ -2680,7 +2684,7 @@ int checkForBiomes(
     // 3) each biome in the 1.18 noise generator might have min.max biome
     //    parameter ranged
 
-    int *ids;
+    int *ids, id;
     if (cache)
         ids = cache;
     else
@@ -2691,23 +2695,83 @@ int checkForBiomes(
         applySeed(g, dim, seed);
     }
 
-    ret = !genBiomes(g, ids, r);
+    // Biome checks are very expensive now, so we should sample the area one
+    // voxel at a time in a 'random' order and constantly check the conditions.
+    // This is not very efficient for scale 1:1 biome filters, but those
+    // should be avoided here anyway.
+    uint64_t b = 0, m = 0;
+    ret = 0;
 
-    if (ret)
+    // shuffle indeces
+    struct touple { int i, x, y, z; } *buf;
+    buf = (struct touple*) malloc(r.sx * r.sy * r.sz * sizeof(*buf));
+
+    id = 0;
+    for (k = 0; k < r.sy; k++)
     {
-        uint64_t b = 0, bm = 0;
-        for (i = 0; i < r.sx*r.sy*r.sz; i++)
+        for (j = 0; j < r.sz; j++)
         {
-            int id = ids[i];
-            if (id < 128) b |= (1ULL << id);
-            else bm |= (1ULL << (id-128));
+            for (i = 0; i < r.sx; i++)
+            {
+                buf[id].i = id;
+                buf[id].x = i;
+                buf[id].y = k;
+                buf[id].z = j;
+                id++;
+            }
         }
-        ret = !(((b & filter.riverToFind) ^ filter.riverToFind) ||
-                ((bm & filter.riverToFindM) ^ filter.riverToFindM) ||
-                (b & filter.biomeToExcl) ||
-                (bm & filter.biomeToExclM));
     }
 
+    for (i = r.sx*r.sy*r.sz-1; i > 1; i--)
+    {
+        int idx = rand() % (i - 1);
+        struct touple t = buf[idx];
+        buf[idx] = buf[i];
+        buf[i] = t;
+    }
+
+    for (i = r.sx*r.sy*r.sz-1; i >= 0; i--)
+    {
+        if (stop && *stop)
+            break;
+
+        int x = buf[i].x, y = buf[i].y, z = buf[i].z;
+        id = getBiomeAt(g, r.scale, r.x+x, r.y+y, r.z+z);
+        ids[buf[i].i] = id;
+        if (id < 128) b |= (1ULL << id);
+        else m |= (1ULL << (id-128));
+
+        if (filter.biomeToExcl || filter.biomeToExclM)
+        {
+            if ((b & filter.biomeToExcl) ||
+                (m & filter.biomeToExclM))
+            {   // found an excluded biome
+                break;
+            }
+        }
+        else
+        {   // no excluded: do the current biomes satisfy the condition?
+            if (((b & filter.riverToFind) ^ filter.riverToFind) == 0 &&
+                ((m & filter.riverToFindM) ^ filter.riverToFindM) == 0)
+            {
+                break;
+            }
+        }
+    }
+
+    if (stop && *stop)
+    {
+        ret = 0;
+    }
+    else
+    {
+        ret = !(((b & filter.riverToFind) ^ filter.riverToFind) ||
+                ((m & filter.riverToFindM) ^ filter.riverToFindM) ||
+                (b & filter.biomeToExcl) ||
+                (m & filter.biomeToExclM));
+    }
+
+    free(buf);
     if (ids != cache)
         free(ids);
     return ret;
