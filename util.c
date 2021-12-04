@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <ctype.h>
 
 
 const char* mc2str(int mc)
@@ -57,8 +59,28 @@ int str2mc(const char *s)
 }
 
 
-const char *biome2str(int id)
+const char *biome2str(int mc, int id)
 {
+    if (mc >= MC_1_18)
+    {
+        // a bunch of 'new' biomes in 1.18 actually just got renamed
+        // (based on their features and biome id conversion when upgrading)
+        switch (id)
+        {
+        case old_growth_birch_forest: return "old_growth_birch_forest";
+        case old_growth_pine_taiga: return "old_growth_pine_taiga";
+        case old_growth_spruce_taiga: return "old_growth_spruce_taiga";
+        case snowy_plains: return "snowy_plains";
+        case sparse_jungle: return "sparse_jungle";
+        case stony_shore: return "stony_shore";
+        case windswept_hills: return "windswept_hills";
+        case windswept_forest: return "windswept_forest";
+        case windswept_gravelly_hills: return "windswept_gravelly_hills";
+        case windswept_savanna: return "windswept_savanna";
+        case wooded_badlands: return "wooded_badlands";
+        }
+    }
+
     switch (id)
     {
     case ocean: return "ocean";
@@ -193,7 +215,7 @@ void initBiomeColors(unsigned char biomeColors[256][3])
     setBiomeColor(biomeColors, desert, 250, 148, 24);
     setBiomeColor(biomeColors, mountains, 96, 96, 96);
     setBiomeColor(biomeColors, forest, 5, 102, 33);
-    setBiomeColor(biomeColors, taiga, 11, 102, 89);
+    setBiomeColor(biomeColors, taiga, 11, 106, 95);//11, 102, 89);
     setBiomeColor(biomeColors, swamp, 7, 249, 178);
     setBiomeColor(biomeColors, river, 0, 0, 255);
     setBiomeColor(biomeColors, nether_wastes, 87, 37, 38);
@@ -209,9 +231,9 @@ void initBiomeColors(unsigned char biomeColors[256][3])
     setBiomeColor(biomeColors, wooded_hills, 34, 85, 28);
     setBiomeColor(biomeColors, taiga_hills, 22, 57, 51);
     setBiomeColor(biomeColors, mountain_edge, 114, 120, 154);
-    setBiomeColor(biomeColors, jungle, 83, 123, 9);
+    setBiomeColor(biomeColors, jungle, 80, 123, 10);//83, 123, 9);
     setBiomeColor(biomeColors, jungle_hills, 44, 66, 5);
-    setBiomeColor(biomeColors, jungleEdge, 98, 139, 23);
+    setBiomeColor(biomeColors, jungle_edge, 96, 147, 15);//98, 139, 23);
     setBiomeColor(biomeColors, deep_ocean, 0, 0, 48);
     setBiomeColor(biomeColors, stone_shore, 162, 162, 132);
     setBiomeColor(biomeColors, snowy_beach, 250, 240, 192);
@@ -222,7 +244,7 @@ void initBiomeColors(unsigned char biomeColors[256][3])
     setBiomeColor(biomeColors, snowy_taiga_hills, 36, 63, 54);
     setBiomeColor(biomeColors, giant_tree_taiga, 89, 102, 81);
     setBiomeColor(biomeColors, giant_tree_taiga_hills, 69, 79, 62);
-    setBiomeColor(biomeColors, wooded_mountains, 80, 112, 80);
+    setBiomeColor(biomeColors, wooded_mountains, 91, 115, 82);//80, 112, 80);
     setBiomeColor(biomeColors, savanna, 189, 178, 95);
     setBiomeColor(biomeColors, savanna_plateau, 167, 157, 100);
     setBiomeColor(biomeColors, badlands, 217, 69, 21);
@@ -266,8 +288,8 @@ void initBiomeColors(unsigned char biomeColors[256][3])
     setMutationColor(biomeColors, modified_wooded_badlands_plateau, wooded_badlands_plateau);
     setMutationColor(biomeColors, modified_badlands_plateau, badlands_plateau);
 
-    setBiomeColor(biomeColors, bamboo_jungle, 118, 142, 20);
-    setBiomeColor(biomeColors, bamboo_jungle_hills, 59, 71, 10);
+    setBiomeColor(biomeColors, bamboo_jungle, 132, 149, 0);//118, 142, 20);
+    setBiomeColor(biomeColors, bamboo_jungle_hills, 92, 108, 4);//;59, 71, 10);
 
     setBiomeColor(biomeColors, soul_sand_valley, 77, 58, 46);
     setBiomeColor(biomeColors, crimson_forest, 152, 26, 17);
@@ -294,6 +316,87 @@ void initBiomeTypeColors(unsigned char biomeColors[256][3])
     setBiomeColor(biomeColors, Lush,     0x00, 0xa0, 0x00);
     setBiomeColor(biomeColors, Cold,     0x60, 0x60, 0x60);
     setBiomeColor(biomeColors, Freezing, 0xff, 0xff, 0xff);
+}
+
+
+// find the longest biome name contained in 's'
+static int _str2id(const char *s)
+{
+    if (*s == 0)
+        return -1;
+    const char *f = NULL;
+    int ret = -1, id;
+    for (id = 0; id < 256; id++)
+    {
+        const char *p = biome2str(MC_NEWEST, id);
+        if (p && (!f || strlen(f) < strlen(p)))
+            if (strstr(s, p)) {f = p; ret = id;}
+
+        const char *t = biome2str(MC_1_17, id);
+        if (t && t != p && (!f || strlen(f) < strlen(p)))
+            if (strstr(s, t)) {f = t; ret = id;}
+    }
+    return ret;
+}
+
+int parseBiomeColors(unsigned char biomeColors[256][3], const char *buf)
+{
+    const char *p = buf;
+    char bstr[64];
+    int id, col[4], n, ib, ic;
+    n = 0;
+    while (*p)
+    {
+        for (ib = ic = 0; *p && *p != '\n'; p++)
+        {
+            if (isalpha(*p) && (size_t)ib+1 < sizeof(bstr))
+                bstr[ib++] = *p;
+            if (ic < 4 && (*p == '#' || (p[0] == '0' && p[1] == 'x')))
+                col[ic++] = strtol(p+1+(*p=='0'), (char**)&p, 16);
+            else if (ic < 4 && *p >= '0' && *p <= '9')
+                col[ic++] = strtol(p+1, (char**)&p, 10);
+            if (*p == '\n')
+                break;
+        }
+        while (*p == '\n') p++;
+
+        bstr[ib] = 0;
+        id = _str2id(bstr);
+        if (id >= 0 && id < 256)
+        {
+            if (ic == 3)
+            {
+                biomeColors[id][0] = col[0] & 0xff;
+                biomeColors[id][1] = col[1] & 0xff;
+                biomeColors[id][2] = col[2] & 0xff;
+                n++;
+            }
+            else if (ic == 1)
+            {
+                biomeColors[id][0] = (col[0] >> 16) & 0xff;
+                biomeColors[id][1] = (col[0] >>  8) & 0xff;
+                biomeColors[id][2] = (col[0] >>  0) & 0xff;
+                n++;
+            }
+        }
+        else if (ic == 4)
+        {
+            id = col[0] & 0xff;
+            biomeColors[id][0] = col[1] & 0xff;
+            biomeColors[id][1] = col[2] & 0xff;
+            biomeColors[id][2] = col[3] & 0xff;
+            n++;
+        }
+        else if (ic == 2)
+        {
+            id = col[0] & 0xff;
+            biomeColors[id][0] = (col[1] >> 16) & 0xff;
+            biomeColors[id][1] = (col[1] >>  8) & 0xff;
+            biomeColors[id][2] = (col[1] >>  0) & 0xff;
+            n++;
+        }
+    }
+    return n;
 }
 
 

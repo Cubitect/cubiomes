@@ -2700,6 +2700,13 @@ int checkForBiomes(
     // This is not very efficient for scale 1:1 biome filters, but those
     // should be avoided here anyway.
     uint64_t b = 0, m = 0;
+    uint64_t breq = filter.riverToFind;
+    uint64_t mreq = filter.riverToFindM;
+    uint64_t bexc = filter.biomeToExcl;
+    uint64_t mexc = filter.biomeToExclM;
+    breq &= ~((1ULL << ocean) | (1ULL << deep_ocean));
+    breq |= filter.oceanToFind;
+
     ret = 0;
 
     // shuffle indeces
@@ -2741,18 +2748,16 @@ int checkForBiomes(
         if (id < 128) b |= (1ULL << id);
         else m |= (1ULL << (id-128));
 
-        if (filter.biomeToExcl || filter.biomeToExclM)
+        if (bexc || mexc)
         {
-            if ((b & filter.biomeToExcl) ||
-                (m & filter.biomeToExclM))
+            if ((b & bexc) || (m & mexc))
             {   // found an excluded biome
                 break;
             }
         }
         else
         {   // no excluded: do the current biomes satisfy the condition?
-            if (((b & filter.riverToFind) ^ filter.riverToFind) == 0 &&
-                ((m & filter.riverToFindM) ^ filter.riverToFindM) == 0)
+            if (((b & breq) ^ breq) == 0 && ((m & mreq) ^ mreq) == 0)
             {
                 break;
             }
@@ -2765,10 +2770,10 @@ int checkForBiomes(
     }
     else
     {
-        ret = !(((b & filter.riverToFind) ^ filter.riverToFind) ||
-                ((m & filter.riverToFindM) ^ filter.riverToFindM) ||
-                (b & filter.biomeToExcl) ||
-                (m & filter.biomeToExclM));
+        ret = ((b & breq) ^ breq) == 0 &&
+              ((m & mreq) ^ mreq) == 0 &&
+               (b & bexc) == 0 &&
+               (m & mexc) == 0;
     }
 
     free(buf);
