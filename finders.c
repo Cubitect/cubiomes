@@ -78,12 +78,22 @@ void setAttemptSeed(uint64_t *s, int cx, int cz)
 
 uint64_t getPopulationSeed(int mc, uint64_t ws, int x, int z)
 {
+    Xoroshiro xr;
     uint64_t s;
     uint64_t a, b;
 
-    setSeed(&s, ws);
-    a = nextLong(&s);
-    b = nextLong(&s);
+    if (mc >= MC_1_18)
+    {
+        xSetSeed(&xr, ws);
+        a = xNextLongJ(&xr);
+        b = xNextLongJ(&xr);
+    }
+    else
+    {
+        setSeed(&s, ws);
+        a = nextLong(&s);
+        b = nextLong(&s);
+    }
     if (mc >= MC_1_13)
     {
         a |= 1; b |= 1;
@@ -254,16 +264,31 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
     case End_Gateway:
         pos->x = (int)( ((uint32_t)regX << 4) );
         pos->z = (int)( ((uint32_t)regZ << 4) );
-        setSeed(&seed, getPopulationSeed(mc, seed, pos->x, pos->z) + sconf.salt);
-        if (mc <= MC_1_16) {
-            if (nextInt(&seed, 700) != 0)
+        seed = getPopulationSeed(mc, seed, pos->x, pos->z);
+        if (mc >= MC_1_18)
+        {
+            Xoroshiro xr;
+            seed += 10000*4;
+            xSetSeed(&xr, seed);
+            if (xNextFloat(&xr) >= 1.0/700)
                 return 0;
-        } else {
-            if (nextFloat(&seed) >= 1.0/700)
-                return 0;
+            pos->x += xNextIntJ(&xr, 16);
+            pos->z += xNextIntJ(&xr, 16);
         }
-        pos->x += nextInt(&seed, 16);
-        pos->z += nextInt(&seed, 16);
+        else
+        {
+            seed = getPopulationSeed(mc, seed, pos->x, pos->z);
+            setSeed(&seed, seed + sconf.salt);
+            if (mc <= MC_1_16) {
+                if (nextInt(&seed, 700) != 0)
+                    return 0;
+            } else {
+                if (nextFloat(&seed) >= 1.0/700)
+                    return 0;
+            }
+            pos->x += nextInt(&seed, 16);
+            pos->z += nextInt(&seed, 16);
+        }
         return 1;
 
     default:
@@ -2264,6 +2289,9 @@ StructureVariant getVillageType(int mc, uint64_t seed, int blockX, int blockZ, i
         int t;
         switch (biomeID)
         {
+        case meadow:
+            r.biome = plains;
+            // fallthrough
         case plains:
             t = nextInt(&rng, 204);
             if      (t <  50) { r.variant = 0; r.sx =  9; r.sy = 4; r.sz =  9; } // plains_fountain_01

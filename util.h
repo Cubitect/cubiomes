@@ -20,7 +20,7 @@ void initBiomeTypeColors(unsigned char biomeColors[256][3]);
 /// Attempts to parse a biome-color mappings from a text buffer.
 /// The parser makes one attempt per line and is not very picky regarding a
 /// combination of biomeID/name with a color, represented as either a single
-/// number or as a triplet in decimal or hex (preceeded by 0x or #).
+/// number or as a triplet in decimal or as hex (preceeded by 0x or #).
 /// Returns the number of successfully mapped biome ids
 int parseBiomeColors(unsigned char biomeColors[256][3], const char *buf);
 

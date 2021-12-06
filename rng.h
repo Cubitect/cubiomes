@@ -203,10 +203,38 @@ static inline double xNextDouble(Xoroshiro *xr)
     return (xNextLong(xr) >> (64-53)) * 1.1102230246251565E-16;
 }
 
+static inline float xNextFloat(Xoroshiro *xr)
+{
+    return (xNextLong(xr) >> (64-24)) * 5.9604645E-8F;
+}
+
 static inline void xSkipN(Xoroshiro *xr, int count)
 {
     while (count --> 0)
         xNextLong(xr);
+}
+
+static inline uint64_t xNextLongJ(Xoroshiro *xr)
+{
+    return (xNextLong(xr) & 0xffffffff00000000) | (xNextLong(xr) >> 32);
+}
+
+static inline int xNextIntJ(Xoroshiro *xr, uint32_t n)
+{
+    int bits, val;
+    const int m = n - 1;
+
+    if ((m & n) == 0) {
+        uint64_t x = n * (xNextLong(xr) >> 33);
+        return (int) ((int64_t) x >> 31);
+    }
+
+    do {
+        bits = (xNextLong(xr) >> 33);
+        val = bits % n;
+    }
+    while (bits - val + m < 0);
+    return val;
 }
 
 
