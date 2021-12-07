@@ -1,5 +1,5 @@
-CC      = gcc
-AR      = ar
+#CC      = gcc
+#AR      = ar
 ARFLAGS = cr
 override LDFLAGS = -lm
 override CFLAGS += -Wall -Wextra -fwrapv

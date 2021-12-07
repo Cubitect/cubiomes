@@ -2757,22 +2757,35 @@ int checkForBiomes(
         }
     }
 
-    for (i = r.sx*r.sy*r.sz-1; i > 1; i--)
+    int n = r.sx*r.sy*r.sz;
+    // Determine a number of trials that gives a decent chance to sample all
+    // the biomes that are present, assuming a completely random and
+    // independent biome distribution. (This is actually not at all the case.)
+    int trials = n;
+    if (approx)
     {
-        int idx = rand() % (i - 1);
-        struct touple t = buf[idx];
-        buf[idx] = buf[i];
-        buf[i] = t;
+        int t = 400 + (int) sqrt(n);
+        if (trials > t)
+            trials = t;
     }
 
-    for (i = r.sx*r.sy*r.sz-1; i >= 0; i--)
+    for (i = 0; i < trials; i++)
     {
+        struct touple t;
+        j = n - i;
+        k = rand() % j;
+        t = buf[k];
+        if (k != j-1)
+        {
+            buf[k] = buf[j-1];
+            buf[j-1] = t;
+        }
+
         if (stop && *stop)
             break;
 
-        int x = buf[i].x, y = buf[i].y, z = buf[i].z;
-        id = getBiomeAt(g, r.scale, r.x+x, r.y+y, r.z+z);
-        ids[buf[i].i] = id;
+        id = getBiomeAt(g, r.scale, r.x+t.x, r.y+t.y, r.z+t.z);
+        ids[t.i] = id;
         if (id < 128) b |= (1ULL << id);
         else m |= (1ULL << (id-128));
 
