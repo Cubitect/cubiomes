@@ -6,6 +6,7 @@ override CFLAGS += -Wall -Wextra -fwrapv
 
 ifeq ($(OS),Windows_NT)
 	override CFLAGS += -D_WIN32
+	CC = gcc
 	RM = del
 else
 	override LDFLAGS += -pthread
