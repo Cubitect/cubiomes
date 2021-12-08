@@ -354,7 +354,7 @@ int parseBiomeColors(unsigned char biomeColors[256][3], const char *buf)
             if (ic < 4 && (*p == '#' || (p[0] == '0' && p[1] == 'x')))
                 col[ic++] = strtol(p+1+(*p=='0'), (char**)&p, 16);
             else if (ic < 4 && *p >= '0' && *p <= '9')
-                col[ic++] = strtol(p+1, (char**)&p, 10);
+                col[ic++] = strtol(p, (char**)&p, 10);
             if (*p == '\n')
                 break;
         }
