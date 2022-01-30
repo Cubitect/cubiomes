@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <ctype.h>
 
 
 const char* mc2str(int mc)
@@ -333,7 +332,7 @@ static int _str2id(const char *s)
             if (strstr(s, p)) {f = p; ret = id;}
 
         const char *t = biome2str(MC_1_17, id);
-        if (t && t != p && (!f || strlen(f) < strlen(p)))
+        if (t && t != p && (!f || strlen(f) < strlen(t)))
             if (strstr(s, t)) {f = t; ret = id;}
     }
     return ret;
@@ -349,8 +348,13 @@ int parseBiomeColors(unsigned char biomeColors[256][3], const char *buf)
     {
         for (ib = ic = 0; *p && *p != '\n'; p++)
         {
-            if (isalpha(*p) && (size_t)ib+1 < sizeof(bstr))
-                bstr[ib++] = *p;
+            if ((size_t)ib+1 < sizeof(bstr))
+            {
+                if ((*p >= 'a' && *p <= 'z') || *p == '_')
+                    bstr[ib++] = *p;
+                else if (*p >= 'A' && *p <= 'Z')
+                    bstr[ib++] = (*p - 'A') + 'a';
+            }
             if (ic < 4 && (*p == '#' || (p[0] == '0' && p[1] == 'x')))
                 col[ic++] = strtol(p+1+(*p=='0'), (char**)&p, 16);
             else if (ic < 4 && *p >= '0' && *p <= '9')
@@ -461,4 +465,5 @@ int savePPM(const char *path, const unsigned char *pixels, const unsigned int sx
     fclose(fp);
     return (unsigned int)written != 3*sx*sy;
 }
+
 
