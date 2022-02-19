@@ -3515,6 +3515,8 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
         break;
 
     case L_BIOME_256: // biomes added in (L_BIOME_256, L_BIOME_EDGE_64]
+    case L_BAMBOO_256:
+        if (mc < MC_1_14 && layer == L_BAMBOO_256) goto L_bad_layer;
         if (mc >= MC_1_7) {
             if (mc >= MC_1_14 && id == jungle)
                 genPotential(mL, mM, L_BIOME_EDGE_64, mc, bamboo_jungle);
