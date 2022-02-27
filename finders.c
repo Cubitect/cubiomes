@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <limits.h>
+#include <float.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -3233,15 +3234,15 @@ L_HAS_PROTO_MUSHROOM:
         ids = (int*) calloc(getMinLayerCacheSize(entry, w, h), sizeof(int));
 
     filter_data_t fd[9];
-    swapMap(fd+0, &filter, l+L_OCEAN_MIX_4,     mapFilterOceanMix);
-    swapMap(fd+1, &filter, l+L_RIVER_MIX_4,     mapFilterRiverMix);
-    swapMap(fd+2, &filter, l+L_SHORE_16,        mapFilterShore);
-    swapMap(fd+3, &filter, l+L_SUNFLOWER_64,    mapFilterRareBiome);
-    swapMap(fd+4, &filter, l+L_BIOME_EDGE_64,   mapFilterBiomeEdge);
-    swapMap(fd+5, &filter, l+L_OCEAN_TEMP_256,  mapFilterOceanTemp);
-    swapMap(fd+6, &filter, l+L_BIOME_256,       mapFilterBiome);
-    swapMap(fd+7, &filter, l+L_MUSHROOM_256,    mapFilterMushroom);
-    swapMap(fd+8, &filter, l+L_SPECIAL_1024,    mapFilterSpecial);
+    swapMap(fd+0, &filter, l+L_OCEAN_MIX_4,    mapFilterOceanMix);
+    swapMap(fd+1, &filter, l+L_RIVER_MIX_4,    mapFilterRiverMix);
+    swapMap(fd+2, &filter, l+L_SHORE_16,       mapFilterShore);
+    swapMap(fd+3, &filter, l+L_SUNFLOWER_64,   mapFilterRareBiome);
+    swapMap(fd+4, &filter, l+L_BIOME_EDGE_64,  mapFilterBiomeEdge);
+    swapMap(fd+5, &filter, l+L_OCEAN_TEMP_256, mapFilterOceanTemp);
+    swapMap(fd+6, &filter, l+L_BIOME_256,      mapFilterBiome);
+    swapMap(fd+7, &filter, l+L_MUSHROOM_256,   mapFilterMushroom);
+    swapMap(fd+8, &filter, l+L_SPECIAL_1024,   mapFilterSpecial);
 
     setLayerSeed(entry, seed);
     int ret = !entry->getMap(entry, ids, x, z, w, h);
@@ -3670,6 +3671,10 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
         genPotential(mL, mM, L_VORONOI_1, mc, id);
         break;
 
+    case L_OCEAN_MIX_4:
+        if (mc <= MC_1_12) goto L_bad_layer;
+        // fallthrough
+
     case L_VORONOI_1:
         if (id < 128)   *mL |= 1ULL << id;
         else            *mM |= 1ULL << (id-128);
@@ -3686,6 +3691,439 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
 }
 
 
+
+double getParaDescent(const DoublePerlinNoise *para, double factor,
+    int x, int z, int w, int h, int i0, int j0, int maxrad,
+    int maxiter, double alpha, void *data, int (*func)(void*,int,int,double))
+{
+    /// Do a gradient descent on a grid...
+    /// To start with, we will just consider a step size of 1 in one axis:
+    ///   Try going in positive x: if gradient is upwards go to negative x
+    ///   then do the same with z - if all 4 directions go upwards then we have
+    ///   found a minimum, otherwise repeat.
+    /// We can remember and try the direction from the previous cycle first to
+    /// reduce the number of wrong guesses.
+    ///
+    /// We can also use a larger step size than 1, as long as we are believe
+    /// the minimum is not in between. To determine if this is viable, we check
+    /// the step size of 1 first, and then jump if the gradient appears large
+    /// enough in that direction.
+    ///
+    ///TODO:
+    /// The perlin noise can be sampled continuously, so more established
+    /// minima algorithms can also be considered...
+
+    int dirx = 0, dirz = 0, dira;
+    int k, i, j;
+    double v, vd, va;
+    v = factor * sampleDoublePerlin(para, x+i0, 0, z+j0);
+    if (func)
+    {
+        if (func(data, x+i0, z+j0, factor < 0 ? -v : v))
+            return nan("");
+    }
+
+    i = i0; j = j0;
+    for (k = 0; k < maxiter; k++)
+    {
+        if (dirx == 0) dirx = +1;
+        if (i+dirx >= 0 && i+dirx < w)
+            vd = factor * sampleDoublePerlin(para, x+i+dirx, 0, z+j);
+        else vd = v;
+        if (vd >= v)
+        {
+            dirx *= -1;
+            if (i+dirx >= 0 && i+dirx < w)
+                vd = factor * sampleDoublePerlin(para, x+i+dirx, 0, z+j);
+            else vd = v;
+            if (vd >= v)
+                dirx = 0;
+        }
+        if (dirx)
+        {
+            dira = (int)(dirx * alpha * (v - vd));
+            if (abs(dira) > 2 && i+dira >= 0 && i+dira < w)
+            {   // try jumping by more than 1
+                va = factor * sampleDoublePerlin(para, x+i+dira, 0, z+j);
+                if (va < vd)
+                {
+                    i += dira;
+                    v = va;
+                    goto L_x_end;
+                }
+            }
+            v = vd;
+            i += dirx;
+        L_x_end:
+            if (func)
+            {
+                if (func(data, x+i, z+j, factor < 0 ? -v : v))
+                    return nan("");
+            }
+        }
+
+        if (dirz == 0) dirz = +1;
+        if (j+dirz >= 0 && j+dirz < h)
+            vd = factor * sampleDoublePerlin(para, x+i, 0, z+j+dirz);
+        else vd = v;
+        if (vd >= v)
+        {
+            dirz *= -1;
+            if (j+dirz >= 0 && j+dirz < h)
+                vd = factor * sampleDoublePerlin(para, x+i, 0, z+j+dirz);
+            else vd = v;
+            if (vd >= v)
+                dirz = 0;
+        }
+        if (dirz)
+        {
+            dira = (int)(dirz * alpha * (v - vd));
+            if (abs(dira) > 2 && j+dira >= 0 && j+dira < h)
+            {   // try jumping by more than 1
+                va = factor * sampleDoublePerlin(para, x+i, 0, z+j+dira);
+                if (va < vd)
+                {
+                    j += dira;
+                    v = va;
+                    goto L_z_end;
+                }
+            }
+            j += dirz;
+            v = vd;
+        L_z_end:
+            if (func)
+            {
+                if (func(data, x+i, z+j, factor < 0 ? -v : v))
+                    return nan("");
+            }
+        }
+        if (dirx == 0 && dirz == 0)
+        {   // this is very likely a fix point
+            // but there could be a minimum along a diagonal path in rare cases
+            int c;
+            for (c = 0; c < 4; c++)
+            {
+                dirx = (c & 1) ? -1 : +1;
+                dirz = (c & 2) ? -1 : +1;
+                if (i+dirx < 0 || i+dirx >= w || j+dirz < 0 || j+dirz >= h)
+                    continue;
+                vd = factor * sampleDoublePerlin(para, x+i+dirx, 0, z+j+dirz);
+                if (vd < v)
+                {
+                    v = vd;
+                    i += dirx;
+                    j += dirz;
+                    break;
+                }
+            }
+            if (c >= 4)
+                break;
+        }
+        if (abs(i - i0) > maxrad || abs(j - j0) > maxrad)
+            break; // we have gone too far from the origin
+    }
+
+    return v;
+}
+
+
+int getParaRange(const DoublePerlinNoise *para, double *pmin, double *pmax,
+    int x, int z, int w, int h, void *data, int (*func)(void*,int,int,double))
+{
+    const double beta = 1.5;
+    const double factor = 10000;
+    const double perlin_grad = 2.0 * 1.875; // max perlin noise gradient
+    double v, lmin, lmax, dr, vdif, small_regime;
+    char *skip = NULL;
+    int i, j, step, ii, jj, ww, hh;
+    int maxrad, maxiter;
+    int err = 1;
+
+    *pmin = DBL_MAX;
+    *pmax = -DBL_MAX;
+
+    lmin = DBL_MAX, lmax = 0;
+    for (i = 0; i < para->octA.octcnt; i++)
+    {
+        double lac = para->octA.octaves[i].lacunarity;
+        if (lac < lmin) lmin = lac;
+        if (lac > lmax) lmax = lac;
+    }
+
+    // Sort out the small area cases where we are less likely to improve upon
+    // checking all positions.
+    small_regime = 1e3 * sqrt(lmax);
+    if (w*h < small_regime)
+    {
+        for (j = 0; j < h; j++)
+        {
+            for (i = 0; i < w; i++)
+            {
+                v = factor * sampleDoublePerlin(para, x+i, 0, z+j);
+                if (func)
+                {
+                    err = func(data, x+i, z+j, v);
+                    if (err)
+                        return err;
+                }
+                if (v < *pmin) *pmin = v;
+                if (v > *pmax) *pmax = v;
+            }
+        }
+        return 0;
+    }
+
+    // Start with the largest noise period to get some bounds for pmin, pmax
+    step = (int) (0.5 / lmin - FLT_EPSILON) + 1;
+
+    dr = lmax / lmin * beta;
+    for (j = 0; j < h; j += step)
+    {
+        for (i = 0; i < w; i += step)
+        {
+            v = getParaDescent(para, +factor, x, z, w, h, i, j,
+                step, step, dr, data, func);
+            if (v != v) goto L_end;
+            if (v < *pmin) *pmin = v;
+            v = -getParaDescent(para, -factor, x, z, w, h, i, j,
+                step, step, dr, data, func);
+            if (v != v) goto L_end;
+            if (v > *pmax) *pmax = v;
+        }
+    }
+
+    //(*(double*)data) = -1e9+1; // testing
+    if (lmin == lmax)
+        return 0;
+
+    step = (int) (1.0 / (perlin_grad * lmax + FLT_EPSILON)) + 1;
+
+    /// We can determine the maximum contribution we expect from all noise
+    /// periods for a distance of step. If this does not account for the
+    /// necessary difference, we can skip that point.
+    vdif = 0;
+    for (i = 0; i < para->octA.octcnt; i++)
+    {
+        const PerlinNoise *p = para->octA.octaves + i;
+        double contrib = step * p->lacunarity * 1.0;
+        if (contrib > 1.0) contrib = 1;
+        vdif += contrib * p->amplitude;
+    }
+    for (i = 0; i < para->octB.octcnt; i++)
+    {
+        const double lac_factB = 337.0 / 331.0;
+        const PerlinNoise *p = para->octB.octaves + i;
+        double contrib = step * p->lacunarity * lac_factB;
+        if (contrib > 1.0) contrib = 1;
+        vdif += contrib * p->amplitude;
+    }
+    vdif = fabs(factor * vdif * para->amplitude);
+    //printf("%g %g %g\n", para->amplitude, 1./lmin, 1./lmax);
+    //printf("first pass: [%g %g] diff=%g step:%d\n", *pmin, *pmax, vdif, step);
+
+    maxrad = step;
+    maxiter = step*2;
+    ww = (w+step-1) / step;
+    hh = (h+step-1) / step;
+    skip = (char*) malloc(ww * hh * sizeof(*skip));
+
+    // look for minima
+    memset(skip, 0, ww * hh * sizeof(*skip));
+
+    for (jj = 0; jj <= hh; jj++)
+    {
+        j = jj * step; if (j >= h) j = h-1;
+        for (ii = 0; ii <= ww; ii++)
+        {
+            i = ii * step; if (i >= w) i = w-1;
+            if (skip[jj*ww+ii]) continue;
+
+            v = factor * sampleDoublePerlin(para, x+i, 0, z+j);
+            if (func)
+            {
+                int e = func(data, x+i, z+j, v);
+                if (e)
+                {
+                    err = e;
+                    goto L_end;
+                }
+            }
+            // not looking for maxima yet, but we'll update the bounds anyway
+            if (v > *pmax) *pmax = v;
+
+            dr = beta * (v - *pmin) / vdif;
+            if (dr > 1.0)
+            {   // difference is too large -> mark visinity to be skipped
+                int a, b, r = (int) dr;
+                for (b = 0; b < r; b++)
+                {
+                    if (b+jj < 0 || b+jj >= hh) continue;
+                    for (a = -r+1; a < r; a++)
+                    {
+                        if (a+ii < 0 || a+ii >= ww) continue;
+                        skip[(b+jj)*ww + (a+ii)] = 1;
+                    }
+                }
+                continue;
+            }
+            v = getParaDescent(para, +factor, x, z, w, h, i, j,
+                maxrad, maxiter, dr, data, func);
+            if (v != v) goto L_end;
+            if (v < *pmin) *pmin = v;
+        }
+    }
+
+    // look for maxima
+    memset(skip, 0, ww * hh * sizeof(*skip));
+
+    for (jj = 0; jj <= hh; jj++)
+    {
+        j = jj * step; if (j >= h) j = h-1;
+        for (ii = 0; ii <= ww; ii++)
+        {
+            i = ii * step; if (i >= w) i = w-1;
+            if (skip[jj*ww+ii]) continue;
+
+            v = -factor * sampleDoublePerlin(para, x+i, 0, z+j);
+            if (func)
+            {
+                int e = func(data, x+i, z+j, -v);
+                if (e)
+                {
+                    err = e;
+                    goto L_end;
+                }
+            }
+
+            dr = beta * (v + *pmax) / vdif;
+            if (dr > 1.0)
+            {   // difference too large -> mark visinity to be skipped
+                int a, b, r = (int) dr;
+                for (b = 0; b < r; b++)
+                {
+                    if (b+jj < 0 || b+jj >= hh) continue;
+                    for (a = -r+1; a < r; a++)
+                    {
+                        if (a+ii < 0 || a+ii >= ww) continue;
+                        skip[(b+jj)*ww + (a+ii)] = 1;
+                    }
+                }
+                continue;
+            }
+            v = -getParaDescent(para, -factor, x, z, w, h, i, j,
+                maxrad, maxiter, dr, data, func);
+            if (v != v) goto L_end;
+            if (v > *pmax) *pmax = v;
+        }
+    }
+
+    err = 0;
+L_end:
+    if (skip)
+        free(skip);
+    return err;
+}
+
+#define IMIN INT_MIN
+#define IMAX INT_MAX
+static const int g_biome_para_range_18[][13] = {
+/// biome                   temperature  humidity     continental. erosion      depth        weirdness
+{ocean                   , -1500, 2000,  IMIN, IMAX, -4550,-1900,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{plains                  , -4500, 5500,  IMIN, 1000, -1900, IMAX,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{desert                  ,  5500, IMAX,  IMIN, IMAX, -1900, IMAX,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{windswept_hills         ,  IMIN, 2000,  IMIN, 1000, -1899, IMAX,  4500, 5500,  IMIN, IMAX,  IMIN, IMAX},
+{forest                  , -4500, 5500, -1000, 3000, -1900, IMAX,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{taiga                   ,  IMIN,-1500,  1000, IMAX, -1900, IMAX,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{swamp                   , -4500, IMAX,  IMIN, IMAX, -1100, IMAX,  5500, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{river                   , -4500, IMAX,  IMIN, IMAX, -1900, IMAX,  IMIN, IMAX,  IMIN, IMAX,  -500,  500},
+{frozen_ocean            ,  IMIN,-4501,  IMIN, IMAX, -4550,-1900,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{frozen_river            ,  IMIN,-4501,  IMIN, IMAX, -1900, IMAX,  IMIN, IMAX,  IMIN, IMAX,  -500,  500},
+{snowy_plains            ,  IMIN,-4500,  IMIN, 1000, -1900, IMAX,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{mushroom_fields         ,  IMIN, IMAX,  IMIN, IMAX, IMIN,-10500,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{beach                   , -4500, 5500,  IMIN, IMAX, -1900,-1100, -2225, IMAX,  IMIN, IMAX,  IMIN, 2666},
+{jungle                  ,  2000, 5500,  1000, IMAX, -1900, IMAX,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{sparse_jungle           ,  2000, 5500,  1000, 3000, -1899, IMAX,  IMIN, IMAX,  IMIN, IMAX,  -500, IMAX},
+{deep_ocean              , -1500, 2000,  IMIN, IMAX,-10500,-4551,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{stony_shore             ,  IMIN, IMAX,  IMIN, IMAX, -1900,-1100,  IMIN,-2225,  IMIN, IMAX,  IMIN, IMAX},
+{snowy_beach             ,  IMIN,-4500,  IMIN, IMAX, -1900,-1100, -2225, IMAX,  IMIN, IMAX,  IMIN, 2666},
+{birch_forest            , -1500, 2000,  1000, 3000, -1900, IMAX,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{dark_forest             , -1500, 2000,  3000, IMAX, -1900, IMAX,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{snowy_taiga             ,  IMIN,-4500, -1000, IMAX, -1900, IMAX,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{old_growth_pine_taiga   , -4500,-1500,  3000, IMAX, -1899, IMAX,  IMIN, IMAX,  IMIN, IMAX,  -500, IMAX},
+{windswept_forest        ,  IMIN, 2000,  1000, IMAX, -1899, IMAX,  4500, 5500,  IMIN, IMAX,  IMIN, IMAX},
+{savanna                 ,  2000, 5500,  IMIN,-1000, -1900, IMAX,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{savanna_plateau         ,  2000, 5500,  IMIN,-1000, -1100, IMAX,  IMIN,  500,  IMIN, IMAX,  IMIN, IMAX},
+{badlands                ,  5500, IMAX,  IMIN, 1000, -1899, IMAX,  IMIN,  500,  IMIN, IMAX,  IMIN, IMAX},
+{wooded_badlands         ,  5500, IMAX,  1000, IMAX, -1899, IMAX,  IMIN,  500,  IMIN, IMAX,  IMIN, IMAX},
+{warm_ocean              ,  5500, IMAX,  IMIN, IMAX,-10500,-1900,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{lukewarm_ocean          ,  2001, 5500,  IMIN, IMAX, -4550,-1900,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{cold_ocean              , -4500,-1501,  IMIN, IMAX, -4550,-1900,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{deep_lukewarm_ocean     ,  2001, 5500,  IMIN, IMAX,-10500,-4551,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{deep_cold_ocean         , -4500,-1501,  IMIN, IMAX,-10500,-4551,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{deep_frozen_ocean       ,  IMIN,-4501,  IMIN, IMAX,-10500,-4551,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{sunflower_plains        , -1500, 2000,  IMIN,-3500, -1899, IMAX,  IMIN, IMAX,  IMIN, IMAX,  -500, IMAX},
+{windswept_gravelly_hills,  IMIN,-1500,  IMIN,-1000, -1899, IMAX,  4500, 5500,  IMIN, IMAX,  IMIN, IMAX},
+{flower_forest           , -1500, 2000,  IMIN,-3500, -1900, IMAX,  IMIN, IMAX,  IMIN, IMAX,  IMIN, -500},
+{ice_spikes              ,  IMIN,-4500,  IMIN,-3500, -1899, IMAX,  IMIN, IMAX,  IMIN, IMAX,  -500, IMAX},
+{old_growth_birch_forest , -1500, 2000,  1000, 3000, -1899, IMAX,  IMIN, IMAX,  IMIN, IMAX,  -500, IMAX},
+{old_growth_spruce_taiga , -4500,-1500,  3000, IMAX, -1900, IMAX,  IMIN, IMAX,  IMIN, IMAX,  IMIN, -500},
+{windswept_savanna       , -1500, IMAX,  IMIN, 3000, -1899,  300,  4500, 5500,  IMIN, IMAX,   501, IMAX},
+{eroded_badlands         ,  5500, IMAX,  IMIN,-1000, -1899, IMAX,  IMIN,  500,  IMIN, IMAX,  IMIN, IMAX},
+{bamboo_jungle           ,  2000, 5500,  3000, IMAX, -1899, IMAX,  IMIN, IMAX,  IMIN, IMAX,  -500, IMAX},
+{dripstone_caves         ,  IMIN, IMAX,  IMIN, 6999,  3001, IMAX,  IMIN, IMAX,  1000, 9500,  IMIN, IMAX},
+{lush_caves              ,  IMIN, IMAX,  2001, IMAX,  IMIN, IMAX,  IMIN, IMAX,  1000, 9500,  IMIN, IMAX},
+{meadow                  , -4500, 2000,  IMIN, 3000,   300, IMAX, -7799,  500,  IMIN, IMAX,  IMIN, IMAX},
+{grove                   ,  IMIN, 2000, -1000, IMAX, -1899, IMAX,  IMIN,-3750,  IMIN, IMAX,  IMIN, IMAX},
+{snowy_slopes            ,  IMIN, 2000,  IMIN,-1000, -1899, IMAX,  IMIN,-3750,  IMIN, IMAX,  IMIN, IMAX},
+{jagged_peaks            ,  IMIN, 2000,  IMIN, IMAX, -1899, IMAX,  IMIN,-3750,  IMIN, IMAX, -9333,-4001},
+{frozen_peaks            ,  IMIN, 2000,  IMIN, IMAX, -1899, IMAX,  IMIN,-3750,  IMIN, IMAX,  4000, 9333},
+{stony_peaks             ,  2000, 5500,  IMIN, IMAX, -1899, IMAX,  IMIN,-3750,  IMIN, IMAX, -9333, 9333},
+};
+
+/**
+ * Gets the min/max possible noise parameter values at which the given biome
+ * can generate. The values are in min/max pairs in order:
+ * temperature, humidity, continentalness, erosion, depth, weirdness.
+ */
+const int *getBiomeParaLimits(int mc, int id)
+{
+    if (mc < MC_1_18)
+        return NULL;
+    int i, n = sizeof(g_biome_para_range_18) / sizeof(g_biome_para_range_18[0]);
+    for (i = 0; i < n; i++)
+    {
+        if (g_biome_para_range_18[i][0] == id)
+            return &g_biome_para_range_18[i][1];
+    }
+    return NULL;
+}
+
+/**
+ * Determines which biomes are able to generate given climate parameter limits.
+ * Possible biomes are marked non-zero in the 'ids'.
+ */
+void getPossibleBiomesForLimits(char ids[256], int mc, int limits[6][2])
+{
+    int i, j, n;
+    memset(ids, 0, 256*sizeof(char));
+
+    if (mc >= MC_1_18)
+    {
+        n = sizeof(g_biome_para_range_18) / sizeof(g_biome_para_range_18[0]);
+        for (i = 0; i < n; i++)
+        {
+            const int *bp = &g_biome_para_range_18[i][1];
+            int id = bp[-1];
+            for (j = 0; j < 6; j++)
+            {
+                if (limits[j][0] <= bp[2*j+1] && limits[j][1] >= bp[2*j+0])
+                    ids[id]++;
+            }
+        }
+        for (i = 0; i < 256; i++)
+            ids[i] = ids[i] >= 6;
+    }
+}
 
 
 

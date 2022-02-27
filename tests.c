@@ -207,10 +207,151 @@ int testGeneration()
 }
 
 
+int k_tot;
+struct _f_para { double v; double *buf; int x, z, w, h; };
+void _f1(void *data, int x, int z, double v)
+{
+    struct _f_para d = *(struct _f_para*) data;
+    d.buf[(x-d.x)*d.w + (z-d.z)] = d.v;
+    k_tot++;
+}
+
+void testNoiseRangeFinder()
+{
+    int n = 100;
+    unsigned char *pix = (unsigned char*) malloc(n*n*3);
+    double *buf = (double*) malloc(n*n*8);
+    double bmin, bmax;
+    int i, j;
+
+    int64_t seed = 0, seed_max = 200;
+    int bad = 0;
+    for (seed = 0; seed < seed_max; seed++)
+    {
+    //printf("%ld\n", seed);
+    Generator g;
+    setupGenerator(&g, MC_1_18, 0);
+    applySeed(&g, 0, seed);
+
+    int x = 100, z = -100;
+    bmin = 99999, bmax = -99999;
+    for (i = 0; i < n; i++)
+    {
+        for (j = 0; j < n; j++)
+        {
+            double t = sampleDoublePerlin(&g.bn.humidity, x+i, 0, z+j);
+            if (t < bmin) bmin = t;
+            if (t > bmax) bmax = t;
+            buf[i*n+j] = t;
+        }
+    }
+
+    struct _f_para f_p = {-1e9, buf, x, z, n, n };
+    double tmin, tmax;
+    int k = k_tot;
+    getParaRange(&g.bn.humidity, &tmin, &tmax, x, z, n, n, &f_p, _f1);
+    if (abs(tmin-bmin*1e4)>.01||abs(tmax-bmax*1e4)>.01)
+    {
+        printf("=========================== BAD ============================\n");
+        printf("seed:%-8ld temp = [%g %g], best = [%g %g]\n",
+            seed, tmin, tmax, bmin * 10000, bmax * 10000);
+        bad++;
+    }
+    //printf("wh:%d (%d) -> k:%d\n", 2*n, n*n, k_tot - k);
+
+    for (i = 0; i < n; i++)
+    {
+        for (j = 0; j < n; j++)
+        {
+            unsigned char *p = pix + 3*(i*n+j);
+            double b = buf[i*n+j];
+            if (b == bmin || b == bmax) {
+                p[1] = 0xff; p[0] = p[2] = 0;
+                continue;
+            }
+            if (b == -1e9) {
+                p[0] = 0xff; p[1] = p[2] = 0;
+                continue;
+            }
+            if (b == -1e9+1) {
+                p[2] = 0xff; p[0] = p[1] = 0;
+                continue;
+            }
+            p[0] = p[1] = p[2] = (unsigned char)
+                ((b - bmin) / (bmax - bmin) * 256);
+        }
+    }
+    if (bad >= 10) break;
+    }
+
+    printf("bad:%d k_tot: %d / %d ~ %g : %d\n", bad, k_tot, seed, k_tot / (double)seed, n*n);
+    savePPM("img.ppm", pix, n, n);
+}
+
+
+int64_t bbounds[256][6][2]; // [biome][np][min/max]
+
+void _f2(void *data, int x, int z, double v)
+{
+    int64_t np[6];
+    Generator *g = (Generator*) data;
+    int id = sampleBiomeNoise(&g->bn, np, x, -64+rand()%384, z, 0, SAMPLE_NO_SHIFT);
+    int i;
+    for (i = 0; i < 6; i++)
+    {
+        if (np[i] < bbounds[id][i][0]) bbounds[id][i][0] = np[i];
+        if (np[i] > bbounds[id][i][1]) bbounds[id][i][1] = np[i];
+    }
+}
+
+void findBiomeParaBounds()
+{
+    int i, j;
+    for (i = 0; i < 256; i++)
+    {
+        for (j = 0; j < 6; j++)
+        {
+            bbounds[i][j][0] = +1e8;
+            bbounds[i][j][1] = -1e8;
+        }
+    }
+
+    Generator g;
+    setupGenerator(&g, MC_1_18, 0);
+    int64_t s;
+    int r = 1000;
+    for (s = 1000; s < 20000; s++)
+    {
+        int64_t seed = ((int64_t)hash32(s) << 32) ^ hash32(rand());
+        applySeed(&g, 0, seed);
+        double tmin, tmax;
+        int x = rand() % 10000 - 5000;
+        int z = rand() % 10000 - 5000;
+        getParaRange(&g.bn.temperature,     &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
+        getParaRange(&g.bn.humidity,        &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
+        getParaRange(&g.bn.erosion,         &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
+        getParaRange(&g.bn.continentalness, &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
+        getParaRange(&g.bn.weirdness,       &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
+    }
+
+    for (i = 0; i < 256; i++)
+    {
+        if (!isOverworld(MC_1_18, i))
+            continue;
+
+        printf("{%-24s", biome2str(MC_1_18, i));
+        for (j = 0; j < 6; j++)
+        {
+            printf(", %6ld,%6ld", bbounds[i][j][0], bbounds[i][j][1]);
+        }
+        printf("},\n");
+    }
+}
+
+
 int main()
 {
-    testGeneration();
-
+    findBiomeParaBounds();
     return 0;
 }
 

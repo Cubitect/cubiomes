@@ -729,6 +729,61 @@ int canBiomeGenerate(int layerId, int mc, int biomeID);
  */
 void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id);
 
+
+//==============================================================================
+// Biome Noise Finders (for 1.18+)
+//==============================================================================
+
+/**
+ * Runs a gradient descent towards the minimum of the noise parameter times a
+ * given factor. The algorithm is restricted to the area (x,z,w,h) and starts
+ * at (i0,j0) relative to (x,z). The iteration is terminated when either
+ * 1) a fix point has been reached,
+ * 2) maxiter iterations have been completed,
+ * 3) or the sampling position has moved more than maxrad away from (i0,j0).
+ *
+ * Alpha is an optimization argument that is used to determine the length of
+ * large steps based on the current gradient.
+ *
+ * Optionally, the iteration can also call the custom function:
+ *  func(data, x, z, factor*para_noise(x,z));
+ *
+ * The return value is the minimum value reached.
+ */
+double getParaDescent(const DoublePerlinNoise *para, double factor,
+    int x, int z, int w, int h, int i0, int j0, int maxrad,
+    int maxiter, double alpha, void *data, int (*func)(void*,int,int,double));
+
+/**
+ * Determines the value range of a climate noise parameter over the given area.
+ * The sampling has scale 1:4 and sampling shift is not considered, so biomes
+ * could potentially *leak* in at the boarders.
+ * An optional function:
+ *  func(data, x, z, climate_noise(x,z))
+ * is called in each gradient descent iteration. If this function returns
+ * non-zero the search is aborted, the results are undefined and a non-zero
+ * error is returned.
+ *
+ * The results are written to pmin and pmax (which would be cast to an integer
+ * during boime mapping).
+ */
+int getParaRange(const DoublePerlinNoise *para, double *pmin, double *pmax,
+    int x, int z, int w, int h, void *data, int (*func)(void*,int,int,double));
+
+/**
+ * Gets the min/max possible noise parameter values at which the given biome
+ * can generate. The values are in min/max pairs in order of:
+ * temperature, humidity, continentalness, erosion, depth, weirdness.
+ */
+const int *getBiomeParaLimits(int mc, int id);
+
+/**
+ * Determines which biomes are able to generate given a set of climate
+ * parameter limits. Possible biomes are marked non-zero in the 'ids'.
+ */
+void getPossibleBiomesForLimits(char ids[256], int mc, int limits[6][2]);
+
+
 //==============================================================================
 // Implementaions for Functions that Ideally Should be Inlined
 //==============================================================================
