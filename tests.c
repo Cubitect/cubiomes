@@ -209,11 +209,12 @@ int testGeneration()
 
 int k_tot;
 struct _f_para { double v; double *buf; int x, z, w, h; };
-void _f1(void *data, int x, int z, double v)
+int _f1(void *data, int x, int z, double v)
 {
     struct _f_para d = *(struct _f_para*) data;
     d.buf[(x-d.x)*d.w + (z-d.z)] = d.v;
     k_tot++;
+    return 0;
 }
 
 void testNoiseRangeFinder()
@@ -291,7 +292,7 @@ void testNoiseRangeFinder()
 
 int64_t bbounds[256][6][2]; // [biome][np][min/max]
 
-void _f2(void *data, int x, int z, double v)
+int _f2(void *data, int x, int z, double v)
 {
     int64_t np[6];
     Generator *g = (Generator*) data;
@@ -302,6 +303,7 @@ void _f2(void *data, int x, int z, double v)
         if (np[i] < bbounds[id][i][0]) bbounds[id][i][0] = np[i];
         if (np[i] > bbounds[id][i][1]) bbounds[id][i][1] = np[i];
     }
+    return 0;
 }
 
 void findBiomeParaBounds()
@@ -320,7 +322,7 @@ void findBiomeParaBounds()
     setupGenerator(&g, MC_1_18, 0);
     int64_t s;
     int r = 1000;
-    for (s = 1000; s < 20000; s++)
+    for (s = 0; s < 20000; s++)
     {
         int64_t seed = ((int64_t)hash32(s) << 32) ^ hash32(rand());
         applySeed(&g, 0, seed);
@@ -351,7 +353,7 @@ void findBiomeParaBounds()
 
 int main()
 {
-    findBiomeParaBounds();
+    //findBiomeParaBounds();
     return 0;
 }
 

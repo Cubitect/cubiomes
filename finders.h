@@ -652,7 +652,7 @@ BiomeFilter setupBiomeFilter(
  * requirements of the biome filter. If so, the area will be fully generated
  * inside the cache (if != NULL), and the return value will be > 0.
  * Otherwise, the contents of 'cache' is undefined and a value <= 0 is returned.
- * More aggressive filtering can be enabled with 'approx' which may yield some
+ * More aggressive filtering can be enabled with the flags which may yield some
  * some false negatives in exchange for speed.
  *
  * The generator should be set up for the correct version, but the dimension
@@ -666,9 +666,13 @@ BiomeFilter setupBiomeFilter(
  * @dim         : dimension (0:Overworld, -1:Nether, +1:End)
  * @seed        : world seed
  * @filter      : biome requirements to be met
- * @approx      : enables approximations with more aggressive filtering
+ * @flags       : enables features (see below)
  * @stop        : occasional check for abort (nullable)
  */
+enum {
+    CFB_APPROX      = 0x01, // enabled aggresive filtering, trading accuracy
+    CFB_MATCH_ANY   = 0x10, // we need only one of the required biomes (1.18+)
+};
 int checkForBiomes(
         Generator     * g,
         int           * cache,
@@ -676,7 +680,7 @@ int checkForBiomes(
         int             dim,
         uint64_t        seed,
         BiomeFilter     filter,
-        int             approx,
+        uint32_t        flags,
         volatile char * stop // should be atomic, but is fine as stop flag
         );
 

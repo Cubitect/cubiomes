@@ -2676,6 +2676,53 @@ BiomeFilter setupBiomeFilter(
 }
 
 
+typedef struct
+{
+    Generator *g;
+    int *ids;
+    Range r;
+    uint32_t flags;
+    uint64_t b, m;
+    uint64_t breq, mreq;
+    uint64_t bexc, mexc;
+    volatile char *stop;
+} gdt_info_t;
+
+static int f_graddesc_test(void *data, int x, int z, double p)
+{
+    (void) p;
+    gdt_info_t *info = (gdt_info_t *) data;
+    if (info->stop && *info->stop)
+        return 1;
+    int idx = (z - info->r.z) * info->r.sx + (x - info->r.x);
+    if (info->ids[idx] != -1)
+        return 0;
+    int id = getBiomeAt(info->g, info->r.scale, x, info->r.y, z);
+    info->ids[idx] = id;
+    if (id < 128) info->b |= (1ULL << id);
+    else info->m |= (1ULL << (id-128));
+
+    if (info->bexc || info->mexc)
+    {
+        if ((info->b & info->bexc) || (info->m & info->mexc))
+            return 1; // found an excluded biome
+    }
+    else if (info->flags & CFB_MATCH_ANY)
+    {
+        if ((info->b & info->breq) || (info->m & info->mreq))
+            return 1; // one of the required biomes is present
+    }
+    else
+    {   // no excluded: do the current biomes satisfy the condition?
+        if (((info->b & info->breq) ^ info->breq) == 0 &&
+            ((info->m & info->mreq) ^ info->mreq) == 0)
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 int checkForBiomes(
         Generator     * g,
         int           * cache,
@@ -2683,7 +2730,7 @@ int checkForBiomes(
         int             dim,
         uint64_t        seed,
         BiomeFilter     filter,
-        int             approx,
+        uint32_t        flags,
         volatile char * stop
         )
 {
@@ -2695,7 +2742,7 @@ int checkForBiomes(
     {
         Layer *entry = (Layer*) getLayerForScale(g, r.scale);
         ret = checkForBiomesAtLayer(&g->ls, entry, cache, seed,
-            r.x, r.z, r.sx, r.sz, filter, approx);
+            r.x, r.z, r.sx, r.sz, filter, flags);
         if (ret == 0 && r.sy > 1 && cache)
         {
             for (i = 0; i < r.sy; i++)
@@ -2706,12 +2753,6 @@ int checkForBiomes(
         }
         return ret;
     }
-
-    // TODO: check optimization ideas...
-    // 1) excluded biomes can terminate noise generation early
-    // 2) set of biomes in the End might be determined by min,max heights
-    // 3) each biome in the 1.18 noise generator might have min.max biome
-    //    parameter ranged
 
     int *ids, id;
     if (cache)
@@ -2724,23 +2765,60 @@ int checkForBiomes(
         applySeed(g, dim, seed);
     }
 
-    // Biome checks are very expensive now, so we should sample the area one
-    // voxel at a time in a 'random' order and constantly check the conditions.
-    // This is not very efficient for scale 1:1 biome filters, but those
-    // should be avoided here anyway.
-    uint64_t b = 0, m = 0;
-    uint64_t breq = filter.riverToFind;
-    uint64_t mreq = filter.riverToFindM;
-    uint64_t bexc = filter.biomeToExcl;
-    uint64_t mexc = filter.biomeToExclM;
-    breq &= ~((1ULL << ocean) | (1ULL << deep_ocean));
-    breq |= filter.oceanToFind;
+    gdt_info_t info;
+    info.g = g;
+    info.ids = ids;
+    info.r = r;
+    info.flags = flags;
+    info.b = info.m = 0;
+    info.breq = filter.riverToFind;
+    info.mreq = filter.riverToFindM;
+    info.bexc = filter.biomeToExcl;
+    info.mexc = filter.biomeToExclM;
+    info.breq &= ~((1ULL << ocean) | (1ULL << deep_ocean));
+    info.breq |= filter.oceanToFind;
+    info.stop = stop;
 
     ret = 0;
+    memset(ids, -1, r.sx * r.sz * sizeof(int));
 
-    // shuffle indeces
-    struct touple { int i, x, y, z; } *buf;
-    buf = (struct touple*) malloc(r.sx * r.sy * r.sz * sizeof(*buf));
+    int n = r.sx*r.sy*r.sz;
+    int trials = n;
+    struct touple { int i, x, y, z; } *buf = NULL;
+
+    if (r.scale == 4 && r.sx * r.sz > 64)
+    {
+        // Do a gradient descent to find the min/max of some climate parameters
+        // and check the biomes along the way. This gives a much better chance
+        // of fining the biomes that require the more exteme conditions early.
+        double tmin, tmax;
+        int err = 0;
+        do
+        {
+            err = getParaRange(&g->bn.temperature, &tmin, &tmax,
+                r.x, r.z, r.sx, r.sz, &info, f_graddesc_test);
+            if (err) break;
+            err = getParaRange(&g->bn.humidity, &tmin, &tmax,
+                r.x, r.z, r.sx, r.sz, &info, f_graddesc_test);
+            if (err) break;
+            err = getParaRange(&g->bn.erosion, &tmin, &tmax,
+                r.x, r.z, r.sx, r.sz, &info, f_graddesc_test);
+            if (err) break;
+            //err = getParaRange(&g->bn.continentalness, &tmin, &tmax,
+            //    r.x, r.z, r.sx, r.sz, &info, f_graddesc_test);
+            //if (err) break;
+            //err = getParaRange(&g->bn.weirdness, &tmin, &tmax,
+            //    r.x, r.z, r.sx, r.sz, &info, f_graddesc_test);
+            //if (err) break;
+        }
+        while (0);
+        if (err || (stop && *stop) || (flags & CFB_APPROX)) 
+            goto L_end;
+    }
+
+    // We'll shuffle the coordinates so we'll generate the biomes in a
+    // stochasitc mannor.
+    buf = (struct touple*) malloc(n * sizeof(*buf));
 
     id = 0;
     for (k = 0; k < r.sy; k++)
@@ -2758,12 +2836,10 @@ int checkForBiomes(
         }
     }
 
-    int n = r.sx*r.sy*r.sz;
     // Determine a number of trials that gives a decent chance to sample all
     // the biomes that are present, assuming a completely random and
     // independent biome distribution. (This is actually not at all the case.)
-    int trials = n;
-    if (approx)
+    if (flags & CFB_APPROX)
     {
         int t = 400 + (int) sqrt(n);
         if (trials > t)
@@ -2784,41 +2860,48 @@ int checkForBiomes(
 
         if (stop && *stop)
             break;
-
+        if (t.y == 0 && info.ids[t.i] != -1)
+            continue;
         id = getBiomeAt(g, r.scale, r.x+t.x, r.y+t.y, r.z+t.z);
-        ids[t.i] = id;
-        if (id < 128) b |= (1ULL << id);
-        else m |= (1ULL << (id-128));
+        info.ids[t.i] = id;
+        if (id < 128) info.b |= (1ULL << id);
+        else info.m |= (1ULL << (id-128));
 
-        if (bexc || mexc)
+        if (info.bexc || info.mexc)
         {
-            if ((b & bexc) || (m & mexc))
-            {   // found an excluded biome
-                break;
-            }
+            if ((info.b & info.bexc) || (info.m & info.mexc))
+                break; // found an excluded biome
+        }
+        else if (flags & CFB_MATCH_ANY)
+        {
+            if ((info.b & info.breq) || (info.m & info.mreq))
+                break; // one of the required biomes is present
         }
         else
         {   // no excluded: do the current biomes satisfy the condition?
-            if (((b & breq) ^ breq) == 0 && ((m & mreq) ^ mreq) == 0)
-            {
+            if (((info.b & info.breq) ^ info.breq) == 0 && 
+                ((info.m & info.mreq) ^ info.mreq) == 0)
                 break;
-            }
         }
     }
-
+    
+L_end:
     if (stop && *stop)
     {
         ret = 0;
     }
     else
     {
-        ret = ((b & breq) ^ breq) == 0 &&
-              ((m & mreq) ^ mreq) == 0 &&
-               (b & bexc) == 0 &&
-               (m & mexc) == 0;
+        ret = (info.b & info.bexc) == 0 && (info.m & info.mexc) == 0;
+        if (flags & CFB_MATCH_ANY)
+            ret &= (info.b & info.breq) || (info.m & info.mreq);
+        else
+            ret &= (((info.b & info.breq) ^ info.breq) == 0 && 
+                    ((info.m & info.mreq) ^ info.mreq) == 0);
     }
 
-    free(buf);
+    if (buf)
+        free(buf);
     if (ids != cache)
         free(ids);
     return ret;
@@ -3704,7 +3787,7 @@ double getParaDescent(const DoublePerlinNoise *para, double factor,
     /// We can remember and try the direction from the previous cycle first to
     /// reduce the number of wrong guesses.
     ///
-    /// We can also use a larger step size than 1, as long as we are believe
+    /// We can also use a larger step size than 1, as long as we believe that
     /// the minimum is not in between. To determine if this is viable, we check
     /// the step size of 1 first, and then jump if the gradient appears large
     /// enough in that direction.
@@ -3835,7 +3918,7 @@ int getParaRange(const DoublePerlinNoise *para, double *pmin, double *pmax,
     const double perlin_grad = 2.0 * 1.875; // max perlin noise gradient
     double v, lmin, lmax, dr, vdif, small_regime;
     char *skip = NULL;
-    int i, j, step, ii, jj, ww, hh;
+    int i, j, step, ii, jj, ww, hh, skipsiz;
     int maxrad, maxiter;
     int err = 1;
 
@@ -3925,10 +4008,11 @@ int getParaRange(const DoublePerlinNoise *para, double *pmin, double *pmax,
     maxiter = step*2;
     ww = (w+step-1) / step;
     hh = (h+step-1) / step;
-    skip = (char*) malloc(ww * hh * sizeof(*skip));
+    skipsiz = (ww+1) * (hh+1) * sizeof(*skip);
+    skip = (char*) malloc(skipsiz);
 
     // look for minima
-    memset(skip, 0, ww * hh * sizeof(*skip));
+    memset(skip, 0, skipsiz);
 
     for (jj = 0; jj <= hh; jj++)
     {
@@ -3974,7 +4058,7 @@ int getParaRange(const DoublePerlinNoise *para, double *pmin, double *pmax,
     }
 
     // look for maxima
-    memset(skip, 0, ww * hh * sizeof(*skip));
+    memset(skip, 0, skipsiz);
 
     for (jj = 0; jj <= hh; jj++)
     {
