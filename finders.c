@@ -2676,8 +2676,7 @@ BiomeFilter setupBiomeFilter(
 }
 
 
-typedef struct
-{
+typedef struct {
     Generator *g;
     int *ids;
     Range r;
@@ -2812,7 +2811,7 @@ int checkForBiomes(
             //if (err) break;
         }
         while (0);
-        if (err || (stop && *stop) || (flags & CFB_APPROX)) 
+        if (err || (stop && *stop) || (flags & CFB_APPROX))
             goto L_end;
     }
 
@@ -2879,12 +2878,12 @@ int checkForBiomes(
         }
         else
         {   // no excluded: do the current biomes satisfy the condition?
-            if (((info.b & info.breq) ^ info.breq) == 0 && 
+            if (((info.b & info.breq) ^ info.breq) == 0 &&
                 ((info.m & info.mreq) ^ info.mreq) == 0)
                 break;
         }
     }
-    
+
 L_end:
     if (stop && *stop)
     {
@@ -2896,7 +2895,7 @@ L_end:
         if (flags & CFB_MATCH_ANY)
             ret &= (info.b & info.breq) || (info.m & info.mreq);
         else
-            ret &= (((info.b & info.breq) ^ info.breq) == 0 && 
+            ret &= (((info.b & info.breq) ^ info.breq) == 0 &&
                     ((info.m & info.mreq) ^ info.mreq) == 0);
     }
 
@@ -3510,6 +3509,31 @@ int canBiomeGenerate(int layerId, int mc, int id)
     return isOverworld(mc, id);
 }
 
+void getAvailableBiomes(uint64_t *mL, uint64_t *mM, int layerId, int mc)
+{
+    *mL = *mM = 0;
+    int i;
+    if (mc >= MC_1_18)
+    {
+        for (i = 0; i < 64; i++)
+        {
+            if (isOverworld(mc, i))
+                *mL |= (1ULL << i);
+            if (isOverworld(mc, i+128))
+                *mM |= (1ULL << i);
+        }
+    }
+    else
+    {
+        for (i = 0; i < 64; i++)
+        {
+            if (canBiomeGenerate(layerId, mc, i))
+                *mL |= (1ULL << i);
+            if (canBiomeGenerate(layerId, mc, i+128))
+                *mM |= (1ULL << i);
+        }
+    }
+}
 
 // TODO: This function requires testing across versions
 void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)

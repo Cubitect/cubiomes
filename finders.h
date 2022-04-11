@@ -134,6 +134,7 @@ STRUCT(BiomeFilter)
     uint64_t oceanToFind; // all required ocean types
 
     int specialCnt; // number of special temperature categories required
+    int padding[1]; // unused
 
     // excluded biomes that shall not be present
     uint64_t biomeToExcl, biomeToExclM;
@@ -726,13 +727,20 @@ int checkForTemps(LayerStack *g, uint64_t seed, int x, int z, int w, int h, cons
  */
 int canBiomeGenerate(int layerId, int mc, int biomeID);
 
-/* Given a biome 'id' at a generation 'layer', this functions finds which
+/* Given a biome 'id' at a generation 'layerId', this functions finds which
  * biomes may generate from it. The result is stored in the bitfields:
  * mL : for ids 0-63
  * mM : for ids 128-191
  */
-void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id);
+void genPotential(uint64_t *mL, uint64_t *mM, int layerId, int mc, int id);
 
+/* Gets the biomes that can generate in the given version and layer ID.
+ * In contrast to canBiomeGenerate() and genPotential() it also supports 1.18+,
+ * where the layerId is ignored.
+ * mL : for ids 0-63
+ * mM : for ids 128-191
+ */
+void getAvailableBiomes(uint64_t *mL, uint64_t *mM, int layerId, int mc);
 
 //==============================================================================
 // Biome Noise Finders (for 1.18+)
