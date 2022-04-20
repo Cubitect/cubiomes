@@ -29,12 +29,14 @@ const char* mc2str(int mc)
     case MC_1_16: return "1.16"; break;
     case MC_1_17: return "1.17"; break;
     case MC_1_18: return "1.18"; break;
+    case MC_1_19: return "1.19"; break;
     default: return NULL;
     }
 }
 
 int str2mc(const char *s)
 {
+    if (!strcmp(s, "1.19")) return MC_1_19;
     if (!strcmp(s, "1.18")) return MC_1_18;
     if (!strcmp(s, "1.17")) return MC_1_17;
     if (!strcmp(s, "1.16")) return MC_1_16;
@@ -181,6 +183,9 @@ const char *biome2str(int mc, int id)
     case stony_peaks: return "stony_peaks";
     case jagged_peaks: return "jagged_peaks";
     case frozen_peaks: return "frozen_peaks";
+    // 1.19
+    case deep_dark: return "deep_dark";
+    case mangrove_swamp: return "mangrove_swamp";
     }
     return NULL;
 }
@@ -304,6 +309,9 @@ void initBiomeColors(unsigned char biomeColors[256][3])
     setBiomeColor(biomeColors, stony_peaks, 123, 143, 116); // TBD
     setBiomeColor(biomeColors, jagged_peaks, 220, 220, 200); // TBD
     setBiomeColor(biomeColors, frozen_peaks, 176, 179, 206); // TBD
+
+    setBiomeColor(biomeColors, deep_dark, 3, 31, 41); // TBD
+    setBiomeColor(biomeColors, mangrove_swamp, 44, 204, 142); // TBD
 }
 
 void initBiomeTypeColors(unsigned char biomeColors[256][3])

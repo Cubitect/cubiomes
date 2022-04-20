@@ -154,6 +154,9 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
     case Outpost:
         *sconf = OUTPOST_CONFIG;
         return mc >= MC_1_14;
+    case Ancient_City:
+        *sconf = ANCIENT_CITY_CONFIG;
+        return mc >= MC_1_19;
     case Treasure:
         *sconf = TREASURE_CONFIG;
         return mc >= MC_1_13;
@@ -209,6 +212,7 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
     case Shipwreck:
     case Ruined_Portal:
     case Ruined_Portal_N:
+    case Ancient_City:
         *pos = getFeaturePos(sconf, seed, regX, regZ);
         return 1;
 
@@ -1606,6 +1610,10 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
     case Ruined_Portal_N:
         return mc >= MC_1_16;
 
+    case Ancient_City:
+        if (mc < MC_1_19) return 0;
+        return biomeID == deep_dark;
+
     case Treasure:
         if (mc < MC_1_13) return 0;
         return biomeID == beach || biomeID == snowy_beach;
@@ -2108,6 +2116,26 @@ L_feature:
             goto L_viable;
         goto L_not_viable;
 
+    case Ancient_City:
+        if (g->mc < MC_1_19)
+            goto L_not_viable;
+        {
+            StructureVariant vt = getAncientCityType(g->mc, g->seed, x, z);
+            switch (vt.rotation) {
+                case 0: sampleX = -1+vt.sx; sampleZ = -1+vt.sz; break;
+                case 1: sampleX = +1-vt.sz; sampleZ = -1+vt.sx; break;
+                case 2: sampleX = +1-vt.sx; sampleZ = +1-vt.sz; break;
+                case 3: sampleX = -1+vt.sz; sampleZ = +1-vt.sx; break;
+                default: return 0; // unreachable
+            }
+        }
+        sampleX = ((chunkX << 5) + sampleX) / 2 >> 2;
+        sampleZ = ((chunkZ << 5) + sampleZ) / 2 >> 2;
+        id = getBiomeAt(g, 4, sampleX, (-51 >> 2), sampleZ);
+        if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
+            goto L_not_viable;
+        goto L_viable;
+
     case Mineshaft:
         goto L_viable;
 
@@ -2367,6 +2395,23 @@ StructureVariant getBastionType(int mc, uint64_t seed, int blockX, int blockZ)
     case 1: r.sx = 30; r.sy = 24; r.sz = 48; break; // hoglin_stable/air_base
     case 2: r.sx = 38; r.sy = 48; r.sz = 38; break; // treasure/big_air_full
     case 3: r.sx = 16; r.sy = 32; r.sz = 32; break; // bridge/starting_pieces/entrance_base
+    }
+    return r;
+}
+
+StructureVariant getAncientCityType(int mc, uint64_t seed, int blockX, int blockZ)
+{
+    (void) mc;
+    StructureVariant r = { 0, 0, 0, 0, 0, 0, 0 };
+    uint64_t rng = chunkGenerateRnd(seed, blockX >> 4, blockZ >> 4);
+    r.biome = -1;
+    r.rotation = nextInt(&rng, 4);
+    r.variant = nextInt(&rng, 3);
+    switch (r.variant)
+    {
+    case 0: r.sx = 18; r.sy = 31; r.sz = 41; break; // city_center_1
+    case 1: r.sx = 18; r.sy = 31; r.sz = 41; break; // city_center_2
+    case 2: r.sx = 18; r.sy = 30; r.sz = 41; break; // city_center_3
     }
     return r;
 }
@@ -4188,6 +4233,15 @@ static const int g_biome_para_range_18[][13] = {
 {stony_peaks             ,  2000, 5500,  IMIN, IMAX, -1899, IMAX,  IMIN,-3750,  IMIN, IMAX, -9333, 9333},
 };
 
+static const int g_biome_para_range_19_diff[][13] = {
+{eroded_badlands         ,  5500, IMAX,  IMIN,-1000, -1899, IMAX,  IMIN,  500,  IMIN, IMAX,  -500, IMAX},
+{grove                   ,  IMIN, 2000, -1000, IMAX, -1899, IMAX,  IMIN,-3750,  IMIN,10499,  IMIN, IMAX},
+{snowy_slopes            ,  IMIN, 2000,  IMIN,-1000, -1899, IMAX,  IMIN,-3750,  IMIN,10499,  IMIN, IMAX},
+{jagged_peaks            ,  IMIN, 2000,  IMIN, IMAX, -1899, IMAX,  IMIN,-3750,  IMIN,10499, -9333,-4001},
+{deep_dark               ,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX,  IMIN, 1818, 10500, IMAX,  IMIN, IMAX},
+{mangrove_swamp          ,  2000, IMAX,  IMIN, IMAX, -1100, IMAX,  5500, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+};
+
 /**
  * Gets the min/max possible noise parameter values at which the given biome
  * can generate. The values are in min/max pairs in order:
@@ -4197,7 +4251,18 @@ const int *getBiomeParaLimits(int mc, int id)
 {
     if (mc < MC_1_18)
         return NULL;
-    int i, n = sizeof(g_biome_para_range_18) / sizeof(g_biome_para_range_18[0]);
+    int i, n;
+    if (mc >= MC_1_19)
+    {
+        n = sizeof(g_biome_para_range_19_diff) / sizeof(g_biome_para_range_19_diff[0]);
+        for (i = 0; i < n; i++)
+        {
+            if (g_biome_para_range_19_diff[i][0] == id)
+                return &g_biome_para_range_19_diff[i][1];
+        }
+    }
+
+    n = sizeof(g_biome_para_range_18) / sizeof(g_biome_para_range_18[0]);
     for (i = 0; i < n; i++)
     {
         if (g_biome_para_range_18[i][0] == id)
@@ -4212,24 +4277,24 @@ const int *getBiomeParaLimits(int mc, int id)
  */
 void getPossibleBiomesForLimits(char ids[256], int mc, int limits[6][2])
 {
-    int i, j, n;
+    int i, j;
     memset(ids, 0, 256*sizeof(char));
 
-    if (mc >= MC_1_18)
+    for (i = 0; i < 256; i++)
     {
-        n = sizeof(g_biome_para_range_18) / sizeof(g_biome_para_range_18[0]);
-        for (i = 0; i < n; i++)
+        if (!isOverworld(mc, i))
+            continue;
+        const int *bp = getBiomeParaLimits(mc, i);
+        if (!bp)
+            continue;
+
+        for (j = 0; j < 6; j++)
         {
-            const int *bp = &g_biome_para_range_18[i][1];
-            int id = bp[-1];
-            for (j = 0; j < 6; j++)
-            {
-                if (limits[j][0] <= bp[2*j+1] && limits[j][1] >= bp[2*j+0])
-                    ids[id]++;
-            }
+            if (limits[j][0] > bp[2*j+1] || limits[j][1] < bp[2*j+0])
+                break;
         }
-        for (i = 0; i < 256; i++)
-            ids[i] = ids[i] >= 6;
+        if (j >= 6)
+            ids[bp[-1]] = 1;
     }
 }
 

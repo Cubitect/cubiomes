@@ -18,6 +18,9 @@ int biomeExists(int mc, int id)
         if (id >= small_end_islands && id <= end_barrens)
             return 1;
 
+        if (id == deep_dark || id == mangrove_swamp)
+            return mc >= MC_1_19;
+
         switch (id)
         {
         case ocean:
@@ -1317,7 +1320,6 @@ float getSpline(const Spline *sp, const float *vals)
 
 void initBiomeNoise(BiomeNoise *bn, int mc)
 {
-    (void)mc;
     SplineStack *ss = &bn->ss;
     memset(ss, 0, sizeof(*ss));
     Spline *sp = &ss->stack[ss->len++];
@@ -1340,6 +1342,7 @@ void initBiomeNoise(BiomeNoise *bn, int mc)
     addSplineVal(sp,  1.00F, sp4, 0.0F);
 
     bn->sp = sp;
+    bn->mc = mc;
 }
 
 #if __cplusplus
@@ -1347,7 +1350,7 @@ extern "C"
 {
 #endif
 
-int p2overworld(const uint64_t np[6], uint64_t *dat);
+int p2overworld(int mc, const uint64_t np[6], uint64_t *dat);
 
 #if __cplusplus
 }
@@ -1394,7 +1397,7 @@ int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
 
     int id = none;
     if (!(flags & SAMPLE_NO_BIOME))
-        id = p2overworld((const uint64_t*)p_np, dat);
+        id = p2overworld(bn->mc, (const uint64_t*)p_np, dat);
     return id;
 }
 

@@ -46,6 +46,7 @@ enum StructureType
     Outpost,
     Ruined_Portal,
     Ruined_Portal_N,
+    Ancient_City,
     Treasure,
     Mineshaft,
     Fortress,
@@ -98,6 +99,7 @@ _sc MONUMENT_CONFIG           = { 10387313, 32, 27, Monument, LARGE_STRUCT};
 _sc MANSION_CONFIG            = { 10387319, 80, 60, Mansion, LARGE_STRUCT};
 _sc RUINED_PORTAL_CONFIG      = { 34222645, 40, 25, Ruined_Portal, 0}; // overworld
 _sc RUINED_PORTAL_N_CONFIG    = { 34222645, 25, 15, Ruined_Portal_N, 0}; // nether
+_sc ANCIENT_CITY_CONFIG       = { 20083232, 24, 16, Ancient_City, 0};
 
 _sc TREASURE_CONFIG           = { 10387320,  1,  1, Treasure, CHUNK_STRUCT};
 _sc MINESHAFT_CONFIG          = {        0,  1,  1, Mineshaft, CHUNK_STRUCT};
@@ -616,10 +618,8 @@ uint64_t chunkGenerateRnd(uint64_t worldSeed, int chunkX, int chunkZ)
 }
 
 StructureVariant getVillageType(int mc, uint64_t seed, int blockX, int blockZ, int biomeID);
-
-// For 1.18
-StructureVariant getBastionType(int mc, uint64_t seed, int blockX, int blockZ);
-
+StructureVariant getBastionType(int mc, uint64_t seed, int blockX, int blockZ); // 1.18
+StructureVariant getAncientCityType(int mc, uint64_t seed, int blockX, int blockZ);
 
 /* Finds the number of each type of house that generate in a village
  * (mc < MC_1_14)
