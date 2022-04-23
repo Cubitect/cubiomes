@@ -354,7 +354,7 @@ int parseBiomeColors(unsigned char biomeColors[256][3], const char *buf)
     n = 0;
     while (*p)
     {
-        for (ib = ic = 0; *p && *p != '\n'; p++)
+        for (ib = ic = 0; *p && *p != '\n' && *p != ';'; p++)
         {
             if ((size_t)ib+1 < sizeof(bstr))
             {
@@ -367,9 +367,10 @@ int parseBiomeColors(unsigned char biomeColors[256][3], const char *buf)
                 col[ic++] = strtol(p+1+(*p=='0'), (char**)&p, 16);
             else if (ic < 4 && *p >= '0' && *p <= '9')
                 col[ic++] = strtol(p, (char**)&p, 10);
-            if (*p == '\n')
+            if (*p == '\n' || *p == ';')
                 break;
         }
+        while (*p && *p != '\n') p++;
         while (*p == '\n') p++;
 
         bstr[ib] = 0;
