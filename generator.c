@@ -498,6 +498,10 @@ static void getMaxArea(
     areaX += layer->edge;
     areaZ += layer->edge;
 
+    // multi-layers and zoom-layers use a temporary copy of their parent area
+    if (layer->p2 || layer->zoom != 1)
+        *siz += areaX * areaZ;
+
     if (areaX > *maxX) *maxX = areaX;
     if (areaZ > *maxZ) *maxZ = areaZ;
 
@@ -511,10 +515,6 @@ static void getMaxArea(
         areaX >>= 2;
         areaZ >>= 2;
     }
-
-    // multi-layers and zoom-layers use a temporary copy of their parent area
-    if (layer->p2 || layer->zoom != 1)
-        *siz += areaX * areaZ;
 
     getMaxArea(layer->p, areaX, areaZ, maxX, maxZ, siz);
     if (layer->p2)
