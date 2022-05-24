@@ -2128,10 +2128,11 @@ L_feature:
                 case 3: sampleX = -1+vt.sz; sampleZ = +1-vt.sx; break;
                 default: return 0; // unreachable
             }
+            int y = (-51 + vt.sy) >> 2;
+            sampleX = ((chunkX << 5) + sampleX) / 2 >> 2;
+            sampleZ = ((chunkZ << 5) + sampleZ) / 2 >> 2;
+            id = getBiomeAt(g, 4, sampleX, y, sampleZ);
         }
-        sampleX = ((chunkX << 5) + sampleX) / 2 >> 2;
-        sampleZ = ((chunkZ << 5) + sampleZ) / 2 >> 2;
-        id = getBiomeAt(g, 4, sampleX, (-51 >> 2), sampleZ);
         if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
             goto L_not_viable;
         goto L_viable;
@@ -2411,7 +2412,7 @@ StructureVariant getAncientCityType(int mc, uint64_t seed, int blockX, int block
     {
     case 0: r.sx = 18; r.sy = 31; r.sz = 41; break; // city_center_1
     case 1: r.sx = 18; r.sy = 31; r.sz = 41; break; // city_center_2
-    case 2: r.sx = 18; r.sy = 30; r.sz = 41; break; // city_center_3
+    case 2: r.sx = 18; r.sy = 31; r.sz = 41; break; // city_center_3
     }
     return r;
 }
