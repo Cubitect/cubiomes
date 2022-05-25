@@ -140,7 +140,7 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
         *sconf = RUINED_PORTAL_CONFIG;
         return mc >= MC_1_16;
     case Ruined_Portal_N:
-        *sconf = RUINED_PORTAL_N_CONFIG;
+        *sconf = mc <= MC_1_17 ? RUINED_PORTAL_N_CONFIG_117 : RUINED_PORTAL_CONFIG;
         return mc >= MC_1_16;
     case Monument:
         *sconf = MONUMENT_CONFIG;

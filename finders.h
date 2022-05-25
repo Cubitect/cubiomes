@@ -98,7 +98,7 @@ _sc SHIPWRECK_CONFIG          = {165745295, 24, 20, Shipwreck, 0};
 _sc MONUMENT_CONFIG           = { 10387313, 32, 27, Monument, LARGE_STRUCT};
 _sc MANSION_CONFIG            = { 10387319, 80, 60, Mansion, LARGE_STRUCT};
 _sc RUINED_PORTAL_CONFIG      = { 34222645, 40, 25, Ruined_Portal, 0}; // overworld
-_sc RUINED_PORTAL_N_CONFIG    = { 34222645, 25, 15, Ruined_Portal_N, 0}; // nether
+_sc RUINED_PORTAL_N_CONFIG_117= { 34222645, 25, 15, Ruined_Portal_N, 0}; // nether
 _sc ANCIENT_CITY_CONFIG       = { 20083232, 24, 16, Ancient_City, 0};
 
 _sc TREASURE_CONFIG           = { 10387320,  1,  1, Treasure, CHUNK_STRUCT};
