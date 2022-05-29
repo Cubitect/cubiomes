@@ -243,8 +243,7 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
     case Fortress:
         if (mc >= MC_1_18) {
             *pos = getFeaturePos(sconf, seed, regX, regZ);
-            seed = chunkGenerateRnd(seed, pos->x >> 4, pos->z >> 4);
-            return nextInt(&seed, 5) < 2;
+            return 1; // fortresses gen where bastions don't (biome dependent)
         } else if (mc >= MC_1_16) {
             getRegPos(pos, &seed, regX, regZ, sconf);
             return nextInt(&seed, 5) < 2;
@@ -1844,37 +1843,47 @@ int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t
     // Structures are positioned at the chunk origin, but the biome check is
     // performed near the middle of the chunk [(9,9) in 1.13, TODO: check 1.7]
     // In 1.16 the biome check is always performed at (2,2) with layer scale=4.
-    int sampleX, sampleZ;
+    int sampleX, sampleZ, sampleY;
     int id;
 
 
     if (g->dim == -1) // Nether
     {
-        if (structureType == Fortress)
-            return 1; // fortresses generate in all Nether biomes and versions
+        if (structureType == Fortress && g->mc <= MC_1_17)
+            return 1;
         if (g->mc < MC_1_16)
             return 0;
         if (structureType == Ruined_Portal_N)
             return 1;
+        if (structureType == Fortress)
+        {   // in 1.18+ fortresses generate everywhere, where bastions don't
+            StructureConfig sc;
+            if (!getStructureConfig(Fortress, g->mc, &sc))
+                return 0;
+            Pos rp = {
+                chunkX / sc.regionSize - (x < 0),
+                chunkZ / sc.regionSize - (z < 0)
+            };
+            if (!getStructurePos(Bastion, g->mc, g->seed, rp.x, rp.z, &rp))
+                return 1;
+            return !isViableStructurePos(Bastion, g, x, z, flags);
+        }
+        sampleY = 0;
         if (g->mc >= MC_1_18 && structureType == Bastion)
         {
-            StructureVariant sv = getBastionType(g->mc, g->seed, x, z);
-            switch (sv.rotation) {
-                case 0: sampleX = -1+sv.sx; sampleZ = -1+sv.sz; break;
-                case 1: sampleX = +1-sv.sz; sampleZ = -1+sv.sx; break;
-                case 2: sampleX = +1-sv.sx; sampleZ = +1-sv.sz; break;
-                case 3: sampleX = -1+sv.sz; sampleZ = +1-sv.sx; break;
-                default: return 0; // unreachable
-            }
-            sampleX = ((chunkX << 5) + sampleX) / 2 >> 2;
-            sampleZ = ((chunkZ << 5) + sampleZ) / 2 >> 2;
+            StructureVariant sv;
+            getVariant(&sv, Bastion, g->mc, g->seed, x, z, -1);
+            sampleX = ((chunkX << 5) + 2*sv.x + sv.sx) / 2 >> 2;
+            sampleZ = ((chunkZ << 5) + 2*sv.z + sv.sz) / 2 >> 2;
+            if (g->mc >= MC_1_19)
+                sampleY = 33 >> 2; // nether biomes don't actually vary in Y
         }
         else
         {
             sampleX = (chunkX << 2) + 2;
             sampleZ = (chunkZ << 2) + 2;
         }
-        id = getBiomeAt(g, 4, sampleX, 0, sampleZ);
+        id = getBiomeAt(g, 4, sampleX, sampleY, sampleZ);
         return isViableFeatureBiome(g->mc, structureType, id);
     }
     else if (g->dim == +1) // End
@@ -1961,23 +1970,18 @@ L_feature:
             goto L_viable;
         }
         else
-        {   // In 1.18 village types are checked sepertely...
+        {   // In 1.18 village types are checked separtely...
             const int vv[] = { plains, desert, savanna, taiga, snowy_tundra };
             size_t i;
             for (i = 0; i < sizeof(vv)/sizeof(int); i++) {
                 if (flags && flags != (uint32_t) vv[i])
                     continue;
-                StructureVariant vt = getVillageType(g->mc, g->seed, x, z, vv[i]);
-                switch (vt.rotation) {
-                    case 0: sampleX = -1+vt.sx; sampleZ = -1+vt.sz; break;
-                    case 1: sampleX = +1-vt.sz; sampleZ = -1+vt.sx; break;
-                    case 2: sampleX = +1-vt.sx; sampleZ = +1-vt.sz; break;
-                    case 3: sampleX = -1+vt.sz; sampleZ = +1-vt.sx; break;
-                    default: return 0; // unreachable
-                }
-                sampleX = ((chunkX << 5) + sampleX) / 2 >> 2;
-                sampleZ = ((chunkZ << 5) + sampleZ) / 2 >> 2;
-                id = getBiomeAt(g, 0, sampleX, 319>>2, sampleZ);
+                StructureVariant sv;
+                getVariant(&sv, Village, g->mc, g->seed, x, z, vv[i]);
+                sampleX = ((chunkX << 5) + 2*sv.x + sv.sx) / 2 >> 2;
+                sampleZ = ((chunkZ << 5) + 2*sv.z + sv.sz) / 2 >> 2;
+                sampleY = 319 >> 2;
+                id = getBiomeAt(g, 0, sampleX, sampleY, sampleZ);
                 if (id == vv[i] || (id == meadow && vv[i] == plains)) {
                     viable = id;
                     goto L_viable;
@@ -2120,18 +2124,12 @@ L_feature:
         if (g->mc < MC_1_19)
             goto L_not_viable;
         {
-            StructureVariant vt = getAncientCityType(g->mc, g->seed, x, z);
-            switch (vt.rotation) {
-                case 0: sampleX = -1+vt.sx; sampleZ = -1+vt.sz; break;
-                case 1: sampleX = +1-vt.sz; sampleZ = -1+vt.sx; break;
-                case 2: sampleX = +1-vt.sx; sampleZ = +1-vt.sz; break;
-                case 3: sampleX = -1+vt.sz; sampleZ = +1-vt.sx; break;
-                default: return 0; // unreachable
-            }
-            int y = (-51 + vt.sy) >> 2;
-            sampleX = ((chunkX << 5) + sampleX) / 2 >> 2;
-            sampleZ = ((chunkZ << 5) + sampleZ) / 2 >> 2;
-            id = getBiomeAt(g, 4, sampleX, y, sampleZ);
+            StructureVariant sv;
+            getVariant(&sv, Ancient_City, g->mc, g->seed, x, z, -1);
+            sampleX = ((chunkX << 5) + 2*sv.x + sv.sx) / 2 >> 2;
+            sampleZ = ((chunkZ << 5) + 2*sv.z + sv.sz) / 2 >> 2;
+            sampleY = -27 >> 2;
+            id = getBiomeAt(g, 4, sampleX, sampleY, sampleZ);
         }
         if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
             goto L_not_viable;
@@ -2303,119 +2301,170 @@ int isViableEndCityTerrain(const EndNoise *en, const SurfaceNoise *sn,
 //==============================================================================
 
 
-StructureVariant getVillageType(int mc, uint64_t seed, int blockX, int blockZ, int biomeID)
+int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
+        int x, int z, int biomeID)
 {
-    StructureVariant r = { 0, 0, 0, 0, 0, 0, 0 };
-    if (!isViableFeatureBiome(mc, Village, biomeID))
-        return r;
+    int t;
+    char sx, sy, sz;
+    uint64_t rng = chunkGenerateRnd(seed, x >> 4, z >> 4);
 
-    uint64_t rng = chunkGenerateRnd(seed, blockX >> 4, blockZ >> 4);
+    memset(r, 0, sizeof(*r));
+    r->variant = -1;
+    r->biome = -1;
 
-    r.biome = biomeID;
-
-    if (mc >= MC_1_14)
+    switch (structType)
     {
-        r.rotation = nextInt(&rng, 4);
-        int t;
+    case Village:
+        if (mc <= MC_1_9)
+            return 0;
+        if (!isViableFeatureBiome(mc, Village, biomeID))
+            return 0;
+        if (mc <= MC_1_13)
+        {
+            skipNextN(&rng, mc == MC_1_13 ? 10 : 11);
+            r->abandoned = nextInt(&rng, 50) == 0;
+            return 1;
+        }
+        r->biome = biomeID;
+        r->rotation = nextInt(&rng, 4);
         switch (biomeID)
         {
         case meadow:
-            r.biome = plains;
+            r->biome = plains;
             // fallthrough
         case plains:
             t = nextInt(&rng, 204);
-            if      (t <  50) { r.variant = 0; r.sx =  9; r.sy = 4; r.sz =  9; } // plains_fountain_01
-            else if (t < 100) { r.variant = 1; r.sx = 10; r.sy = 7; r.sz = 10; } // plains_meeting_point_1
-            else if (t < 150) { r.variant = 2; r.sx =  8; r.sy = 5; r.sz = 15; } // plains_meeting_point_2
-            else if (t < 200) { r.variant = 3; r.sx = 11; r.sy = 9; r.sz = 11; } // plains_meeting_point_3
-            else if (t < 201) { r.variant = 0; r.sx =  9; r.sy = 4; r.sz =  9; r.abandoned = 1; }
-            else if (t < 202) { r.variant = 1; r.sx = 10; r.sy = 7; r.sz = 10; r.abandoned = 1; }
-            else if (t < 203) { r.variant = 2; r.sx =  8; r.sy = 5; r.sz = 15; r.abandoned = 1; }
-            else if (t < 204) { r.variant = 3; r.sx = 11; r.sy = 9; r.sz = 11; r.abandoned = 1; }
+            if      (t <  50) { r->variant = 0; sx =  9; sy = 4; sz =  9; } // plains_fountain_01
+            else if (t < 100) { r->variant = 1; sx = 10; sy = 7; sz = 10; } // plains_meeting_point_1
+            else if (t < 150) { r->variant = 2; sx =  8; sy = 5; sz = 15; } // plains_meeting_point_2
+            else if (t < 200) { r->variant = 3; sx = 11; sy = 9; sz = 11; } // plains_meeting_point_3
+            else if (t < 201) { r->variant = 0; sx =  9; sy = 4; sz =  9; r->abandoned = 1; }
+            else if (t < 202) { r->variant = 1; sx = 10; sy = 7; sz = 10; r->abandoned = 1; }
+            else if (t < 203) { r->variant = 2; sx =  8; sy = 5; sz = 15; r->abandoned = 1; }
+            else if (t < 204) { r->variant = 3; sx = 11; sy = 9; sz = 11; r->abandoned = 1; }
             break;
         case desert:
             t = nextInt(&rng, 250);
-            if      (t <  98) { r.variant = 1; r.sx = 17; r.sy = 6; r.sz =  9; } // desert_meeting_point_1
-            else if (t < 196) { r.variant = 2; r.sx = 12; r.sy = 6; r.sz = 12; } // desert_meeting_point_2
-            else if (t < 245) { r.variant = 3; r.sx = 15; r.sy = 6; r.sz = 15; } // desert_meeting_point_3
-            else if (t < 247) { r.variant = 1; r.sx = 17; r.sy = 6; r.sz =  9; r.abandoned = 1; }
-            else if (t < 249) { r.variant = 2; r.sx = 12; r.sy = 6; r.sz = 12; r.abandoned = 1; }
-            else if (t < 250) { r.variant = 3; r.sx = 15; r.sy = 6; r.sz = 15; r.abandoned = 1; }
+            if      (t <  98) { r->variant = 1; sx = 17; sy = 6; sz =  9; } // desert_meeting_point_1
+            else if (t < 196) { r->variant = 2; sx = 12; sy = 6; sz = 12; } // desert_meeting_point_2
+            else if (t < 245) { r->variant = 3; sx = 15; sy = 6; sz = 15; } // desert_meeting_point_3
+            else if (t < 247) { r->variant = 1; sx = 17; sy = 6; sz =  9; r->abandoned = 1; }
+            else if (t < 249) { r->variant = 2; sx = 12; sy = 6; sz = 12; r->abandoned = 1; }
+            else if (t < 250) { r->variant = 3; sx = 15; sy = 6; sz = 15; r->abandoned = 1; }
             break;
         case savanna:
             t = nextInt(&rng, 459);
-            if      (t < 100) { r.variant = 1; r.sx = 14; r.sy = 5; r.sz = 12; } // savanna_meeting_point_1
-            else if (t < 150) { r.variant = 2; r.sx = 11; r.sy = 6; r.sz = 11; } // savanna_meeting_point_2
-            else if (t < 300) { r.variant = 3; r.sx =  9; r.sy = 6; r.sz = 11; } // savanna_meeting_point_3
-            else if (t < 450) { r.variant = 4; r.sx =  9; r.sy = 6; r.sz =  9; } // savanna_meeting_point_4
-            else if (t < 452) { r.variant = 1; r.sx = 14; r.sy = 5; r.sz = 12; r.abandoned = 1; }
-            else if (t < 453) { r.variant = 2; r.sx = 11; r.sy = 6; r.sz = 11; r.abandoned = 1; }
-            else if (t < 456) { r.variant = 3; r.sx =  9; r.sy = 6; r.sz = 11; r.abandoned = 1; }
-            else if (t < 459) { r.variant = 4; r.sx =  9; r.sy = 6; r.sz =  9; r.abandoned = 1; }
+            if      (t < 100) { r->variant = 1; sx = 14; sy = 5; sz = 12; } // savanna_meeting_point_1
+            else if (t < 150) { r->variant = 2; sx = 11; sy = 6; sz = 11; } // savanna_meeting_point_2
+            else if (t < 300) { r->variant = 3; sx =  9; sy = 6; sz = 11; } // savanna_meeting_point_3
+            else if (t < 450) { r->variant = 4; sx =  9; sy = 6; sz =  9; } // savanna_meeting_point_4
+            else if (t < 452) { r->variant = 1; sx = 14; sy = 5; sz = 12; r->abandoned = 1; }
+            else if (t < 453) { r->variant = 2; sx = 11; sy = 6; sz = 11; r->abandoned = 1; }
+            else if (t < 456) { r->variant = 3; sx =  9; sy = 6; sz = 11; r->abandoned = 1; }
+            else if (t < 459) { r->variant = 4; sx =  9; sy = 6; sz =  9; r->abandoned = 1; }
             break;
         case taiga:
             t = nextInt(&rng, 100);
-            if      (t <  49) { r.variant = 1; r.sx = 22; r.sy = 3; r.sz = 18; } // taiga_meeting_point_1
-            else if (t <  98) { r.variant = 2; r.sx =  9; r.sy = 7; r.sz =  9; } // taiga_meeting_point_2
-            else if (t <  99) { r.variant = 1; r.sx = 22; r.sy = 3; r.sz = 18; r.abandoned = 1; }
-            else if (t < 100) { r.variant = 2; r.sx =  9; r.sy = 7; r.sz =  9; r.abandoned = 1; }
+            if      (t <  49) { r->variant = 1; sx = 22; sy = 3; sz = 18; } // taiga_meeting_point_1
+            else if (t <  98) { r->variant = 2; sx =  9; sy = 7; sz =  9; } // taiga_meeting_point_2
+            else if (t <  99) { r->variant = 1; sx = 22; sy = 3; sz = 18; r->abandoned = 1; }
+            else if (t < 100) { r->variant = 2; sx =  9; sy = 7; sz =  9; r->abandoned = 1; }
             break;
         case snowy_tundra:
             t = nextInt(&rng, 306);
-            if      (t < 100) { r.variant = 1; r.sx = 12; r.sy = 8; r.sz =  8; } // snowy_meeting_point_1
-            else if (t < 150) { r.variant = 2; r.sx = 11; r.sy = 5; r.sz =  9; } // snowy_meeting_point_2
-            else if (t < 300) { r.variant = 3; r.sx =  7; r.sy = 7; r.sz =  7; } // snowy_meeting_point_3
-            else if (t < 302) { r.variant = 1; r.sx = 12; r.sy = 8; r.sz =  8; r.abandoned = 1; }
-            else if (t < 303) { r.variant = 2; r.sx = 11; r.sy = 5; r.sz =  9; r.abandoned = 1; }
-            else if (t < 306) { r.variant = 3; r.sx =  7; r.sy = 7; r.sz =  7; r.abandoned = 1; }
+            if      (t < 100) { r->variant = 1; sx = 12; sy = 8; sz =  8; } // snowy_meeting_point_1
+            else if (t < 150) { r->variant = 2; sx = 11; sy = 5; sz =  9; } // snowy_meeting_point_2
+            else if (t < 300) { r->variant = 3; sx =  7; sy = 7; sz =  7; } // snowy_meeting_point_3
+            else if (t < 302) { r->variant = 1; sx = 12; sy = 8; sz =  8; r->abandoned = 1; }
+            else if (t < 303) { r->variant = 2; sx = 11; sy = 5; sz =  9; r->abandoned = 1; }
+            else if (t < 306) { r->variant = 3; sx =  7; sy = 7; sz =  7; r->abandoned = 1; }
             break;
         default:
-            break;
+            return 0;
+        }
+        break;
+
+    case Bastion:
+        r->rotation = nextInt(&rng, 4);
+        r->variant = nextInt(&rng, 4);
+        switch (r->variant)
+        {
+        case 0: sx = 46; sy = 24; sz = 46; break; // units/air_base
+        case 1: sx = 30; sy = 24; sz = 48; break; // hoglin_stable/air_base
+        case 2: sx = 38; sy = 48; sz = 38; break; // treasure/big_air_full
+        case 3: sx = 16; sy = 32; sz = 32; break; // bridge/starting_pieces/entrance_base
+        default: return 0; // unreachable
+        }
+        break;
+
+    case Ancient_City:
+        r->rotation = nextInt(&rng, 4);
+        r->variant = 1 + nextInt(&rng, 3); // city_center_1..3
+        sx = 18; sy = 31; sz = 41;
+        // note the city_anchor (13, *, 20) is part of the city_center
+        break;
+
+    case Ruined_Portal:
+        // In locations with underground biomes, the portal biome type is
+        // selected pseudo-randomly, which also modifies the random object
+        // before determining the sub-type. Thus this code can be inaccurate,
+        // and interestingly enough can even cause the generation attempt to
+        // fail, despite all biomes being capable of generating portals.
+        r->giant = nextFloat(&rng) < 0.05f;
+        if (r->giant)
+        {   // ruined_portal/giant_portal_1..3
+            r->variant = 1 + nextInt(&rng, 3);
+        }
+        else
+        {   // ruined_portal/portal_1..10
+            r->variant = 1 + nextInt(&rng, 10);
+        }
+        r->rotation = nextInt(&rng, 4);
+        r->mirror = nextFloat(&rng) < 0.05f;
+        return 1;
+
+    case Monument:
+        r->x = r->z = -29;
+        r->sx = r->sz = 58;
+        return 1;
+    case Desert_Pyramid:
+        r->sx = 21; r->sz = 21;
+        return 1;
+    case Jungle_Temple:
+        r->sx = 12; r->sz = 15;
+        return 1;
+    case Swamp_Hut:
+        r->sx = 7; r->sz = 9;
+        return 1;
+
+    default:
+        return 0;
+    }
+
+    r->y = 0;
+    r->sy = sy;
+    switch (r->rotation)
+    {
+        case 0: r->x = -(x<0);    r->z = -(z<0);    r->sx = sx; r->sz = sz; break; // 0:0
+        case 1: r->x = +(x>0)-sz; r->z = -(z<0);    r->sx = sz; r->sz = sx; break; // 1:cw90
+        case 2: r->x = +(x>0)-sx; r->z = +(z>0)-sz; r->sx = sx; r->sz = sz; break; // 2:cw180
+        case 3: r->x = -(x<0);    r->z = +(z>0)-sx; r->sx = sz; r->sz = sx; break; // 3:cw270=ccw90
+        default: return 0; // unreachable
+    }
+    if (structType == Ancient_City)
+    {
+        sx = 13; sz = 20; // city_anchor
+        switch (r->rotation)
+        {
+        case 0: r->x -= sx; r->z -= sz; break; // 0:0
+        case 1: r->x += sz; r->z -= sx; break; // 1:cw90
+        case 2: r->x += sx; r->z += sz; break; // 2:cw180
+        case 3: r->x -= sz; r->z += sx; break; // 3:cw270=ccw90
         }
     }
-    else if (mc >= MC_1_10)
-    {
-        skipNextN(&rng, mc == MC_1_13 ? 10 : 11);
-        r.abandoned = nextInt(&rng, 50) == 0;
-    }
-
-    return r;
+    return 1;
 }
 
-StructureVariant getBastionType(int mc, uint64_t seed, int blockX, int blockZ)
-{
-    (void) mc;
-    StructureVariant r = { 0, 0, 0, 0, 0, 0, 0 };
-    uint64_t rng = chunkGenerateRnd(seed, blockX >> 4, blockZ >> 4);
-    r.biome = -1;
-    r.rotation = nextInt(&rng, 4);
-    r.variant = nextInt(&rng, 4);
-    switch (r.variant)
-    {
-    case 0: r.sx = 46; r.sy = 24; r.sz = 46; break; // units/air_base
-    case 1: r.sx = 30; r.sy = 24; r.sz = 48; break; // hoglin_stable/air_base
-    case 2: r.sx = 38; r.sy = 48; r.sz = 38; break; // treasure/big_air_full
-    case 3: r.sx = 16; r.sy = 32; r.sz = 32; break; // bridge/starting_pieces/entrance_base
-    }
-    return r;
-}
-
-StructureVariant getAncientCityType(int mc, uint64_t seed, int blockX, int blockZ)
-{
-    (void) mc;
-    StructureVariant r = { 0, 0, 0, 0, 0, 0, 0 };
-    uint64_t rng = chunkGenerateRnd(seed, blockX >> 4, blockZ >> 4);
-    r.biome = -1;
-    r.rotation = nextInt(&rng, 4);
-    r.variant = nextInt(&rng, 3);
-    switch (r.variant)
-    {
-    case 0: r.sx = 18; r.sy = 31; r.sz = 41; break; // city_center_1
-    case 1: r.sx = 18; r.sy = 31; r.sz = 41; break; // city_center_2
-    case 2: r.sx = 18; r.sy = 31; r.sz = 41; break; // city_center_3
-    }
-    return r;
-}
 
 uint64_t getHouseList(uint64_t worldSeed, int chunkX, int chunkZ,
         int *out)

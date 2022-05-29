@@ -159,10 +159,14 @@ STRUCT(StrongholdIter)
 
 STRUCT(StructureVariant)
 {
-    char abandoned; // is zombie village
+    uint8_t abandoned; // is zombie village
+    uint8_t giant; // giant portal variant
     char variant;
+    const char *name;
     short biome;
-    char rotation; // 0:0, 1:cw90, 2:cw180, 3:cw270=ccw90
+    uint8_t rotation; // 0:0, 1:cw90, 2:cw180, 3:cw270=ccw90
+    uint8_t mirror;
+    char x, y, z;
     char sx, sy, sz;
 };
 
@@ -617,9 +621,8 @@ uint64_t chunkGenerateRnd(uint64_t worldSeed, int chunkX, int chunkZ)
     return rnd;
 }
 
-StructureVariant getVillageType(int mc, uint64_t seed, int blockX, int blockZ, int biomeID);
-StructureVariant getBastionType(int mc, uint64_t seed, int blockX, int blockZ); // 1.18
-StructureVariant getAncientCityType(int mc, uint64_t seed, int blockX, int blockZ);
+int getVariant(StructureVariant *sv, int structType, int mc, uint64_t seed,
+        int blockX, int blockZ, int biomeID);
 
 /* Finds the number of each type of house that generate in a village
  * (mc < MC_1_14)
