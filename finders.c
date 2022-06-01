@@ -1958,14 +1958,34 @@ L_feature:
     case Village:
         if (g->mc <= MC_1_17)
         {
-            g->entry = &g->ls.layers[L_RIVER_MIX_4];
-            sampleX = (chunkX << 2) + 2;
-            sampleZ = (chunkZ << 2) + 2;
+            if (g->mc == MC_1_15)
+            {   // exclusively in MC_1_15, villages used the same biome check
+                // as other structures
+                g->entry = &g->ls.layers[L_VORONOI_1];
+                sampleX = (chunkX << 4) + 9;
+                sampleZ = (chunkZ << 4) + 9;
+            }
+            else
+            {
+                g->entry = &g->ls.layers[L_RIVER_MIX_4];
+                sampleX = (chunkX << 2) + 2;
+                sampleZ = (chunkZ << 2) + 2;
+            }
             id = getBiomeAt(g, 0, sampleX, 0, sampleZ);
             if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
                 goto L_not_viable;
             if (flags && (uint32_t) id != flags)
                 goto L_not_viable;
+            if (g->mc <= MC_1_9)
+            {   // before MC_1_10 villages did not spread into invalid biomes,
+                // which could cause them to fail to generate on the first
+                // check at block (2, 2) in the starting chunk
+                sampleX = (chunkX << 4) + 2;
+                sampleZ = (chunkZ << 4) + 2;
+                id = getBiomeAt(g, 1, sampleX, 0, sampleZ);
+                if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
+                    goto L_not_viable;
+            }
             viable = id; // biome for viablility, useful for further analysis
             goto L_viable;
         }
