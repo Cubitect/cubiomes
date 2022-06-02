@@ -170,7 +170,7 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
         *sconf = BASTION_CONFIG;
         return mc >= MC_1_16;
     case End_Gateway:
-        *sconf = END_GATEWAY_CONFIG;
+        *sconf = mc <= MC_1_15 ? END_GATEWAY_CONFIG_115 : END_GATEWAY_CONFIG;
         return mc >= MC_1_13;
     default:
         memset(sconf, 0, sizeof(StructureConfig));
@@ -281,13 +281,12 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
         }
         else
         {
-            seed = getPopulationSeed(mc, seed, pos->x, pos->z);
             setSeed(&seed, seed + sconf.salt);
-            if (mc <= MC_1_16) {
-                if (nextInt(&seed, 700) != 0)
+            if (mc >= MC_1_17) {
+                if (nextFloat(&seed) >= 1.0/700)
                     return 0;
             } else {
-                if (nextFloat(&seed) >= 1.0/700)
+                if (nextInt(&seed, 700) != 0)
                     return 0;
             }
             pos->x += nextInt(&seed, 16);

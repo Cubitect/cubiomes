@@ -111,6 +111,7 @@ _sc BASTION_CONFIG            = { 30084232, 27, 23, Bastion, 0};
 _sc END_CITY_CONFIG           = { 10387313, 20,  9, End_City, LARGE_STRUCT};
 
 // for the scattered return gateways
+_sc END_GATEWAY_CONFIG_115    = {    30000,  1,  1, End_Gateway, CHUNK_STRUCT};
 _sc END_GATEWAY_CONFIG        = {    40013,  1,  1, End_Gateway, CHUNK_STRUCT};
 
 #undef _sc
