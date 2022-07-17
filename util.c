@@ -470,9 +470,10 @@ int savePPM(const char *path, const unsigned char *pixels, const unsigned int sx
     if (!fp)
         return -1;
     fprintf(fp, "P6\n%d %d\n255\n", sx, sy);
-    int written = fwrite(pixels, sx*sy, 3, fp);
+    size_t pixelsLen = 3 * sx * sy;
+    size_t written = fwrite(pixels, sizeof pixels[0], pixelsLen, fp);
     fclose(fp);
-    return (unsigned int)written != 3*sx*sy;
+    return written != pixelsLen;
 }
 
 
