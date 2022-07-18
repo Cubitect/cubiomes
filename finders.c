@@ -2404,8 +2404,15 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
         break;
 
     case Bastion:
-        r->rotation = nextInt(&rng, 4);
         r->variant = nextInt(&rng, 4);
+        r->rotation = nextInt(&rng, 4);
+        // these are swapped in 1.16.1 only
+        if (mc == MC_1_16_1) {
+            uint8_t tmp;
+            tmp = r->variant;
+            r->variant = r->rotation;
+            r->rotation = tmp;
+        }
         switch (r->variant)
         {
         case 0: sx = 46; sy = 24; sz = 46; break; // units/air_base
