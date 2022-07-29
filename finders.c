@@ -2412,7 +2412,6 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
         case 1: sx = 30; sy = 24; sz = 48; break; // hoglin_stable/air_base
         case 2: sx = 38; sy = 48; sz = 38; break; // treasure/big_air_full
         case 3: sx = 16; sy = 32; sz = 32; break; // bridge/starting_pieces/entrance_base
-        default: return 0; // unreachable
         }
         break;
 
@@ -2509,24 +2508,149 @@ uint64_t getHouseList(uint64_t worldSeed, int chunkX, int chunkZ,
 //==============================================================================
 
 
-BiomeFilter setupBiomeFilter(
-    const int *required, int requiredLen,
-    const int *excluded, int excludedLen)
+static inline int id_match(int id, uint64_t b, uint64_t m)
 {
-    BiomeFilter bf;
+    return
+        ((id <  128 && (b & (1ULL << id      ))) ||
+         (id >= 128 && (m & (1ULL << (id-128)))));
+}
+
+void setupBiomeFilter(
+    BiomeFilter *bf,
+    int mc, uint32_t flags,
+    const int *required, int requiredLen,
+    const int *excluded, int excludedLen,
+    const int *matchany, int matchanyLen)
+{
     int i, id;
 
-    memset(&bf, 0, sizeof(bf));
+    memset(bf, 0, sizeof(*bf));
+    bf->flags = flags;
 
+    // The matchany set is built from the intersection of each member,
+    // individually treated as a required biome. The search can be aborted with
+    // a positive result, as soon as any of those biomes is encountered.
+    for (i = 0; i < matchanyLen; i++)
+    {
+        id = matchany[i];
+        if (id < 128)
+            bf->biomeToPick |= (1ULL << id);
+        else
+            bf->biomeToPickM |= (1ULL << (id-128));
+
+        BiomeFilter ibf;
+        setupBiomeFilter(&ibf, mc, 0, &id, 1, 0, 0, 0, 0);
+        if (i == 0)
+        {
+            bf->tempsToFind  = ibf.tempsToFind;
+            bf->otempToFind  = ibf.otempToFind;
+            bf->majorToFind  = ibf.majorToFind;
+            bf->edgesToFind  = ibf.edgesToFind;
+            bf->raresToFind  = ibf.raresToFind;
+            bf->raresToFindM = ibf.raresToFindM;
+            bf->shoreToFind  = ibf.shoreToFind;
+            bf->shoreToFindM = ibf.shoreToFindM;
+            bf->riverToFind  = ibf.riverToFind;
+            bf->riverToFindM = ibf.riverToFindM;
+            bf->oceanToFind  = ibf.oceanToFind;
+        }
+        else
+        {
+            bf->tempsToFind  &= ibf.tempsToFind;
+            bf->otempToFind  &= ibf.otempToFind;
+            bf->majorToFind  &= ibf.majorToFind;
+            bf->edgesToFind  &= ibf.edgesToFind;
+            bf->raresToFind  &= ibf.raresToFind;
+            bf->raresToFindM &= ibf.raresToFindM;
+            bf->shoreToFind  &= ibf.shoreToFind;
+            bf->shoreToFindM &= ibf.shoreToFindM;
+            bf->riverToFind  &= ibf.riverToFind;
+            bf->riverToFindM &= ibf.riverToFindM;
+            bf->oceanToFind  &= ibf.oceanToFind;
+        }
+    }
+
+    // The excluded set is built by checking which of the biomes from each
+    // layer have the potential to yield something other than one of the
+    // excluded biomes.
     for (i = 0; i < excludedLen; i++)
     {
         id = excluded[i];
+        if (id & ~0xbf) // i.e. not in ranges [0,64),[128,192)
+        {
+            fprintf(stderr, "setupBiomeFilter: biomeID=%d not supported.\n", id);
+            exit(-1);
+        }
         if (id < 128)
-            bf.biomeToExcl |= (1ULL << id);
+            bf->biomeToExcl |= (1ULL << id);
         else
-            bf.biomeToExclM |= (1ULL << (id-128));
+            bf->biomeToExclM |= (1ULL << (id-128));
+    }
+    if (excludedLen && mc >= MC_1_7)
+    {
+        uint64_t b, m;
+        int j;
+        for (j = Oceanic; j <= Freezing+Special; j++)
+        {
+            b = m = 0;
+            int temp = (j <= Freezing) ? j : ((j - Special) | 0xf00);
+            genPotential(&b, &m, L_SPECIAL_1024, mc, temp);
+            if ((bf->biomeToExcl & b) || (bf->biomeToExclM & m))
+                bf->tempsToExcl |= (1ULL << j);
+        }
+        for (j = 0; j < 256; j++)
+        {
+            if (!isOverworld(mc, j))
+                continue;
+            if (j < 128)
+            {
+                b = m = 0;
+                genPotential(&b, &m, L_BIOME_256, mc, j);
+                if ((~bf->biomeToExcl & b) || (~bf->biomeToExclM & m))
+                    bf->majorToExcl |= (1ULL << j);
+            }
+            b = m = 0;
+            genPotential(&b, &m, L_BIOME_EDGE_64, mc, j);
+            if ((~bf->biomeToExcl & b) || (~bf->biomeToExclM & m))
+            {
+                if (j < 128)
+                    bf->edgesToExcl |= (1ULL << j);
+                else // bamboo_jungle are mapped onto & 0x3F
+                    bf->edgesToExcl |= (1ULL << (j-128));
+            }
+            b = m = 0;
+            genPotential(&b, &m, L_SUNFLOWER_64, mc, j);
+            if ((~bf->biomeToExcl & b) || (~bf->biomeToExclM & m))
+            {
+                if (j < 128)
+                    bf->raresToExcl |= (1ULL << j);
+                else
+                    bf->raresToExclM |= (1ULL << (j-128));
+            }
+            b = m = 0;
+            genPotential(&b, &m, L_SHORE_16, mc, j);
+            if ((~bf->biomeToExcl & b) || (~bf->biomeToExclM & m))
+            {
+                if (j < 128)
+                    bf->shoreToExcl |= (1ULL << j);
+                else
+                    bf->shoreToExclM |= (1ULL << (j-128));
+            }
+            b = m = 0;
+            genPotential(&b, &m, L_RIVER_MIX_4, mc, j);
+            if ((~bf->biomeToExcl & b) || (~bf->biomeToExclM & m))
+            {
+                if (j < 128)
+                    bf->riverToExcl |= (1ULL << j);
+                else
+                    bf->riverToExclM |= (1ULL << (j-128));
+            }
+        }
     }
 
+    // The required set is built from the biomes that should be present at each
+    // of the layers. The search can be aborted with a negative result as soon
+    // as a biome is missing at the corresponding layer.
     for (i = 0; i < requiredLen; i++)
     {
         id = required[i];
@@ -2540,12 +2664,12 @@ BiomeFilter setupBiomeFilter(
         {
         case mushroom_fields:
             // mushroom shores can generate with hills and at rivers
-            bf.raresToFind |= (1ULL << mushroom_fields);
+            bf->raresToFind |= (1ULL << mushroom_fields);
             // fall through
         case mushroom_field_shore:
-            bf.tempsToFind |= (1ULL << Oceanic);
-            bf.majorToFind |= (1ULL << mushroom_fields);
-            bf.riverToFind |= (1ULL << id);
+            bf->tempsToFind |= (1ULL << Oceanic);
+            bf->majorToFind |= (1ULL << mushroom_fields);
+            bf->riverToFind |= (1ULL << id);
             break;
 
         case badlands_plateau:
@@ -2554,17 +2678,17 @@ BiomeFilter setupBiomeFilter(
         case eroded_badlands:
         case modified_badlands_plateau:
         case modified_wooded_badlands_plateau:
-            bf.tempsToFind |= (1ULL << (Warm+Special));
+            bf->tempsToFind |= (1ULL << (Warm+Special));
             if (id == badlands_plateau || id == modified_badlands_plateau)
-                bf.majorToFind |= (1ULL << badlands_plateau);
+                bf->majorToFind |= (1ULL << badlands_plateau);
             if (id == wooded_badlands_plateau || id == modified_wooded_badlands_plateau)
-                bf.majorToFind |= (1ULL << wooded_badlands_plateau);
+                bf->majorToFind |= (1ULL << wooded_badlands_plateau);
             if (id < 128) {
-                bf.raresToFind |= (1ULL << id);
-                bf.riverToFind |= (1ULL << id);
+                bf->raresToFind |= (1ULL << id);
+                bf->riverToFind |= (1ULL << id);
             } else {
-                bf.raresToFindM |= (1ULL << (id-128));
-                bf.riverToFindM |= (1ULL << (id-128));
+                bf->raresToFindM |= (1ULL << (id-128));
+                bf->riverToFindM |= (1ULL << (id-128));
             }
             break;
 
@@ -2575,27 +2699,27 @@ BiomeFilter setupBiomeFilter(
         case modified_jungle_edge:
         case bamboo_jungle:
         case bamboo_jungle_hills:
-            bf.tempsToFind |= (1ULL << (Lush+Special));
-            bf.majorToFind |= (1ULL << jungle);
+            bf->tempsToFind |= (1ULL << (Lush+Special));
+            bf->majorToFind |= (1ULL << jungle);
             if (id == bamboo_jungle || id == bamboo_jungle_hills) {
                 // bamboo%64 are End biomes, so we can reuse the edgesToFind
-                bf.edgesToFind |= (1ULL << (bamboo_jungle & 0x3f));
-                bf.raresToFindM |= (1ULL << (id-128));
-                bf.riverToFindM |= (1ULL << (id-128));
+                bf->edgesToFind |= (1ULL << (bamboo_jungle & 0x3f));
+                bf->raresToFindM |= (1ULL << (id-128));
+                bf->riverToFindM |= (1ULL << (id-128));
             } else if (id == jungle_edge) {
                 // un-modified jungle_edge can be created at shore layer
-                bf.riverToFind |= (1ULL << jungle_edge);
+                bf->riverToFind |= (1ULL << jungle_edge);
             } else {
                 if (id == modified_jungle_edge)
-                    bf.edgesToFind |= (1ULL << jungle_edge);
+                    bf->edgesToFind |= (1ULL << jungle_edge);
                 else
-                    bf.edgesToFind |= (1ULL << jungle);
+                    bf->edgesToFind |= (1ULL << jungle);
                 if (id < 128) {
-                    bf.raresToFind |= (1ULL << id);
-                    bf.riverToFind |= (1ULL << id);
+                    bf->raresToFind |= (1ULL << id);
+                    bf->riverToFind |= (1ULL << id);
                 } else {
-                    bf.raresToFindM |= (1ULL << (id-128));
-                    bf.riverToFindM |= (1ULL << (id-128));
+                    bf->raresToFindM |= (1ULL << (id-128));
+                    bf->riverToFindM |= (1ULL << (id-128));
                 }
             }
             break;
@@ -2604,15 +2728,15 @@ BiomeFilter setupBiomeFilter(
         case giant_tree_taiga_hills:
         case giant_spruce_taiga:
         case giant_spruce_taiga_hills:
-            bf.tempsToFind |= (1ULL << (Cold+Special));
-            bf.majorToFind |= (1ULL << giant_tree_taiga);
-            bf.edgesToFind |= (1ULL << giant_tree_taiga);
+            bf->tempsToFind |= (1ULL << (Cold+Special));
+            bf->majorToFind |= (1ULL << giant_tree_taiga);
+            bf->edgesToFind |= (1ULL << giant_tree_taiga);
             if (id < 128) {
-                bf.raresToFind |= (1ULL << id);
-                bf.riverToFind |= (1ULL << id);
+                bf->raresToFind |= (1ULL << id);
+                bf->riverToFind |= (1ULL << id);
             } else {
-                bf.raresToFindM |= (1ULL << (id-128));
-                bf.riverToFindM |= (1ULL << (id-128));
+                bf->raresToFindM |= (1ULL << (id-128));
+                bf->riverToFindM |= (1ULL << (id-128));
             }
             break;
 
@@ -2622,20 +2746,20 @@ BiomeFilter setupBiomeFilter(
         case shattered_savanna_plateau:
         case desert_hills:
         case desert_lakes:
-            bf.tempsToFind |= (1ULL << Warm);
+            bf->tempsToFind |= (1ULL << Warm);
             if (id == desert_hills || id == desert_lakes) {
-                bf.majorToFind |= (1ULL << desert);
-                bf.edgesToFind |= (1ULL << desert);
+                bf->majorToFind |= (1ULL << desert);
+                bf->edgesToFind |= (1ULL << desert);
             } else {
-                bf.majorToFind |= (1ULL << savanna);
-                bf.edgesToFind |= (1ULL << savanna);
+                bf->majorToFind |= (1ULL << savanna);
+                bf->edgesToFind |= (1ULL << savanna);
             }
             if (id < 128) {
-                bf.raresToFind |= (1ULL << id);
-                bf.riverToFind |= (1ULL << id);
+                bf->raresToFind |= (1ULL << id);
+                bf->riverToFind |= (1ULL << id);
             } else {
-                bf.raresToFindM |= (1ULL << (id-128));
-                bf.riverToFindM |= (1ULL << (id-128));
+                bf->raresToFindM |= (1ULL << (id-128));
+                bf->riverToFindM |= (1ULL << (id-128));
             }
             break;
 
@@ -2647,26 +2771,26 @@ BiomeFilter setupBiomeFilter(
         case tall_birch_hills:
         case swamp:
         case swamp_hills:
-            bf.tempsToFind |= (1ULL << Lush);
+            bf->tempsToFind |= (1ULL << Lush);
             if (id == dark_forest || id == dark_forest_hills) {
-                bf.majorToFind |= (1ULL << dark_forest);
-                bf.edgesToFind |= (1ULL << dark_forest);
+                bf->majorToFind |= (1ULL << dark_forest);
+                bf->edgesToFind |= (1ULL << dark_forest);
             }
             else if (id == birch_forest || id == birch_forest_hills ||
                      id == tall_birch_forest || id == tall_birch_hills) {
-                bf.majorToFind |= (1ULL << birch_forest);
-                bf.edgesToFind |= (1ULL << birch_forest);
+                bf->majorToFind |= (1ULL << birch_forest);
+                bf->edgesToFind |= (1ULL << birch_forest);
             }
             else if (id == swamp || id == swamp_hills) {
-                bf.majorToFind |= (1ULL << swamp);
-                bf.edgesToFind |= (1ULL << swamp);
+                bf->majorToFind |= (1ULL << swamp);
+                bf->edgesToFind |= (1ULL << swamp);
             }
             if (id < 128) {
-                bf.raresToFind |= (1ULL << id);
-                bf.riverToFind |= (1ULL << id);
+                bf->raresToFind |= (1ULL << id);
+                bf->riverToFind |= (1ULL << id);
             } else {
-                bf.raresToFindM |= (1ULL << (id-128));
-                bf.riverToFindM |= (1ULL << (id-128));
+                bf->raresToFindM |= (1ULL << (id-128));
+                bf->riverToFindM |= (1ULL << (id-128));
             }
             break;
 
@@ -2677,116 +2801,119 @@ BiomeFilter setupBiomeFilter(
         case snowy_mountains:
         case ice_spikes:
         case frozen_river:
-            bf.tempsToFind |= (1ULL << Freezing);
+            bf->tempsToFind |= (1ULL << Freezing);
             if (id == snowy_taiga || id == snowy_taiga_hills ||
                 id == snowy_taiga_mountains)
-                bf.edgesToFind |= (1ULL << snowy_taiga);
+                bf->edgesToFind |= (1ULL << snowy_taiga);
             else
-                bf.edgesToFind |= (1ULL << snowy_tundra);
+                bf->edgesToFind |= (1ULL << snowy_tundra);
             if (id == frozen_river) {
-                bf.raresToFind |= (1ULL << snowy_tundra);
-                bf.riverToFind |= (1ULL << id);
+                bf->raresToFind |= (1ULL << snowy_tundra);
+                bf->riverToFind |= (1ULL << id);
             } else if (id < 128) {
-                bf.raresToFind |= (1ULL << id);
-                bf.riverToFind |= (1ULL << id);
+                bf->raresToFind |= (1ULL << id);
+                bf->riverToFind |= (1ULL << id);
             } else {
-                bf.raresToFindM |= (1ULL << (id-128));
-                bf.riverToFindM |= (1ULL << (id-128));
+                bf->raresToFindM |= (1ULL << (id-128));
+                bf->riverToFindM |= (1ULL << (id-128));
             }
             break;
 
         case sunflower_plains:
-            bf.raresToFindM |= (1ULL << (id-128));
-            bf.riverToFindM |= (1ULL << (id-128));
+            bf->raresToFindM |= (1ULL << (id-128));
+            bf->riverToFindM |= (1ULL << (id-128));
             break;
 
         case snowy_beach:
-            bf.tempsToFind |= (1ULL << Freezing);
+            bf->tempsToFind |= (1ULL << Freezing);
             // fall through
         case beach:
         case stone_shore:
-            bf.riverToFind |= (1ULL << id);
+            bf->riverToFind |= (1ULL << id);
             break;
 
         case mountains:
-            bf.majorToFind |= (1ULL << mountains);
+            bf->majorToFind |= (1ULL << mountains);
             // fall through
         case wooded_mountains:
-            bf.raresToFind |= (1ULL << id);
-            bf.riverToFind |= (1ULL << id);
+            bf->raresToFind |= (1ULL << id);
+            bf->riverToFind |= (1ULL << id);
             break;
         case gravelly_mountains:
-            bf.majorToFind |= (1ULL << mountains);
+            bf->majorToFind |= (1ULL << mountains);
             // fall through
         case modified_gravelly_mountains:
-            bf.raresToFindM |= (1ULL << (id-128));
-            bf.riverToFindM |= (1ULL << (id-128));
+            bf->raresToFindM |= (1ULL << (id-128));
+            bf->riverToFindM |= (1ULL << (id-128));
             break;
 
         case taiga:
         case taiga_hills:
-            bf.edgesToFind |= (1ULL << taiga);
-            bf.raresToFind |= (1ULL << id);
-            bf.riverToFind |= (1ULL << id);
+            bf->edgesToFind |= (1ULL << taiga);
+            bf->raresToFind |= (1ULL << id);
+            bf->riverToFind |= (1ULL << id);
             break;
         case taiga_mountains:
-            bf.edgesToFind |= (1ULL << taiga);
-            bf.raresToFindM |= (1ULL << (id-128));
-            bf.riverToFindM |= (1ULL << (id-128));
+            bf->edgesToFind |= (1ULL << taiga);
+            bf->raresToFindM |= (1ULL << (id-128));
+            bf->riverToFindM |= (1ULL << (id-128));
             break;
 
         case plains:
         case forest:
         case wooded_hills:
-            bf.raresToFind |= (1ULL << id);
-            bf.riverToFind |= (1ULL << id);
+            bf->raresToFind |= (1ULL << id);
+            bf->riverToFind |= (1ULL << id);
             break;
         case flower_forest:
-            bf.raresToFindM |= (1ULL << (id-128));
-            bf.riverToFindM |= (1ULL << (id-128));
+            bf->raresToFindM |= (1ULL << (id-128));
+            bf->riverToFindM |= (1ULL << (id-128));
             break;
 
         case desert: // can generate at shore layer
-            bf.riverToFind |= (1ULL << id);
+            bf->riverToFind |= (1ULL << id);
             break;
 
         default:
             if (isOceanic(id)) {
-                bf.tempsToFind |= (1ULL << Oceanic);
-                bf.oceanToFind |= (1ULL << id);
+                bf->tempsToFind |= (1ULL << Oceanic);
+                bf->oceanToFind |= (1ULL << id);
                 if (isShallowOcean(id)) {
                     if (id != lukewarm_ocean && id != cold_ocean)
-                        bf.otempToFind |= (1ULL << id);
+                        bf->otempToFind |= (1ULL << id);
                 } else {
-                    bf.raresToFind |= (1ULL << deep_ocean);
-                    bf.riverToFind |= (1ULL << deep_ocean);
+                    bf->raresToFind |= (1ULL << deep_ocean);
+                    bf->riverToFind |= (1ULL << deep_ocean);
                     if (id == deep_warm_ocean)
-                        bf.otempToFind |= (1ULL << warm_ocean);
+                        bf->otempToFind |= (1ULL << warm_ocean);
                     else if (id == deep_ocean)
-                        bf.otempToFind |= (1ULL << ocean);
+                        bf->otempToFind |= (1ULL << ocean);
                     else if (id == deep_frozen_ocean)
-                        bf.otempToFind |= (1ULL << frozen_ocean);
+                        bf->otempToFind |= (1ULL << frozen_ocean);
                 }
             } else {
                 if (id < 64)
-                    bf.riverToFind |= (1ULL << id);
+                    bf->riverToFind |= (1ULL << id);
                 else
-                    bf.riverToFindM |= (1ULL << (id-128));
+                    bf->riverToFindM |= (1ULL << (id-128));
             }
             break;
         }
     }
 
-    bf.shoreToFind = bf.riverToFind;
-    bf.shoreToFind &= ~((1ULL << river) | (1ULL << frozen_river));
-    bf.shoreToFindM = bf.riverToFindM;
+    bf->biomeToFind = bf->riverToFind;
+    bf->biomeToFind &= ~((1ULL << ocean) | (1ULL << deep_ocean));
+    bf->biomeToFind |= bf->oceanToFind;
+    bf->biomeToFindM = bf->riverToFindM;
 
-    bf.specialCnt = 0;
-    bf.specialCnt += !!(bf.tempsToFind & (1ULL << (Warm+Special)));
-    bf.specialCnt += !!(bf.tempsToFind & (1ULL << (Lush+Special)));
-    bf.specialCnt += !!(bf.tempsToFind & (1ULL << (Cold+Special)));
+    bf->shoreToFind = bf->riverToFind;
+    bf->shoreToFind &= ~((1ULL << river) | (1ULL << frozen_river));
+    bf->shoreToFindM = bf->riverToFindM;
 
-    return bf;
+    bf->specialCnt = 0;
+    bf->specialCnt += !!(bf->tempsToFind & (1ULL << (Warm+Special)));
+    bf->specialCnt += !!(bf->tempsToFind & (1ULL << (Lush+Special)));
+    bf->specialCnt += !!(bf->tempsToFind & (1ULL << (Cold+Special)));
 }
 
 
@@ -2798,6 +2925,7 @@ typedef struct {
     uint64_t b, m;
     uint64_t breq, mreq;
     uint64_t bexc, mexc;
+    uint64_t bany, many;
     volatile char *stop;
 } gdt_info_t;
 
@@ -2815,36 +2943,27 @@ static int f_graddesc_test(void *data, int x, int z, double p)
     if (id < 128) info->b |= (1ULL << id);
     else info->m |= (1ULL << (id-128));
 
-    if (info->bexc || info->mexc)
-    {
-        if ((info->b & info->bexc) || (info->m & info->mexc))
-            return 1; // found an excluded biome
-    }
-    else if (info->flags & CFB_MATCH_ANY)
-    {
-        if ((info->b & info->breq) || (info->m & info->mreq))
-            return 1; // one of the required biomes is present
-    }
-    else
-    {   // no excluded: do the current biomes satisfy the condition?
-        if (((info->b & info->breq) ^ info->breq) == 0 &&
-            ((info->m & info->mreq) ^ info->mreq) == 0)
-        {
-            return 1;
-        }
-    }
+    // check if we know enough to stop
+    int match_exc = (info->bexc|info->mexc) == 0;
+    int match_any = (info->bany|info->many) == 0;
+    int match_req = (info->breq|info->mreq) == 0;
+    match_exc |= ((info->b & info->bexc) || (info->m & info->mexc)) == 0;
+    match_any |= ((info->b & info->bany) || (info->m & info->many));
+    match_req |= ((info->b & info->breq) == info->breq &&
+                  (info->m & info->mreq) == info->mreq);
+    if (match_exc && match_any && match_req)
+        return 1; // all conditions met
     return 0;
 }
 
 int checkForBiomes(
-        Generator     * g,
-        int           * cache,
-        Range           r,
-        int             dim,
-        uint64_t        seed,
-        BiomeFilter     filter,
-        uint32_t        flags,
-        volatile char * stop
+        Generator         * g,
+        int               * cache,
+        Range               r,
+        int                 dim,
+        uint64_t            seed,
+        const BiomeFilter * filter,
+        volatile char     * stop
         )
 {
     if (stop && *stop)
@@ -2855,7 +2974,7 @@ int checkForBiomes(
     {
         Layer *entry = (Layer*) getLayerForScale(g, r.scale);
         ret = checkForBiomesAtLayer(&g->ls, entry, cache, seed,
-            r.x, r.z, r.sx, r.sz, filter, flags);
+            r.x, r.z, r.sx, r.sz, filter);
         if (ret == 0 && r.sy > 1 && cache)
         {
             for (i = 0; i < r.sy; i++)
@@ -2878,19 +2997,19 @@ int checkForBiomes(
         applySeed(g, dim, seed);
     }
 
-    gdt_info_t info;
-    info.g = g;
-    info.ids = ids;
-    info.r = r;
-    info.flags = flags;
-    info.b = info.m = 0;
-    info.breq = filter.riverToFind;
-    info.mreq = filter.riverToFindM;
-    info.bexc = filter.biomeToExcl;
-    info.mexc = filter.biomeToExclM;
-    info.breq &= ~((1ULL << ocean) | (1ULL << deep_ocean));
-    info.breq |= filter.oceanToFind;
-    info.stop = stop;
+    gdt_info_t info[1];
+    info->g = g;
+    info->ids = ids;
+    info->r = r;
+    info->flags = filter->flags;
+    info->b = info->m = 0;
+    info->breq = filter->biomeToFind;
+    info->mreq = filter->biomeToFindM;
+    info->bexc = filter->biomeToExcl;
+    info->mexc = filter->biomeToExclM;
+    info->bany = filter->biomeToPick;
+    info->many = filter->biomeToPickM;
+    info->stop = stop;
 
     ret = 0;
     memset(ids, -1, r.sx * r.sz * sizeof(int));
@@ -2902,30 +3021,30 @@ int checkForBiomes(
     if (r.scale == 4 && r.sx * r.sz > 64)
     {
         // Do a gradient descent to find the min/max of some climate parameters
-        // and check the biomes along the way. This gives a much better chance
-        // of fining the biomes that require the more exteme conditions early.
+        // and check the biomes along the way. This has a much better chance
+        // of finding the biomes with exteme climates early.
         double tmin, tmax;
         int err = 0;
         do
         {
             err = getParaRange(&g->bn.temperature, &tmin, &tmax,
-                r.x, r.z, r.sx, r.sz, &info, f_graddesc_test);
+                r.x, r.z, r.sx, r.sz, info, f_graddesc_test);
             if (err) break;
             err = getParaRange(&g->bn.humidity, &tmin, &tmax,
-                r.x, r.z, r.sx, r.sz, &info, f_graddesc_test);
+                r.x, r.z, r.sx, r.sz, info, f_graddesc_test);
             if (err) break;
             err = getParaRange(&g->bn.erosion, &tmin, &tmax,
-                r.x, r.z, r.sx, r.sz, &info, f_graddesc_test);
+                r.x, r.z, r.sx, r.sz, info, f_graddesc_test);
             if (err) break;
             //err = getParaRange(&g->bn.continentalness, &tmin, &tmax,
-            //    r.x, r.z, r.sx, r.sz, &info, f_graddesc_test);
+            //    r.x, r.z, r.sx, r.sz, info, f_graddesc_test);
             //if (err) break;
             //err = getParaRange(&g->bn.weirdness, &tmin, &tmax,
-            //    r.x, r.z, r.sx, r.sz, &info, f_graddesc_test);
+            //    r.x, r.z, r.sx, r.sz, info, f_graddesc_test);
             //if (err) break;
         }
         while (0);
-        if (err || (stop && *stop) || (flags & CFB_APPROX))
+        if (err || (stop && *stop) || (filter->flags & CFB_APPROX))
             goto L_end;
     }
 
@@ -2952,7 +3071,7 @@ int checkForBiomes(
     // Determine a number of trials that gives a decent chance to sample all
     // the biomes that are present, assuming a completely random and
     // independent biome distribution. (This is actually not at all the case.)
-    if (flags & CFB_APPROX)
+    if (filter->flags & CFB_APPROX)
     {
         int t = 400 + (int) sqrt(n);
         if (trials > t)
@@ -2973,29 +3092,23 @@ int checkForBiomes(
 
         if (stop && *stop)
             break;
-        if (t.y == 0 && info.ids[t.i] != -1)
+        if (t.y == 0 && info->ids[t.i] != -1)
             continue;
         id = getBiomeAt(g, r.scale, r.x+t.x, r.y+t.y, r.z+t.z);
-        info.ids[t.i] = id;
-        if (id < 128) info.b |= (1ULL << id);
-        else info.m |= (1ULL << (id-128));
+        info->ids[t.i] = id;
+        if (id < 128) info->b |= (1ULL << id);
+        else info->m |= (1ULL << (id-128));
 
-        if (info.bexc || info.mexc)
-        {
-            if ((info.b & info.bexc) || (info.m & info.mexc))
-                break; // found an excluded biome
-        }
-        else if (flags & CFB_MATCH_ANY)
-        {
-            if ((info.b & info.breq) || (info.m & info.mreq))
-                break; // one of the required biomes is present
-        }
-        else
-        {   // no excluded: do the current biomes satisfy the condition?
-            if (((info.b & info.breq) ^ info.breq) == 0 &&
-                ((info.m & info.mreq) ^ info.mreq) == 0)
-                break;
-        }
+        // check if we know enough to yield a result
+        int match_exc = (info->bexc|info->mexc) == 0;
+        int match_any = (info->bany|info->many) == 0;
+        int match_req = (info->breq|info->mreq) == 0;
+        match_exc |= ((info->b & info->bexc) || (info->m & info->mexc)) == 0;
+        match_any |= ((info->b & info->bany) || (info->m & info->many));
+        match_req |= ((info->b & info->breq) == info->breq &&
+                      (info->m & info->mreq) == info->mreq);
+        if (match_exc && match_any && match_req)
+            break; // all conditions met
     }
 
 L_end:
@@ -3004,13 +3117,15 @@ L_end:
         ret = 0;
     }
     else
-    {
-        ret = (info.b & info.bexc) == 0 && (info.m & info.mexc) == 0;
-        if (flags & CFB_MATCH_ANY)
-            ret &= (info.b & info.breq) || (info.m & info.mreq);
-        else
-            ret &= (((info.b & info.breq) ^ info.breq) == 0 &&
-                    ((info.m & info.mreq) ^ info.mreq) == 0);
+    {   // given the biome set {info.b, info.m} determine if we have a match
+        int match_exc = (info->bexc|info->mexc) == 0;
+        int match_any = (info->bany|info->many) == 0;
+        int match_req = (info->breq|info->mreq) == 0;
+        match_exc |= ((info->b & info->bexc) || (info->m & info->mexc)) == 0;
+        match_any |= ((info->b & info->bany) || (info->m & info->many));
+        match_req |= ((info->b & info->breq) == info->breq &&
+                      (info->m & info->mreq) == info->mreq);
+        ret = (match_exc && match_any && match_req);
     }
 
     if (buf)
@@ -3026,6 +3141,8 @@ STRUCT(filter_data_t)
     const BiomeFilter *bf;
     int (*map)(const Layer *, int *, int, int, int, int);
 };
+
+enum { M_STOP=1, M_DONE=2 };
 
 static int mapFilterSpecial(const Layer * l, int * out, int x, int z, int w, int h)
 {
@@ -3050,7 +3167,7 @@ static int mapFilterSpecial(const Layer * l, int * out, int x, int z, int w, int
             }
         }
         if (specialcnt > 0)
-            return 1;
+            return M_STOP;
     }
 
     int err = f->map(l, out, x, z, w, h);
@@ -3072,9 +3189,11 @@ static int mapFilterSpecial(const Layer * l, int * out, int x, int z, int w, int
                temps |= (1ULL << id);
         }
     }
-
+    if (f->bf->biomeToExcl && !f->bf->tempsToFind)
+        if (0 && (temps & f->bf->tempsToExcl) == 0)
+            return M_STOP;
     if ((temps & f->bf->tempsToFind) ^ f->bf->tempsToFind)
-        return 1;
+        return M_STOP;
     return 0;
 }
 
@@ -3095,13 +3214,13 @@ static int mapFilterMushroom(const Layer * l, int * out, int x, int z, int w, in
             {
                 cs = getChunkSeed(ss, i+x, j+z);
                 if (mcFirstIsZero(cs, 100))
-                    goto L_GENERATE;
+                    goto L_generate;
             }
         }
-        return 1;
+        return M_STOP;
     }
 
-L_GENERATE:
+L_generate:
     err = f->map(l, out, x, z, w, h);
     if U(err != 0)
         return err;
@@ -3111,7 +3230,7 @@ L_GENERATE:
         for (i = 0; i < w*h; i++)
             if (out[i] == mushroom_fields)
                 return 0;
-        return 1;
+        return M_STOP;
     }
     return 0;
 }
@@ -3135,9 +3254,11 @@ static int mapFilterBiome(const Layer * l, int * out, int x, int z, int w, int h
             b |= (1ULL << id);
         }
     }
-
+    if (f->bf->biomeToExcl && !f->bf->majorToFind)
+        if ((~b & f->bf->majorToExcl))
+            return M_STOP;
     if ((b & f->bf->majorToFind) ^ f->bf->majorToFind)
-        return 1;
+        return M_STOP;
     return 0;
 }
 
@@ -3162,7 +3283,7 @@ static int mapFilterOceanTemp(const Layer * l, int * out, int x, int z, int w, i
     }
 
     if ((b & f->bf->otempToFind) ^ f->bf->otempToFind)
-        return 1;
+        return M_STOP;
     return 0;
 }
 
@@ -3180,9 +3301,13 @@ static int mapFilterBiomeEdge(const Layer * l, int * out, int x, int z, int w, i
     b = 0;
     for (i = 0; i < w*h; i++)
         b |= (1ULL << (out[i] & 0x3f));
-
+    if (f->bf->edgesToExcl && !f->bf->edgesToFind)
+    {
+        if (0 && (b & f->bf->edgesToExcl) == 0)
+            return M_STOP;
+    }
     if ((b & f->bf->edgesToFind) ^ f->bf->edgesToFind)
-        return 1;
+        return M_STOP;
     return 0;
 }
 
@@ -3204,11 +3329,16 @@ static int mapFilterRareBiome(const Layer * l, int * out, int x, int z, int w, i
         if (id < 128) b |= (1ULL << id);
         else bm |= (1ULL << (id-128));
     }
-
+    if ((f->bf->raresToExcl || f->bf->raresToExclM) &&
+        !(f->bf->raresToFind || f->bf->raresToFindM))
+    {
+        if (0 && (b & f->bf->raresToExcl) == 0 && (bm & f->bf->raresToExclM) == 0)
+            return M_DONE;
+    }
     if ((b & f->bf->raresToFind) ^ f->bf->raresToFind)
-        return 1;
+        return M_STOP;
     if ((bm & f->bf->raresToFindM) ^ f->bf->raresToFindM)
-        return 1;
+        return M_STOP;
     return 0;
 }
 
@@ -3229,11 +3359,16 @@ static int mapFilterShore(const Layer * l, int * out, int x, int z, int w, int h
         if (id < 128) b |= (1ULL << id);
         else bm |= (1ULL << (id-128));
     }
-
+    if ((f->bf->shoreToExcl || f->bf->shoreToExclM) &&
+        !(f->bf->shoreToFind || f->bf->shoreToFindM))
+    {
+        if (0 && (b & f->bf->shoreToExcl) == 0 && (bm & f->bf->shoreToExclM) == 0)
+            return M_DONE;
+    }
     if ((b & f->bf->shoreToFind) ^ f->bf->shoreToFind)
-        return 1;
+        return M_STOP;
     if ((bm & f->bf->shoreToFindM) ^ f->bf->shoreToFindM)
-        return 1;
+        return M_STOP;
     return 0;
 }
 
@@ -3254,11 +3389,16 @@ static int mapFilterRiverMix(const Layer * l, int * out, int x, int z, int w, in
         if (id < 128) b |= (1ULL << id);
         else bm |= (1ULL << (id-128));
     }
-
+    if ((f->bf->riverToExcl || f->bf->riverToExclM) &&
+        !(f->bf->riverToFind || f->bf->riverToFindM))
+    {
+        if (0 && (b & f->bf->riverToExcl) == 0 && (bm & f->bf->riverToExclM) == 0)
+            return M_DONE;
+    }
     if ((b & f->bf->riverToFind) ^ f->bf->riverToFind)
-        return 1;
+        return M_STOP;
     if ((bm & f->bf->riverToFindM) ^ f->bf->riverToFindM)
-        return 1;
+        return M_STOP;
     return 0;
 }
 
@@ -3288,11 +3428,12 @@ static int mapFilterOceanMix(const Layer * l, int * out, int x, int z, int w, in
     }
 
     if ((b & f->bf->oceanToFind) ^ f->bf->oceanToFind)
-        return 1;
+        return M_STOP;
     return 0;
 }
 
-void swapMap(filter_data_t *fd, BiomeFilter *bf, Layer *l,
+static
+void swapMap(filter_data_t *fd, const BiomeFilter *bf, Layer *l,
         int (*map)(const Layer *, int *, int, int, int, int))
 {
     fd->bf = bf;
@@ -3301,6 +3442,7 @@ void swapMap(filter_data_t *fd, BiomeFilter *bf, Layer *l,
     l->getMap = map;
 }
 
+static
 void restoreMap(filter_data_t *fd, Layer *l)
 {
     l->getMap = fd->map;
@@ -3309,21 +3451,20 @@ void restoreMap(filter_data_t *fd, Layer *l)
 
 
 int checkForBiomesAtLayer(
-        LayerStack    * g,
-        Layer         * entry,
-        int           * cache,
-        uint64_t        seed,
-        int             x,
-        int             z,
-        unsigned int    w,
-        unsigned int    h,
-        BiomeFilter     filter,
-        int             protoCheck
+        LayerStack        * g,
+        Layer             * entry,
+        int               * cache,
+        uint64_t            seed,
+        int                 x,
+        int                 z,
+        unsigned int        w,
+        unsigned int        h,
+        const BiomeFilter * filter
         )
 {
     Layer *l;
 
-    if (protoCheck) // TODO: protoCheck for 1.6-
+    if (filter->flags & CFB_APPROX) // TODO: protoCheck for 1.6-
     {
         l = entry;
 
@@ -3336,7 +3477,7 @@ int checkForBiomesAtLayer(
         uint64_t ss, cs;
         uint64_t potential, required;
 
-        int specialcnt = filter.specialCnt;
+        int specialcnt = filter->specialCnt;
         if (specialcnt > 0)
         {
             l = &g->layers[L_SPECIAL_1024];
@@ -3365,7 +3506,7 @@ int checkForBiomesAtLayer(
         x1 = (bx + bw) / l->scale; if (x+(int)w >= 0) x1++;
         z1 = (bz + bh) / l->scale; if (z+(int)h >= 0) z1++;
 
-        if (filter.majorToFind & (1ULL << mushroom_fields))
+        if (filter->majorToFind & (1ULL << mushroom_fields))
         {
             ss = getStartSeed(seed, g->layers[L_MUSHROOM_256].layerSalt);
 
@@ -3375,15 +3516,15 @@ int checkForBiomesAtLayer(
                 {
                     cs = getChunkSeed(ss, i, j);
                     if (mcFirstIsZero(cs, 100))
-                        goto L_HAS_PROTO_MUSHROOM;
+                        goto L_has_proto_mushroom;
                 }
             }
             return 0;
         }
-L_HAS_PROTO_MUSHROOM:
+L_has_proto_mushroom:
 
         potential = 0;
-        required = filter.majorToFind & (
+        required = filter->majorToFind & (
                 (1ULL << badlands_plateau) | (1ULL << wooded_badlands_plateau) |
                 (1ULL << desert) | (1ULL << savanna) | (1ULL << plains) |
                 (1ULL << forest) | (1ULL << dark_forest) | (1ULL << mountains) |
@@ -3430,38 +3571,47 @@ L_HAS_PROTO_MUSHROOM:
         ids = (int*) calloc(getMinLayerCacheSize(entry, w, h), sizeof(int));
 
     filter_data_t fd[9];
-    swapMap(fd+0, &filter, l+L_OCEAN_MIX_4,    mapFilterOceanMix);
-    swapMap(fd+1, &filter, l+L_RIVER_MIX_4,    mapFilterRiverMix);
-    swapMap(fd+2, &filter, l+L_SHORE_16,       mapFilterShore);
-    swapMap(fd+3, &filter, l+L_SUNFLOWER_64,   mapFilterRareBiome);
-    swapMap(fd+4, &filter, l+L_BIOME_EDGE_64,  mapFilterBiomeEdge);
-    swapMap(fd+5, &filter, l+L_OCEAN_TEMP_256, mapFilterOceanTemp);
-    swapMap(fd+6, &filter, l+L_BIOME_256,      mapFilterBiome);
-    swapMap(fd+7, &filter, l+L_MUSHROOM_256,   mapFilterMushroom);
-    swapMap(fd+8, &filter, l+L_SPECIAL_1024,   mapFilterSpecial);
+    swapMap(fd+0, filter, l+L_OCEAN_MIX_4,    mapFilterOceanMix);
+    swapMap(fd+1, filter, l+L_RIVER_MIX_4,    mapFilterRiverMix);
+    swapMap(fd+2, filter, l+L_SHORE_16,       mapFilterShore);
+    swapMap(fd+3, filter, l+L_SUNFLOWER_64,   mapFilterRareBiome);
+    swapMap(fd+4, filter, l+L_BIOME_EDGE_64,  mapFilterBiomeEdge);
+    swapMap(fd+5, filter, l+L_OCEAN_TEMP_256, mapFilterOceanTemp);
+    swapMap(fd+6, filter, l+L_BIOME_256,      mapFilterBiome);
+    swapMap(fd+7, filter, l+L_MUSHROOM_256,   mapFilterMushroom);
+    swapMap(fd+8, filter, l+L_SPECIAL_1024,   mapFilterSpecial);
 
     setLayerSeed(entry, seed);
-    int ret = !entry->getMap(entry, ids, x, z, w, h);
-    if (ret)
+    int err = entry->getMap(entry, ids, x, z, w, h);
+    int ret = 0;
+    if (err == 0)
     {
-        uint64_t req, b = 0, bm = 0;
+        uint64_t b = 0, m = 0;
         unsigned int i;
         for (i = 0; i < w*h; i++)
         {
             int id = ids[i];
             if (id < 128) b |= (1ULL << id);
-            else bm |= (1ULL << (id-128));
+            else m |= (1ULL << (id-128));
         }
-        req = filter.riverToFind;
-        req &= ~((1ULL << ocean) | (1ULL << deep_ocean));
-        req |= filter.oceanToFind;
-        if ((b & req) ^ req)
-            ret = 0;
-        req = filter.riverToFindM;
-        if ((bm & req) ^ req)
-            ret = 0;
-        if ((b & filter.biomeToExcl) || (bm & filter.biomeToExclM))
-            ret = 0;
+
+        int match_exc = (filter->biomeToExcl|filter->biomeToExclM) == 0;
+        int match_any = (filter->biomeToPick|filter->biomeToPickM) == 0;
+        int match_req = (filter->biomeToFind|filter->biomeToFindM) == 0;
+        match_exc |= !((b & filter->biomeToExcl) || (m & filter->biomeToExclM));
+        match_any |=  ((b & filter->biomeToPick) || (m & filter->biomeToPickM));
+        match_req |=  ((b & filter->biomeToFind)  == filter->biomeToFind &&
+                       (m & filter->biomeToFindM) == filter->biomeToFindM);
+        if (match_exc && match_any && match_req)
+            ret = 1;
+    }
+    else if (err == M_STOP)
+    {   // biome requirements not met
+        ret = 0;
+    }
+    else if (err == M_DONE)
+    {   // exclusion biomes cannot generate
+        ret = 2;
     }
 
     restoreMap(fd+8, l+L_SPECIAL_1024);
@@ -3670,6 +3820,8 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
         if (mc >= MC_1_7) {
             if (id == Oceanic)
                 genPotential(mL, mM, L_DEEP_OCEAN_256, mc, deep_ocean);
+            if (id == mushroom_fields)
+                genPotential(mL, mM, L_DEEP_OCEAN_256, mc, id);
             if ((id & ~0xf00) >= Oceanic && (id & ~0xf00) <= Freezing)
                 genPotential(mL, mM, L_DEEP_OCEAN_256, mc, id);
         } else { // (L_MUSHROOM_256, L_BIOME_256] for 1.6
@@ -3785,6 +3937,9 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
             genPotential(mL, mM, L_HILLS_64, mc, giant_tree_taiga_hills);
             genPotential(mL, mM, L_HILLS_64, mc, getMutated(mc, giant_tree_taiga_hills));
             break;
+        case snowy_taiga:
+            genPotential(mL, mM, L_HILLS_64, mc, snowy_taiga_hills);
+            break;
         case plains:
             if (mc >= MC_1_7)
                 genPotential(mL, mM, L_HILLS_64, mc, wooded_hills);
@@ -3793,6 +3948,9 @@ void genPotential(uint64_t *mL, uint64_t *mM, int layer, int mc, int id)
             break;
         case snowy_tundra:
             genPotential(mL, mM, L_HILLS_64, mc, snowy_mountains);
+            break;
+        case jungle:
+            genPotential(mL, mM, L_HILLS_64, mc, jungle_hills);
             break;
         case bamboo_jungle:
             genPotential(mL, mM, L_HILLS_64, mc, bamboo_jungle_hills);

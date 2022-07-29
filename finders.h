@@ -121,7 +121,10 @@ STRUCT(Pos)
     int x, z;
 };
 
-
+enum
+{
+    CFB_APPROX      = 0x01, // enabled aggresive filtering, trading accuracy
+};
 STRUCT(BiomeFilter)
 {
     // bitfields for biomes required at their respecive layers
@@ -137,10 +140,21 @@ STRUCT(BiomeFilter)
     uint64_t oceanToFind; // all required ocean types
 
     int specialCnt; // number of special temperature categories required
-    int padding[1]; // unused
 
-    // excluded biomes that shall not be present
+    uint32_t flags;
+
+    // the biome exclusion aborts generation when the area contains no biomes
+    // that can generate the excluded biomes
+    uint64_t tempsToExcl;
+    uint64_t majorToExcl;
+    uint64_t edgesToExcl;
+    uint64_t raresToExcl, raresToExclM;
+    uint64_t shoreToExcl, shoreToExclM;
+    uint64_t riverToExcl, riverToExclM;
+
     uint64_t biomeToExcl, biomeToExclM;
+    uint64_t biomeToFind, biomeToFindM;
+    uint64_t biomeToPick, biomeToPickM;
 };
 
 STRUCT(StrongholdIter)
@@ -648,22 +662,28 @@ uint64_t getHouseList(uint64_t worldSeed, int chunkX, int chunkZ, int *housesOut
  * excluded biomes. Biomes should not appear in both lists. Lists of length
  * zero may be passed as null.
  */
-BiomeFilter setupBiomeFilter(
+void setupBiomeFilter(
+    BiomeFilter *bf,
+    int mc, uint32_t flags,
     const int *required, int requiredLen,
-    const int *excluded, int excludedLen
-    );
+    const int *excluded, int excludedLen,
+    const int *matchany, int matchanyLen);
 
 /* Starts to generate the specified range and checks if the biomes meet the
- * requirements of the biome filter. If so, the area will be fully generated
- * inside the cache (if != NULL), and the return value will be > 0.
- * Otherwise, the contents of 'cache' is undefined and a value <= 0 is returned.
- * More aggressive filtering can be enabled with the flags which may yield some
+ * requirements of the biome filter, returning either:
+ * 0 (failed),
+ * 1 (okay, area is fully generated), or
+ * 2 (okay, incomplete generation).
+ *
+ * The area will be generated inside the cache (if != NULL) but is only
+ * defined if the generation was fully completed (check return value).
+ * More aggressive filtering can be enabled with the flags which may yield
  * some false negatives in exchange for speed.
  *
- * The generator should be set up for the correct version, but the dimension
- * and seed will be applied internally. This will modify the generator into a
- * partially initialized state that is not valid to use outside this function
- * without re-applying a seed.
+ * The generator should be set up for the correct version, however the
+ * dimension and seed will be applied internally. This will modify the
+ * generator into a partially initialized state that is not valid to use
+ * outside this function without re-applying a seed.
  *
  * @g           : biome generator
  * @cache       : working buffer and output (nullable)
@@ -674,19 +694,14 @@ BiomeFilter setupBiomeFilter(
  * @flags       : enables features (see below)
  * @stop        : occasional check for abort (nullable)
  */
-enum {
-    CFB_APPROX      = 0x01, // enabled aggresive filtering, trading accuracy
-    CFB_MATCH_ANY   = 0x10, // we need only one of the required biomes (1.18+)
-};
 int checkForBiomes(
-        Generator     * g,
-        int           * cache,
-        Range           r,
-        int             dim,
-        uint64_t        seed,
-        BiomeFilter     filter,
-        uint32_t        flags,
-        volatile char * stop // should be atomic, but is fine as stop flag
+        Generator         * g,
+        int               * cache,
+        Range               r,
+        int                 dim,
+        uint64_t            seed,
+        const BiomeFilter * filter,
+        volatile char     * stop // should be atomic, but is fine as stop flag
         );
 
 /* Specialization of checkForBiomes() for a LayerStack, i.e. the Overworld up
@@ -698,19 +713,17 @@ int checkForBiomes(
  * @seed        : world seed
  * @x,z,w,h     : requested area
  * @filter      : biomes to be checked for
- * @protoCheck  : enables more aggressive filtering when non-zero (MC >= 1.7)
  */
 int checkForBiomesAtLayer(
-        LayerStack    * ls,
-        Layer         * entry,
-        int           * cache,
-        uint64_t        seed,
-        int             x,
-        int             z,
-        unsigned int    w,
-        unsigned int    h,
-        BiomeFilter     filter,
-        int             protoCheck
+        LayerStack        * ls,
+        Layer             * entry,
+        int               * cache,
+        uint64_t            seed,
+        int                 x,
+        int                 z,
+        unsigned int        w,
+        unsigned int        h,
+        const BiomeFilter * filter
         );
 
 /* Checks that the area (x,z,w,h) at layer Special, scale 1:1024 contains the
