@@ -29,6 +29,9 @@ int biomesToImage(unsigned char *pixels,
         const unsigned int sx, const unsigned int sy,
         const unsigned int pixscale, const int flip);
 
+/// Save the pixel buffer (e.g. from biomesToImage) to the given path in PPM format.
+/// Returns 0 if successful, or -1 if the file could not be opened,
+/// or 1 if not all the pixel data could be written to the file.
 int savePPM(const char* path, const unsigned char *pixels,
         const unsigned int sx, const unsigned int sy);
 
