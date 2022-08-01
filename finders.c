@@ -2463,10 +2463,10 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
     r->sy = sy;
     switch (r->rotation)
     {
-        case 0: r->x = -(x<0);    r->z = -(z<0);    r->sx = sx; r->sz = sz; break; // 0:0
-        case 1: r->x = +(x>0)-sz; r->z = -(z<0);    r->sx = sz; r->sz = sx; break; // 1:cw90
-        case 2: r->x = +(x>0)-sx; r->z = +(z>0)-sz; r->sx = sx; r->sz = sz; break; // 2:cw180
-        case 3: r->x = -(x<0);    r->z = +(z>0)-sx; r->sx = sz; r->sz = sx; break; // 3:cw270=ccw90
+        case 0: r->x = -(x>0);    r->z = -(z>0);    r->sx = sx; r->sz = sz; break; // 0:0
+        case 1: r->x = +(x<0)-sz; r->z = -(z>0);    r->sx = sz; r->sz = sx; break; // 1:cw90
+        case 2: r->x = +(x<0)-sx; r->z = +(z<0)-sz; r->sx = sx; r->sz = sz; break; // 2:cw180
+        case 3: r->x = -(x>0);    r->z = +(z<0)-sx; r->sx = sz; r->sz = sx; break; // 3:cw270=ccw90
         default: return 0; // unreachable
     }
     if (structType == Ancient_City)
@@ -2947,12 +2947,13 @@ static int f_graddesc_test(void *data, int x, int z, double p)
     int match_exc = (info->bexc|info->mexc) == 0;
     int match_any = (info->bany|info->many) == 0;
     int match_req = (info->breq|info->mreq) == 0;
-    match_exc |= ((info->b & info->bexc) || (info->m & info->mexc)) == 0;
+    if (!match_exc && ((info->b & info->bexc) || (info->m & info->mexc)))
+        return 1; // encountered an excluded biome -> stop
     match_any |= ((info->b & info->bany) || (info->m & info->many));
     match_req |= ((info->b & info->breq) == info->breq &&
                   (info->m & info->mreq) == info->mreq);
     if (match_exc && match_any && match_req)
-        return 1; // all conditions met
+        return 1; // all conditions met -> stop
     return 0;
 }
 
@@ -3103,7 +3104,8 @@ int checkForBiomes(
         int match_exc = (info->bexc|info->mexc) == 0;
         int match_any = (info->bany|info->many) == 0;
         int match_req = (info->breq|info->mreq) == 0;
-        match_exc |= ((info->b & info->bexc) || (info->m & info->mexc)) == 0;
+        if (!match_exc && ((info->b & info->bexc) || (info->m & info->mexc)))
+            break; // encountered an excluded biome
         match_any |= ((info->b & info->bany) || (info->m & info->many));
         match_req |= ((info->b & info->breq) == info->breq &&
                       (info->m & info->mreq) == info->mreq);
@@ -3598,10 +3600,10 @@ L_has_proto_mushroom:
         int match_exc = (filter->biomeToExcl|filter->biomeToExclM) == 0;
         int match_any = (filter->biomeToPick|filter->biomeToPickM) == 0;
         int match_req = (filter->biomeToFind|filter->biomeToFindM) == 0;
-        match_exc |= !((b & filter->biomeToExcl) || (m & filter->biomeToExclM));
-        match_any |=  ((b & filter->biomeToPick) || (m & filter->biomeToPickM));
-        match_req |=  ((b & filter->biomeToFind)  == filter->biomeToFind &&
-                       (m & filter->biomeToFindM) == filter->biomeToFindM);
+        match_exc |= ((b & filter->biomeToExcl) || (m & filter->biomeToExclM)) == 0;
+        match_any |= ((b & filter->biomeToPick) || (m & filter->biomeToPickM));
+        match_req |= ((b & filter->biomeToFind)  == filter->biomeToFind &&
+                      (m & filter->biomeToFindM) == filter->biomeToFindM);
         if (match_exc && match_any && match_req)
             ret = 1;
     }
