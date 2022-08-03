@@ -4362,13 +4362,13 @@ int get_resulting_node(const struct _args *arg, int idx, int alt, uint64_t ds, i
     uint32_t step;
     do
     {
+        if (depth >= 4) {
+            __builtin_unreachable();
+            //fprintf(stderr, "get_resulting_node(): fatal error\n");
+            //exit(1);
+        }
         step = steps[depth];
         depth++;
-        if (depth > 4)
-        {
-            fprintf(stderr, "get_resulting_node(): fatal error\n");
-            exit(1);
-        }
     }
     while (idx+step >= arg->len);
 

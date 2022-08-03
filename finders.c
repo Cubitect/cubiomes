@@ -3028,19 +3028,19 @@ int checkForBiomes(
         int err = 0;
         do
         {
-            err = getParaRange(&g->bn.temperature, &tmin, &tmax,
+            err = getParaRange(&g->bn.climate[NP_TEMPERATURE], &tmin, &tmax,
                 r.x, r.z, r.sx, r.sz, info, f_graddesc_test);
             if (err) break;
-            err = getParaRange(&g->bn.humidity, &tmin, &tmax,
+            err = getParaRange(&g->bn.climate[NP_HUMIDITY], &tmin, &tmax,
                 r.x, r.z, r.sx, r.sz, info, f_graddesc_test);
             if (err) break;
-            err = getParaRange(&g->bn.erosion, &tmin, &tmax,
+            err = getParaRange(&g->bn.climate[NP_EROSION], &tmin, &tmax,
                 r.x, r.z, r.sx, r.sz, info, f_graddesc_test);
             if (err) break;
-            //err = getParaRange(&g->bn.continentalness, &tmin, &tmax,
+            //err = getParaRange(&g->bn.climate[NP_CONTINENTALNESS], &tmin, &tmax,
             //    r.x, r.z, r.sx, r.sz, info, f_graddesc_test);
             //if (err) break;
-            //err = getParaRange(&g->bn.weirdness, &tmin, &tmax,
+            //err = getParaRange(&g->bn.climate[NP_WEIRDNESS], &tmin, &tmax,
             //    r.x, r.z, r.sx, r.sz, info, f_graddesc_test);
             //if (err) break;
         }
@@ -4471,6 +4471,25 @@ static const int g_biome_para_range_19_diff[][13] = {
 {mangrove_swamp          ,  2000, IMAX,  IMIN, IMAX, -1100, IMAX,  5500, IMAX,  IMIN, IMAX,  IMIN, IMAX},
 };
 
+
+/**
+ * Gets the min/max parameter values within which a biome change can occur.
+ */
+const int *getBiomeParaExtremes(int mc)
+{
+    if (mc < MC_1_18)
+        return NULL;
+    static const int extremes[] = {
+        -4501, 5500,
+        -3500, 6999,
+        -10500, 300,
+        -7799, 5500,
+        1000, 10500, // depth has more dependencies
+        -9333, 9333,
+    };
+    return extremes;
+}
+
 /**
  * Gets the min/max possible noise parameter values at which the given biome
  * can generate. The values are in min/max pairs in order:
@@ -4526,7 +4545,5 @@ void getPossibleBiomesForLimits(char ids[256], int mc, int limits[6][2])
             ids[bp[-1]] = 1;
     }
 }
-
-
 
 

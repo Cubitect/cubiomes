@@ -174,20 +174,20 @@ int testGeneration()
     };
     const int testcnt = sizeof(mc_vers) / sizeof(int);
 
-    //printf("Testing 1x1 biome generation (quick):\n");
-    //if (!testBiomeGen1x1(mc_vers, b6_hashes, 0, 6, 1, testcnt))
-    //    return -1;
+    printf("Testing 1x1 biome generation (quick):\n");
+    if (!testBiomeGen1x1(mc_vers, b6_hashes, 0, 6, 1, testcnt))
+        return -1;
 
-    Generator g;
-    setupGenerator(&g, MC_1_18, 0);
-    applySeed(&g, 0, 1234);
-    Pos p = getSpawn(&g);
-    printf("%d %d\n", p.x, p.z);
+    //Generator g;
+    //setupGenerator(&g, MC_1_18, 0);
+    //applySeed(&g, 0, 1234);
+    //Pos p = getSpawn(&g);
+    //printf("%d %d\n", p.x, p.z);
 
-    StrongholdIter sh;
-    initFirstStronghold(&sh, g.mc, g.seed);
-    while (nextStronghold(&sh, &g) > 0)
-        printf("Stronghold #: (%6d, %6d)\n", sh.pos.x, sh.pos.z);
+    //StrongholdIter sh;
+    //initFirstStronghold(&sh, g.mc, g.seed);
+    //while (nextStronghold(&sh, &g) > 0)
+    //    printf("Stronghold #: (%6d, %6d)\n", sh.pos.x, sh.pos.z);
 
     printf("Area generation tests:\n");
     testAreas(MC_1_18, 0, 1);
@@ -240,7 +240,7 @@ void testNoiseRangeFinder()
     {
         for (j = 0; j < n; j++)
         {
-            double t = sampleDoublePerlin(&g.bn.humidity, x+i, 0, z+j);
+            double t = sampleDoublePerlin(&g.bn.climate[NP_HUMIDITY], x+i, 0, z+j);
             if (t < bmin) bmin = t;
             if (t > bmax) bmax = t;
             buf[i*n+j] = t;
@@ -250,7 +250,7 @@ void testNoiseRangeFinder()
     struct _f_para f_p = {-1e9, buf, x, z, n, n };
     double tmin, tmax;
     int k = k_tot;
-    getParaRange(&g.bn.humidity, &tmin, &tmax, x, z, n, n, &f_p, _f1);
+    getParaRange(&g.bn.climate[NP_HUMIDITY], &tmin, &tmax, x, z, n, n, &f_p, _f1);
     if (abs(tmin-bmin*1e4)>.01||abs(tmax-bmax*1e4)>.01)
     {
         printf("=========================== BAD ============================\n");
@@ -329,11 +329,11 @@ void findBiomeParaBounds()
         double tmin, tmax;
         int x = rand() % 10000 - 5000;
         int z = rand() % 10000 - 5000;
-        getParaRange(&g.bn.temperature,     &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
-        getParaRange(&g.bn.humidity,        &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
-        getParaRange(&g.bn.erosion,         &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
-        getParaRange(&g.bn.continentalness, &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
-        getParaRange(&g.bn.weirdness,       &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
+        getParaRange(&g.bn.climate[NP_TEMPERATURE],     &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
+        getParaRange(&g.bn.climate[NP_HUMIDITY],        &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
+        getParaRange(&g.bn.climate[NP_EROSION],         &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
+        getParaRange(&g.bn.climate[NP_CONTINENTALNESS], &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
+        getParaRange(&g.bn.climate[NP_WEIRDNESS],       &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
     }
 
     for (i = 0; i < 256; i++)
@@ -353,6 +353,7 @@ void findBiomeParaBounds()
 
 int main()
 {
+    testGeneration();
     //findBiomeParaBounds();
     return 0;
 }

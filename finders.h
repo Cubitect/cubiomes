@@ -800,6 +800,11 @@ int getParaRange(const DoublePerlinNoise *para, double *pmin, double *pmax,
     int x, int z, int w, int h, void *data, int (*func)(void*,int,int,double));
 
 /**
+ * Gets the min/max parameter values within which a biome change can occur.
+ */
+const int *getBiomeParaExtremes(int mc);
+
+/**
  * Gets the min/max possible noise parameter values at which the given biome
  * can generate. The values are in min/max pairs in order of:
  * temperature, humidity, continentalness, erosion, depth, weirdness.

@@ -335,19 +335,25 @@ STRUCT(SplineStack)
     int len, flen;
 };
 
+
+enum
+{
+    NP_TEMPERATURE      = 0,
+    NP_HUMIDITY         = 1,
+    NP_CONTINENTALNESS  = 2,
+    NP_EROSION          = 3,
+    NP_SHIFT            = 4, NP_DEPTH = NP_SHIFT, // not a real climate
+    NP_WEIRDNESS        = 5,
+    NP_MAX
+};
 /// Overworld and Nether biome generator for 1.18
 STRUCT(BiomeNoise)
 {
-    DoublePerlinNoise shift;
-    DoublePerlinNoise temperature;
-    DoublePerlinNoise humidity;
-    DoublePerlinNoise continentalness;
-    DoublePerlinNoise erosion;
-    DoublePerlinNoise weirdness;
+    DoublePerlinNoise climate[NP_MAX];
     PerlinNoise oct[2*23]; // buffer for octaves in double perlin noise
     Spline *sp;
     SplineStack ss;
-    int previdx;
+    int nptype;
     int mc;
 };
 
@@ -448,7 +454,14 @@ enum {
 void initBiomeNoise(BiomeNoise *bn, int mc);
 void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int large);
 int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
-    uint64_t *dat, uint32_t flags);
+    uint64_t *dat, uint32_t sample_flags);
+/**
+ * Initialize BiomeNoise for only a single climate parameter.
+ * (Faster than setBiomeSeed(), does not support nptype == NP_DEPTH.)
+ */
+void setClimateParaSeed(BiomeNoise *bn, uint64_t seed, int large, int nptype);
+double sampleClimatePara(const BiomeNoise *bn, double x, double z);
+
 /**
  * Currently, in 1.18, we have to generate biomes a chunk at a time to get an
  * accurate mapping of the biomes in the level storage, as there is no longer a
