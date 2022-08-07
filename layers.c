@@ -1161,21 +1161,6 @@ static int init_climate_seed(
     return n;
 }
 
-void setClimateParaSeed(BiomeNoise *bn, uint64_t seed, int large, int nptype)
-{
-    Xoroshiro pxr;
-    xSetSeed(&pxr, seed);
-    uint64_t xlo = xNextLong(&pxr);
-    uint64_t xhi = xNextLong(&pxr);
-    init_climate_seed(&bn->climate[nptype], bn->oct, xlo, xhi, large, nptype);
-    bn->nptype = nptype;
-}
-
-double sampleClimatePara(const BiomeNoise *bn, double x, double z)
-{
-    return sampleDoublePerlin(&bn->climate[bn->nptype], x, 0, z);
-}
-
 void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int large)
 {
     Xoroshiro pxr;
@@ -1391,17 +1376,6 @@ void initBiomeNoise(BiomeNoise *bn, int mc)
     bn->mc = mc;
 }
 
-#if __cplusplus
-extern "C"
-{
-#endif
-
-int p2overworld(int mc, const uint64_t np[6], uint64_t *dat);
-
-#if __cplusplus
-}
-#endif
-
 /// Biome sampler for MC 1.18
 int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
     uint64_t *dat, uint32_t sample_flags)
@@ -1452,10 +1426,58 @@ int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
     p_np[4] = (int64_t)(10000.0F*d);
     p_np[5] = (int64_t)(10000.0F*w);
 
+#if __cplusplus
+    extern "C"
+#else
+    int p2overworld(int mc, const uint64_t np[6], uint64_t *dat);
+#endif
+
     int id = none;
     if (!(sample_flags & SAMPLE_NO_BIOME))
         id = p2overworld(bn->mc, (const uint64_t*)p_np, dat);
     return id;
+}
+
+void setClimateParaSeed(BiomeNoise *bn, uint64_t seed, int large, int nptype)
+{
+    Xoroshiro pxr;
+    xSetSeed(&pxr, seed);
+    uint64_t xlo = xNextLong(&pxr);
+    uint64_t xhi = xNextLong(&pxr);
+    if (nptype == NP_DEPTH)
+    {
+        int n = 0;
+        n += init_climate_seed(bn->climate + NP_CONTINENTALNESS,
+            bn->oct + n, xlo, xhi, large,    NP_CONTINENTALNESS);
+        n += init_climate_seed(bn->climate + NP_EROSION,
+            bn->oct + n, xlo, xhi, large,    NP_EROSION);
+        n += init_climate_seed(bn->climate + NP_WEIRDNESS,
+            bn->oct + n, xlo, xhi, large,    NP_WEIRDNESS);
+    }
+    else
+    {
+        init_climate_seed(bn->climate + nptype, bn->oct, xlo, xhi, large, nptype);
+    }
+    bn->nptype = nptype;
+}
+
+double sampleClimatePara(const BiomeNoise *bn, double x, double z)
+{
+    if (bn->nptype == NP_DEPTH)
+    {
+        float c, e, w;
+        c = sampleDoublePerlin(bn->climate + NP_CONTINENTALNESS, x, 0, z);
+        e = sampleDoublePerlin(bn->climate + NP_EROSION, x, 0, z);
+        w = sampleDoublePerlin(bn->climate + NP_WEIRDNESS, x, 0, z);
+
+        float np_param[] = {
+            c, e, -3.0F * ( fabsf( fabsf(w) - 0.6666667F ) - 0.33333334F ), w,
+        };
+        double off = getSpline(bn->sp, np_param) + 0.015F;
+        int y = 0;
+        return 1.0 - (y << 2) / 128.0 - 83.0/160.0 + off;
+    }
+    return sampleDoublePerlin(bn->climate + bn->nptype, x, 0, z);
 }
 
 void genBiomeNoiseChunkSection(const BiomeNoise *bn, int out[4][4][4],

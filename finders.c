@@ -2361,6 +2361,7 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
             else if (t < 202) { r->variant = 1; sx = 10; sy = 7; sz = 10; r->abandoned = 1; }
             else if (t < 203) { r->variant = 2; sx =  8; sy = 5; sz = 15; r->abandoned = 1; }
             else if (t < 204) { r->variant = 3; sx = 11; sy = 9; sz = 11; r->abandoned = 1; }
+            else __builtin_unreachable();
             break;
         case desert:
             t = nextInt(&rng, 250);
@@ -2370,6 +2371,7 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
             else if (t < 247) { r->variant = 1; sx = 17; sy = 6; sz =  9; r->abandoned = 1; }
             else if (t < 249) { r->variant = 2; sx = 12; sy = 6; sz = 12; r->abandoned = 1; }
             else if (t < 250) { r->variant = 3; sx = 15; sy = 6; sz = 15; r->abandoned = 1; }
+            else __builtin_unreachable();
             break;
         case savanna:
             t = nextInt(&rng, 459);
@@ -2381,6 +2383,7 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
             else if (t < 453) { r->variant = 2; sx = 11; sy = 6; sz = 11; r->abandoned = 1; }
             else if (t < 456) { r->variant = 3; sx =  9; sy = 6; sz = 11; r->abandoned = 1; }
             else if (t < 459) { r->variant = 4; sx =  9; sy = 6; sz =  9; r->abandoned = 1; }
+            else __builtin_unreachable();
             break;
         case taiga:
             t = nextInt(&rng, 100);
@@ -2388,6 +2391,7 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
             else if (t <  98) { r->variant = 2; sx =  9; sy = 7; sz =  9; } // taiga_meeting_point_2
             else if (t <  99) { r->variant = 1; sx = 22; sy = 3; sz = 18; r->abandoned = 1; }
             else if (t < 100) { r->variant = 2; sx =  9; sy = 7; sz =  9; r->abandoned = 1; }
+            else __builtin_unreachable();
             break;
         case snowy_tundra:
             t = nextInt(&rng, 306);
@@ -2397,8 +2401,10 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
             else if (t < 302) { r->variant = 1; sx = 12; sy = 8; sz =  8; r->abandoned = 1; }
             else if (t < 303) { r->variant = 2; sx = 11; sy = 5; sz =  9; r->abandoned = 1; }
             else if (t < 306) { r->variant = 3; sx =  7; sy = 7; sz =  7; r->abandoned = 1; }
+            else __builtin_unreachable();
             break;
         default:
+            sx = sy = sz = 0;
             return 0;
         }
         break;
@@ -2507,13 +2513,6 @@ uint64_t getHouseList(uint64_t worldSeed, int chunkX, int chunkZ,
 // Seed Filters
 //==============================================================================
 
-
-static inline int id_match(int id, uint64_t b, uint64_t m)
-{
-    return
-        ((id <  128 && (b & (1ULL << id      ))) ||
-         (id >= 128 && (m & (1ULL << (id-128)))));
-}
 
 void setupBiomeFilter(
     BiomeFilter *bf,
