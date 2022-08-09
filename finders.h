@@ -427,18 +427,25 @@ static inline float isQuadBase(const StructureConfig sconf, uint64_t seed, int r
  * generally don't want to inline them. However, these functions usually return
  * so quickly that the function call is a major contributor to the overall time.
  */
-static inline __attribute__((always_inline, const))
+
+#ifdef __GNUC__
+#define FORCE_INLINE __attribute__((always_inline, const))
+#else
+#define FORCE_INLINE
+#endif
+
+static inline FORCE_INLINE
 float isQuadBaseFeature24Classic (const StructureConfig sconf, uint64_t seed);
 
-static inline __attribute__((always_inline, const))
+static inline FORCE_INLINE
 float isQuadBaseFeature24 (const StructureConfig sconf, uint64_t seed,
         int ax, int ay, int az);
 
-static inline __attribute__((always_inline, const))
+static inline FORCE_INLINE
 float isQuadBaseFeature (const StructureConfig sconf, uint64_t seed,
         int ax, int ay, int az, int radius);
 
-static inline __attribute__((always_inline, const))
+static inline FORCE_INLINE
 float isQuadBaseLarge (const StructureConfig sconf, uint64_t seed,
         int ax, int ay, int az, int radius);
 

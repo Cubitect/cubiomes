@@ -209,6 +209,8 @@ int getCategory(int mc, int id)
     case wooded_mountains:
     case gravelly_mountains:
     case modified_gravelly_mountains:
+    case jagged_peaks:
+    case snowy_slopes:
         return mountains;
 
     case forest:
@@ -935,16 +937,23 @@ int getSurfaceHeightEnd(int mc, uint64_t seed, int x, int z)
     double dz = (z & 7) / 8.0;
 
     const int y0 = 0, y1 = 32, yn = y1-y0+1;
-    double ncol00[yn];
-    double ncol01[yn];
-    double ncol10[yn];
-    double ncol11[yn];
+    double * ncol00 = (double *)calloc(yn, sizeof(double));
+    double * ncol01 = (double *)calloc(yn, sizeof(double));
+    double * ncol10 = (double *)calloc(yn, sizeof(double));
+    double * ncol11 = (double *)calloc(yn, sizeof(double));
     sampleNoiseColumnEnd(ncol00, &sn, &en, cellx, cellz, y0, y1);
     sampleNoiseColumnEnd(ncol01, &sn, &en, cellx, cellz+1, y0, y1);
     sampleNoiseColumnEnd(ncol10, &sn, &en, cellx+1, cellz, y0, y1);
     sampleNoiseColumnEnd(ncol11, &sn, &en, cellx+1, cellz+1, y0, y1);
 
-    return getSurfaceHeight(ncol00, ncol01, ncol10, ncol11, y0, y1, 4, dx, dz);
+    int ret = getSurfaceHeight(ncol00, ncol01, ncol10, ncol11, y0, y1, 4, dx, dz);
+
+    free(ncol00);
+    free(ncol01);
+    free(ncol10);
+    free(ncol11);
+
+    return ret;
 }
 
 int genEndScaled(const EndNoise *en, int *out, Range r, int mc, uint64_t sha)

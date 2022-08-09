@@ -4333,6 +4333,7 @@ struct _args
 #if !DEBUG
 static inline ATTR(hot, pure, always_inline)
 #endif
+#pragma warning(disable: 4146)
 uint64_t get_np_dist(const struct _args *arg, int idx)
 {
     uint64_t ds = 0, node = arg->tree[idx];
@@ -4363,9 +4364,12 @@ int get_resulting_node(const struct _args *arg, int idx, int alt, uint64_t ds, i
     do
     {
         if (depth >= 4) {
+#ifdef __GNUC__
             __builtin_unreachable();
-            //fprintf(stderr, "get_resulting_node(): fatal error\n");
-            //exit(1);
+#else
+            fprintf(stderr, "get_resulting_node(): fatal error\n");
+            exit(1);
+#endif
         }
         step = steps[depth];
         depth++;
