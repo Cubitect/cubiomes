@@ -466,7 +466,7 @@ int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
 /**
  * Initialize BiomeNoise for only a single climate parameter.
  * If nptype == NP_DEPTH, the value is sampled at y=0. Note that this value
- * changes linearly with the height (i.e. += y/32).
+ * changes linearly with the height (i.e. -= y/128).
  */
 void setClimateParaSeed(BiomeNoise *bn, uint64_t seed, int large, int nptype);
 double sampleClimatePara(const BiomeNoise *bn, double x, double z);

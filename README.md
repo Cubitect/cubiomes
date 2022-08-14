@@ -40,7 +40,7 @@ int main()
     for (seed = 0; ; seed++)
     {
         // Apply the seed to the generator for the Overworld dismension.
-        applySeed(&g, 0, seed);
+        applySeed(&g, DIM_OVERWORLD, seed);
 
         // To get the biome at a single block position, we can use getBiomeAt().
         int scale = 1; // scale=1: block coordinates, scale=4: biome coordinates
@@ -95,7 +95,7 @@ int main()
     setupGenerator(&g, MC_1_18, LARGE_BIOMES);
 
     uint64_t seed = 123LL;
-    applySeed(&g, 0, seed);
+    applySeed(&g, DIM_OVERWORLD, seed);
 
     Range r;
     // 1:16, a.k.a. horizontal chunk scaling
@@ -172,7 +172,7 @@ int main()
         for (upper16 = 0; upper16 < 0x10000; upper16++)
         {
             uint64_t seed = lower48 | (upper16 << 48);
-            applySeed(&g, 0, seed);
+            applySeed(&g, DIM_OVERWORLD, seed);
             if (isViableStructurePos(structType, &g, p.x, p.z, 0))
             {
                 printf("Seed %" PRId64 " has a Pillager Outpost at (%d, %d).\n",
@@ -248,7 +248,7 @@ int main()
         for (high = 0; high < 0x10000; high++)
         {
             uint64_t seed = s48 | (high << 48);
-            applySeed(&g, 0, seed);
+            applySeed(&g, DIM_OVERWORLD, seed);
 
             if (isViableStructurePos(styp, &g, pos[0].x, pos[0].z, 0) &&
                 isViableStructurePos(styp, &g, pos[1].x, pos[1].z, 0) &&
@@ -290,7 +290,7 @@ int main()
 
     Generator g;
     setupGenerator(&g, mc, 0);
-    applySeed(&g, 0, seed);
+    applySeed(&g, DIM_OVERWORLD, seed);
 
     pos = getSpawn(&g);
     printf("Spawn: (%d, %d)\n", pos.x, pos.z);

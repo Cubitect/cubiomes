@@ -2214,19 +2214,18 @@ int isViableStructureTerrain(int structType, Generator *g, int x, int z)
         return 1;
     }
 
-    id = getBiomeAt(g, 4, (x+sx)>>2, 15, (z)>>2);
-    if (isOceanic(id) || id == river || id == frozen_river)
-        return 0;
-    id = getBiomeAt(g, 4, (x)>>2, 15, (z+sz)>>2);
-    if (isOceanic(id) || id == river || id == frozen_river)
-        return 0;
-    id = getBiomeAt(g, 4, (x+sx)>>2, 15, (z+sz)>>2);
-    if (isOceanic(id) || id == river || id == frozen_river)
-        return 0;
-
-    return 1;
+    // approx surface height using depth parameter (0.5 ~ sea level)
+    const double thresh = 0.48;
+    int nptype = g->bn.nptype;
+    g->bn.nptype = NP_DEPTH;
+    int ret =
+        sampleClimatePara(&g->bn, (x+ 0)/4.0, (z+ 0)/4.0) < thresh ||
+        sampleClimatePara(&g->bn, (x+sx)/4.0, (z+sz)/4.0) < thresh ||
+        sampleClimatePara(&g->bn, (x+ 0)/4.0, (z+sz)/4.0) < thresh ||
+        sampleClimatePara(&g->bn, (x+sx)/4.0, (z+ 0)/4.0) < thresh;
+    g->bn.nptype = nptype;
+    return ret;
 }
-
 
 
 /* Given bordering noise columns and a fractional position between those,
