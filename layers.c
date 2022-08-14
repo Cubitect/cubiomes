@@ -737,14 +737,19 @@ static int getEndBiome(int hx, int hz, const uint16_t *hmap, int hw)
         uint16_t dsj = p_dsj[j];
         uint16_t e;
         uint32_t u;
-        for (i = 0; i < 25; i += 5)
-        {
-            if (U(e = p_elev[i+0]) && (u = (p_dsi[i+0] + (uint32_t)dsj) * e) < h) h = u;
-            if (U(e = p_elev[i+1]) && (u = (p_dsi[i+1] + (uint32_t)dsj) * e) < h) h = u;
-            if (U(e = p_elev[i+2]) && (u = (p_dsi[i+2] + (uint32_t)dsj) * e) < h) h = u;
-            if (U(e = p_elev[i+3]) && (u = (p_dsi[i+3] + (uint32_t)dsj) * e) < h) h = u;
-            if (U(e = p_elev[i+4]) && (u = (p_dsi[i+4] + (uint32_t)dsj) * e) < h) h = u;
-        }
+
+        // force unroll for(i=0;i<25;i++) in a cross compatible way
+        #define x5(i,x)    { x; i++; x; i++; x; i++; x; i++; x; i++; }
+        #define for25(i,x) { i = 0; x5(i,x) x5(i,x) x5(i,x) x5(i,x) x5(i,x) }
+        for25(i,
+            if unlikely(e = p_elev[i])
+            {
+                if ((u = (p_dsi[i] + (uint32_t)dsj) * e) < h)
+                    h = u;
+            }
+        );
+        #undef for25
+        #undef x5
         p_elev += hw;
     }
 
@@ -934,7 +939,8 @@ int getSurfaceHeightEnd(int mc, uint64_t seed, int x, int z)
     double dx = (x & 7) / 8.0;
     double dz = (z & 7) / 8.0;
 
-    const int y0 = 0, y1 = 32, yn = y1-y0+1;
+    // abusing enum for local compile time constants rather than enumeration
+    enum { y0 = 0, y1 = 32, yn = y1-y0+1 };
     double ncol00[yn];
     double ncol01[yn];
     double ncol10[yn];
@@ -1631,7 +1637,7 @@ int mapZoomFuzzy(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     int newW = (pW) << 1;
@@ -1734,7 +1740,7 @@ int mapZoom(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     int newW = (pW) << 1;
@@ -1812,7 +1818,7 @@ int mapLand(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     uint64_t st = l->startSalt;
@@ -1928,7 +1934,7 @@ int mapLand16(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     uint64_t st = l->startSalt;
@@ -2024,7 +2030,7 @@ int mapIsland(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     uint64_t ss = l->startSeed;
@@ -2065,7 +2071,7 @@ int mapSnow16(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     uint64_t ss = l->startSeed;
@@ -2098,7 +2104,7 @@ int mapSnow(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     uint64_t ss = l->startSeed;
@@ -2142,7 +2148,7 @@ int mapCool(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     for (j = 0; j < h; j++)
@@ -2181,7 +2187,7 @@ int mapHeat(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     for (j = 0; j < h; j++)
@@ -2214,7 +2220,7 @@ int mapHeat(const Layer * l, int * out, int x, int z, int w, int h)
 int mapSpecial(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int err = l->p->getMap(l->p, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     uint64_t st = l->startSalt;
@@ -2254,7 +2260,7 @@ int mapMushroom(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     uint64_t ss = l->startSeed;
@@ -2293,7 +2299,7 @@ int mapDeepOcean(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     for (j = 0; j < h; j++)
@@ -2356,7 +2362,7 @@ const int oldBiomes11[] = { desert, forest, mountains, swamp, plains, taiga };
 int mapBiome(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int err = l->p->getMap(l->p, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     int mc = l->mc;
@@ -2435,7 +2441,7 @@ int mapBiome(const Layer * l, int * out, int x, int z, int w, int h)
 int mapNoise(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int err = l->p->getMap(l->p, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     uint64_t ss = l->startSeed;
@@ -2467,7 +2473,7 @@ int mapNoise(const Layer * l, int * out, int x, int z, int w, int h)
 int mapBamboo(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int err = l->p->getMap(l->p, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     uint64_t ss = l->startSeed;
@@ -2517,7 +2523,7 @@ int mapBiomeEdge(const Layer * l, int * out, int x, int z, int w, int h)
     int mc = l->mc;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     for (j = 0; j < h; j++)
@@ -2586,7 +2592,7 @@ int mapHills(const Layer * l, int * out, int x, int z, int w, int h)
     int pH = h + 2;
     int i, j;
 
-    if U(l->p2 == NULL)
+    if unlikely(l->p2 == NULL)
     {
         printf("mapHills() requires two parents! Use setupMultiLayer()\n");
         exit(1);
@@ -2594,12 +2600,12 @@ int mapHills(const Layer * l, int * out, int x, int z, int w, int h)
 
     int err;
     err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     int *riv = out + pW * pH;
     err = l->p2->getMap(l->p2, riv, pX, pZ, pW, pH);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     int mc = l->mc;
@@ -2756,7 +2762,7 @@ int mapRiver(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     int mc = l->mc;
@@ -2813,7 +2819,7 @@ int mapSmooth(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     uint64_t ss = l->startSeed;
@@ -2863,7 +2869,7 @@ int mapSunflower(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     uint64_t ss = l->startSeed;
@@ -2925,7 +2931,7 @@ int mapShore(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     int mc = l->mc;
@@ -3033,7 +3039,7 @@ int mapSwampRiver(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
 
     int err = l->p->getMap(l->p, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     uint64_t ss = l->startSeed;
@@ -3061,14 +3067,14 @@ int mapSwampRiver(const Layer * l, int * out, int x, int z, int w, int h)
 
 int mapRiverMix(const Layer * l, int * out, int x, int z, int w, int h)
 {
-    if U(l->p2 == NULL)
+    if unlikely(l->p2 == NULL)
     {
         printf("mapRiverMix() requires two parents! Use setupMultiLayer()\n");
         exit(1);
     }
 
     int err = l->p->getMap(l->p, out, x, z, w, h); // biome chain
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     int idx;
@@ -3077,7 +3083,7 @@ int mapRiverMix(const Layer * l, int * out, int x, int z, int w, int h)
     int *buf = out + len;
 
     err = l->p2->getMap(l->p2, buf, x, z, w, h); // rivers
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
 
@@ -3135,14 +3141,14 @@ int mapOceanMix(const Layer * l, int * out, int x, int z, int w, int h)
     int i, j;
     int lx0, lx1, lz0, lz1, lw, lh;
 
-    if U(l->p2 == NULL)
+    if unlikely(l->p2 == NULL)
     {
         printf("mapOceanMix() requires two parents! Use setupMultiLayer()\n");
         exit(1);
     }
 
     int err = l->p2->getMap(l->p2, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     // determine the minimum required land area: (x+lx0, z+lz0), (lw, lh)
@@ -3172,7 +3178,7 @@ int mapOceanMix(const Layer * l, int * out, int x, int z, int w, int h)
     lw = lx1 - lx0;
     lh = lz1 - lz0;
     err = l->p->getMap(l->p, land, x+lx0, z+lz0, lw, lh);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     for (j = 0; j < h; j++)
@@ -3558,11 +3564,11 @@ int mapVoronoi114(const Layer * l, int * out, int x, int z, int w, int h)
                     dc = (mi-dc1) * (mi-dc1) + sjc;
                     dd = (mi-dd1) * (mi-dd1) + sjd;
 
-                    if      U((da < db) && (da < dc) && (da < dd))
+                    if      unlikely((da < db) && (da < dc) && (da < dd))
                         v = v00;
-                    else if U((db < da) && (db < dc) && (db < dd))
+                    else if unlikely((db < da) && (db < dc) && (db < dd))
                         v = v10;
-                    else if U((dc < da) && (dc < db) && (dc < dd))
+                    else if unlikely((dc < da) && (dc < db) && (dc < dd))
                         v = v01;
                     else
                         v = v11;

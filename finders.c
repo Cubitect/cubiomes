@@ -30,6 +30,7 @@
 uint64_t *loadSavedSeeds(const char *fnam, uint64_t *scnt)
 {
     FILE *fp = fopen(fnam, "r");
+    printf("open(%s) -> %p\n", fnam, fp);
 
     uint64_t seed, i;
     uint64_t *baseSeeds;
@@ -323,7 +324,7 @@ int getMineshafts(int mc, uint64_t seed, int cx0, int cz0, int cx1, int cz1,
 
             if (mc >= MC_1_13)
             {
-                if U(nextDouble(&s) < 0.004)
+                if unlikely(nextDouble(&s) < 0.004)
                 {
                     if (out && n < nout)
                     {
@@ -336,7 +337,7 @@ int getMineshafts(int mc, uint64_t seed, int cx0, int cz0, int cx1, int cz1,
             else
             {
                 skipNextN(&s, 1);
-                if U(nextDouble(&s) < 0.004)
+                if unlikely(nextDouble(&s) < 0.004)
                 {
                     int d = i;
                     if (-i > d) d = -i;
@@ -619,7 +620,7 @@ static DWORD WINAPI searchAll48Thread(LPVOID data)
 
         while (seed <= end)
         {
-            if U(info->check(seed, info->data))
+            if unlikely(info->check(seed, info->data))
             {
                 if (info->fp)
                 {
@@ -658,7 +659,7 @@ static DWORD WINAPI searchAll48Thread(LPVOID data)
     {
         while (seed <= end)
         {
-            if U(info->check(seed, info->data))
+            if unlikely(info->check(seed, info->data))
             {
                 if (info->fp)
                 {
@@ -1738,7 +1739,7 @@ static const char *getValidMansionBiomes()
 static int mapViableBiome(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int err = mapBiome(l, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     int styp = ((const int*) l->data)[0];
@@ -1793,7 +1794,7 @@ static int mapViableBiome(const Layer * l, int * out, int x, int z, int w, int h
 static int mapViableShore(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int err = mapShore(l, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     int styp = ((const int*) l->data)[0];
@@ -2361,7 +2362,7 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
             else if (t < 202) { r->variant = 1; sx = 10; sy = 7; sz = 10; r->abandoned = 1; }
             else if (t < 203) { r->variant = 2; sx =  8; sy = 5; sz = 15; r->abandoned = 1; }
             else if (t < 204) { r->variant = 3; sx = 11; sy = 9; sz = 11; r->abandoned = 1; }
-            else __builtin_unreachable();
+            else UNREACHABLE();
             break;
         case desert:
             t = nextInt(&rng, 250);
@@ -2371,7 +2372,7 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
             else if (t < 247) { r->variant = 1; sx = 17; sy = 6; sz =  9; r->abandoned = 1; }
             else if (t < 249) { r->variant = 2; sx = 12; sy = 6; sz = 12; r->abandoned = 1; }
             else if (t < 250) { r->variant = 3; sx = 15; sy = 6; sz = 15; r->abandoned = 1; }
-            else __builtin_unreachable();
+            else UNREACHABLE();
             break;
         case savanna:
             t = nextInt(&rng, 459);
@@ -2383,7 +2384,7 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
             else if (t < 453) { r->variant = 2; sx = 11; sy = 6; sz = 11; r->abandoned = 1; }
             else if (t < 456) { r->variant = 3; sx =  9; sy = 6; sz = 11; r->abandoned = 1; }
             else if (t < 459) { r->variant = 4; sx =  9; sy = 6; sz =  9; r->abandoned = 1; }
-            else __builtin_unreachable();
+            else UNREACHABLE();
             break;
         case taiga:
             t = nextInt(&rng, 100);
@@ -2391,7 +2392,7 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
             else if (t <  98) { r->variant = 2; sx =  9; sy = 7; sz =  9; } // taiga_meeting_point_2
             else if (t <  99) { r->variant = 1; sx = 22; sy = 3; sz = 18; r->abandoned = 1; }
             else if (t < 100) { r->variant = 2; sx =  9; sy = 7; sz =  9; r->abandoned = 1; }
-            else __builtin_unreachable();
+            else UNREACHABLE();
             break;
         case snowy_tundra:
             t = nextInt(&rng, 306);
@@ -2401,7 +2402,7 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
             else if (t < 302) { r->variant = 1; sx = 12; sy = 8; sz =  8; r->abandoned = 1; }
             else if (t < 303) { r->variant = 2; sx = 11; sy = 5; sz =  9; r->abandoned = 1; }
             else if (t < 306) { r->variant = 3; sx =  7; sy = 7; sz =  7; r->abandoned = 1; }
-            else __builtin_unreachable();
+            else UNREACHABLE();
             break;
         default:
             sx = sy = sz = 0;
@@ -3172,7 +3173,7 @@ static int mapFilterSpecial(const Layer * l, int * out, int x, int z, int w, int
     }
 
     int err = f->map(l, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     temps = 0;
@@ -3223,7 +3224,7 @@ static int mapFilterMushroom(const Layer * l, int * out, int x, int z, int w, in
 
 L_generate:
     err = f->map(l, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     if (f->bf->majorToFind & (1ULL << mushroom_fields))
@@ -3243,7 +3244,7 @@ static int mapFilterBiome(const Layer * l, int * out, int x, int z, int w, int h
     uint64_t b;
 
     int err = f->map(l, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     b = 0;
@@ -3270,7 +3271,7 @@ static int mapFilterOceanTemp(const Layer * l, int * out, int x, int z, int w, i
     uint64_t b;
 
     int err = f->map(l, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     b = 0;
@@ -3296,7 +3297,7 @@ static int mapFilterBiomeEdge(const Layer * l, int * out, int x, int z, int w, i
     int err;
 
     err = f->map(l, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     b = 0;
@@ -3320,7 +3321,7 @@ static int mapFilterRareBiome(const Layer * l, int * out, int x, int z, int w, i
     int err;
 
     err = f->map(l, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     b = 0; bm = 0;
@@ -3350,7 +3351,7 @@ static int mapFilterShore(const Layer * l, int * out, int x, int z, int w, int h
     int i;
 
     int err = f->map(l, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     b = 0; bm = 0;
@@ -3380,7 +3381,7 @@ static int mapFilterRiverMix(const Layer * l, int * out, int x, int z, int w, in
     int i;
 
     int err = f->map(l, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     b = 0; bm = 0;
@@ -3418,7 +3419,7 @@ static int mapFilterOceanMix(const Layer * l, int * out, int x, int z, int w, in
     }
 
     err = f->map(l, out, x, z, w, h);
-    if U(err != 0)
+    if unlikely(err != 0)
         return err;
 
     b = 0;

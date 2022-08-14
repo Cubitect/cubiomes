@@ -47,9 +47,7 @@ static inline double indexedLerp(int idx, double a, double b, double c)
    case 14: return -a + b;
    case 15: return -b - c;
    }
-#if __GNUC__
-   __builtin_unreachable();
-#endif
+   UNREACHABLE();
    return 0;
 }
 

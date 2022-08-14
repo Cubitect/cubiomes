@@ -19,23 +19,33 @@
 #define STRUCT(S) typedef struct S S; struct S
 
 #if __GNUC__
+
 #define IABS(X)                 __builtin_abs(X)
 #define PREFETCH(PTR,RW,LOC)    __builtin_prefetch(PTR,RW,LOC)
-#define L(COND)                 (__builtin_expect(!!(COND),1))  // [[likely]]
-#define U(COND)                 (__builtin_expect((COND),0))    // [[unlikely]
+#define likely(COND)            (__builtin_expect(!!(COND),1))
+#define unlikely(COND)          (__builtin_expect((COND),0))
 #define ATTR(...)               __attribute__((__VA_ARGS__))
 #define BSWAP32(X)              __builtin_bswap32(X)
+#define UNREACHABLE()           __builtin_unreachable()
+
 #else
+
 #define IABS(X)                 ((int)abs(X))
 #define PREFETCH(PTR,RW,LOC)
-#define L(COND)                 (COND)
-#define U(COND)                 (COND)
+#define likely(COND)            (COND)
+#define unlikely(COND)          (COND)
 #define ATTR(...)
 static inline uint32_t BSWAP32(uint32_t x) {
     x = ((x & 0x000000ff) << 24) | ((x & 0x0000ff00) <<  8) |
         ((x & 0x00ff0000) >>  8) | ((x & 0xff000000) >> 24);
     return x;
 }
+#if _MSC_VER
+#define UNREACHABLE()           __assume(false)
+#else
+#define UNREACHABLE()           exit(1) // [[noreturn]]
+#endif
+
 #endif
 
 /// imitate amd64/x64 rotate instructions
@@ -104,7 +114,7 @@ static inline double nextDouble(uint64_t *seed)
     return (int64_t) x / (double) (1ULL << 53);
 }
 
-/* A macro to generate the ideal assembly for X = nextInt(S, 24)
+/* A macro to generate the ideal assembly for X = nextInt(*S, 24)
  * This is a macro and not an inline function, as many compilers can make use
  * of the additional optimisation passes for the surrounding code.
  */

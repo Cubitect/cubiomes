@@ -427,18 +427,18 @@ static inline float isQuadBase(const StructureConfig sconf, uint64_t seed, int r
  * generally don't want to inline them. However, these functions usually return
  * so quickly that the function call is a major contributor to the overall time.
  */
-static inline __attribute__((always_inline, const))
+static inline ATTR(always_inline, const)
 float isQuadBaseFeature24Classic (const StructureConfig sconf, uint64_t seed);
 
-static inline __attribute__((always_inline, const))
+static inline ATTR(always_inline, const)
 float isQuadBaseFeature24 (const StructureConfig sconf, uint64_t seed,
         int ax, int ay, int az);
 
-static inline __attribute__((always_inline, const))
+static inline ATTR(always_inline, const)
 float isQuadBaseFeature (const StructureConfig sconf, uint64_t seed,
         int ax, int ay, int az, int radius);
 
-static inline __attribute__((always_inline, const))
+static inline ATTR(always_inline, const)
 float isQuadBaseLarge (const StructureConfig sconf, uint64_t seed,
         int ax, int ay, int az, int radius);
 
@@ -1018,12 +1018,12 @@ float isQuadBaseFeature24(const StructureConfig sconf, uint64_t seed,
     // check that the two structures in the opposing diagonal quadrants are
     // close enough together
     s00 ^= K;
-    JAVA_NEXT_INT24(s00, x0); if L(x0 < 20) return 0;
-    JAVA_NEXT_INT24(s00, z0); if L(z0 < 20) return 0;
+    JAVA_NEXT_INT24(s00, x0); if likely(x0 < 20) return 0;
+    JAVA_NEXT_INT24(s00, z0); if likely(z0 < 20) return 0;
 
     s11 ^= K;
-    JAVA_NEXT_INT24(s11, x1); if L(x1 > x0-20) return 0;
-    JAVA_NEXT_INT24(s11, z1); if L(z1 > z0-20) return 0;
+    JAVA_NEXT_INT24(s11, x1); if likely(x1 > x0-20) return 0;
+    JAVA_NEXT_INT24(s11, z1); if likely(z1 > z0-20) return 0;
 
     x = x1 + 32 - x0;
     z = z1 + 32 - z0;
@@ -1034,12 +1034,12 @@ float isQuadBaseFeature24(const StructureConfig sconf, uint64_t seed,
     uint64_t s10 = 132897987541ULL + seed;
 
     s01 ^= K;
-    JAVA_NEXT_INT24(s01, x2); if L(x2 >= 4) return 0;
-    JAVA_NEXT_INT24(s01, z2); if L(z2 < 20) return 0;
+    JAVA_NEXT_INT24(s01, x2); if likely(x2 >= 4) return 0;
+    JAVA_NEXT_INT24(s01, z2); if likely(z2 < 20) return 0;
 
     s10 ^= K;
-    JAVA_NEXT_INT24(s10, x3); if L(x3 < 20) return 0;
-    JAVA_NEXT_INT24(s10, z3); if L(z3 >= 4) return 0;
+    JAVA_NEXT_INT24(s10, x3); if likely(x3 < 20) return 0;
+    JAVA_NEXT_INT24(s10, z3); if likely(z3 >= 4) return 0;
 
     x = x2 + 32 - x3;
     z = z3 + 32 - z2;
@@ -1067,23 +1067,23 @@ float isQuadBaseFeature24Classic(const StructureConfig sconf, uint64_t seed)
     // check that the two structures in the opposing diagonal quadrants are
     // close enough together
     s00 ^= K;
-    JAVA_NEXT_INT24(s00, p); if L(p < 22) return 0;
-    JAVA_NEXT_INT24(s00, p); if L(p < 22) return 0;
+    JAVA_NEXT_INT24(s00, p); if likely(p < 22) return 0;
+    JAVA_NEXT_INT24(s00, p); if likely(p < 22) return 0;
 
     s11 ^= K;
-    JAVA_NEXT_INT24(s11, p); if L(p > 1) return 0;
-    JAVA_NEXT_INT24(s11, p); if L(p > 1) return 0;
+    JAVA_NEXT_INT24(s11, p); if likely(p > 1) return 0;
+    JAVA_NEXT_INT24(s11, p); if likely(p > 1) return 0;
 
     uint64_t s01 = 341873128712ULL + seed;
     uint64_t s10 = 132897987541ULL + seed;
 
     s01 ^= K;
-    JAVA_NEXT_INT24(s01, p); if L(p > 1) return 0;
-    JAVA_NEXT_INT24(s01, p); if L(p < 22) return 0;
+    JAVA_NEXT_INT24(s01, p); if likely(p > 1) return 0;
+    JAVA_NEXT_INT24(s01, p); if likely(p < 22) return 0;
 
     s10 ^= K;
-    JAVA_NEXT_INT24(s10, p); if L(p < 22) return 0;
-    JAVA_NEXT_INT24(s10, p); if L(p > 1) return 0;
+    JAVA_NEXT_INT24(s10, p); if likely(p < 22) return 0;
+    JAVA_NEXT_INT24(s10, p); if likely(p > 1) return 0;
 
     return 1; // should actually return one of 122.781311 or 127.887650
 }
@@ -1110,35 +1110,35 @@ float isQuadBaseFeature(const StructureConfig sconf, uint64_t seed,
     uint64_t s;
 
     s = s00 ^ K;
-    s = (s * K + b) & M; x0 = (int)(s >> 17) % C; if L(x0 <= rm) return 0;
-    s = (s * K + b) & M; z0 = (int)(s >> 17) % C; if L(z0 <= rm) return 0;
+    s = (s * K + b) & M; x0 = (int)(s >> 17) % C; if likely(x0 <= rm) return 0;
+    s = (s * K + b) & M; z0 = (int)(s >> 17) % C; if likely(z0 <= rm) return 0;
 
     s = s11 ^ K;
-    s = (s * K + b) & M; x1 = (int)(s >> 17) % C; if L(x1 >= x0-rm) return 0;
-    s = (s * K + b) & M; z1 = (int)(s >> 17) % C; if L(z1 >= z0-rm) return 0;
+    s = (s * K + b) & M; x1 = (int)(s >> 17) % C; if likely(x1 >= x0-rm) return 0;
+    s = (s * K + b) & M; z1 = (int)(s >> 17) % C; if likely(z1 >= z0-rm) return 0;
 
     // check that the two structures in the opposing diagonal quadrants are
     // close enough together
 
     x = x1 + R - x0;
     z = z1 + R - z0;
-    if L(x*x + z*z > cd*cd)
+    if likely(x*x + z*z > cd*cd)
         return 0;
 
     uint64_t s01 = 341873128712ULL + seed;
     uint64_t s10 = 132897987541ULL + seed;
 
     s = s01 ^ K;
-    s = (s * K + b) & M; x2 = (int)(s >> 17) % C; if L(x2 >= C-rm) return 0;
-    s = (s * K + b) & M; z2 = (int)(s >> 17) % C; if L(z2 <= rm) return 0;
+    s = (s * K + b) & M; x2 = (int)(s >> 17) % C; if likely(x2 >= C-rm) return 0;
+    s = (s * K + b) & M; z2 = (int)(s >> 17) % C; if likely(z2 <= rm) return 0;
 
     s = s10 ^ K;
-    s = (s * K + b) & M; x3 = (int)(s >> 17) % C; if L(x3 <= rm) return 0;
-    s = (s * K + b) & M; z3 = (int)(s >> 17) % C; if L(z3 >= C-rm) return 0;
+    s = (s * K + b) & M; x3 = (int)(s >> 17) % C; if likely(x3 <= rm) return 0;
+    s = (s * K + b) & M; z3 = (int)(s >> 17) % C; if likely(z3 >= C-rm) return 0;
 
     x = x2 + R - x3;
     z = z3 + R - z2;
-    if L(x*x + z*z > cd*cd)
+    if likely(x*x + z*z > cd*cd)
         return 0;
 
     float sqrad = getEnclosingRadius(
@@ -1176,18 +1176,18 @@ float isQuadBaseLarge(const StructureConfig sconf, uint64_t seed,
 
     s = s00 ^ K;
     s = (s * K + b) & M; p =  (int)(s >> 17) % C;
-    s = (s * K + b) & M; p += (int)(s >> 17) % C; if L(p <= rm) return 0;
+    s = (s * K + b) & M; p += (int)(s >> 17) % C; if likely(p <= rm) return 0;
     x0 = p;
     s = (s * K + b) & M; p =  (int)(s >> 17) % C;
-    s = (s * K + b) & M; p += (int)(s >> 17) % C; if L(p <= rm) return 0;
+    s = (s * K + b) & M; p += (int)(s >> 17) % C; if likely(p <= rm) return 0;
     z0 = p;
 
     s = s11 ^ K;
     s = (s * K + b) & M; p =  (int)(s >> 17) % C;
-    s = (s * K + b) & M; p += (int)(s >> 17) % C; if L(p > x0-rm) return 0;
+    s = (s * K + b) & M; p += (int)(s >> 17) % C; if likely(p > x0-rm) return 0;
     x1 = p;
     s = (s * K + b) & M; p =  (int)(s >> 17) % C;
-    s = (s * K + b) & M; p += (int)(s >> 17) % C; if L(p > z0-rm) return 0;
+    s = (s * K + b) & M; p += (int)(s >> 17) % C; if likely(p > z0-rm) return 0;
     z1 = p;
 
     s = ((x1-x0)>>1)*((x1-x0)>>1) + ((z1-z0)>>1)*((z1-z0)>>1);
@@ -1196,18 +1196,18 @@ float isQuadBaseLarge(const StructureConfig sconf, uint64_t seed,
 
     s = s01 ^ K;
     s = (s * K + b) & M; p =  (int)(s >> 17) % C;
-    s = (s * K + b) & M; p += (int)(s >> 17) % C; if L(p > x0-rm) return 0;
+    s = (s * K + b) & M; p += (int)(s >> 17) % C; if likely(p > x0-rm) return 0;
     x2 = p;
     s = (s * K + b) & M; p =  (int)(s >> 17) % C;
-    s = (s * K + b) & M; p += (int)(s >> 17) % C; if L(p <= rm) return 0;
+    s = (s * K + b) & M; p += (int)(s >> 17) % C; if likely(p <= rm) return 0;
     z2 = p;
 
     s = s10 ^ K;
     s = (s * K + b) & M; p =  (int)(s >> 17) % C;
-    s = (s * K + b) & M; p += (int)(s >> 17) % C; if L(p <= rm) return 0;
+    s = (s * K + b) & M; p += (int)(s >> 17) % C; if likely(p <= rm) return 0;
     x3 = p;
     s = (s * K + b) & M; p =  (int)(s >> 17) % C;
-    s = (s * K + b) & M; p += (int)(s >> 17) % C; if L(p > z0-rm) return 0;
+    s = (s * K + b) & M; p += (int)(s >> 17) % C; if likely(p > z0-rm) return 0;
     z3 = p;
 
     float sqrad = getEnclosingRadius(

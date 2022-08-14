@@ -134,7 +134,7 @@ uint32_t testAreas(int mc, int dim, int scale)
     uint64_t s;
     for (s = 0; s < 100; s++)
     {
-        int d = 10000;
+        int d = 40000;
         int x = hash32(s << 5) % d - d/2;
         int y = ((int)(hash32(s << 7) % 384) - 64);
         int z = hash32(s << 9) % d - d/2;
@@ -353,7 +353,12 @@ void findBiomeParaBounds()
 
 int main()
 {
-    testGeneration();
+    int i;
+    for (i = 0; i < 10; i++)
+    {
+        testAreas(MC_NEWEST, +1, 16);
+    }
+    //testGeneration();
     //findBiomeParaBounds();
     return 0;
 }

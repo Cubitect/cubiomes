@@ -4322,6 +4322,10 @@ static const uint64_t biome_tree_19[] =
     0xFF026869603A5B60,
 };
 
+#if __cplusplus >= 201703L
+#define __restrict
+#endif
+
 struct _args
 {
     const uint64_t * __restrict np;
@@ -4363,7 +4367,7 @@ int get_resulting_node(const struct _args *arg, int idx, int alt, uint64_t ds, i
     do
     {
         if (depth >= 4) {
-            __builtin_unreachable();
+            UNREACHABLE();
             //fprintf(stderr, "get_resulting_node(): fatal error\n");
             //exit(1);
         }
