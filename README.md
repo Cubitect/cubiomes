@@ -39,7 +39,7 @@ int main()
     uint64_t seed;
     for (seed = 0; ; seed++)
     {
-        // Apply the seed to the generator for the Overworld dismension.
+        // Apply the seed to the generator for the Overworld dimension.
         applySeed(&g, DIM_OVERWORLD, seed);
 
         // To get the biome at a single block position, we can use getBiomeAt().
