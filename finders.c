@@ -30,7 +30,6 @@
 uint64_t *loadSavedSeeds(const char *fnam, uint64_t *scnt)
 {
     FILE *fp = fopen(fnam, "r");
-    printf("open(%s) -> %p\n", fnam, fp);
 
     uint64_t seed, i;
     uint64_t *baseSeeds;
