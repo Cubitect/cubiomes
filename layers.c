@@ -158,6 +158,15 @@ int isOverworld(int mc, int id)
     return 1;
 }
 
+int getDimension(int id)
+{
+    if (id >= small_end_islands && id <= end_barrens) return DIM_END;
+    if (id >= soul_sand_valley && id <= basalt_deltas) return DIM_NETHER;
+    if (id == the_end) return DIM_END;
+    if (id == nether_wastes) return DIM_NETHER;
+    return DIM_OVERWORLD;
+}
+
 int getMutated(int mc, int id)
 {
     switch (id)

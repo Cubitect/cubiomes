@@ -62,7 +62,7 @@ int mapOceanMixMod(const Layer * l, int * out, int x, int z, int w, int h)
 void setupGenerator(Generator *g, int mc, uint32_t flags)
 {
     g->mc = mc;
-    g->dim = 1000; // not initialized
+    g->dim = DIM_UNDEF;
     g->flags = flags;
     g->seed = 0;
     g->sha = 0;
@@ -98,24 +98,24 @@ void applySeed(Generator *g, int dim, uint64_t seed)
     g->seed = seed;
     g->sha = 0;
 
-    if (dim == 0)
+    if (dim == DIM_OVERWORLD)
     {
         if (g->mc <= MC_1_17)
             setLayerSeed(g->entry ? g->entry : g->ls.entry_1, seed);
         else
             setBiomeSeed(&g->bn, seed, g->flags & LARGE_BIOMES);
     }
-    else if (dim == -1 && g->mc >= MC_1_16)
+    else if (dim == DIM_NETHER && g->mc >= MC_1_16)
     {
         setNetherSeed(&g->nn, seed);
     }
-    else if (dim == +1 && g->mc >= MC_1_9)
+    else if (dim == DIM_END && g->mc >= MC_1_9)
     {
         setEndSeed(&g->en, seed);
     }
     if (g->mc >= MC_1_15)
     {
-        if (g->mc <= MC_1_17 && dim == 0 && !g->entry)
+        if (g->mc <= MC_1_17 && dim == DIM_OVERWORLD && !g->entry)
             g->sha = g->ls.entry_1->startSalt;
         else
             g->sha = getVoronoiSHA(seed);
@@ -129,7 +129,7 @@ size_t getMinCacheSize(const Generator *g, int scale, int sx, int sy, int sz)
         sy = 1;
 
     size_t len = (size_t)sx * sz * sy;
-    if (g->mc <= MC_1_17 && g->dim == 0)
+    if (g->mc <= MC_1_17 && g->dim == DIM_OVERWORLD)
     {   // recursively check the layer stack for the max buffer
         const Layer *entry = getLayerForScale(g, scale);
         if (!entry) {
@@ -161,7 +161,7 @@ int genBiomes(const Generator *g, int *cache, Range r)
     int err = 1;
     int i, k;
 
-    if (g->dim == 0)
+    if (g->dim == DIM_OVERWORLD)
     {
         if (g->mc <= MC_1_17)
         {
@@ -181,11 +181,11 @@ int genBiomes(const Generator *g, int *cache, Range r)
             return genBiomeNoiseScaled(&g->bn, cache, r, g->mc, g->sha);
         }
     }
-    else if (g->dim == -1)
+    else if (g->dim == DIM_NETHER)
     {
         return genNetherScaled(&g->nn, cache, r, g->mc, g->sha);
     }
-    else if (g->dim == +1)
+    else if (g->dim == DIM_END)
     {
         return genEndScaled(&g->en, cache, r, g->mc, g->sha);
     }

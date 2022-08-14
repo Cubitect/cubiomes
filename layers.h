@@ -17,6 +17,14 @@ enum MCVersion
     MC_1_19, MC_NEWEST = MC_1_19,
 };
 
+enum Dimension
+{
+    DIM_NETHER      =   -1,
+    DIM_OVERWORLD   =    0,
+    DIM_END         =   +1,
+    DIM_UNDEF       = 1000,
+};
+
 enum BiomeID
 {
     none = -1,
@@ -489,6 +497,7 @@ int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int mc, uint64_
 
 int biomeExists(int mc, int id);
 int isOverworld(int mc, int id);
+int getDimension(int id);
 int getMutated(int mc, int id);
 int getCategory(int mc, int id);
 int areSimilar(int mc, int id1, int id2);

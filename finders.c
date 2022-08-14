@@ -1854,7 +1854,7 @@ int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t
     int id;
 
 
-    if (g->dim == -1) // Nether
+    if (g->dim == DIM_NETHER)
     {
         if (structureType == Fortress && g->mc <= MC_1_17)
             return 1;
@@ -1893,7 +1893,7 @@ int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t
         id = getBiomeAt(g, 4, sampleX, sampleY, sampleZ);
         return isViableFeatureBiome(g->mc, structureType, id);
     }
-    else if (g->dim == +1) // End
+    else if (g->dim == DIM_END)
     {
         switch (structureType)
         {
@@ -2978,7 +2978,7 @@ int checkForBiomes(
         return 0;
     int i, j, k, ret;
 
-    if (g->mc <= MC_1_17 && dim == 0)
+    if (g->mc <= MC_1_17 && dim == DIM_OVERWORLD)
     {
         Layer *entry = (Layer*) getLayerForScale(g, r.scale);
         ret = checkForBiomesAtLayer(&g->ls, entry, cache, seed,
