@@ -41,7 +41,7 @@ static inline uint32_t BSWAP32(uint32_t x) {
     return x;
 }
 #if _MSC_VER
-#define UNREACHABLE()           __assume(false)
+#define UNREACHABLE()           __assume(0)
 #else
 #define UNREACHABLE()           exit(1) // [[noreturn]]
 #endif

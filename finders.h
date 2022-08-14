@@ -2,23 +2,9 @@
 #define FINDERS_H_
 
 #include "generator.h"
+
 #include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include <math.h>
-
-#ifdef _WIN32
-#include <windows.h>
-
-typedef HANDLE thread_id_t;
-
-#else
-#define USE_PTHREAD
-#include <pthread.h>
-
-typedef pthread_t thread_id_t;
-
-#endif
 
 #ifdef __cplusplus
 extern "C"
@@ -26,7 +12,6 @@ extern "C"
 #endif
 
 #define MASK48 (((int64_t)1 << 48) - 1)
-#define PI 3.141592653589793
 
 #define LARGE_STRUCT 1
 #define CHUNK_STRUCT 2
