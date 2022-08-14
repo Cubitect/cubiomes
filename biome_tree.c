@@ -4346,8 +4346,8 @@ uint64_t get_np_dist(const struct _args *arg, int idx)
     {
         uint8_t idx = (node >> 8*i) & 0xFF;
         uint64_t a, b, d;
-        a = +arg->np[i] - arg->param[idx][1];
-        b = -arg->np[i] + arg->param[idx][0];
+        a = arg->np[i] - arg->param[idx][1];
+        b = arg->param[idx][0] - arg->np[i];
         d = (int64_t)a > 0 ? a : (int64_t)b > 0 ? b : 0;
         d = d * d;
         ds += d;
