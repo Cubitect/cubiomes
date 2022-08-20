@@ -8,6 +8,11 @@
 #include <math.h>
 
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 /** Quad-Witch-Huts
  *
  *  For a quad-structure, we mainly care about relative positioning, so we can
@@ -505,6 +510,9 @@ float isQuadBaseLarge(const StructureConfig sconf, uint64_t seed,
     return sqrad < radius ? sqrad : 0;
 }
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif // QUADBASE_H_
 
