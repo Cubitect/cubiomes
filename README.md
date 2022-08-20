@@ -193,7 +193,7 @@ The function `searchAll48()` can be used to find a complete set of 48-bit seed b
 
 ```C
 // find seeds with a quad-witch-hut about the origin
-#include "finders.h"
+#include "quadbase.h"
 #include <stdio.h>
 
 int check(uint64_t s48, void *data)
