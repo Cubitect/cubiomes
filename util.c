@@ -6,6 +6,44 @@
 #include <stdlib.h>
 
 
+
+uint64_t *loadSavedSeeds(const char *fnam, uint64_t *scnt)
+{
+    FILE *fp = fopen(fnam, "r");
+
+    uint64_t seed, i;
+    uint64_t *baseSeeds;
+
+    if (fp == NULL)
+        return NULL;
+
+    *scnt = 0;
+
+    while (!feof(fp))
+    {
+        if (fscanf(fp, "%" PRId64, (int64_t*)&seed) == 1) (*scnt)++;
+        else while (!feof(fp) && fgetc(fp) != '\n');
+    }
+
+    if (*scnt == 0)
+        return NULL;
+
+    baseSeeds = (uint64_t*) calloc(*scnt, sizeof(*baseSeeds));
+
+    rewind(fp);
+
+    for (i = 0; i < *scnt && !feof(fp);)
+    {
+        if (fscanf(fp, "%" PRId64, (int64_t*)&baseSeeds[i]) == 1) i++;
+        else while (!feof(fp) && fgetc(fp) != '\n');
+    }
+
+    fclose(fp);
+
+    return baseSeeds;
+}
+
+
 const char* mc2str(int mc)
 {
     switch (mc)

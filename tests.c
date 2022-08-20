@@ -285,7 +285,7 @@ void testNoiseRangeFinder()
     if (bad >= 10) break;
     }
 
-    printf("bad:%d k_tot: %d / %d ~ %g : %d\n", bad, k_tot, seed, k_tot / (double)seed, n*n);
+    printf("bad:%d k_tot: %d / %ld ~ %g : %d\n", bad, k_tot, seed, k_tot / (double)seed, n*n);
     savePPM("img.ppm", pix, n, n);
 }
 
@@ -353,11 +353,6 @@ void findBiomeParaBounds()
 
 int main()
 {
-    int i;
-    for (i = 0; i < 10; i++)
-    {
-        testAreas(MC_NEWEST, +1, 16);
-    }
     //testGeneration();
     //findBiomeParaBounds();
     return 0;

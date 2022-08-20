@@ -17,7 +17,7 @@ endif
 
 all: release
 
-debug: CFLAGS += -DDEBUG -Og -ggdb3
+debug: CFLAGS += -DDEBUG -O0 -ggdb3
 debug: libcubiomes
 release: CFLAGS += -O3 -g3
 release: libcubiomes
@@ -28,7 +28,7 @@ ifeq ($(OS),Windows_NT)
 else
 libcubiomes: CFLAGS += -fPIC
 endif
-libcubiomes: noise.o biome_tree.o layers.o generator.o finders.o util.o
+libcubiomes: noise.o biome_tree.o layers.o generator.o finders.o util.o quadbase.o
 	$(AR) $(ARFLAGS) libcubiomes.a $^
 
 
@@ -48,6 +48,9 @@ noise.o: noise.c noise.h
 	$(CC) -c $(CFLAGS) $<
 
 util.o: util.c util.h
+	$(CC) -c $(CFLAGS) $<
+
+quadbase.o: quadbase.c quadbase.h
 	$(CC) -c $(CFLAGS) $<
 
 clean:

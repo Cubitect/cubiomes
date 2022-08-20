@@ -1391,6 +1391,11 @@ void initBiomeNoise(BiomeNoise *bn, int mc)
     bn->mc = mc;
 }
 
+#if __cplusplus
+extern "C"
+#endif
+int p2overworld(int mc, const uint64_t np[6], uint64_t *dat);
+
 /// Biome sampler for MC 1.18
 int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
     uint64_t *dat, uint32_t sample_flags)
@@ -1440,12 +1445,6 @@ int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
     p_np[3] = (int64_t)(10000.0F*e);
     p_np[4] = (int64_t)(10000.0F*d);
     p_np[5] = (int64_t)(10000.0F*w);
-
-#if __cplusplus
-    extern "C"
-#else
-    int p2overworld(int mc, const uint64_t np[6], uint64_t *dat);
-#endif
 
     int id = none;
     if (!(sample_flags & SAMPLE_NO_BIOME))
