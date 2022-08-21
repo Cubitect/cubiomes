@@ -2845,6 +2845,17 @@ void restoreMap(filter_data_t *fd, Layer *l)
     l->data = NULL;
 }
 
+static
+int testExclusion(Layer *layer, int *cache, int x, int z, const BiomeFilter *bf)
+{
+    int err = layer->getMap(layer, cache, x, z, 1, 1);
+    if (err)
+        return 0; // skip, but don't treat error as valid
+    int id = cache[0];
+    if (id < 128)
+        return (bf->biomeToExcl & (1ULL << id)) != 0;
+    return (bf->biomeToExclM & (1ULL << (id-128))) != 0;
+}
 
 int checkForBiomesAtLayer(
         LayerStack        * g,
@@ -2859,6 +2870,9 @@ int checkForBiomesAtLayer(
         )
 {
     Layer *l;
+    int *ids;
+    int ret, err;
+    int memsiz, mem1x1;
 
     if (filter->flags & CFB_APPROX) // TODO: protoCheck for 1.6-
     {
@@ -2960,11 +2974,42 @@ L_has_proto_mushroom:
     }
 
     l = g->layers;
-    int *ids;
     if (cache)
+    {
+        memsiz = 0;
         ids = cache;
+    }
     else
-        ids = (int*) calloc(getMinLayerCacheSize(entry, w, h), sizeof(int));
+    {
+        memsiz = getMinLayerCacheSize(entry, w, h);
+        ids = (int*) calloc(memsiz, sizeof(int));
+    }
+
+    if ((filter->biomeToExcl | filter->biomeToExclM) && w*h > 1)
+    {
+        err = 0;
+        if (memsiz == 0)
+            memsiz = getMinLayerCacheSize(entry, w, h);
+        mem1x1 = getMinLayerCacheSize(entry, 1, 1);
+        if (mem1x1 * 2 < memsiz)
+        {
+            setLayerSeed(entry, seed);
+            err = testExclusion(entry, ids, x+w/2, z+h/2, filter);
+        }
+        if (mem1x1 * 5 < memsiz)
+        {
+            if (!err) err = testExclusion(entry, ids, x,     z,     filter);
+            if (!err) err = testExclusion(entry, ids, x+w-1, z+h-1, filter);
+            if (!err) err = testExclusion(entry, ids, x,     z+h-1, filter);
+            if (!err) err = testExclusion(entry, ids, x+w-1, z,     filter);
+        }
+        if (err)
+        {
+            if (cache == NULL)
+                free(ids);
+            return 0;
+        }
+    }
 
     filter_data_t fd[9];
     swapMap(fd+0, filter, l+L_OCEAN_MIX_4,    mapFilterOceanMix);
@@ -2977,9 +3022,9 @@ L_has_proto_mushroom:
     swapMap(fd+7, filter, l+L_MUSHROOM_256,   mapFilterMushroom);
     swapMap(fd+8, filter, l+L_SPECIAL_1024,   mapFilterSpecial);
 
+    ret = 0;
     setLayerSeed(entry, seed);
-    int err = entry->getMap(entry, ids, x, z, w, h);
-    int ret = 0;
+    err = entry->getMap(entry, ids, x, z, w, h);
     if (err == 0)
     {
         uint64_t b = 0, m = 0;
