@@ -4,9 +4,11 @@
 #include "layers.h"
 
 // generator flags
-#define LARGE_BIOMES            0x1
-#define FORCE_OCEAN_VARIANTS    0x4
-
+enum
+{
+    LARGE_BIOMES            = 0x1,
+    FORCE_OCEAN_VARIANTS    = 0x4,
+};
 
 STRUCT(Generator)
 {

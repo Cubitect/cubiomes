@@ -310,7 +310,11 @@ STRUCT(NetherNoise)
 };
 
 // End biome generator 1.9+
-typedef PerlinNoise EndNoise;
+STRUCT(EndNoise)
+{
+    PerlinNoise perlin;
+    int mc;
+};
 
 STRUCT(SurfaceNoise)
 {
@@ -433,7 +437,7 @@ int genNetherScaled(const NetherNoise *nn, int *out, Range r, int mc, uint64_t s
  * is a variation which also scales this up on a regular grid to 1:4. The final
  * access at a 1:1 scale uses voronoi.
  */
-void setEndSeed(EndNoise *en, uint64_t seed);
+void setEndSeed(EndNoise *en, int mc, uint64_t seed);
 int mapEndBiome(const EndNoise *en, int *out, int x, int z, int w, int h);
 int mapEnd(const EndNoise *en, int *out, int x, int z, int w, int h);
 int getSurfaceHeightEnd(int mc, uint64_t seed, int x, int z);

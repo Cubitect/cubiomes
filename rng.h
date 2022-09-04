@@ -226,7 +226,9 @@ static inline void xSkipN(Xoroshiro *xr, int count)
 
 static inline uint64_t xNextLongJ(Xoroshiro *xr)
 {
-    return (xNextLong(xr) & 0xffffffff00000000) | (xNextLong(xr) >> 32);
+    int32_t a = xNextLong(xr) >> 32;
+    int32_t b = xNextLong(xr) >> 32;
+    return ((uint64_t)a << 32) + b;
 }
 
 static inline int xNextIntJ(Xoroshiro *xr, uint32_t n)

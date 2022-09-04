@@ -12,9 +12,6 @@ extern "C"
 
 #define MASK48 (((int64_t)1 << 48) - 1)
 
-#define LARGE_STRUCT 1
-#define CHUNK_STRUCT 2
-
 enum StructureType
 {
     Feature, // for locations of temple generation attempts pre 1.13
@@ -40,13 +37,15 @@ enum StructureType
     FEATURE_NUM
 };
 
+enum { LARGE_STRUCT = 0x1, CHUNK_STRUCT = 0x2 };
+
 STRUCT(StructureConfig)
 {
-    int             salt;
-    char            regionSize;
-    char            chunkRange;
-    unsigned char   structType;
-    unsigned char   properties;
+    int32_t salt;
+    int8_t  regionSize;
+    int8_t  chunkRange;
+    uint8_t structType;
+    uint8_t properties;
 };
 
 #define _sc static const StructureConfig
@@ -89,18 +88,19 @@ _sc END_CITY_CONFIG           = { 10387313, 20,  9, End_City, LARGE_STRUCT};
 
 // for the scattered return gateways
 _sc END_GATEWAY_CONFIG_115    = {    30000,  1,  1, End_Gateway, CHUNK_STRUCT};
-_sc END_GATEWAY_CONFIG        = {    40013,  1,  1, End_Gateway, CHUNK_STRUCT};
+_sc END_GATEWAY_CONFIG_117    = {    40013,  1,  1, End_Gateway, CHUNK_STRUCT};
+_sc END_GATEWAY_CONFIG        = {    40000,  1,  1, End_Gateway, CHUNK_STRUCT};
 
 #undef _sc
 
-STRUCT(Pos)
-{
-    int x, z;
-};
+STRUCT(Pos)  { int x, z; };
+STRUCT(Pos3) { int x, y, z; };
+
 
 enum
 {
-    CFB_APPROX      = 0x01, // enabled aggresive filtering, trading accuracy
+    CFB_APPROX       = 0x01, // enabled aggresive filtering, trading accuracy
+    CFB_FORCED_OCEAN = FORCE_OCEAN_VARIANTS,
 };
 STRUCT(BiomeFilter)
 {
@@ -151,17 +151,25 @@ STRUCT(StrongholdIter)
 
 STRUCT(StructureVariant)
 {
-    uint8_t abandoned;      // is zombie village
-    uint8_t giant;          // giant portal variant
-    uint8_t underground;    // underground portal
-    uint8_t airpocket;
-    char variant;
-    const char *name;
-    short biome;
+    uint8_t abandoned   :1; // is zombie village
+    uint8_t giant       :1; // giant portal variant
+    uint8_t underground :1; // underground portal
+    uint8_t airpocket   :1;
+    uint8_t ship        :1; // end city with ship
+    uint8_t start;
+    short   biome;
     uint8_t rotation;       // 0:0, 1:cw90, 2:cw180, 3:cw270=ccw90
     uint8_t mirror;
-    char x, y, z;
-    char sx, sy, sz;
+    int16_t x, y, z;
+    int16_t sx, sy, sz;
+};
+
+STRUCT(Piece)
+{
+    const char *name;   // structure piece name
+    Pos3 pos, bb0, bb1; // position and bounding box limits
+    int rot;            // rotation
+    int gendepth;
 };
 
 
@@ -322,13 +330,14 @@ Pos estimateSpawn(const Generator *g);
  * @g           : generator for Overworld biomes
  * @x,y,z       : origin for the search
  * @radius      : square 'radius' of the search
- * @validBiomes : boolean array of valid biome ids (size = 256)
+ * validB       : valid biomes, as a bitset for biomes with 0 <= id < 64
+ * validM       : valid biomes, as a bitset for biomes with 192 <= id < 256
  * @rnd         : random obj, initialise using setSeed(rnd, world_seed)
  * @passes      : (output) number of valid biomes passed, NULL to ignore
  */
 Pos locateBiome(
         const Generator *g, int x, int y, int z, int radius,
-        const char *validBiomes, uint64_t *rng, int *passes);
+        uint64_t validB, uint64_t validM, uint64_t *rng, int *passes);
 
 /* Get the shadow seed.
  */
@@ -400,12 +409,30 @@ uint64_t chunkGenerateRnd(uint64_t worldSeed, int chunkX, int chunkZ)
 int getVariant(StructureVariant *sv, int structType, int mc, uint64_t seed,
         int blockX, int blockZ, int biomeID);
 
+/* Generate the structure pieces of an End City. This pieces buffer should be
+ * large enough to hold END_CITY_PIECES_MAX elements.
+ * @pieces          : output buffer
+ * @seed            : world seed
+ * @chunkX, chunkZ  : 16x16 chunk position
+ *
+ * Returns the number of structure pieces generated.
+ */
+enum { END_CITY_PIECES_MAX = 421 };
+int getEndCityPieces(Piece *pieces, uint64_t seed, int chunkX, int chunkZ);
+
+
+/* Find the inner ring positions where End Gateways generate upon defeating the
+ * Dragon, as well as an estimate of where they link up to (WIP).
+ */
+void getFixedEndGateways(Pos pos[20][2], uint64_t seed);
+
+
 /* Find the number of each type of house that generate in a village
  * (mc < MC_1_14)
- * @worldSeed      : world seed
- * @chunkX, chunkZ : 16x16 chunk position of the village origin
- * @housesOut      : output number of houses for each entry in the house type
- *                   enum (i.e this should be an array of length HOUSE_NUM)
+ * @housesOut       : output number of houses for each entry in the house type
+ *                    enum (i.e this should be an array of length HOUSE_NUM)
+ * @seed            : world seed
+ * @chunkX, chunkZ  : 16x16 chunk position of the village origin
  *
  * Returns the random object seed after finding these numbers.
  */
@@ -414,8 +441,7 @@ enum
     HouseSmall, Church, Library, WoodHut, Butcher, FarmLarge, FarmSmall,
     Blacksmith, HouseLarge, HOUSE_NUM
 };
-uint64_t getHouseList(uint64_t worldSeed, int chunkX, int chunkZ, int *housesOut);
-
+uint64_t getHouseList(int *houses, uint64_t seed, int chunkX, int chunkZ);
 
 
 //==============================================================================
@@ -507,22 +533,22 @@ int checkForTemps(LayerStack *g, uint64_t seed, int x, int z, int w, int h, cons
  * L_SHORE_16, L_RIVER_MIX_4, L_OCEAN_MIX_4, L_VORONOI_1
  * (provided the version matches)
  */
-int canBiomeGenerate(int layerId, int mc, int biomeID);
+int canBiomeGenerate(int layerId, int mc, uint32_t flags, int biomeID);
 
-/* Given a biome 'id' at a generation 'layerId', this functions finds which
+/* Given a 'biomeID' at a generation 'layerId', this functions finds which
  * biomes may generate from it. The result is stored in the bitfields:
  * mL : for ids 0-63
  * mM : for ids 128-191
  */
-void genPotential(uint64_t *mL, uint64_t *mM, int layerId, int mc, int id);
+void genPotential(uint64_t *mL, uint64_t *mM, int layerId, int mc, uint32_t flags, int biomeID);
 
 /* Gets the biomes that can generate in the given version and layer ID.
- * In contrast to canBiomeGenerate() and genPotential() it also supports 1.18+,
- * where the layerId is ignored.
+ * In contrast to canBiomeGenerate() and genPotential() it also supports
+ * L_OCEAN_TEMP_256 and 1.18+, where the layerId is ignored.
  * mL : for ids 0-63
  * mM : for ids 128-191
  */
-void getAvailableBiomes(uint64_t *mL, uint64_t *mM, int layerId, int mc);
+void getAvailableBiomes(uint64_t *mL, uint64_t *mM, int layerId, int mc, uint32_t flags);
 
 //==============================================================================
 // Biome Noise Finders (for 1.18+)

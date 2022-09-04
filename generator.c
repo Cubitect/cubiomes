@@ -111,7 +111,7 @@ void applySeed(Generator *g, int dim, uint64_t seed)
     }
     else if (dim == DIM_END && g->mc >= MC_1_9)
     {
-        setEndSeed(&g->en, seed);
+        setEndSeed(&g->en, g->mc, seed);
     }
     if (g->mc >= MC_1_15)
     {
@@ -468,12 +468,12 @@ void setupLayerStack(LayerStack *g, int mc, int largeBiomes)
     {
         g->entry_16 = l + L_ZOOM_4;
         g->entry_64 = l + (mc <= MC_1_6 ? L_SWAMP_RIVER_16 : L_SHORE_16);
-        g->entry_256 = l + (mc <= MC_1_7 ? L_HILLS_64 : L_SUNFLOWER_64);
+        g->entry_256 = l + (mc <= MC_1_6 ? L_HILLS_64 : L_SUNFLOWER_64);
     }
     else if (mc >= MC_1_1)
     {
         g->entry_16 = l + (mc <= MC_1_6 ? L_SWAMP_RIVER_16 : L_SHORE_16);
-        g->entry_64 = l + (mc <= MC_1_7 ? L_HILLS_64 : L_SUNFLOWER_64);
+        g->entry_64 = l + (mc <= MC_1_6 ? L_HILLS_64 : L_SUNFLOWER_64);
         g->entry_256 = l + (mc <= MC_1_14 ? L_BIOME_256 : L_BAMBOO_256);
     }
     else

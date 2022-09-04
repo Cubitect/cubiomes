@@ -81,6 +81,20 @@ int biomeExists(int mc, int id)
         }
     }
 
+    if (mc == MC_1_0)
+    {
+        switch (id)
+        {
+        case snowy_mountains:
+        case beach:
+        case desert_hills:
+        case wooded_hills:
+        case taiga_hills:
+        case mountain_edge:
+            return 0;
+        }
+    }
+
     if (id >= ocean             && id <= mountain_edge)     return 1;
     if (id >= jungle            && id <= jungle_hills)      return mc >= MC_1_2;
     if (id >= jungle_edge       && id <= badlands_plateau)  return mc >= MC_1_7;
@@ -713,12 +727,13 @@ int genNetherScaled(const NetherNoise *nn, int *out, Range r, int mc, uint64_t s
 }
 
 
-void setEndSeed(EndNoise *en, uint64_t seed)
+void setEndSeed(EndNoise *en, int mc, uint64_t seed)
 {
     uint64_t s;
     setSeed(&s, seed);
     skipNextN(&s, 17292);
-    perlinInit(en, &s);
+    perlinInit(&en->perlin, &s);
+    en->mc = mc;
 }
 
 static int getEndBiome(int hx, int hz, const uint16_t *hmap, int hw)
@@ -736,10 +751,10 @@ static int getEndBiome(int hx, int hz, const uint16_t *hmap, int hw)
     const uint16_t *p_elev = hmap;
     uint32_t h;
 
-    if (abs(hx) > 15 || abs(hz) > 15)
-        h = 14401;
-    else
+    if (abs(hx) <= 15 && abs(hz) <= 15)
         h = 64 * (hx*hx + hz*hz);
+    else
+        h = 14401;
 
     for (j = 0; j < 25; j++)
     {
@@ -785,8 +800,9 @@ int mapEndBiome(const EndNoise *en, int *out, int x, int z, int w, int h)
         {
             int64_t rx = x + i - 12;
             int64_t rz = z + j - 12;
+            uint64_t rsq = rx * rx + rz * rz;
             uint16_t v = 0;
-            if (rx*rx + rz*rz > 4096 && sampleSimplex2D(en, rx, rz) < -0.9f)
+            if (rsq > 4096 && sampleSimplex2D(&en->perlin, rx, rz) < -0.9f)
             {
                 v = (llabs(rx) * 3439 + llabs(rz) * 147) % 13 + 9;
                 v *= v;
@@ -801,13 +817,23 @@ int mapEndBiome(const EndNoise *en, int *out, int x, int z, int w, int h)
         {
             int64_t hx = (i+x);
             int64_t hz = (j+z);
+            uint64_t rsq = hx * hx + hz * hz;
 
-            if (hx*hx + hz*hz <= 4096L)
+            if (rsq <= 4096L)
                 out[j*w+i] = the_end;
             else
             {
                 hx = 2*hx + 1;
                 hz = 2*hz + 1;
+                if (en->mc >= MC_1_14)
+                {
+                    rsq = hx * hx + hz * hz;
+                    if ((int)rsq < 0)
+                    {
+                        out[j*w+i] = small_end_islands;
+                        continue;
+                    }
+                }
                 uint16_t *p_elev = &hmap[(hz/2-z)*hw + (hx/2-x)];
                 out[j*w+i] = getEndBiome(hx, hz, p_elev, hw);
             }
@@ -861,13 +887,15 @@ float getEndHeightNoise(const EndNoise *en, int x, int z)
         {
             int64_t rx = hx + i;
             int64_t rz = hz + j;
+            uint64_t rsq = rx*rx + rz*rz;
             uint16_t v = 0;
-            if (rx*rx + rz*rz > 4096 && sampleSimplex2D(en, rx, rz) < -0.9f)
+            if (rsq > 4096 && sampleSimplex2D(&en->perlin, rx, rz) < -0.9f)
             {
                 v = (llabs(rx) * 3439 + llabs(rz) * 147) % 13 + 9;
                 rx = (oddx - i * 2);
                 rz = (oddz - j * 2);
-                int64_t noise = (rx*rx + rz*rz) * v*v;
+                rsq = rx*rx + rz*rz;
+                int64_t noise = rsq * v*v;
                 if (noise < h)
                     h = noise;
             }
@@ -934,10 +962,8 @@ int getSurfaceHeight(
 
 int getSurfaceHeightEnd(int mc, uint64_t seed, int x, int z)
 {
-    (void) mc;
-
     EndNoise en;
-    setEndSeed(&en, seed);
+    setEndSeed(&en, mc, seed);
 
     SurfaceNoise sn;
     initSurfaceNoiseEnd(&sn, seed);
@@ -1032,9 +1058,15 @@ int genEndScaled(const EndNoise *en, int *out, Range r, int mc, uint64_t sha)
             {
                 int64_t hx = (i+r.x) * d;
                 int64_t hz = (j+r.z) * d;
-                if (hx*hx + hz*hz <= 4096L)
+                uint64_t rsq = hx*hx + hz*hz;
+                if (rsq <= 4096L)
                 {
                     out[j*r.sx+i] = the_end;
+                    continue;
+                }
+                else if (mc >= MC_1_14 && (int)(4*rsq) < 0)
+                {
+                    out[j*r.sx+i] = small_end_islands;
                     continue;
                 }
 
@@ -1051,7 +1083,7 @@ int genEndScaled(const EndNoise *en, int *out, Range r, int mc, uint64_t sha)
                         int16_t *p = &hmap[hj*hw + hi];
                         if (*p == 0)
                         {
-                            if (sampleSimplex2D(en, rx, rz) < -0.9f)
+                            if (sampleSimplex2D(&en->perlin, rx, rz) < -0.9f)
                             {
                                 *p = (llabs(rx) * 3439 + llabs(rz) * 147) % 13 + 9;
                                 *p *= *p;

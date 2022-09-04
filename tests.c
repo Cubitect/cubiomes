@@ -5,6 +5,8 @@
 #include <time.h>
 #include <float.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
 
 uint32_t hash32(uint32_t x)
 {
@@ -251,7 +253,7 @@ void testNoiseRangeFinder()
     double tmin, tmax;
     int k = k_tot;
     getParaRange(&g.bn.climate[NP_HUMIDITY], &tmin, &tmax, x, z, n, n, &f_p, _f1);
-    if (abs(tmin-bmin*1e4)>.01||abs(tmax-bmax*1e4)>.01)
+    if (fabs(tmin-bmin*1e4)>.01||fabs(tmax-bmax*1e4)>.01)
     {
         printf("=========================== BAD ============================\n");
         printf("seed:%-8ld temp = [%g %g], best = [%g %g]\n",
@@ -350,9 +352,64 @@ void findBiomeParaBounds()
     }
 }
 
+static void canGenerateTest(int mc, int layerId)
+{
+    Generator g;
+    setupGenerator(&g, mc, 0);
+    int ids[0x1000];
+    int idcnt[256] = {};
+    int i;
+    uint64_t seed;
+    Layer *layer = g.ls.layers + layerId;
+
+    for (seed = 0; seed < 1e6; seed++)
+    {
+        applySeed(&g, DIM_OVERWORLD, seed);
+        genArea(g.ls.entry_4, ids, 0, 0, 1, 1);
+        int id = ids[0];
+        idcnt[id]++;
+    }
+    int ok = 1;
+    for (i = 0; i < 256; i++)
+    {
+        int cnt = idcnt[i];
+        int can = canBiomeGenerate(layerId, mc, 0, i);
+        if (cnt == 0 && can == 0)
+            continue;
+        if (cnt != 0 && can == 1)
+            continue;
+        ok = 0;
+        printf("can:%d, cnt:%d (%s)\n", can, cnt, biome2str(mc, i));
+    }
+    printf("canBiomesGenerate() for MC_1_%d, layer (%d) %s!\n",
+        mc, layerId, ok ? "PASSED" : "FAILED");
+}
+
+void testCanBiomesGenerate()
+{
+    canGenerateTest(MC_1_0, L_BIOME_256);
+    canGenerateTest(MC_1_0, L_ZOOM_64);
+    canGenerateTest(MC_1_0, L_ZOOM_16);
+    canGenerateTest(MC_1_0, L_RIVER_MIX_4);
+    canGenerateTest(MC_1_6, L_BIOME_256);
+    canGenerateTest(MC_1_6, L_HILLS_64);
+    canGenerateTest(MC_1_6, L_SWAMP_RIVER_16);
+    canGenerateTest(MC_1_6, L_RIVER_MIX_4);
+    canGenerateTest(MC_1_7, L_BIOME_256);
+    canGenerateTest(MC_1_7, L_SUNFLOWER_64);
+    canGenerateTest(MC_1_7, L_SHORE_16);
+    canGenerateTest(MC_1_7, L_RIVER_MIX_4);
+    canGenerateTest(MC_1_17, L_BAMBOO_256);
+    canGenerateTest(MC_1_17, L_SUNFLOWER_64);
+    canGenerateTest(MC_1_17, L_SHORE_16);
+    canGenerateTest(MC_1_17, L_OCEAN_MIX_4);
+    canGenerateTest(MC_1_17, L_OCEAN_TEMP_256);
+}
+
 
 int main()
 {
+    //testCanBiomesGenerate();
     //testGeneration();
     //findBiomeParaBounds();
     return 0;
