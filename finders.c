@@ -2173,10 +2173,10 @@ int genFatTower(PieceEnv *env, Piece *current, int depth)
         {3,  0, -1,  8}, // 270
         {2,  8, -1, 12}, // 180
     };
-    for (i = 0; i < 2 && nextInt(env->rng, 3) != 0; i++)
+    for (j = 0; j < 2 && nextInt(env->rng, 3) != 0; j++)
     {
         base = addPiece(env, base, rot, 0, 8, 0, fat_tower_middle);
-        for (j = 0; j < 4; j++)
+        for (i = 0; i < 4; i++)
         {
             if (!next(env->rng, 1))
                 continue;
