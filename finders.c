@@ -1473,7 +1473,7 @@ L_feature:
             // TODO: get surface height
             sampleX = (chunkX << 4) + 7;
             sampleZ = (chunkZ << 4) + 7;
-            id = getBiomeAt(g, 4, sampleX>>2, 319>>4, sampleZ>>2);
+            id = getBiomeAt(g, 4, sampleX>>2, 319>>2, sampleZ>>2);
             if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
                 goto L_not_viable;
         }
@@ -1553,14 +1553,24 @@ int isViableStructureTerrain(int structType, Generator *g, int x, int z)
     }
 
     // approx surface height using depth parameter (0.5 ~ sea level)
-    const double thresh = 0.48;
+    double corners[][2] = {
+        {(x+ 0)/4.0, (z+ 0)/4.0},
+        {(x+sx)/4.0, (z+sz)/4.0},
+        {(x+ 0)/4.0, (z+sz)/4.0},
+        {(x+sx)/4.0, (z+ 0)/4.0},
+    };
     int nptype = g->bn.nptype;
+    int i, ret = 1;
     g->bn.nptype = NP_DEPTH;
-    int ret =
-        sampleClimatePara(&g->bn, (x+ 0)/4.0, (z+ 0)/4.0) < thresh ||
-        sampleClimatePara(&g->bn, (x+sx)/4.0, (z+sz)/4.0) < thresh ||
-        sampleClimatePara(&g->bn, (x+ 0)/4.0, (z+sz)/4.0) < thresh ||
-        sampleClimatePara(&g->bn, (x+sx)/4.0, (z+ 0)/4.0) < thresh;
+    for (i = 0; i < 4; i++)
+    {
+        double depth = sampleClimatePara(&g->bn, corners[i][0], corners[i][1]);
+        if (depth < 0.48)
+        {
+            ret = 0;
+            break;
+        }
+    }
     g->bn.nptype = nptype;
     return ret;
 }
@@ -1672,40 +1682,17 @@ STRUCT(PieceEnv)
     uint64_t *rng;
     int *ship;
     int y;
+    int typlast;
+    int nmax;
+    int ntyp[PIECE_COUNT];
 };
-
-STRUCT(PieceType)
-{
-    const char *name;
-    int sx, sy, sz;
-};
-
-static const PieceType tower_base           = {"tower_base", 7, 7, 7};
-static const PieceType tower_piece          = {"tower_piece", 7, 4, 7};
-static const PieceType tower_top            = {"tower_top", 9, 5, 9};
-static const PieceType base_floor           = {"base_floor", 10, 4, 10};
-static const PieceType second_floor_1       = {"second_floor_1", 12, 8, 12};
-static const PieceType third_floor_1        = {"third_floor_1", 14, 8, 14};
-static const PieceType third_roof           = {"third_roof", 16, 2, 16};
-static const PieceType bridge_end           = {"bridge_end", 5, 6, 2};
-static const PieceType bridge_piece         = {"bridge_piece", 5, 6, 4};
-static const PieceType bridge_steep_stairs  = {"bridge_steep_stairs", 5, 7, 4};
-static const PieceType bridge_gentle_stairs = {"bridge_gentle_stairs", 5, 7, 8};
-static const PieceType end_ship             = {"ship", 13, 24, 29};
-static const PieceType base_roof            = {"base_roof", 12, 2, 12};
-static const PieceType second_floor_2       = {"second_floor_2", 12, 8, 12};
-static const PieceType second_roof          = {"second_roof", 14, 2, 14};
-static const PieceType third_floor_2        = {"third_floor_2", 14, 8, 14};
-static const PieceType fat_tower_base       = {"fat_tower_base", 13, 4, 13};
-static const PieceType fat_tower_middle     = {"fat_tower_middle", 13, 8, 13};
-static const PieceType fat_tower_top        = {"fat_tower_top", 17, 6, 17};
 
 typedef int (piecefunc_t)(PieceEnv *env, Piece *current, int depth);
 
-piecefunc_t genTower;
-piecefunc_t genBridge;
-piecefunc_t genHouseTower;
-piecefunc_t genFatTower;
+static piecefunc_t genTower;
+static piecefunc_t genBridge;
+static piecefunc_t genHouseTower;
+static piecefunc_t genFatTower;
 
 
 int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
@@ -1938,7 +1925,7 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
             for (i = 0; i < n; i++)
             {
                 Piece *p = pieces + i;
-                if (p->name == end_ship.name)
+                if (p->type == END_SHIP)
                     r->ship = 1;
                 /*
                 int dx, dz;
@@ -1979,27 +1966,52 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
     return 1;
 }
 
-
-Piece *addPiece(PieceEnv *env, Piece *prev, int rot, int px, int py, int pz, PieceType typ)
+static
+Piece *addEndCityPiece(PieceEnv *env, Piece *prev, int rot, int px, int py, int pz, int typ)
 {
+    static const struct { int sx, sy, sz; const char *name; } info[] = {
+        {  9,  3,  9, "base_floor"},
+        { 11,  1, 11, "base_roof"},
+        {  4,  5,  1, "bridge_end"},
+        {  4,  6,  7, "bridge_gentle_stairs"},
+        {  4,  5,  3, "bridge_piece"},
+        {  4,  6,  3, "bridge_steep_stairs"},
+        { 12,  3, 12, "fat_tower_base"},
+        { 12,  7, 12, "fat_tower_middle"},
+        { 16,  5, 16, "fat_tower_top"},
+        { 11,  7, 11, "second_floor_1"},
+        { 11,  7, 11, "second_floor_2"},
+        { 13,  1, 13, "second_roof"},
+        { 12, 23, 28, "ship"},
+        { 13,  7, 13, "third_floor_1"},
+        { 13,  7, 13, "third_floor_2"},
+        { 15,  1, 15, "third_roof"},
+        {  6,  6,  6, "tower_base"},
+        {  6,  3,  6, "tower_floor"}, // unused
+        {  6,  3,  6, "tower_piece"},
+        {  8,  4,  8, "tower_top"},
+    };
+
     Piece *p = env->list + *env->n;
     (*env->n)++;
-    p->name = typ.name;
+    p->name = info[typ].name;
     p->rot = rot;
-    p->gendepth = 0;
+    p->depth = 0;
+    p->type = typ;
+    p->next = NULL;
 
     Pos3 pos = {px, py, pz};
     if (prev)
         pos = prev->pos;
     p->bb0 = p->bb1 = p->pos = pos;
-    p->bb1.y += typ.sy - 1;
+    p->bb1.y += info[typ].sy;
     switch (rot)
     {
-    case 0: p->bb1.x += typ.sx-1; p->bb1.z += typ.sz-1; break; // 0
-    case 1: p->bb0.x -= typ.sz-1; p->bb1.z += typ.sx-1; break; // 90
-    case 2: p->bb0.x -= typ.sx-1; p->bb0.z -= typ.sz-1; break; // 180
-    case 3: p->bb1.x += typ.sz-1; p->bb0.z -= typ.sx-1; break; // 270
-    default: exit(1);
+    case 0: p->bb1.x += info[typ].sx; p->bb1.z += info[typ].sz; break; // 0
+    case 1: p->bb0.x -= info[typ].sz; p->bb1.z += info[typ].sx; break; // 90
+    case 2: p->bb0.x -= info[typ].sx; p->bb0.z -= info[typ].sz; break; // 180
+    case 3: p->bb1.x += info[typ].sz; p->bb0.z -= info[typ].sx; break; // 270
+    default: UNREACHABLE();
     }
     if (prev)
     {
@@ -2010,7 +2022,7 @@ Piece *addPiece(PieceEnv *env, Piece *prev, int rot, int px, int py, int pz, Pie
         case 1: dx -= pz; dz += px; break; // 90
         case 2: dx -= px; dz -= pz; break; // 180
         case 3: dx += pz; dz -= px; break; // 270
-        default: exit(1);
+        default: UNREACHABLE();
         }
         p->pos.x += dx; p->pos.y += dy; p->pos.z += dz;
         p->bb0.x += dx; p->bb0.y += dy; p->bb0.z += dz;
@@ -2019,6 +2031,7 @@ Piece *addPiece(PieceEnv *env, Piece *prev, int rot, int px, int py, int pz, Pie
     return p;
 }
 
+static
 int genPiecesRecusively(piecefunc_t gen, PieceEnv *env, Piece *current, int depth)
 {
     if (depth > 8)
@@ -2033,7 +2046,7 @@ int genPiecesRecusively(piecefunc_t gen, PieceEnv *env, Piece *current, int dept
     for (i = 0; i < n_local; i++)
     {
         Piece *p = env_local.list + i;
-        p->gendepth = gendepth;
+        p->depth = gendepth;
         for (j = 0; j < *env->n; j++)
         {   // check for piece with bounding box collition
             Piece *q = env->list + j;
@@ -2041,7 +2054,7 @@ int genPiecesRecusively(piecefunc_t gen, PieceEnv *env, Piece *current, int dept
                 q->bb1.z >= p->bb0.z && q->bb0.z <= p->bb1.z &&
                 q->bb1.y >= p->bb0.y && q->bb0.y <= p->bb1.y)
             {
-                if (current->gendepth != q->gendepth)
+                if (current->depth != q->depth)
                     return 0;
                 break;
             }
@@ -2051,26 +2064,27 @@ int genPiecesRecusively(piecefunc_t gen, PieceEnv *env, Piece *current, int dept
     return 1;
 }
 
+static
 int genTower(PieceEnv *env, Piece *current, int depth)
 {
     int rot = current->rot;
     int x = 3 + nextInt(env->rng, 2);
     int z = 3 + nextInt(env->rng, 2);
     Piece *base = current;
-    base = addPiece(env, base, rot, x, -3, z, tower_base);
-    base = addPiece(env, base, rot, 0, 7, 0, tower_piece);
+    base = addEndCityPiece(env, base, rot, x, -3, z, TOWER_BASE);
+    base = addEndCityPiece(env, base, rot, 0, 7, 0, TOWER_PIECE);
     Piece *floor = (nextInt(env->rng, 3) == 0 ? base : NULL);
     int floorcnt = 1 + nextInt(env->rng, 3);
     int i;
     for (i = 0; i < floorcnt; i++)
     {
-        base = addPiece(env, base, rot, 0, 4, 0, tower_piece);
+        base = addEndCityPiece(env, base, rot, 0, 4, 0, TOWER_PIECE);
         if (i < floorcnt - 1 && next(env->rng, 1))
             floor = base;
     }
     if (floor)
     {
-        const int binfo[][4] = {
+        static const int binfo[][4] = {
             {0, 1, -1, 0}, // 0
             {1, 6, -1, 1}, // 90
             {3, 0, -1, 5}, // 270
@@ -2081,8 +2095,8 @@ int genTower(PieceEnv *env, Piece *current, int depth)
             if (!next(env->rng, 1))
                 continue;
             int brot = (rot + binfo[i][0]) & 3;
-            Piece *bridge = addPiece(env, base, brot,
-                binfo[i][1], binfo[i][2], binfo[i][3], bridge_end);
+            Piece *bridge = addEndCityPiece(env, base, brot,
+                binfo[i][1], binfo[i][2], binfo[i][3], BRIDGE_END);
             genPiecesRecusively(genBridge, env, bridge, depth+1);
         }
     }
@@ -2091,36 +2105,37 @@ int genTower(PieceEnv *env, Piece *current, int depth)
         return genPiecesRecusively(genFatTower, env, base, depth+1);
     }
 
-    addPiece(env, base, rot, -1, 4, -1, tower_top);
+    addEndCityPiece(env, base, rot, -1, 4, -1, TOWER_TOP);
     return 1;
 }
 
+static
 int genBridge(PieceEnv *env, Piece *current, int depth)
 {
     int rot = current->rot;
     int i, y, floorcnt = 1 + nextInt(env->rng, 4);
     Piece *base = current;
-    base = addPiece(env, base, rot, 0, 0, -4, bridge_piece);
-    base->gendepth = -1;
+    base = addEndCityPiece(env, base, rot, 0, 0, -4, BRIDGE_PIECE);
+    base->depth = -1;
     for (i = y = 0; i < floorcnt; i++)
     {
         if (next(env->rng, 1))
         {
-            base = addPiece(env, base, rot, 0, y, -4, bridge_piece);
+            base = addEndCityPiece(env, base, rot, 0, y, -4, BRIDGE_PIECE);
             y = 0;
             continue;
         }
         if (next(env->rng, 1))
-            base = addPiece(env, base, rot, 0, y, -4, bridge_steep_stairs);
+            base = addEndCityPiece(env, base, rot, 0, y, -4, BRIDGE_STEEP_STAIRS);
         else
-            base = addPiece(env, base, rot, 0, y, -8, bridge_gentle_stairs);
+            base = addEndCityPiece(env, base, rot, 0, y, -8, BRIDGE_GENTLE_STAIRS);
         y = 4;
     }
     if (!*env->ship && nextInt(env->rng, 10 - depth) == 0)
     {
         int x = -8 + nextInt(env->rng, 8);
         int z = -70 + nextInt(env->rng, 10);
-        base = addPiece(env, base, rot, x, y, z, end_ship);
+        base = addEndCityPiece(env, base, rot, x, y, z, END_SHIP);
         *env->ship = 1;
     }
     else
@@ -2129,45 +2144,47 @@ int genBridge(PieceEnv *env, Piece *current, int depth)
         if (!genPiecesRecusively(genHouseTower, env, base, depth+1))
             return 0;
     }
-    base = addPiece(env, base, (rot+2)&3, 4, y, 0, bridge_end);
-    base->gendepth = -1;
+    base = addEndCityPiece(env, base, (rot+2)&3, 4, y, 0, BRIDGE_END);
+    base->depth = -1;
     return 1;
 }
 
+static
 int genHouseTower(PieceEnv *env, Piece *current, int depth)
 {
     if (depth > 8) return 0;
     int rot = current->rot;
     Piece *base = current;
-    base = addPiece(env, base, rot, -3, env->y, -11, base_floor);
+    base = addEndCityPiece(env, base, rot, -3, env->y, -11, BASE_FLOOR);
     int size = nextInt(env->rng, 3);
     if (size == 0)
     {
-        addPiece(env, base, rot, -1, 4, -1, base_roof);
+        addEndCityPiece(env, base, rot, -1, 4, -1, BASE_ROOF);
         return 1;
     }
-    base = addPiece(env, base, rot, -1, 0, -1, second_floor_2);
+    base = addEndCityPiece(env, base, rot, -1, 0, -1, SECOND_FLOOR_2);
     if (size == 1)
     {
-        base = addPiece(env, base, rot, -1, 8, -1, second_roof);
+        base = addEndCityPiece(env, base, rot, -1, 8, -1, SECOND_ROOF);
     }
     else
     {
-        base = addPiece(env, base, rot, -1, 4, -1, third_floor_2);
-        base = addPiece(env, base, rot, -1, 8, -1, third_roof);
+        base = addEndCityPiece(env, base, rot, -1, 4, -1, THIRD_FLOOR_2);
+        base = addEndCityPiece(env, base, rot, -1, 8, -1, THIRD_ROOF);
     }
     genPiecesRecusively(genTower, env, base, depth+1);
     return 1;
 }
 
+static
 int genFatTower(PieceEnv *env, Piece *current, int depth)
 {
     int rot = current->rot;
     int i, j;
     Piece *base = current;
-    base = addPiece(env, base, rot, -3, 4, -3, fat_tower_base);
-    base = addPiece(env, base, rot, 0, 4, 0, fat_tower_middle);
-    const int binfo[][4] = {
+    base = addEndCityPiece(env, base, rot, -3, 4, -3, FAT_TOWER_BASE);
+    base = addEndCityPiece(env, base, rot, 0, 4, 0, FAT_TOWER_MIDDLE);
+    static const int binfo[][4] = {
         {0,  4, -1,  0}, // 0
         {1, 12, -1,  4}, // 90
         {3,  0, -1,  8}, // 270
@@ -2175,18 +2192,18 @@ int genFatTower(PieceEnv *env, Piece *current, int depth)
     };
     for (j = 0; j < 2 && nextInt(env->rng, 3) != 0; j++)
     {
-        base = addPiece(env, base, rot, 0, 8, 0, fat_tower_middle);
+        base = addEndCityPiece(env, base, rot, 0, 8, 0, FAT_TOWER_MIDDLE);
         for (i = 0; i < 4; i++)
         {
             if (!next(env->rng, 1))
                 continue;
             int brot = (rot + binfo[i][0]) & 3;
-            Piece *bridge = addPiece(env, base, brot,
-                binfo[i][1], binfo[i][2], binfo[i][3], bridge_end);
+            Piece *bridge = addEndCityPiece(env, base, brot,
+                binfo[i][1], binfo[i][2], binfo[i][3], BRIDGE_END);
             genPiecesRecusively(genBridge, env, bridge, depth+1);
         }
     }
-    addPiece(env, base, rot, -2, 8, -2, fat_tower_top);
+    addEndCityPiece(env, base, rot, -2, 8, -2, FAT_TOWER_TOP);
     return 1;
 }
 
@@ -2196,18 +2213,271 @@ int getEndCityPieces(Piece *list, uint64_t seed, int chunkX, int chunkZ)
     int rot = nextInt(&rng, 4);
     int ship = 0, n = 0;
     PieceEnv env;
+    memset(&env, 0, sizeof(env));
     env.list = list;
     env.n = &n;
     env.rng = &rng;
     env.ship = &ship;
-    env.y = 0;
     Piece *base = NULL;
-    base = addPiece(&env, base, rot, (chunkX<<4)+8, 0, (chunkZ<<4)+8, base_floor);
-    base = addPiece(&env, base, rot, -1, 0, -1, second_floor_1);
-    base = addPiece(&env, base, rot, -1, 4, -1, third_floor_1);
-    base = addPiece(&env, base, rot, -1, 8, -1, third_roof);
+    int x = (chunkX << 4) + 8, z = (chunkZ << 4) + 8;
+    base = addEndCityPiece(&env, base, rot, x, 0, z, BASE_FLOOR);
+    base = addEndCityPiece(&env, base, rot, -1, 0, -1, SECOND_FLOOR_1);
+    base = addEndCityPiece(&env, base, rot, -1, 4, -1, THIRD_FLOOR_1);
+    base = addEndCityPiece(&env, base, rot, -1, 8, -1, THIRD_ROOF);
     genPiecesRecusively(genTower, &env, base, 1);
     return n;
+}
+
+
+static const struct
+{
+    Pos3 offset, size;
+    int skip, repeatable, weight, max;
+    const char *name;
+}
+fortress_info[] = {
+    {{ 0, 0,0}, {18, 9,18}, 0, 0, 0, 0, "NeStart"}, // FORTRESS_START
+    {{-1,-3,0}, { 4, 9,18}, 0, 1,30, 0, "NeBS"},    // BRIDGE_STRAIGHT
+    {{-8,-3,0}, {18, 9,18}, 0, 0,10, 4, "NeBCr"},   // BRIDGE_CROSSING
+    {{-2, 0,0}, { 6, 8, 6}, 0, 0,10, 4, "NeRC"},    // BRIDGE_FORTIFIED_CROSSING
+    {{-2, 0,0}, { 6,10, 6}, 0, 0,10, 3, "NeSR"},    // BRIDGE_STAIRS
+    {{-2, 0,0}, { 6, 7, 8}, 0, 0, 5, 2, "NeMT"},    // BRIDGE_SPAWNER
+    {{-5,-3,0}, {12,13,12}, 0, 0, 5, 1, "NeCE"},    // BRIDGE_CORRIDOR_ENTRANCE
+    {{-1, 0,0}, { 4, 6, 4}, 0, 1,25, 0, "NeSC"},    // CORRIDOR_STRAIGHT
+    {{-1, 0,0}, { 4, 6, 4}, 0, 0,15, 5, "NeSCSC"},  // CORRIDOR_CROSSING
+    {{-1, 0,0}, { 4, 6, 4}, 1, 0, 5,10, "NeSCRT"},  // CORRIDOR_TURN_RIGHT
+    {{-1, 0,0}, { 4, 6, 4}, 1, 0, 5,10, "NeSCLT"},  // CORRIDOR_TURN_LEFT
+    {{-1,-7,0}, { 4,13, 9}, 0, 1,10, 3, "NeCCS"},   // CORRIDOR_STAIRS
+    {{-3, 0,0}, { 8, 6, 8}, 0, 0, 7, 2, "NeCTB"},   // CORRIDOR_T_CROSSING
+    {{-5,-3,0}, {12,13,12}, 0, 0, 5, 2, "NeCSR"},   // CORRIDOR_NETHER_WART
+    {{-1,-3,0}, { 4, 9, 7}, 1, 0, 0, 0, "NeBEF"},   // FORTRESS_END
+};
+
+static
+Piece *addFortressPiece(PieceEnv *env, int typ, int x, int y, int z, int depth, int facing, int pending)
+{
+
+    Pos3 pos = {x, y, z};
+    Pos3 b0 = pos, b1 = pos;
+    Pos3 d0 = fortress_info[typ].offset, d1 = fortress_info[typ].size;
+    b0.y += d0.y;
+    b1.y += d0.y+d1.y;
+    switch (facing)
+    {
+    case 0: // 0, north
+        b0.x += d0.x;       b0.z += d0.z-d1.z;
+        b1.x += d0.x+d1.x;  b1.z += d0.z;
+        break;
+    case 1: // 90, east
+        b0.x += d0.z;       b0.z += d0.x;
+        b1.x += d0.z+d1.z;  b1.z += d0.x+d1.x;
+        break;
+    case 2: // 180, south
+        b0.x += d0.x;       b0.z += d0.z;
+        b1.x += d0.x+d1.x;  b1.z += d0.z+d1.z;
+        break;
+    case 3: // 270, west
+        b0.x += d0.z-d1.z;  b0.z += d0.x;
+        b1.x += d0.z;       b1.z += d0.x+d1.x;
+        break;
+    }
+    Piece *p = env->list + *env->n;
+    p->name = fortress_info[typ].name;
+    p->pos = pos;
+    p->bb0 = b0;
+    p->bb1 = b1;
+    p->rot = facing;
+    p->depth = depth;
+    p->type = typ;
+    p->next = NULL;
+
+    int i, n = *env->n;
+    for (i = 0; i < n; i++)
+    {
+        Piece *q = env->list + i;
+        if (q->bb1.x >= p->bb0.x && q->bb0.x <= p->bb1.x &&
+            q->bb1.z >= p->bb0.z && q->bb0.z <= p->bb1.z &&
+            q->bb1.y >= p->bb0.y && q->bb0.y <= p->bb1.y)
+        {
+            return NULL; // collision
+        }
+    }
+    // accept the piece and append it to the processing front
+    skipNextN(env->rng, fortress_info[typ].skip);
+    (*env->n)++;
+    env->ntyp[typ]++;
+    if (typ != FORTRESS_END)
+        env->typlast = typ;
+    if (pending)
+    {
+        Piece *q = env->list;
+        while (q->next)
+            q = q->next;
+        q->next = p;
+    }
+    //printf("[%d] typ=%d @(%d %d %d) f=%d    rng:%ld\n",
+    //    (*env->n-1), typ, b0.x, b0.y, b0.z, facing, *env->rng);
+    //fflush(stdout);
+    return p;
+}
+
+static
+void extendFortress(PieceEnv *env, Piece *p, int offh, int offv, int turn, int corridor)
+{
+    int x, y, z, t, i;
+    int depth = p->depth + 1;
+    int facing = p->rot;
+    int typ0 = corridor ? CORRIDOR_STRAIGHT : BRIDGE_STRAIGHT;
+    int typ1 = typ0 + (corridor ? 7 : 6);
+    int valid = -1;
+    int weight_tot = 0;
+
+    y = p->bb0.y + offv;
+
+    if (turn == 0) { // forward
+        switch (facing) {
+        case 0: x = p->bb0.x+offh; z = p->bb0.z-1;    break;
+        case 1: x = p->bb1.x+1;    z = p->bb0.z+offh; break;
+        case 2: x = p->bb0.x+offh; z = p->bb1.z+1;    break;
+        case 3: x = p->bb0.x-1;    z = p->bb0.z+offh; break;
+        default: UNREACHABLE();
+        }
+    } else if (turn == -1) { // left
+        if (facing & 1) { x = p->bb0.x+offh; z = p->bb0.z-1;    facing = 0; }
+        else            { x = p->bb0.x-1;    z = p->bb0.z+offh; facing = 3; }
+    } else if (turn == +1) { // right
+        if (facing & 1) { x = p->bb0.x+offh, z = p->bb1.z+1;    facing = 2; }
+        else            { x = p->bb1.x+1;    z = p->bb0.z+offh; facing = 1; }
+    } else UNREACHABLE();
+
+    if (IABS(x - env->list->bb0.x) > 112 || IABS(z - env->list->bb0.z) > 112)
+        goto L_end;
+
+    for (valid = 0, t = typ0; t < typ1; t++)
+    {
+        int max = fortress_info[t].max;
+        if (max > 0 && env->ntyp[t] >= max)
+            continue;
+        if (max > 0)
+            valid = 1;
+        weight_tot += fortress_info[t].weight;
+    }
+
+    if (valid == 0 || weight_tot <= 0 || depth > 30)
+        goto L_end;
+
+    for (i = 0; i < 5; i++)
+    {
+        int n = nextInt(env->rng, weight_tot);
+        for (t = typ0; t < typ1; t++)
+        {
+            int max = fortress_info[t].max;
+            if (max > 0 && env->ntyp[t] >= max)
+                continue;
+            n -= fortress_info[t].weight;
+            if (n >= 0)
+                continue;
+            if (env->typlast == t && !fortress_info[t].repeatable)
+                break;
+            if (addFortressPiece(env, t, x, y, z, depth, facing, 1) != NULL)
+                return;
+        }
+    }
+
+L_end:
+    addFortressPiece(env, FORTRESS_END, x, y, z, depth, facing, valid >= 0);
+}
+
+static
+void extendFortressPiece(PieceEnv *env, Piece *p)
+{
+    if (p->type == BRIDGE_STRAIGHT) {
+        extendFortress(env, p, 1, 3,  0, 0);
+    } else if (p->type == BRIDGE_CROSSING || p->type == FORTRESS_START) {
+        extendFortress(env, p, 8, 3,  0, 0);
+        extendFortress(env, p, 8, 3, -1, 0);
+        extendFortress(env, p, 8, 3,  1, 0);
+    } else if (p->type == BRIDGE_FORTIFIED_CROSSING) {
+        extendFortress(env, p, 2, 0,  0, 0);
+        extendFortress(env, p, 2, 0, -1, 0);
+        extendFortress(env, p, 2, 0,  1, 0);
+    } else if (p->type == BRIDGE_STAIRS) {
+        extendFortress(env, p, 2, 6,  1, 0);
+    } else if (p->type == BRIDGE_CORRIDOR_ENTRANCE) {
+        extendFortress(env, p, 5, 3,  0, 1);
+    } else if (p->type == CORRIDOR_STRAIGHT) {
+        extendFortress(env, p, 1, 0,  0, 1);
+    } else if (p->type == CORRIDOR_CROSSING) {
+        extendFortress(env, p, 1, 0,  0, 1);
+        extendFortress(env, p, 1, 0, -1, 1);
+        extendFortress(env, p, 1, 0,  1, 1);
+    } else if (p->type == CORRIDOR_TURN_RIGHT) {
+        extendFortress(env, p, 1, 0,  1, 1);
+    } else if (p->type == CORRIDOR_TURN_LEFT) {
+        extendFortress(env, p, 1, 0, -1, 1);
+    } else if (p->type == CORRIDOR_STAIRS) {
+        extendFortress(env, p, 1, 0,  0, 1);
+    } else if (p->type == CORRIDOR_T_CROSSING) {
+        int h = (p->rot == 0 || p->rot == 3) ? 5 : 1;
+        extendFortress(env, p, h, 0, -1, nextInt(env->rng, 8) != 0);
+        extendFortress(env, p, h, 0,  1, nextInt(env->rng, 8) != 0);
+    } else if (p->type == CORRIDOR_NETHER_WART) {
+        extendFortress(env, p, 5, 3,  0, 1);
+        extendFortress(env, p, 5, 11, 0, 1);
+    }
+}
+
+int getFortressPieces(Piece *list, int n, int mc, uint64_t seed, int chunkX, int chunkZ)
+{
+    uint64_t rng = seed;
+    if (mc >= MC_1_16)
+    {
+        rng = chunkGenerateRnd(seed, chunkX, chunkZ);
+    }
+    else
+    {
+        setAttemptSeed(&rng, chunkX, chunkZ);
+        nextInt(&rng, 3);
+        nextInt(&rng, 8);
+        nextInt(&rng, 8);
+    }
+    int count = 1;
+    PieceEnv env;
+    memset(&env, 0, sizeof(env));
+    env.list = list;
+    env.n = &count;
+    env.rng = &rng;
+    env.ntyp[0] = 1;
+    env.typlast = 0;
+    env.nmax = n;
+    Piece *p = list;
+    Pos3 pos = {(chunkX << 4) + 2, 64, (chunkZ << 4) + 2};
+    p->name = fortress_info[0].name;
+    p->bb0 = p->bb1 = p->pos = pos;
+    p->bb1.x += fortress_info[0].size.x;
+    p->bb1.y += fortress_info[0].size.y;
+    p->bb1.z += fortress_info[0].size.z;
+    p->rot = nextInt(&rng, 4);
+    p->depth = 0;
+    p->type = 0;
+    p->next = NULL;
+    extendFortressPiece(&env, p);
+    while (list->next)
+    {
+        Piece *q = list;
+        int len = 0;
+        while (q->next)
+        {
+            q = q->next;
+            len++;
+        }
+        int i = nextInt(&rng, len);
+        for (p = list, q = list->next; i-->0; p = q, q = q->next);
+        p->next = q->next;
+        q->next = NULL;
+        extendFortressPiece(&env, q);
+    }
+    return count;
 }
 
 
@@ -2233,7 +2503,7 @@ uint64_t getHouseList(int *out, uint64_t seed, int chunkX, int chunkZ)
 void getFixedEndGateways(Pos pos[20][2], uint64_t seed)
 {
     (void) seed;
-    const Pos fixed[20] = {
+    static const Pos fixed[20] = {
         { 96,  0}, { 91, 29}, { 77, 56}, { 56, 77}, { 29, 91},
         { -1, 96}, {-30, 91}, {-57, 77}, {-78, 56}, {-92, 29},
         {-96, -1}, {-92,-30}, {-78,-57}, {-57,-78}, {-30,-92},

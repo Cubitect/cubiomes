@@ -154,10 +154,10 @@ STRUCT(StructureVariant)
     uint8_t abandoned   :1; // is zombie village
     uint8_t giant       :1; // giant portal variant
     uint8_t underground :1; // underground portal
-    uint8_t airpocket   :1;
+    uint8_t airpocket   :1; // portal with air pocket
     uint8_t ship        :1; // end city with ship
-    uint8_t start;
-    short   biome;
+    uint8_t start;          // starting piece index
+    short   biome;          // biome variant
     uint8_t rotation;       // 0:0, 1:cw90, 2:cw180, 3:cw270=ccw90
     uint8_t mirror;
     int16_t x, y, z;
@@ -168,8 +168,10 @@ STRUCT(Piece)
 {
     const char *name;   // structure piece name
     Pos3 pos, bb0, bb1; // position and bounding box limits
-    int rot;            // rotation
-    int gendepth;
+    uint8_t rot;        // rotation
+    int8_t depth;
+    int8_t type;
+    Piece *next;
 };
 
 
@@ -417,9 +419,57 @@ int getVariant(StructureVariant *sv, int structType, int mc, uint64_t seed,
  *
  * Returns the number of structure pieces generated.
  */
-enum { END_CITY_PIECES_MAX = 421 };
 int getEndCityPieces(Piece *pieces, uint64_t seed, int chunkX, int chunkZ);
+enum
+{   // End City piece types
+    BASE_FLOOR,
+    BASE_ROOF,
+    BRIDGE_END,
+    BRIDGE_GENTLE_STAIRS,
+    BRIDGE_PIECE,
+    BRIDGE_STEEP_STAIRS,
+    FAT_TOWER_BASE,
+    FAT_TOWER_MIDDLE,
+    FAT_TOWER_TOP,
+    SECOND_FLOOR_1,
+    SECOND_FLOOR_2,
+    SECOND_ROOF,
+    END_SHIP,
+    THIRD_FLOOR_1,
+    THIRD_FLOOR_2,
+    THIRD_ROOF,
+    TOWER_BASE,
+    TOWER_FLOOR, // unused
+    TOWER_PIECE,
+    TOWER_TOP,
+    END_CITY_PIECES_MAX = 421
+};
 
+/* Generate the structure pieces of a Nether Fortress. The maximum number of
+ * pieces that are generated is limited to 'n'. A buffer length of around 400
+ * should be sufficient in practice, but a fortress can in theory contain man
+ * more than that. The number of generated pieces is given by the return value.
+ */
+int getFortressPieces(Piece *list, int n, int mc, uint64_t seed, int chunkX, int chunkZ);
+enum
+{   // Fortress piece types
+    FORTRESS_START,
+    BRIDGE_STRAIGHT,
+    BRIDGE_CROSSING,
+    BRIDGE_FORTIFIED_CROSSING,
+    BRIDGE_STAIRS,
+    BRIDGE_SPAWNER,
+    BRIDGE_CORRIDOR_ENTRANCE,
+    CORRIDOR_STRAIGHT,
+    CORRIDOR_CROSSING,
+    CORRIDOR_TURN_RIGHT,
+    CORRIDOR_TURN_LEFT,
+    CORRIDOR_STAIRS,
+    CORRIDOR_T_CROSSING,
+    CORRIDOR_NETHER_WART,
+    FORTRESS_END,
+    PIECE_COUNT,
+};
 
 /* Find the inner ring positions where End Gateways generate upon defeating the
  * Dragon, as well as an estimate of where they link up to (WIP).

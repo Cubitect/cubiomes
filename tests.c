@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 
 uint32_t hash32(uint32_t x)
 {
@@ -409,6 +410,14 @@ void testCanBiomesGenerate()
 
 int main()
 {
+    uint64_t seed = 4;
+    int cx = -208 >> 4;
+    int cz = -400 >> 4;
+    Piece list[1000];
+    int n = getFortressPieces(list, 1000, MC_1_17, seed, cx, cz);
+    printf("n=%d\n", n);
+
+
     //testCanBiomesGenerate();
     //testGeneration();
     //findBiomeParaBounds();
