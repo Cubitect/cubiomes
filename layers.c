@@ -318,6 +318,13 @@ int getCategory(int mc, int id)
     case giant_spruce_taiga_hills:
         return taiga;
 
+    case nether_wastes:
+    case soul_sand_valley:
+    case crimson_forest:
+    case warped_forest:
+    case basalt_deltas:
+        return nether_wastes;
+
     default:
         return none;
     }
@@ -871,7 +878,11 @@ int mapEnd(const EndNoise *en, int *out, int x, int z, int w, int h)
     return 0;
 }
 
-float getEndHeightNoise(const EndNoise *en, int x, int z)
+/* Samples the End height. The coordinates used here represent eight blocks per
+ * cell. By default a range of 12 cells is sampled, which can be overriden for
+ * optimization purposes.
+ */
+float getEndHeightNoise(const EndNoise *en, int x, int z, int range)
 {
     int hx = x / 2;
     int hz = z / 2;
@@ -880,10 +891,12 @@ float getEndHeightNoise(const EndNoise *en, int x, int z)
     int i, j;
 
     int64_t h = 64 * (x*(int64_t)x + z*(int64_t)z);
+    if (range == 0)
+        range = 12;
 
-    for (j = -12; j <= 12; j++)
+    for (j = -range; j <= range; j++)
     {
-        for (i = -12; i <= 12; i++)
+        for (i = -range; i <= range; i++)
         {
             int64_t rx = hx + i;
             int64_t rz = hz + j;
@@ -911,7 +924,7 @@ float getEndHeightNoise(const EndNoise *en, int x, int z)
 void sampleNoiseColumnEnd(double column[], const SurfaceNoise *sn,
         const EndNoise *en, int x, int z, int colymin, int colymax)
 {
-    double depth = getEndHeightNoise(en, x, z) - 8.0f;
+    double depth = getEndHeightNoise(en, x, z, 0) - 8.0f;
     int y;
     for (y = colymin; y <= colymax; y++)
     {
@@ -990,9 +1003,6 @@ int getSurfaceHeightEnd(int mc, uint64_t seed, int x, int z)
 
 int genEndScaled(const EndNoise *en, int *out, Range r, int mc, uint64_t sha)
 {
-    if (r.scale != 1 && r.scale != 4 && r.scale != 16 && r.scale != 64)
-        return 1; // unsupported scale
-
     if (r.sy == 0)
         r.sy = 1;
 
@@ -1044,81 +1054,38 @@ int genEndScaled(const EndNoise *en, int *out, Range r, int mc, uint64_t sha)
         err = mapEndBiome(en, out, r.x, r.z, r.sx, r.sz);
         if (err) return err;
     }
-    else if (r.scale == 64)
+    else
     {
-        int i, j, di, dj;
-        int d = 4;
-        int hw = (2+r.sx) * d + 1;
-        int hh = (2+r.sz) * d + 1;
-        int16_t *hmap = (int16_t*) calloc(hw*hh, sizeof(*hmap));
-
+        float d = r.scale / 8.0;
+        int i, j;
         for (j = 0; j < r.sz; j++)
         {
             for (i = 0; i < r.sx; i++)
             {
-                int64_t hx = (i+r.x) * d;
-                int64_t hz = (j+r.z) * d;
+                int64_t hx = (int64_t)((i+r.x) * d);
+                int64_t hz = (int64_t)((j+r.z) * d);
                 uint64_t rsq = hx*hx + hz*hz;
-                if (rsq <= 4096L)
+                if (rsq <= 16384L)
                 {
                     out[j*r.sx+i] = the_end;
                     continue;
                 }
-                else if (mc >= MC_1_14 && (int)(4*rsq) < 0)
+                else if (mc >= MC_1_14 && (int)(rsq) < 0)
                 {
                     out[j*r.sx+i] = small_end_islands;
                     continue;
                 }
-
-                int64_t h = 64*16*16;
-
-                for (dj = -d; dj < d; dj++)
-                {
-                    for (di = -d; di < d; di++)
-                    {
-                        int64_t rx = hx + di;
-                        int64_t rz = hz + dj;
-                        int hi = i*d + di+d;
-                        int hj = j*d + dj+d;
-                        int16_t *p = &hmap[hj*hw + hi];
-                        if (*p == 0)
-                        {
-                            if (sampleSimplex2D(&en->perlin, rx, rz) < -0.9f)
-                            {
-                                *p = (llabs(rx) * 3439 + llabs(rz) * 147) % 13 + 9;
-                                *p *= *p;
-                            }
-                            else
-                            {
-                                *p = -1;
-                            }
-                        }
-
-                        if (*p > 0)
-                        {
-                            int64_t noise = 4*(di*di + dj*dj) * (*p);
-                            if (noise < h)
-                                h = noise;
-                        }
-                    }
-                }
-
-                if (h < 3600)
+                float h = getEndHeightNoise(en, hx, hz, 4);
+                if (h > 40)
                     out[j*r.sx+i] = end_highlands;
-                else if (h <= 10000)
+                else if (h >= 0)
                     out[j*r.sx+i] = end_midlands;
-                else if (h <= 14400)
+                else if (h >= -20)
                     out[j*r.sx+i] = end_barrens;
                 else
                     out[j*r.sx+i] = small_end_islands;
             }
         }
-        free(hmap);
-    }
-    else
-    {   // A scale higher than 1:64 is discouraged and not well defined.
-        // TODO...
-        return 1;
     }
 
     // expanding 2D into 3D

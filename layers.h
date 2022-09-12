@@ -358,7 +358,7 @@ enum
     NP_WEIRDNESS        = 5,
     NP_MAX
 };
-/// Overworld and Nether biome generator for 1.18
+// Overworld biome generator for 1.18+
 STRUCT(BiomeNoise)
 {
     DoublePerlinNoise climate[NP_MAX];
@@ -488,7 +488,7 @@ void genBiomeNoiseChunkSection(const BiomeNoise *bn, int out[4][4][4],
     int cx, int cy, int cz, uint64_t *dat);
 
 /**
- * The scaled biome noise generation applies for the Overworld version 1.18.
+ * The scaled biome noise generation applies for the Overworld version 1.18+.
  * The 'sha' hash of the seed is only required for voronoi at scale 1:1.
  * A scale of zero is interpreted as the default 1:4 scale.
  */

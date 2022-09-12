@@ -407,17 +407,8 @@ void testCanBiomesGenerate()
     canGenerateTest(MC_1_17, L_OCEAN_TEMP_256);
 }
 
-
 int main()
 {
-    uint64_t seed = 4;
-    int cx = -208 >> 4;
-    int cz = -400 >> 4;
-    Piece list[1000];
-    int n = getFortressPieces(list, 1000, MC_1_17, seed, cx, cz);
-    printf("n=%d\n", n);
-
-
     //testCanBiomesGenerate();
     //testGeneration();
     //findBiomeParaBounds();

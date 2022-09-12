@@ -1505,8 +1505,8 @@ L_feature:
 
     default:
         fprintf(stderr,
-                "isViableStructurePos: validation for structure type %d not implemented\n",
-                structureType);
+                "isViableStructurePos: bad structure type %d or dimension %d\n",
+                structureType, dim);
         goto L_not_viable;
     }
 
@@ -1816,67 +1816,51 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
         // move into unsupported biomes. Testing for this case requires the
         // surface height and is therefore not supported.
         {
-            uint64_t rng0 = rng;
-            const int b_ruined_portal[] = { plains,
-                beach, snowy_beach, river, frozen_river, taiga, snowy_taiga,
-                old_growth_pine_taiga, old_growth_spruce_taiga, forest,
-                flower_forest, birch_forest, old_growth_birch_forest,
-                dark_forest, grove, mushroom_fields, ice_spikes,
-                dripstone_caves, lush_caves, savanna, snowy_plains, plains,
-                sunflower_plains, -1
-            }, b_ruined_portal_desert[] = { desert,
-                desert, -1
-            }, b_ruined_portal_jungle[] = { jungle,
-                jungle, bamboo_jungle, sparse_jungle, -1
-            }, b_ruined_portal_swamp[] = { swamp,
-                swamp, mangrove_swamp, -1
-            }, d_ruined_portal_mountain[] = { mountains,
-                badlands, eroded_badlands, wooded_badlands, windswept_hills,
-                windswept_forest, windswept_gravelly_hills, savanna_plateau,
-                windswept_savanna, stony_shore, meadow, frozen_peaks,
-                jagged_peaks, stony_peaks, snowy_slopes, -1
-            }, d_ruined_portal_ocean[] = { ocean,
-                deep_frozen_ocean, deep_cold_ocean, deep_ocean,
-                deep_lukewarm_ocean, frozen_ocean, ocean, cold_ocean,
-                lukewarm_ocean, warm_ocean, -1
-            }, d_ruined_portal_nether[] = { nether_wastes,
-                nether_wastes, soul_sand_valley, crimson_forest,
-                warped_forest, basalt_deltas, -1
-            };
-            const int *b_vars[] = {
-                b_ruined_portal,
-                b_ruined_portal_desert,
-                b_ruined_portal_jungle,
-                b_ruined_portal_swamp,
-                d_ruined_portal_mountain,
-                d_ruined_portal_ocean,
-                d_ruined_portal_nether,
-            };
-            for (t = 7; t >= 1; t--)
+            int cat = getCategory(mc, biomeID);
+            switch (cat)
             {
-                int v = nextInt(&rng, t);
-                int i, j = 0;
-                for (i = 0; i < 7; i++)
-                {
-                    if (b_vars[i])
-                    {
-                        if (j == v)
-                            break;
-                        j++;
-                    }
-                }
-                for (j = 1; b_vars[i][j] != -1; j++)
-                {
-                    if (b_vars[i][j] == biomeID)
-                    {
-                        r->biome = b_vars[i][0];
-                        t = 0; break;
-                    }
-                }
-                b_vars[i] = NULL;
+            case desert:
+            case jungle:
+            case swamp:
+            case ocean:
+            case nether_wastes:
+                r->biome = cat;
+                break;
             }
-
-            rng = rng0;
+            if (r->biome == -1)
+            {
+                switch (biomeID)
+                {
+                case mangrove_swamp:
+                    r->biome = swamp;
+                    break;
+                case mountains:                     // windswept_hills
+                case mountain_edge:
+                case wooded_mountains:              // windswept_forest
+                case gravelly_mountains:            // windswept_gravelly_hills
+                case modified_gravelly_mountains:
+                case savanna_plateau:
+                case shattered_savanna:             // windswept_savanna
+                case shattered_savanna_plateau:
+                case badlands:
+                case eroded_badlands:
+                case wooded_badlands_plateau:       // wooded_badlands
+                case modified_badlands_plateau:
+                case modified_wooded_badlands_plateau:
+                case snowy_taiga_mountains:
+                case taiga_mountains:
+                case stony_shore:
+                case meadow:
+                case frozen_peaks:
+                case jagged_peaks:
+                case stony_peaks:
+                case snowy_slopes:
+                    r->biome = mountains;
+                    break;
+                }
+            }
+            if (r->biome == -1)
+                r->biome = plains;
             if (r->biome == plains || r->biome == mountains)
             {
                 r->underground = nextFloat(&rng) < 0.5f;
@@ -3036,7 +3020,7 @@ int checkForBiomes(
     int trials = n;
     struct touple { int i, x, y, z; } *buf = NULL;
 
-    if (r.scale == 4 && r.sx * r.sz > 64)
+    if (r.scale == 4 && r.sx * r.sz > 64 && dim == DIM_OVERWORLD)
     {
         // Do a gradient descent to find the min/max of some climate parameters
         // and check the biomes along the way. This has a much better chance
