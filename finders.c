@@ -1506,7 +1506,7 @@ L_feature:
     default:
         fprintf(stderr,
                 "isViableStructurePos: bad structure type %d or dimension %d\n",
-                structureType, dim);
+                structureType, g->dim);
         goto L_not_viable;
     }
 
