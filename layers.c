@@ -3300,6 +3300,9 @@ static inline void getVoronoiCell(uint64_t sha, int a, int b, int c,
 void mapVoronoiPlane(uint64_t sha, int *out, int *src,
     int x, int z, int w, int h, int y, int px, int pz, int pw, int ph)
 {
+    x -= 2;
+    y -= 2;
+    z -= 2;
     int x000, x001, x010, x011, x100, x101, x110, x111;
     int y000, y001, y010, y011, y100, y101, y110, y111;
     int z000, z001, z010, z011, z100, z101, z110, z111;

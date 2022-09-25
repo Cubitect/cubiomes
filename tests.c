@@ -407,6 +407,59 @@ void testCanBiomesGenerate()
     canGenerateTest(MC_1_17, L_OCEAN_TEMP_256);
 }
 
+
+void findStructures(int structureType, int mc, int dim, uint64_t seed,
+    int x0, int z0, int x1, int z1)
+{
+    // set up a biome generator
+    Generator g;
+    setupGenerator(&g, mc, 0);
+    applySeed(&g, dim, seed);
+
+    // ignore this if you are not looking for end cities
+    SurfaceNoise sn;
+    if (structureType == End_City)
+        initSurfaceNoiseEnd(&sn, seed);
+
+    StructureConfig sconf;
+    if (!getStructureConfig(structureType, mc, &sconf))
+        return; // bad version or structure
+
+    // segment area into structure regions
+    double blocksPerRegion = sconf.regionSize * 16.0;
+    int rx0 = (int) floor(x0 / blocksPerRegion);
+    int rz0 = (int) floor(z0 / blocksPerRegion);
+    int rx1 = (int) ceil(x1 / blocksPerRegion);
+    int rz1 = (int) ceil(z1 / blocksPerRegion);
+    int i, j;
+
+    for (j = rz0; j <= rz1; j++)
+    {
+        for (i = rx0; i <= rx1; i++)
+        {   // check the structure generation attempt in region (i, j)
+            Pos pos;
+            if (!getStructurePos(structureType, mc, seed, i, j, &pos))
+                continue; // this region is not suitable
+            if (pos.x < x0 || pos.x > x1 || pos.z < z0 || pos.z > z1)
+                continue; // structure is outside the specified area
+            if (!isViableStructurePos(structureType, &g, pos.x, pos.z, 0))
+                continue; // biomes are not viable
+            if (structureType == End_City)
+            {   // end cities have a dedicated terrain checker
+                if (!isViableEndCityTerrain(&g.en, &sn, pos.x, pos.z))
+                    continue;
+            }
+            else if (mc >= MC_1_18)
+            {   // some structures in 1.18+ depend on the terrain
+                if (!isViableStructureTerrain(structureType, &g, pos.x, pos.z))
+                    continue;
+            }
+            printf("%d, %d\n", pos.x, pos.z);
+        }
+    }
+}
+
+
 int main()
 {
     //testCanBiomesGenerate();

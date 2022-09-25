@@ -37,8 +37,15 @@ enum StructureType
     FEATURE_NUM
 };
 
-enum { LARGE_STRUCT = 0x1, CHUNK_STRUCT = 0x2 };
 
+enum
+{   // structure config property flags
+    STRUCT_TRIANGULAR   = 0x01, // structure uses a triangular distribution
+    STRUCT_CHUNK        = 0x02, // structure is checked for each chunk
+    STRUCT_NETHER       = 0x10, // nether structure
+    STRUCT_END          = 0x20, // end structure
+};
+// use getStructureConfig() for the version specific structure configuration
 STRUCT(StructureConfig)
 {
     int32_t salt;
@@ -48,59 +55,56 @@ STRUCT(StructureConfig)
     uint8_t properties;
 };
 
-#define _sc static const StructureConfig
-
-/* for desert pyramids, jungle temples, witch huts and igloos prior to 1.13 */
-_sc FEATURE_CONFIG            = { 14357617, 32, 24, Feature, 0};
-_sc IGLOO_CONFIG_112          = { 14357617, 32, 24, Igloo, 0};
-_sc SWAMP_HUT_CONFIG_112      = { 14357617, 32, 24, Swamp_Hut, 0};
-_sc DESERT_PYRAMID_CONFIG_112 = { 14357617, 32, 24, Desert_Pyramid, 0};
-_sc JUNGLE_PYRAMID_CONFIG_112 = { 14357617, 32, 24, Jungle_Pyramid, 0};
-
-/* ocean features before 1.16 */
-_sc OCEAN_RUIN_CONFIG_115     = { 14357621, 16,  8, Ocean_Ruin, 0};
-_sc SHIPWRECK_CONFIG_115      = {165745295, 15,  7, Shipwreck, 0};
-
-/* 1.13 separated feature seeds by type */
-_sc DESERT_PYRAMID_CONFIG     = { 14357617, 32, 24, Desert_Pyramid, 0};
-_sc IGLOO_CONFIG              = { 14357618, 32, 24, Igloo, 0};
-_sc JUNGLE_PYRAMID_CONFIG     = { 14357619, 32, 24, Jungle_Pyramid, 0};
-_sc SWAMP_HUT_CONFIG          = { 14357620, 32, 24, Swamp_Hut, 0};
-_sc OUTPOST_CONFIG            = {165745296, 32, 24, Outpost, 0};
-_sc VILLAGE_CONFIG_117        = { 10387312, 32, 24, Village, 0};
-_sc VILLAGE_CONFIG            = { 10387312, 34, 26, Village, 0};
-_sc OCEAN_RUIN_CONFIG         = { 14357621, 20, 12, Ocean_Ruin, 0};
-_sc SHIPWRECK_CONFIG          = {165745295, 24, 20, Shipwreck, 0};
-_sc MONUMENT_CONFIG           = { 10387313, 32, 27, Monument, LARGE_STRUCT};
-_sc MANSION_CONFIG            = { 10387319, 80, 60, Mansion, LARGE_STRUCT};
-_sc RUINED_PORTAL_CONFIG      = { 34222645, 40, 25, Ruined_Portal, 0}; // overworld
-_sc RUINED_PORTAL_N_CONFIG_117= { 34222645, 25, 15, Ruined_Portal_N, 0}; // nether
-_sc ANCIENT_CITY_CONFIG       = { 20083232, 24, 16, Ancient_City, 0};
-
-_sc TREASURE_CONFIG           = { 10387320,  1,  1, Treasure, CHUNK_STRUCT};
-_sc MINESHAFT_CONFIG          = {        0,  1,  1, Mineshaft, CHUNK_STRUCT};
-
-// nether and end structures
-_sc FORTRESS_CONFIG_115       = {        0, 16,  8, Fortress, 0};
-_sc FORTRESS_CONFIG           = { 30084232, 27, 23, Fortress, 0};
-_sc BASTION_CONFIG            = { 30084232, 27, 23, Bastion, 0};
-_sc END_CITY_CONFIG           = { 10387313, 20,  9, End_City, LARGE_STRUCT};
-
-// for the scattered return gateways
-_sc END_GATEWAY_CONFIG_115    = {    30000,  1,  1, End_Gateway, CHUNK_STRUCT};
-_sc END_GATEWAY_CONFIG_117    = {    40013,  1,  1, End_Gateway, CHUNK_STRUCT};
-_sc END_GATEWAY_CONFIG        = {    40000,  1,  1, End_Gateway, CHUNK_STRUCT};
-
-#undef _sc
 
 STRUCT(Pos)  { int x, z; };
 STRUCT(Pos3) { int x, y, z; };
 
 
+STRUCT(StrongholdIter)
+{
+    Pos pos;        // accurate location of current stronghold
+    Pos nextapprox; // approxmimate location (+/-112 blocks) of next stronghold
+    int index;      // stronghold index counter
+    int ringnum;    // ring number for index
+    int ringmax;    // max index within ring
+    int ringidx;    // index within ring
+    double angle;   // next angle within ring
+    double dist;    // next distance from origin (in chunks)
+    uint64_t rnds;  // random number seed (48 bit)
+    int mc;         // minecraft version
+};
+
+
+STRUCT(StructureVariant)
+{
+    uint8_t abandoned   :1; // is zombie village
+    uint8_t giant       :1; // giant portal variant
+    uint8_t underground :1; // underground portal
+    uint8_t airpocket   :1; // portal with air pocket
+    //uint8_t ship        :1; // end city with ship
+    uint8_t start;          // starting piece index
+    short   biome;          // biome variant
+    uint8_t rotation;       // 0:0, 1:cw90, 2:cw180, 3:cw270=ccw90
+    uint8_t mirror;
+    int16_t x, y, z;
+    int16_t sx, sy, sz;
+};
+
+STRUCT(Piece)
+{
+    const char *name;   // structure piece name
+    Pos3 pos, bb0, bb1; // position and bounding box limits
+    uint8_t rot;        // rotation
+    int8_t depth;
+    int8_t type;
+    Piece *next;
+};
+
+
 enum
 {
-    CFB_APPROX       = 0x01, // enabled aggresive filtering, trading accuracy
-    CFB_FORCED_OCEAN = FORCE_OCEAN_VARIANTS,
+    BF_APPROX       = 0x01, // enabled aggresive filtering, trading accuracy
+    BF_FORCED_OCEAN = FORCE_OCEAN_VARIANTS,
 };
 STRUCT(BiomeFilter)
 {
@@ -132,46 +136,6 @@ STRUCT(BiomeFilter)
     uint64_t biomeToExcl, biomeToExclM;
     uint64_t biomeToFind, biomeToFindM;
     uint64_t biomeToPick, biomeToPickM;
-};
-
-STRUCT(StrongholdIter)
-{
-    Pos pos;        // accurate location of current stronghold
-    Pos nextapprox; // approxmimate location (+/-112 blocks) of next stronghold
-    int index;      // stronghold index counter
-    int ringnum;    // ring number for index
-    int ringmax;    // max index within ring
-    int ringidx;    // index within ring
-    double angle;   // next angle within ring
-    double dist;    // next distance from origin (in chunks)
-    uint64_t rnds;  // random number seed (48 bit)
-    int mc;         // minecraft version
-};
-
-
-STRUCT(StructureVariant)
-{
-    uint8_t abandoned   :1; // is zombie village
-    uint8_t giant       :1; // giant portal variant
-    uint8_t underground :1; // underground portal
-    uint8_t airpocket   :1; // portal with air pocket
-    uint8_t ship        :1; // end city with ship
-    uint8_t start;          // starting piece index
-    short   biome;          // biome variant
-    uint8_t rotation;       // 0:0, 1:cw90, 2:cw180, 3:cw270=ccw90
-    uint8_t mirror;
-    int16_t x, y, z;
-    int16_t sx, sy, sz;
-};
-
-STRUCT(Piece)
-{
-    const char *name;   // structure piece name
-    Pos3 pos, bb0, bb1; // position and bounding box limits
-    uint8_t rot;        // rotation
-    int8_t depth;
-    int8_t type;
-    Piece *next;
 };
 
 
@@ -297,7 +261,7 @@ int isSlimeChunk(uint64_t seed, int chunkX, int chunkZ)
  * the subsequent approximate stronghold positions.
  *
  * @sh      : stronghold iterator to be initialized (nullable)
- * @mc      : minecraft version (changes in 1.7, 1.9, 1.13)
+ * @mc      : minecraft version
  * @s48     : world seed (only 48-bit are relevant)
  *
  * Returns the approximate block position of the first stronghold.
@@ -447,7 +411,7 @@ enum
 
 /* Generate the structure pieces of a Nether Fortress. The maximum number of
  * pieces that are generated is limited to 'n'. A buffer length of around 400
- * should be sufficient in practice, but a fortress can in theory contain man
+ * should be sufficient in practice, but a fortress can in theory contain many
  * more than that. The number of generated pieces is given by the return value.
  */
 int getFortressPieces(Piece *list, int n, int mc, uint64_t seed, int chunkX, int chunkZ);
@@ -658,6 +622,11 @@ const int *getBiomeParaLimits(int mc, int id);
  */
 void getPossibleBiomesForLimits(char ids[256], int mc, int limits[6][2]);
 
+/**
+ * Find the largest rectangle in ids[sx][sz] which consists only of 'match'.
+ * The limit corners are written to p0 and p1. Returned is the rectangle's area.
+ */
+int getLargestRec(int match, const int *ids, int sx, int sz, Pos *p0, Pos *p1);
 
 //==============================================================================
 // Implementaions for Functions that Ideally Should be Inlined

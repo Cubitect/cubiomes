@@ -57,69 +57,107 @@ uint64_t getPopulationSeed(int mc, uint64_t ws, int x, int z)
 
 int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
 {
+    static const StructureConfig
+    // for desert pyramids, jungle temples, witch huts and igloos prior to 1.13
+    s_feature               = { 14357617, 32, 24, Feature,          0},
+    s_igloo_112             = { 14357617, 32, 24, Igloo,            0},
+    s_swamp_hut_112         = { 14357617, 32, 24, Swamp_Hut,        0},
+    s_desert_pyramid_112    = { 14357617, 32, 24, Desert_Pyramid,   0},
+    s_jungle_temple_112     = { 14357617, 32, 24, Jungle_Pyramid,   0},
+    // ocean features before 1.16
+    s_ocean_ruin_115        = { 14357621, 16,  8, Ocean_Ruin,       0},
+    s_shipwreck_115         = {165745295, 15,  7, Shipwreck,        0},
+    // 1.13 separated feature seeds by type
+    s_desert_pyramid        = { 14357617, 32, 24, Desert_Pyramid,   0},
+    s_igloo                 = { 14357618, 32, 24, Igloo,            0},
+    s_jungle_temple         = { 14357619, 32, 24, Jungle_Pyramid,   0},
+    s_swamp_hut             = { 14357620, 32, 24, Swamp_Hut,        0},
+    s_outpost               = {165745296, 32, 24, Outpost,          0},
+    s_village_117           = { 10387312, 32, 24, Village,          0},
+    s_village               = { 10387312, 34, 26, Village,          0},
+    s_ocean_ruin            = { 14357621, 20, 12, Ocean_Ruin,       0},
+    s_shipwreck             = {165745295, 24, 20, Shipwreck,        0},
+    s_monument              = { 10387313, 32, 27, Monument,         STRUCT_TRIANGULAR},
+    s_mansion               = { 10387319, 80, 60, Mansion,          STRUCT_TRIANGULAR},
+    s_ruined_portal         = { 34222645, 40, 25, Ruined_Portal,    0},
+    s_ruined_portal_n_117   = { 34222645, 25, 15, Ruined_Portal_N,  STRUCT_NETHER},
+    s_ancient_city          = { 20083232, 24, 16, Ancient_City,     0},
+    s_treasure              = { 10387320,  1,  1, Treasure,         STRUCT_CHUNK},
+    s_mineshaft             = {        0,  1,  1, Mineshaft,        STRUCT_CHUNK},
+    // nether and end structures
+    s_fortress_115          = {        0, 16,  8, Fortress,         STRUCT_NETHER},
+    s_fortress              = { 30084232, 27, 23, Fortress,         STRUCT_NETHER},
+    s_bastion               = { 30084232, 27, 23, Bastion,          STRUCT_NETHER},
+    s_end_city              = { 10387313, 20,  9, End_City,         STRUCT_END|STRUCT_TRIANGULAR},
+    // for the scattered return gateways
+    s_end_gateway_115       = {    30000,  1,  1, End_Gateway,      STRUCT_END|STRUCT_CHUNK},
+    s_end_gateway_117       = {    40013,  1,  1, End_Gateway,      STRUCT_END|STRUCT_CHUNK},
+    s_end_gateway           = {    40000,  1,  1, End_Gateway,      STRUCT_END|STRUCT_CHUNK}
+    ;
+
     switch (structureType)
     {
     case Feature:
-        *sconf = FEATURE_CONFIG;
+        *sconf = s_feature;
         return mc <= MC_1_12;
     case Desert_Pyramid:
-        *sconf = mc <= MC_1_12 ? DESERT_PYRAMID_CONFIG_112 : DESERT_PYRAMID_CONFIG;
+        *sconf = mc <= MC_1_12 ? s_desert_pyramid_112 : s_desert_pyramid;
         return mc >= MC_1_3;
     case Jungle_Pyramid:
-        *sconf = mc <= MC_1_12 ? JUNGLE_PYRAMID_CONFIG_112 : JUNGLE_PYRAMID_CONFIG;
+        *sconf = mc <= MC_1_12 ? s_jungle_temple_112 : s_jungle_temple;
         return mc >= MC_1_3;
     case Swamp_Hut:
-        *sconf = mc <= MC_1_12 ? SWAMP_HUT_CONFIG_112 : SWAMP_HUT_CONFIG;
+        *sconf = mc <= MC_1_12 ? s_swamp_hut_112 : s_swamp_hut;
         return mc >= MC_1_4;
     case Igloo:
-        *sconf = mc <= MC_1_12 ? IGLOO_CONFIG_112 : IGLOO_CONFIG;
+        *sconf = mc <= MC_1_12 ? s_igloo_112 : s_igloo;
         return mc >= MC_1_9;
     case Village:
-        *sconf = mc <= MC_1_17 ? VILLAGE_CONFIG_117 : VILLAGE_CONFIG;
+        *sconf = mc <= MC_1_17 ? s_village_117 : s_village;
         return 1;
     case Ocean_Ruin:
-        *sconf = mc <= MC_1_15 ? OCEAN_RUIN_CONFIG_115 : OCEAN_RUIN_CONFIG;
+        *sconf = mc <= MC_1_15 ? s_ocean_ruin_115 : s_ocean_ruin;
         return mc >= MC_1_13;
     case Shipwreck:
-        *sconf = mc <= MC_1_15 ? SHIPWRECK_CONFIG_115 : SHIPWRECK_CONFIG;
+        *sconf = mc <= MC_1_15 ? s_shipwreck_115 : s_shipwreck;
         return mc >= MC_1_13;
     case Ruined_Portal:
-        *sconf = RUINED_PORTAL_CONFIG;
+        *sconf = s_ruined_portal;
         return mc >= MC_1_16;
     case Ruined_Portal_N:
-        *sconf = mc <= MC_1_17 ? RUINED_PORTAL_N_CONFIG_117 : RUINED_PORTAL_CONFIG;
+        *sconf = mc <= MC_1_17 ? s_ruined_portal_n_117 : s_ruined_portal;
         return mc >= MC_1_16;
     case Monument:
-        *sconf = MONUMENT_CONFIG;
+        *sconf = s_monument;
         return mc >= MC_1_8;
     case End_City:
-        *sconf = END_CITY_CONFIG;
+        *sconf = s_end_city;
         return mc >= MC_1_9;
     case Mansion:
-        *sconf = MANSION_CONFIG;
+        *sconf = s_mansion;
         return mc >= MC_1_11;
     case Outpost:
-        *sconf = OUTPOST_CONFIG;
+        *sconf = s_outpost;
         return mc >= MC_1_14;
     case Ancient_City:
-        *sconf = ANCIENT_CITY_CONFIG;
+        *sconf = s_ancient_city;
         return mc >= MC_1_19;
     case Treasure:
-        *sconf = TREASURE_CONFIG;
+        *sconf = s_treasure;
         return mc >= MC_1_13;
     case Mineshaft:
-        *sconf = MINESHAFT_CONFIG;
+        *sconf = s_mineshaft;
         return 1;
     case Fortress:
-        *sconf = mc <= MC_1_15 ? FORTRESS_CONFIG_115 : FORTRESS_CONFIG;
+        *sconf = mc <= MC_1_15 ? s_fortress_115 : s_fortress;
         return 1;
     case Bastion:
-        *sconf = BASTION_CONFIG;
+        *sconf = s_bastion;
         return mc >= MC_1_16;
     case End_Gateway:
-        if      (mc <= MC_1_15) *sconf = END_GATEWAY_CONFIG_115;
-        else if (mc <= MC_1_17) *sconf = END_GATEWAY_CONFIG_117;
-        else                    *sconf = END_GATEWAY_CONFIG;
+        if      (mc <= MC_1_15) *sconf = s_end_gateway_115;
+        else if (mc <= MC_1_17) *sconf = s_end_gateway_117;
+        else                    *sconf = s_end_gateway;
         // 1.11 and 1.12 generate gateways using a random source that passed
         // the block filling, making them much more difficult to predict
         return mc >= MC_1_13;
@@ -316,6 +354,11 @@ int getMineshafts(int mc, uint64_t seed, int cx0, int cz0, int cx1, int cz1,
 //==============================================================================
 
 
+static int id_matches(int id, uint64_t b, uint64_t m)
+{
+    return id < 128 ? !!(b & (1ULL << id)) : !!(m & (1ULL << (id-128)));
+}
+
 Pos locateBiome(
     const Generator *g, int x, int y, int z, int radius,
     uint64_t validB, uint64_t validM, uint64_t *rng, int *passes)
@@ -335,15 +378,12 @@ Pos locateBiome(
         {
             for (i = -radius; i <= radius; i++)
             {
-                int id, xi = x+i, zj = z+j;
-                // emulate dependent biome generation MC-241546
-                //id = getBiomeAt(g, 4, xi, y, zj);
-                id = sampleBiomeNoise(&g->bn, NULL, xi, y, zj, &dat, 0);
+                // emulate order-dependent biome generation MC-241546
+                //id = getBiomeAt(g, 4, x+i, y, z+j);
+                int id = sampleBiomeNoise(&g->bn, NULL, x+i, y, z+j, &dat, 0);
+                if (!id_matches(id, validB, validM))
+                    continue;
 
-                if (id < 128 && !(validB & (1ULL << id)))
-                    continue;
-                if (id >= 128 && !(validM & (1ULL << (id-128))))
-                    continue;
                 if (found == 0 || nextInt(rng, found+1) == 0)
                 {
                     out.x = (x+i) << 2;
@@ -370,10 +410,7 @@ Pos locateBiome(
         {
             for (i = 0, j = 2; i < width*height; i++)
             {
-                int id = ids[i];
-                if (id < 128 && !(validB & (1ULL << id)))
-                    continue;
-                if (id >= 128 && !(validM & (1ULL << (id-128))))
+                if (!id_matches(ids[i], validB, validM))
                     continue;
                 if (found == 0 || nextInt(rng, j++) == 0)
                 {
@@ -388,10 +425,7 @@ Pos locateBiome(
         {
             for (i = 0; i < width*height; i++)
             {
-                int id = ids[i];
-                if (id < 128 && !(validB & (1ULL << id)))
-                    continue;
-                if (id >= 128 && !(validM & (1ULL << (id-128))))
+                if (!id_matches(ids[i], validB, validM))
                     continue;
                 if (found == 0 || nextInt(rng, found + 1) == 0)
                 {
@@ -415,51 +449,27 @@ Pos locateBiome(
 }
 
 
-
-static inline int valid_1x1(const Generator *g, int x, int y, int z,
-    Range r, int *buf, const char *valid)
-{
-    int *p = buf + (x-r.x) + (z-r.z)*r.sx + (y-r.y)*(r.sx*r.sz);
-    if (*p)
-        return 1;
-    *p = -1;
-    int id = getBiomeAt(g, 4, x, y, z);
-    return valid[id];
-}
-
 int areBiomesViable(
     const Generator *g, int x, int y, int z, int rad,
-    const char *validBiomes, int approx)
+    uint64_t validB, uint64_t validM, int approx)
 {
     int x1 = (x - rad) >> 2, x2 = (x + rad) >> 2, sx = x2 - x1 + 1;
     int z1 = (z - rad) >> 2, z2 = (z + rad) >> 2, sz = z2 - z1 + 1;
-    int y1, y2, sy;
-    if (g->mc >= MC_1_18)
-    {
-        y1 = (y - rad) >> 2, y2 = (y + rad) >> 2, sy = y2 - y1 + 1;
-    }
-    else
-    {
-        y1 = y2 = 0, sy = 1;
-    }
+    int i, j, id, viable = 1;
+    int *ids = NULL;
 
-    Range r = {4, x1, z1, sx, sz, y1, sy};
-    int *ids = allocCache(g, r);
-    int i, j, k;
-    int viable = 1;
-    const char *v = validBiomes;
+    // In 1.18+ the area is also checked in y, forming a cube volume.
+    // However, this function is only used for monuments, which need ocean or
+    // river, where we can get away with just checking the lowest y for caves.
+    y = (y - rad) >> 2;
 
     // check corners
-    if (!valid_1x1(g, x1, y1, z1, r, ids, v)) goto L_no;
-    if (!valid_1x1(g, x2, y2, z2, r, ids, v)) goto L_no;
-    if (!valid_1x1(g, x1, y1, z2, r, ids, v)) goto L_no;
-    if (!valid_1x1(g, x2, y2, z1, r, ids, v)) goto L_no;
-    if (g->mc >= MC_1_18)
-    {   // 3D
-        if (!valid_1x1(g, x1, y2, z1, r, ids, v)) goto L_no;
-        if (!valid_1x1(g, x2, y1, z2, r, ids, v)) goto L_no;
-        if (!valid_1x1(g, x1, y2, z2, r, ids, v)) goto L_no;
-        if (!valid_1x1(g, x2, y1, z1, r, ids, v)) goto L_no;
+    Pos corners[4] = { {x1,z1}, {x2,z2}, {x1,z2}, {x2,z1} };
+    for (i = 0; i < 4; i++)
+    {
+        id = getBiomeAt(g, 4, corners[i].x, y, corners[i].z);
+        if (!id_matches(id, validB, validM))
+            goto L_no;
     }
     if (approx >= 1) goto L_yes;
 
@@ -467,28 +477,35 @@ int areBiomesViable(
     {
         for (i = 0; i < sx; i++)
         {
-            for (j = 0; j < sy; j++)
+            uint64_t dat = 0;
+            for (j = 0; j < sz; j++)
             {
-                for (k = 0; k < sz; k++)
-                {
-                    if (!valid_1x1(g, x1+i, y1+j, z1+k, r, ids, v))
-                        goto L_no;
-                }
+                if (g->mc >= MC_1_18)
+                    id = sampleBiomeNoise(&g->bn, NULL, x1+i, y, z1+j, &dat, 0);
+                else
+                    id = getBiomeAt(g, 4, x1+i, y, z1+j);
+                if (!id_matches(id, validB, validM))
+                    goto L_no;
             }
         }
     }
-    else if ((viable = !genBiomes(g, ids, r)))
+    else
     {
-        for (i = 0; i < sx*sy*sz; i++)
+        Range r = {4, x1, z1, sx, sz, y, 1};
+        ids = allocCache(g, r);
+        if (genBiomes(g, ids, r))
+            goto L_no;
+        for (i = 0; i < sx*sz; i++)
         {
-            if (!v[ids[i]])
+            if (!id_matches(ids[i], validB, validM))
                 goto L_no;
         }
     }
 
     if (0) L_yes: viable = 1;
     if (0) L_no:  viable = 0;
-    free(ids);
+    if (ids)
+        free(ids);
     return viable;
 }
 
@@ -1032,54 +1049,6 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
     return 0;
 }
 
-static const char *getValidMonumentBiomes1()
-{
-    static const int oceanMonumentBiomeList1[] =
-    {
-            ocean, deep_ocean, river, frozen_river,
-            frozen_ocean, deep_frozen_ocean, cold_ocean, deep_cold_ocean,
-            lukewarm_ocean, deep_lukewarm_ocean, warm_ocean, deep_warm_ocean
-    };
-    static char isValid[256];
-    unsigned int i;
-
-    if (!isValid[oceanMonumentBiomeList1[0]])
-        for (i = 0; i < sizeof(oceanMonumentBiomeList1) / sizeof(int); i++)
-            isValid[ oceanMonumentBiomeList1[i] ] = 1;
-
-    return isValid;
-}
-
-static const char *getValidMonumentBiomes2()
-{
-    static const int oceanMonumentBiomeList2[] =
-    {
-            deep_frozen_ocean, deep_cold_ocean, deep_ocean,
-            deep_lukewarm_ocean, deep_warm_ocean
-    };
-    static char isValid[256];
-    unsigned int i;
-
-    if (!isValid[oceanMonumentBiomeList2[0]])
-        for (i = 0; i < sizeof(oceanMonumentBiomeList2) / sizeof(int); i++)
-            isValid[ oceanMonumentBiomeList2[i] ] = 1;
-
-    return isValid;
-}
-
-static const char *getValidMansionBiomes()
-{
-    static const int mansionBiomeList[] = {dark_forest, dark_forest+128};
-    static char isValid[256];
-    unsigned int i;
-
-    if (!isValid[mansionBiomeList[0]])
-        for (i = 0; i < sizeof(mansionBiomeList) / sizeof(int); i++)
-            isValid[ mansionBiomeList[i] ] = 1;
-
-    return isValid;
-}
-
 
 static int mapViableBiome(const Layer * l, int * out, int x, int z, int w, int h)
 {
@@ -1176,6 +1145,27 @@ static int mapViableShore(const Layer * l, int * out, int x, int z, int w, int h
     return 1;
 }
 
+
+static const uint64_t g_monument_biomes2 =
+    (1ULL << deep_frozen_ocean) |
+    (1ULL << deep_cold_ocean) |
+    (1ULL << deep_ocean) |
+    (1ULL << deep_lukewarm_ocean) |
+    (1ULL << deep_warm_ocean);
+
+static const uint64_t g_monument_biomes1 =
+    (1ULL << ocean) |
+    (1ULL << deep_ocean) |
+    (1ULL << river) |
+    (1ULL << frozen_river) |
+    (1ULL << frozen_ocean) |
+    (1ULL << deep_frozen_ocean) |
+    (1ULL << cold_ocean) |
+    (1ULL << deep_cold_ocean) |
+    (1ULL << lukewarm_ocean) |
+    (1ULL << deep_lukewarm_ocean) |
+    (1ULL << warm_ocean) |
+    (1ULL << deep_warm_ocean);
 
 int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t flags)
 {
@@ -1442,7 +1432,7 @@ L_feature:
         sampleZ = (chunkZ << 4) + 8;
         if (g->mc >= MC_1_9 && g->mc <= MC_1_17)
         {   // check for deep ocean center
-            if (!areBiomesViable(g, sampleX, 63, sampleZ, 16, getValidMonumentBiomes2(), approx))
+            if (!areBiomesViable(g, sampleX, 63, sampleZ, 16, g_monument_biomes2, 0, approx))
                 goto L_not_viable;
         }
         else if (g->mc >= MC_1_18)
@@ -1451,7 +1441,7 @@ L_feature:
             if (!isDeepOcean(id))
                 goto L_not_viable;
         }
-        if (areBiomesViable(g, sampleX, 63, sampleZ, 29, getValidMonumentBiomes1(), approx))
+        if (areBiomesViable(g, sampleX, 63, sampleZ, 29, g_monument_biomes1, 0, approx))
             goto L_viable;
         goto L_not_viable;
 
@@ -1462,7 +1452,9 @@ L_feature:
         {
             sampleX = (chunkX << 4) + 8;
             sampleZ = (chunkZ << 4) + 8;
-            if (!areBiomesViable(g, sampleX, 0, sampleZ, 32, getValidMansionBiomes(), approx))
+            uint64_t b = (1ULL << dark_forest);
+            uint64_t m = (1ULL << (dark_forest_hills-128));
+            if (!areBiomesViable(g, sampleX, 0, sampleZ, 32, b, m, approx))
                 goto L_not_viable;
         }
         else
@@ -1800,8 +1792,24 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
         r->rotation = nextInt(&rng, 4);
         r->start = 1 + nextInt(&rng, 3); // city_center_1..3
         sx = 18; sy = 31; sz = 41;
+        r->sy = sy;
+        switch (r->rotation)
+        { // 0:0, 1:cw90, 2:cw180, 3:cw270=ccw90
+        case 0: x = -(x>0);    z = -(z>0);    r->sx = sx; r->sz = sz; break;
+        case 1: x = +(x<0)-sz; z = -(z>0);    r->sx = sz; r->sz = sx; break;
+        case 2: x = +(x<0)-sx; z = +(z<0)-sz; r->sx = sx; r->sz = sz; break;
+        case 3: x = -(x>0);    z = +(z<0)-sx; r->sx = sz; r->sz = sx; break;
+        }
         // note the city_anchor (13, *, 20) is part of the city_center
-        break;
+        sx = 13; sz = 20; // city_anchor
+        switch (r->rotation)
+        { // 0:0, 1:cw90, 2:cw180, 3:cw270=ccw90
+        case 0: r->x = x-sx; r->z = z-sz; break; // 0:0
+        case 1: r->x = x+sz; r->z = z-sx; break; // 1:cw90
+        case 2: r->x = x+sx; r->z = z+sz; break; // 2:cw180
+        case 3: r->x = x-sz; r->z = z+sx; break; // 3:cw270=ccw90
+        }
+        return 1;
 
     case Ruined_Portal:
     case Ruined_Portal_N:
@@ -1901,50 +1909,29 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
         r->sx = 7; r->sz = 9;
         return 1;
 
-    case End_City:
-        {
-            Piece pieces[END_CITY_PIECES_MAX];
-            int i, n = getEndCityPieces(pieces, seed, x >> 4, z >> 4);
-            r->x = r->z = 255;
-            for (i = 0; i < n; i++)
-            {
-                Piece *p = pieces + i;
-                if (p->type == END_SHIP)
-                    r->ship = 1;
-                /*
-                int dx, dz;
-                if ((dx = p->bb0.x - x) < r->x) r->x = dx;
-                if ((dz = p->bb0.z - z) < r->z) r->z = dz;
-                if ((dx = p->bb1.x - x) > r->x + r->sx) r->sx = dx - r->x;
-                if ((dz = p->bb1.z - z) > r->z + r->sz) r->sz = dz - r->z;
-                */
-            }
-        }
-        return 1;
-
     default:
         return 0;
     }
-
     r->y = 0;
     r->sy = sy;
-    switch (r->rotation)
+    if (mc >= MC_1_18)
     {
-        case 0: r->x = -(x>0);    r->z = -(z>0);    r->sx = sx; r->sz = sz; break; // 0:0
-        case 1: r->x = +(x<0)-sz; r->z = -(z>0);    r->sx = sz; r->sz = sx; break; // 1:cw90
-        case 2: r->x = +(x<0)-sx; r->z = +(z<0)-sz; r->sx = sx; r->sz = sz; break; // 2:cw180
-        case 3: r->x = -(x>0);    r->z = +(z<0)-sx; r->sx = sz; r->sz = sx; break; // 3:cw270=ccw90
-        default: return 0; // unreachable
-    }
-    if (structType == Ancient_City)
-    {
-        sx = 13; sz = 20; // city_anchor
         switch (r->rotation)
-        {
-        case 0: r->x -= sx; r->z -= sz; break; // 0:0
-        case 1: r->x += sz; r->z -= sx; break; // 1:cw90
-        case 2: r->x += sx; r->z += sz; break; // 2:cw180
-        case 3: r->x -= sz; r->z += sx; break; // 3:cw270=ccw90
+        { // 0:0, 1:cw90, 2:cw180, 3:cw270=ccw90
+        case 0: r->x = 0;    r->z = 0;    r->sx = sx; r->sz = sz; break;
+        case 1: r->x = 1-sz; r->z = 0;    r->sx = sz; r->sz = sx; break;
+        case 2: r->x = 1-sx; r->z = 1-sz; r->sx = sx; r->sz = sz; break;
+        case 3: r->x = 0;    r->z = 1-sx; r->sx = sz; r->sz = sx; break;
+        }
+    }
+    else
+    {
+        switch (r->rotation)
+        { // 0:0, 1:cw90, 2:cw180, 3:cw270=ccw90
+        case 0: r->x = 0;        r->z = 0;        r->sx = sx; r->sz = sz; break;
+        case 1: r->x = (x<0)-sz; r->z = 0;        r->sx = sz; r->sz = sx; break;
+        case 2: r->x = (x<0)-sx; r->z = (z<0)-sz; r->sx = sx; r->sz = sz; break;
+        case 3: r->x = 0;        r->z = (z<0)-sx; r->sx = sz; r->sz = sx; break;
         }
     }
     return 1;
@@ -3046,7 +3033,7 @@ int checkForBiomes(
             //if (err) break;
         }
         while (0);
-        if (err || (stop && *stop) || (filter->flags & CFB_APPROX))
+        if (err || (stop && *stop) || (filter->flags & BF_APPROX))
             goto L_end;
     }
 
@@ -3073,7 +3060,7 @@ int checkForBiomes(
     // Determine a number of trials that gives a decent chance to sample all
     // the biomes that are present, assuming a completely random and
     // independent biome distribution. (This is actually not at all the case.)
-    if (filter->flags & CFB_APPROX)
+    if (filter->flags & BF_APPROX)
     {
         int t = 400 + (int) sqrt(n);
         if (trials > t)
@@ -3451,7 +3438,7 @@ int checkForBiomesAtLayer(
     int ret, err;
     int memsiz, mem1x1;
 
-    if (filter->flags & CFB_APPROX) // TODO: protoCheck for 1.6-
+    if (filter->flags & BF_APPROX) // TODO: protoCheck for 1.6-
     {
         l = entry;
 
@@ -4623,6 +4610,55 @@ void getPossibleBiomesForLimits(char ids[256], int mc, int limits[6][2])
         if (j >= 6)
             ids[bp[-1]] = 1;
     }
+}
+
+int getLargestRec(int match, const int *ids, int sx, int sz, Pos *p0, Pos *p1)
+{
+    typedef struct { int n, j, w; } entry_t;
+    entry_t *meta = (entry_t*) calloc(sx > sz ? sx : sz, sizeof(*meta));
+    int i, j, w, m, ret;
+    ret = m = 0;
+
+    for (i = sx-1; i >= 0; i--)
+    {
+        for (j = 0; j < sz; j++)
+        {
+            if (ids[j*sx + i] == match)
+                meta[j].n++;
+            else
+                meta[j].n = 0;
+        }
+        for (w = j = 0; j < sz; j++)
+        {
+            int n = meta[j].n;
+            if (n > w)
+            {
+                meta[m].j = j;
+                meta[m].w = w;
+                m++;
+                w = n;
+            }
+            if (n == w)
+                continue;
+            do
+            {
+                entry_t e = meta[--m];
+                int area = w * (j - e.j);
+                if (area > ret)
+                {
+                    p0->x = i; p0->z = e.j;
+                    p1->x = i+w-1; p1->z = j-1;
+                    ret = area;
+                }
+                w = e.w;
+            }
+            while (n < w);
+            if ((w = n))
+                m++;
+        }
+    }
+    free(meta);
+    return ret;
 }
 
 
