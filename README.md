@@ -18,10 +18,121 @@ You should be familiar with the C programming language. A basic understanding of
 
 This section is meant to give you a quick starting point with small example programs if you want to use this library to find your own biome dependent features.
 
+### Generate an image of the world (using cubiomes_utils.c)
+
+This script will generate an image called `map_[seed].ppm` in the directory it was ran in.
+
+```C
+    //Set version and seed
+    int mc = MC_1_19;
+    uint64_t seed = 686689767;
+
+    //Apply seed and dimension
+    Generator g;
+    setupGenerator(&g, mc, 0);
+    applySeed(&g, DIM_OVERWORLD, seed);
+
+    //Center point to generate from, this example being X: 0, Z: 0 in the overworld. 
+    int x = 0, z = 0;
+
+    //The size of the map. Will generate from the center of the x/z coordinates.
+    int mapWidth = 120*8, mapHeight = 120*8; //960x960
+
+    //How many pixels per biome block. This example generates a 960x960 image. 
+    //If the pixelScale was 4, it would be 3840x3840.
+    int pixelScale = 1;
+
+    //Scale of the map, 1 being the smallest.
+    int scale = 1;
+
+    //Height (Y) of the biome generation.
+    int height = 100;
+
+    //Generates a .ppm file with the given params. (map_[seed].ppm)
+    createMap(g, mapWidth, mapHeight, scale, height, x, z, pixelScale);
+```
+
+### Search for structures in range (using cubiomes_utils.c)
+
+This script will return a list of structures within a given range of the X and Z coordinates.
+
+```C
+    //Set version and seed
+    int mc = MC_1_19;
+    uint64_t seed = 686689767;
+
+    //Apply seed and dimension
+    Generator g;
+    setupGenerator(&g, mc, 0);
+    applySeed(&g, DIM_OVERWORLD, seed);
+
+    //Center point to search from, this example being X: 0, Z: 0 in the overworld. 
+    int x = 0, z = 0;
+
+    //Search range. This example will search in a 2000 block range around the given X/Z coordinates.
+    int range = 2000;
+
+    //Structure to search for.
+    int structureType = Village;
+    
+    //This method returns a string containing the X/Z coordinates, and the distance in blocks it is 
+    //from the given X/Z coordinates.
+    char *result =  findStructures(structureType, g, range, x, z);
+
+    //Iterate through the structures that were found
+    char *token = strtok(result, "\n");
+    if(token ==  NULL) 
+    {   //Either no structures were found, or there was a config error
+        printf("Error: %s", result);
+    }
+
+    while (token != NULL)
+    {   //Prints out the coordinate data and distance
+        printf("%s (X,Z,Distance): %s\n", struct2str(structureType), token);
+        token = strtok(NULL, "\n");
+    }
+```
+
+### Search for strongholds (using cubiomes_utils.c)
+
+This script will return the position of stronghold.
+
+```C
+    //Set version and seed
+    int mc = MC_1_19;
+    uint64_t seed = 686689767;
+
+    //Apply seed and dimension
+    Generator g;
+    setupGenerator(&g, mc, 0);
+    applySeed(&g, DIM_OVERWORLD, seed);
+
+    //Center point to search from, this example being X: 0, Z: 0. 
+    int x = 0, z = 0;
+
+    //The amount of strongholds you want to search for.
+    int limit = 5;
+
+    //This method returns a string containing the X/Z coordinates, and the distance in blocks it is 
+    //from the given X/Z coordinates.
+    char *result = findStrongholds(g, x, z, limit);
+
+    //Iterate through the strongholds
+    char *token = strtok(result, "\n");
+
+    if(token ==  NULL) 
+    {   //Either no strongholds were found, or there was a config error
+        printf("Error: %s", result);
+    }
+
+    while (token != NULL)
+    {   //Prints out the coordinate data and distance
+        printf("Stronghold (X,Z,Distance): %s\n", token);
+        token = strtok(NULL, "\n");
+    }
+```
 
 ### Biome Generator
-
-Let's create a simple program called `find_biome_at.c` which tests seeds for a Mushroom Fields biome at a predefined location.
 
 ```C
 // check the biome at a block position
