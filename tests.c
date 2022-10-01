@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include <limits.h>
 
 uint32_t hash32(uint32_t x)
 {
@@ -462,6 +463,24 @@ void findStructures(int structureType, int mc, int dim, uint64_t seed,
 
 int main()
 {
+    int mc = MC_1_19;
+    uint64_t seed = 18;
+    Generator g;
+
+    setupGenerator(&g, mc, 0);
+    applySeed(&g, 0, seed);
+
+    Range r = {4, -1000, -1000, 2001, 2001, 256>>2};
+    Pos p[100];
+    int b[100];
+    int n = getBiomeCenters(p, b, 100, &g, r, forest, 1, 8, NULL);
+
+    int i;
+    for (i = 0; i < n; i++)
+    {
+        printf("(%d, %d) size:%d\n", p[i].x, p[i].z, b[i]);
+    }
+
     //testCanBiomesGenerate();
     //testGeneration();
     //findBiomeParaBounds();

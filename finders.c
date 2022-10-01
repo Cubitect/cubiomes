@@ -379,7 +379,7 @@ Pos locateBiome(
             for (i = -radius; i <= radius; i++)
             {
                 // emulate order-dependent biome generation MC-241546
-                //id = getBiomeAt(g, 4, x+i, y, z+j);
+                //int id = getBiomeAt(g, 4, x+i, y, z+j);
                 int id = sampleBiomeNoise(&g->bn, NULL, x+i, y, z+j, &dat, 0);
                 if (!id_matches(id, validB, validM))
                     continue;
@@ -3689,6 +3689,189 @@ int checkForTemps(LayerStack *g, uint64_t seed, int x, int z, int w, int h, cons
 
     free(area);
     return ret;
+}
+
+
+struct locate_info_t
+{
+    Generator *g;
+    int *ids;
+    Range r;
+    int match;
+    int64_t sumx, sumz;
+    int n, dmax;
+    volatile char *stop;
+};
+
+static
+void floodFillGen(struct locate_info_t *info, int i, int j, int d)
+{
+    if (i < 0 || j < 0 || i >= info->r.sx || j >= info->r.sz)
+        return;
+    if (info->stop && *info->stop)
+        return;
+    int idx = j * info->r.sx + i;
+    int id = info->ids[idx];
+    if (id == INT_MAX)
+        return;
+    info->ids[idx] = INT_MAX;
+    int x = info->r.x + i;
+    int z = info->r.z + j;
+
+    if (info->g->mc >= MC_1_18)
+        id = getBiomeAt(info->g, 4, x, info->r.y, z);
+    if (id == info->match)
+    {
+        info->sumx += x;
+        info->sumz += z;
+        info->n += 1;
+        d = 0;
+    }
+    else
+    {
+        if (++d >= info->dmax)
+            return;
+    }
+    floodFillGen(info, i, j-1, d);
+    floodFillGen(info, i, j+1, d);
+    floodFillGen(info, i-1, j, d);
+    floodFillGen(info, i+1, j, d);
+}
+
+int getBiomeCenters(Pos *pos, int *siz, int nmax, Generator *g, Range r,
+    int match, int minsiz, int tol, volatile char *stop)
+{
+    if (r.scale != 4)
+    {
+        printf("getBiomeCenters() unsupported scale\n");
+        return 0;
+    }
+    if (minsiz <= 0)
+        minsiz = 1;
+    int i, j, k, n = 0;
+    int *ids = (int*) malloc(r.sx*r.sz * sizeof(int));
+    memset(ids, -1, r.sx*r.sz * sizeof(int));
+    if (tol <= 0)
+        tol = 1;
+    int step = tol;
+    struct locate_info_t info;
+    info.g = g;
+    info.ids = ids;
+    info.r = r;
+    info.stop = stop;
+    info.match = match;
+    info.dmax = tol;
+
+    if (g->mc >= MC_1_18)
+    {
+        const int *lim = getBiomeParaLimits(g->mc, match);
+
+        int para[] = {
+            NP_TEMPERATURE,
+            NP_HUMIDITY,
+            NP_EROSION,
+            NP_CONTINENTALNESS,
+            NP_WEIRDNESS,
+        };
+        int npara = sizeof(para) / sizeof(para[0]);
+        if (tol == 1)
+            step = 1 + floor(sqrt(minsiz) * 0.5);
+
+        for (j = 0; j < r.sz; j += step)
+        {
+            for (i = 0; i < r.sx; i += step)
+            {
+                if (stop && *stop)
+                    break;
+                for (k = 0; k < npara; k++)
+                {
+                    const int *plim = lim + 2*para[k];
+                    if (plim[0] == INT_MIN && plim[1] == INT_MAX)
+                        continue;
+                    DoublePerlinNoise *dpn = &g->bn.climate[para[k]];
+                    int p = 10000 * sampleDoublePerlin(dpn, r.x+i, 0, r.z+j);
+                    if (p < plim[0] || p > plim[1])
+                    {
+                        ids[j*r.sx + i] = -2;
+                        break;
+                    }
+                }
+            }
+        }
+        match = -1; // id entries that are still -1 are our candidates
+    }
+    else // 1.17-
+    {
+        int ts = 64;
+        int tx = (int) floor(r.x / (double)ts);
+        int tz = (int) floor(r.z / (double)ts);
+        int tw = (int) ceil((r.x+r.sx) / (double)ts) - tx;
+        int th = (int) ceil((r.z+r.sz) / (double)ts) - tz;
+        int ti, tj;
+
+        BiomeFilter bf;
+        setupBiomeFilter(&bf, g->mc, 0, &match, 1, 0, 0, 0, 0);
+        //applySeed(g, 0, g->seed);
+
+        Range tr = { 4, 0, 0, ts, ts, 0, 1 };
+        int *cache = allocCache(g, r);
+
+        for (tj = 0; tj < th; tj++)
+        {
+            for (ti = 0; ti < tw; ti++)
+            {
+                if (stop && *stop)
+                    break;
+                tr.x = (tx+ti) * ts;
+                tr.z = (tz+tj) * ts;
+                if (checkForBiomes(g, cache, tr, DIM_OVERWORLD, g->seed,
+                    &bf, stop) != 1)
+                {
+                    continue;
+                }
+                for (j = 0; j < ts; j++)
+                {
+                    int jj = tr.z + j - r.z;
+                    if (jj < 0 || jj >= r.sz)
+                        continue;
+                    for (i = 0; i < ts; i++)
+                    {
+                        int ii = tr.x + i - r.x;
+                        if (ii < 0 || ii >= r.sx)
+                            continue;
+                        ids[jj*r.sx + ii] = cache[j*tr.sx + i];
+                    }
+                }
+            }
+        }
+        free(cache);
+    }
+
+    for (j = 0; j < r.sz; j += step)
+    {
+        for (i = 0; i < r.sx; i += step)
+        {
+            if (stop && *stop)
+                break;
+            if (ids[j*r.sx + i] != match)
+                continue;
+            info.sumx = info.sumz = info.n = 0;
+            floodFillGen(&info, i, j, 0);
+            if (info.n >= minsiz)
+            {
+                pos[n].x = (int) round(2.0 + 4.0*info.sumx / info.n);
+                pos[n].z = (int) round(2.0 + 4.0*info.sumz / info.n);
+                if (siz) siz[n] = info.n;
+                if (++n >= nmax)
+                    goto L_end;
+            }
+        }
+    }
+
+L_end:
+    free(ids);
+
+    return n;
 }
 
 
