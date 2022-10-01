@@ -541,6 +541,30 @@ int checkForBiomesAtLayer(
  */
 int checkForTemps(LayerStack *g, uint64_t seed, int x, int z, int w, int h, const int tc[9]);
 
+/* Find the center positions for a given biome id.
+ * @pos     : output biome center positions
+ * @siz     : output size of biomes (nullable)
+ * @nmax    : maximum number of output entries
+ * @g       : generator, should be initialized for overworld generation
+ * @r       : area to examine, requires: scale = 4, sy = 1
+ * @match   : biome id to find
+ * @minsiz  : minimum size of output biomes
+ * @tol     : border tollerance
+ * @stop    : stopping flag (nullable)
+ * Returns the number of entries written to pos and siz.
+ */
+int getBiomeCenters(
+        Pos           * pos,
+        int           * siz,
+        int             nmax,
+        Generator     * g,
+        Range           r,
+        int             match,
+        int             minsiz,
+        int             tol,
+        volatile char * stop
+        );
+
 /* Checks if a biome may generate given a version and layer ID as entry point.
  * The supported layers are:
  * L_BIOME_256, L_BAMBOO_256, L_BIOME_EDGE_64, L_HILLS_64, L_SUNFLOWER_64,
