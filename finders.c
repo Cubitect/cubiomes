@@ -3719,8 +3719,6 @@ int floodFillGen(struct locate_info_t *info, int i, int j, Pos *p)
         i = queue[qn].i;
         j = queue[qn].j;
         d = queue[qn].d;
-        if (i < 0 || j < 0 || i >= info->r.sx || j >= info->r.sz)
-            continue;
         int k, idx = j * info->r.sx + i;
         int id = info->ids[idx];
         if (id == INT_MAX)
@@ -3744,7 +3742,13 @@ int floodFillGen(struct locate_info_t *info, int i, int j, Pos *p)
         }
         entry_t next[] = { {i,j-1,d}, {i,j+1,d}, {i-1,j,d}, {i+1,j,d} };
         for (k = 0; k < 4; k++)
-            queue[qn++] = next[k];
+        {
+            if (next[k].i >= 0 && next[k].i < info->r.sx &&
+                next[k].j >= 0 && next[k].j < info->r.sz)
+            {
+                queue[qn++] = next[k];
+            }
+        }
     }
     free(queue);
     if (n)
