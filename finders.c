@@ -3697,46 +3697,64 @@ struct locate_info_t
     Generator *g;
     int *ids;
     Range r;
-    int match;
-    int64_t sumx, sumz;
-    int n, dmax;
+    int match, tol;
     volatile char *stop;
 };
 
 static
-void floodFillGen(struct locate_info_t *info, int i, int j, int d)
+int floodFillGen(struct locate_info_t *info, int i, int j, Pos *p)
 {
-    if (i < 0 || j < 0 || i >= info->r.sx || j >= info->r.sz)
-        return;
-    if (info->stop && *info->stop)
-        return;
-    int idx = j * info->r.sx + i;
-    int id = info->ids[idx];
-    if (id == INT_MAX)
-        return;
-    info->ids[idx] = INT_MAX;
-    int x = info->r.x + i;
-    int z = info->r.z + j;
-
-    if (info->g->mc >= MC_1_18)
-        id = getBiomeAt(info->g, 4, x, info->r.y, z);
-    if (id == info->match)
+    typedef struct { int i, j, d; } entry_t;
+    entry_t *queue = (entry_t*) malloc(info->r.sx*info->r.sz * sizeof(*queue));
+    int qn = 1, d = 0;
+    queue->i = i;
+    queue->j = j;
+    int64_t sumx = 0;
+    int64_t sumz = 0;
+    int n = 0;
+    while (--qn >= 0)
     {
-        info->sumx += x;
-        info->sumz += z;
-        info->n += 1;
-        d = 0;
+        if (info->stop && *info->stop)
+            return 0;
+        i = queue[qn].i;
+        j = queue[qn].j;
+        d = queue[qn].d;
+        if (i < 0 || j < 0 || i >= info->r.sx || j >= info->r.sz)
+            continue;
+        int k, idx = j * info->r.sx + i;
+        int id = info->ids[idx];
+        if (id == INT_MAX)
+            continue;
+        info->ids[idx] = INT_MAX;
+        int x = info->r.x + i;
+        int z = info->r.z + j;
+        if (info->g->mc >= MC_1_18)
+            id = getBiomeAt(info->g, 4, x, info->r.y, z);
+        if (id == info->match)
+        {
+            sumx += x;
+            sumz += z;
+            n++;
+            d = 0;
+        }
+        else
+        {
+            if (++d >= info->tol)
+                continue;
+        }
+        entry_t next[] = { {i,j-1,d}, {i,j+1,d}, {i-1,j,d}, {i+1,j,d} };
+        for (k = 0; k < 4; k++)
+            queue[qn++] = next[k];
     }
-    else
+    free(queue);
+    if (n)
     {
-        if (++d >= info->dmax)
-            return;
+        p->x = (int) round(2.0 + 4.0*sumx / n);
+        p->z = (int) round(2.0 + 4.0*sumz / n);
     }
-    floodFillGen(info, i, j-1, d);
-    floodFillGen(info, i, j+1, d);
-    floodFillGen(info, i-1, j, d);
-    floodFillGen(info, i+1, j, d);
+    return n;
 }
+
 
 int getBiomeCenters(Pos *pos, int *siz, int nmax, Generator *g, Range r,
     int match, int minsiz, int tol, volatile char *stop)
@@ -3760,7 +3778,7 @@ int getBiomeCenters(Pos *pos, int *siz, int nmax, Generator *g, Range r,
     info.r = r;
     info.stop = stop;
     info.match = match;
-    info.dmax = tol;
+    info.tol = tol;
 
     if (g->mc >= MC_1_18)
     {
@@ -3855,13 +3873,12 @@ int getBiomeCenters(Pos *pos, int *siz, int nmax, Generator *g, Range r,
                 break;
             if (ids[j*r.sx + i] != match)
                 continue;
-            info.sumx = info.sumz = info.n = 0;
-            floodFillGen(&info, i, j, 0);
-            if (info.n >= minsiz)
+            Pos center;
+            int area = floodFillGen(&info, i, j, &center);
+            if (area >= minsiz)
             {
-                pos[n].x = (int) round(2.0 + 4.0*info.sumx / info.n);
-                pos[n].z = (int) round(2.0 + 4.0*info.sumz / info.n);
-                if (siz) siz[n] = info.n;
+                pos[n] = center;
+                if (siz) siz[n] = area;
                 if (++n >= nmax)
                     goto L_end;
             }

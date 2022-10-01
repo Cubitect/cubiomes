@@ -549,7 +549,7 @@ int checkForTemps(LayerStack *g, uint64_t seed, int x, int z, int w, int h, cons
  * @r       : area to examine, requires: scale = 4, sy = 1
  * @match   : biome id to find
  * @minsiz  : minimum size of output biomes
- * @tol     : border tollerance
+ * @tol     : border tolerance
  * @stop    : stopping flag (nullable)
  * Returns the number of entries written to pos and siz.
  */
