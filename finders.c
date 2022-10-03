@@ -3706,9 +3706,10 @@ int floodFillGen(struct locate_info_t *info, int i, int j, Pos *p)
 {
     typedef struct { int i, j, d; } entry_t;
     entry_t *queue = (entry_t*) malloc(info->r.sx*info->r.sz * sizeof(*queue));
-    int qn = 1, d = 0;
+    int qn = 1;
     queue->i = i;
     queue->j = j;
+    queue->d = 0;
     int64_t sumx = 0;
     int64_t sumz = 0;
     int n = 0;
@@ -3716,16 +3717,14 @@ int floodFillGen(struct locate_info_t *info, int i, int j, Pos *p)
     {
         if (info->stop && *info->stop)
             return 0;
+        int d = queue[qn].d;
         i = queue[qn].i;
         j = queue[qn].j;
-        d = queue[qn].d;
-        int k, idx = j * info->r.sx + i;
-        int id = info->ids[idx];
-        if (id == INT_MAX)
-            continue;
-        info->ids[idx] = INT_MAX;
+        int k = j * info->r.sx + i;
         int x = info->r.x + i;
         int z = info->r.z + j;
+        int id = info->ids[k];
+        info->ids[k] = INT_MAX;
         if (info->g->mc >= MC_1_18)
             id = getBiomeAt(info->g, 4, x, info->r.y, z);
         if (id == info->match)
@@ -3743,11 +3742,12 @@ int floodFillGen(struct locate_info_t *info, int i, int j, Pos *p)
         entry_t next[] = { {i,j-1,d}, {i,j+1,d}, {i-1,j,d}, {i+1,j,d} };
         for (k = 0; k < 4; k++)
         {
-            if (next[k].i >= 0 && next[k].i < info->r.sx &&
-                next[k].j >= 0 && next[k].j < info->r.sz)
-            {
-                queue[qn++] = next[k];
-            }
+            i = next[k].i; j = next[k].j;
+            if (i < 0 || i >= info->r.sx || j < 0 || j >= info->r.sz)
+                continue;
+            if (info->ids[j * info->r.sx + i] == INT_MAX)
+                continue;
+            queue[qn++] = next[k];
         }
     }
     free(queue);
@@ -3869,6 +3869,7 @@ int getBiomeCenters(Pos *pos, int *siz, int nmax, Generator *g, Range r,
         free(cache);
     }
 
+    applySeed(g, DIM_OVERWORLD, g->seed);
     for (j = 0; j < r.sz; j += step)
     {
         for (i = 0; i < r.sx; i += step)
