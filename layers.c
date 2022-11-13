@@ -32,6 +32,7 @@ int biomeExists(int mc, int id)
         case swamp:
         case river:
         case nether_wastes:
+        case the_end:
         case frozen_ocean:
         case frozen_river:
         case snowy_tundra:              // snowy_plains

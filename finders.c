@@ -1208,8 +1208,8 @@ int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t
         {
             StructureVariant sv;
             getVariant(&sv, Bastion, g->mc, g->seed, x, z, -1);
-            sampleX = ((chunkX << 5) + 2*sv.x + sv.sx) / 2 >> 2;
-            sampleZ = ((chunkZ << 5) + 2*sv.z + sv.sz) / 2 >> 2;
+            sampleX = ((chunkX << 5) + 2*sv.x + sv.sx-1) / 2 >> 2;
+            sampleZ = ((chunkZ << 5) + 2*sv.z + sv.sz-1) / 2 >> 2;
             if (g->mc >= MC_1_19)
                 sampleY = 33 >> 2; // nether biomes don't actually vary in Y
         }
@@ -1333,8 +1333,8 @@ L_feature:
                     continue;
                 StructureVariant sv;
                 getVariant(&sv, Village, g->mc, g->seed, x, z, vv[i]);
-                sampleX = ((chunkX << 5) + 2*sv.x + sv.sx) / 2 >> 2;
-                sampleZ = ((chunkZ << 5) + 2*sv.z + sv.sz) / 2 >> 2;
+                sampleX = ((chunkX << 5) + 2*sv.x + sv.sx-1) / 2 >> 2;
+                sampleZ = ((chunkZ << 5) + 2*sv.z + sv.sz-1) / 2 >> 2;
                 sampleY = 319 >> 2;
                 id = getBiomeAt(g, 0, sampleX, sampleY, sampleZ);
                 if (id == vv[i] || (id == meadow && vv[i] == plains)) {
@@ -3726,7 +3726,7 @@ int floodFillGen(struct locate_info_t *info, int i, int j, Pos *p)
         int id = info->ids[k];
         info->ids[k] = INT_MAX;
         if (info->g->mc >= MC_1_18)
-            id = getBiomeAt(info->g, 4, x, info->r.y, z);
+            id = getBiomeAt(info->g, info->r.scale, x, info->r.y, z);
         if (id == info->match)
         {
             sumx += x;
@@ -3753,8 +3753,8 @@ int floodFillGen(struct locate_info_t *info, int i, int j, Pos *p)
     free(queue);
     if (n)
     {
-        p->x = (int) round(2.0 + 4.0*sumx / n);
-        p->z = (int) round(2.0 + 4.0*sumz / n);
+        p->x = (int) round((sumx / (double)n + 0.5) * info->r.scale);
+        p->z = (int) round((sumz / (double)n + 0.5) * info->r.scale);
     }
     return n;
 }
@@ -3763,11 +3763,6 @@ int floodFillGen(struct locate_info_t *info, int i, int j, Pos *p)
 int getBiomeCenters(Pos *pos, int *siz, int nmax, Generator *g, Range r,
     int match, int minsiz, int tol, volatile char *stop)
 {
-    if (r.scale != 4)
-    {
-        printf("getBiomeCenters() unsupported scale\n");
-        return 0;
-    }
     if (minsiz <= 0)
         minsiz = 1;
     int i, j, k, n = 0;
@@ -3811,7 +3806,9 @@ int getBiomeCenters(Pos *pos, int *siz, int nmax, Generator *g, Range r,
                     if (plim[0] == INT_MIN && plim[1] == INT_MAX)
                         continue;
                     DoublePerlinNoise *dpn = &g->bn.climate[para[k]];
-                    int p = 10000 * sampleDoublePerlin(dpn, r.x+i, 0, r.z+j);
+                    double px = (r.x+i) * r.scale / 4.0;
+                    double pz = (r.z+j) * r.scale / 4.0;
+                    int p = 10000 * sampleDoublePerlin(dpn, px, 0, pz);
                     if (p < plim[0] || p > plim[1])
                     {
                         ids[j*r.sx + i] = -2;
@@ -3824,7 +3821,10 @@ int getBiomeCenters(Pos *pos, int *siz, int nmax, Generator *g, Range r,
     }
     else // 1.17-
     {
-        int ts = 64;
+        int ts = 32 / r.scale;
+        if (r.sx + r.sz < 32)
+            ts = 8;
+
         int tx = (int) floor(r.x / (double)ts);
         int tz = (int) floor(r.z / (double)ts);
         int tw = (int) ceil((r.x+r.sx) / (double)ts) - tx;
@@ -3835,7 +3835,7 @@ int getBiomeCenters(Pos *pos, int *siz, int nmax, Generator *g, Range r,
         setupBiomeFilter(&bf, g->mc, 0, &match, 1, 0, 0, 0, 0);
         //applySeed(g, 0, g->seed);
 
-        Range tr = { 4, 0, 0, ts, ts, 0, 1 };
+        Range tr = { r.scale, 0, 0, ts, ts, 0, 1 };
         int *cache = allocCache(g, r);
 
         for (tj = 0; tj < th; tj++)
