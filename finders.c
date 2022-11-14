@@ -1376,7 +1376,6 @@ L_feature:
                         goto L_not_viable;
                     if (isViableStructurePos(Village, g, p.x, p.z, 0))
                         goto L_not_viable;
-                    goto L_viable;
                 }
             }
         }
