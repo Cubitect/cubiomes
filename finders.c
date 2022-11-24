@@ -854,29 +854,12 @@ Pos getSpawn(const Generator *g)
 
     if (g->mc >= MC_1_13)
     {
-        int j, k, u, v;
-        j = k = u = v = 0;
-        for (i = 0; i < 1024; i++)
-        {
-            if (j > -16 && j <= 16 && k > -16 && k <= 16)
-            {
-                if (findServerSpawn(g, (spawn.x>>4)+j, (spawn.z>>4)+k,
+        if (findServerSpawn(g, spawn.x>>4, spawn.z>>4,
                     &bx, &bz, &bn, &accum))
-                {
-                    spawn.x = (int) round(bx / bn);
-                    spawn.z = (int) round(bz / bn);
-                    return spawn;
-                }
-            }
-
-            if (j == k || (j < 0 && j == -k) || (j > 0 && j == 1 - k))
-            {
-                int tmp = u;
-                u = -v;
-                v = tmp;
-            }
-            j += u;
-            k += v;
+        {
+           spawn.x = bx;
+           spawn.z = bz;
+           return spawn;
         }
     }
     else
