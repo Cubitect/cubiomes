@@ -121,6 +121,13 @@ Layer *setupLayer(Layer *l, mapfunc_t *map, int mc,
  */
 int genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, int areaHeight);
 
+/**
+ * Map an approximation of the Overworld surface height. (1.16+)
+ * The horizontal scaling is 1:4. If non-null, the ids are filled with the
+ * biomes of the area.
+ */
+int mapApproxHeight(int *y, int *ids, const Generator *g, const SurfaceNoise *sn,
+    int x, int z, int w, int h);
 
 
 #ifdef __cplusplus

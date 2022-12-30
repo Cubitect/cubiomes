@@ -624,87 +624,26 @@ int nextStronghold(StrongholdIter *sh, const Generator *g)
 }
 
 
-static double getGrassProbability(uint64_t seed, int biome, int x, int z)
+static int findServerSpawn(Pos *sp, const Generator *g, const SurfaceNoise *sn,
+    int chunkX, int chunkZ)
 {
-    (void) seed, (void) biome, (void) x, (void) z;
-    // TODO: Use ChunkGeneratorOverworld.generateHeightmap for better estimate.
-    // TODO: Try to determine the actual probabilities and build a statistic.
-    switch (biome)
-    {
-    case plains:                        return 1.0;
-    case mountains:                     return 0.8; // height dependent
-    case forest:                        return 1.0;
-    case taiga:                         return 1.0;
-    case swamp:                         return 0.3; // height dependent
-    case river:                         return 0.15;
-    case beach:                         return 0.0;
-    case snowy_tundra:                  return 0.02;
-    case snowy_mountains:               return 0.02;
-    case wooded_hills:                  return 1.0;
-    case taiga_hills:                   return 1.0;
-    case mountain_edge:                 return 1.0; // height dependent
-    case jungle:                        return 1.0;
-    case jungle_hills:                  return 1.0;
-    case jungle_edge:                   return 1.0;
-    case birch_forest:                  return 1.0;
-    case birch_forest_hills:            return 1.0;
-    case dark_forest:                   return 0.9;
-    case snowy_taiga:                   return 0.1; // below trees
-    case snowy_taiga_hills:             return 0.1; // below trees
-    case giant_tree_taiga:              return 0.6;
-    case giant_tree_taiga_hills:        return 0.6;
-    case wooded_mountains:              return 0.2; // height dependent
-    case savanna:                       return 1.0;
-    case savanna_plateau:               return 0.9;
-    case wooded_badlands_plateau:       return 0.0; // height dependent
-    case badlands_plateau:              return 0.0; // height dependent
-
-    case sunflower_plains:              return 1.0;
-    case gravelly_mountains:            return 0.2;
-    case flower_forest:                 return 1.0;
-    case taiga_mountains:               return 1.0;
-    case swamp_hills:                   return 0.9;
-    case modified_jungle:               return 1.0;
-    case modified_jungle_edge:          return 1.0;
-    case tall_birch_forest:             return 1.0;
-    case tall_birch_hills:              return 1.0;
-    case dark_forest_hills:             return 0.9;
-    case snowy_taiga_mountains:         return 0.1;
-    case giant_spruce_taiga:            return 0.6;
-    case giant_spruce_taiga_hills:      return 0.6;
-    case modified_gravelly_mountains:   return 0.2;
-    case shattered_savanna:             return 1.0;
-    case shattered_savanna_plateau:     return 1.0;
-    case bamboo_jungle:                 return 0.4;
-    case bamboo_jungle_hills:           return 0.4;
-    // NOTE: in rare circumstances you can get also get grassy islands that are
-    // completely in ocean variants...
-    default: return 0;
-    }
-}
-
-
-static int findServerSpawn(const Generator *g, int chunkX, int chunkZ,
-    double *bx, double *bz, double *bn, double *accum)
-{
-    int x, z;
+    int i, j;
 
     if (g->mc >= MC_1_18)
     {
         // It seems the search for spawn in 1.18 looks for a block with a
         // solid top and a height above sea level. We can approximate this by
         // looking for a non-ocean biome at y=63 ~> y=16 at scale 1:4.
-        for (x = 0; x < 4; x++)
+        for (i = 0; i < 4; i++)
         {
-            for (z = 0; z < 4; z++)
+            for (j = 0; j < 4; j++)
             {
-                int x4 = (chunkX << 2) + x, z4 = (chunkZ << 2) + z;
+                int x4 = (chunkX << 2) + i, z4 = (chunkZ << 2) + j;
                 int id = getBiomeAt(g, 4, x4, 16, z4);
                 if (isOceanic(id) || id == river)
                     continue;
-                *bx = x4 << 2;
-                *bz = z4 << 2;
-                *bn = 1;
+                sp->x = x4 << 2;
+                sp->z = z4 << 2;
                 return 1;
             }
         }
@@ -712,33 +651,22 @@ static int findServerSpawn(const Generator *g, int chunkX, int chunkZ,
     }
     else
     {
-        Range r = {1, chunkX << 4, chunkZ << 4, 16, 16, 0, 1};
-        int *area = allocCache(g, r);
-        genBiomes(g, area, r);
+        int y[16], ids[16];
+        mapApproxHeight(y, ids, g, sn, chunkX << 2, chunkZ << 2, 4, 4);
 
-        for (x = 0; x < 16; x++)
+        for (i = 0; i < 4; i++)
         {
-            for (z = 0; z < 16; z++)
+            for (j = 0; j < 4; j++)
             {
-                Pos pos = {r.x+x, r.z+z};
-                int id = area[z*16 + x];
-                double gp = getGrassProbability(g->mc, id, pos.x, pos.z);
-                if (gp == 0)
+                int grass = 0;
+                getBiomeDepthAndScale(ids[j*4+i], 0, 0, &grass);
+                if (grass <= 0 || y[j*4+i] < grass)
                     continue;
-
-                *bx += *accum * gp * pos.x;
-                *bz += *accum * gp * pos.z;
-                *bn += *accum * gp;
-
-                *accum *= 1 - gp;
-                if (*accum < 0.001)
-                {
-                    free(area);
-                    return 1;
-                }
+                sp->x = (chunkX << 4) + (i << 2);
+                sp->z = (chunkZ << 4) + (j << 2);
+                return 1;
             }
         }
-        free(area);
         return 0;
     }
 }
@@ -844,29 +772,23 @@ Pos getSpawn(const Generator *g)
     else
     {
         spawn = findFittestPos(g);
+        return spawn;
     }
 
-    double accum = 1;
-    double bx = 0;
-    double bz = 0;
-    double bn = 0;
-    double gp;
+    SurfaceNoise sn;
+    initSurfaceNoise(&sn, DIM_OVERWORLD, g->seed);
 
     if (g->mc >= MC_1_13)
     {
         int j, k, u, v;
-        j = k = u = v = 0;
+        j = k = u = 0;
+        v = -1;
         for (i = 0; i < 1024; i++)
         {
             if (j > -16 && j <= 16 && k > -16 && k <= 16)
             {
-                if (findServerSpawn(g, (spawn.x>>4)+j, (spawn.z>>4)+k,
-                    &bx, &bz, &bn, &accum))
-                {
-                    spawn.x = (int) round(bx / bn);
-                    spawn.z = (int) round(bz / bn);
+                if (findServerSpawn(&spawn, g, &sn, (spawn.x>>4)+j, (spawn.z>>4)+k))
                     return spawn;
-                }
             }
 
             if (j == k || (j < 0 && j == -k) || (j > 0 && j == 1 - k))
@@ -883,21 +805,11 @@ Pos getSpawn(const Generator *g)
     {
         for (i = 0; i < 1000; i++)
         {
-            int biome = getBiomeAt(g, 1, spawn.x, 0, spawn.z);
-            gp = getGrassProbability(g->seed, biome, spawn.x, spawn.z);
-
-            bx += accum * gp * spawn.x;
-            bz += accum * gp * spawn.z;
-            bn += accum * gp;
-
-            accum *= 1 - gp;
-            if (accum < 0.001)
-            {
-                spawn.x = (int) round(bx / bn);
-                spawn.z = (int) round(bz / bn);
+            int y, id, grass = 0;
+            mapApproxHeight(&y, &id, g, &sn, spawn.x >> 2, spawn.z >> 2, 1, 1);
+            getBiomeDepthAndScale(id, 0, 0, &grass);
+            if (grass > 0 && y >= grass)
                 break;
-            }
-
             spawn.x += nextInt(&rnd, 64) - nextInt(&rnd, 64);
             spawn.z += nextInt(&rnd, 64) - nextInt(&rnd, 64);
         }

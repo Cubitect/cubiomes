@@ -253,12 +253,17 @@ int xOctaveInit(OctaveNoise *noise, Xoroshiro *xr, PerlinNoise *octaves,
         {0xdffa22b534c5f608, 0xb9b67517d3665ca9}, // md5 "octave_-1"
         {0xd50708086cef4d7c, 0x6e1651ecc7f43309}, // md5 "octave_0"
     };
-
-    int i = 0, n = 0;
-    double lacuna = pow(2.0, omin);
-    double persist = pow(2.0, len-1) / ((1LL << len) - 1.0);
+    const double lacuna_ini[] = { // -omin = 3..10
+        1, .5, .25, 1./8, 1./16, 1./32, 1./64, 1./128, 1./256, 1./512, 1./1024,
+    };
+    const double persist_ini[] = { // len = 4..9
+        0, 1, 2./3, 4./7, 8./15, 16./31, 32./63, 64./127, 128./255, 256./511,
+    };
+    double lacuna = lacuna_ini[-omin];
+    double persist = persist_ini[len];
     uint64_t xlo = xNextLong(xr);
     uint64_t xhi = xNextLong(xr);
+    int i = 0, n = 0;
 
     for (; i < len; i++, lacuna *= 2.0, persist *= 0.5)
     {
@@ -278,6 +283,24 @@ int xOctaveInit(OctaveNoise *noise, Xoroshiro *xr, PerlinNoise *octaves,
     return n;
 }
 
+
+double sampleOctaveAmp(const OctaveNoise *noise, double x, double y, double z,
+    double yamp, double ymin, int ydefault)
+{
+    double v = 0;
+    int i;
+    for (i = 0; i < noise->octcnt; i++)
+    {
+        PerlinNoise *p = noise->octaves + i;
+        double lf = p->lacunarity;
+        double ax = maintainPrecision(x * lf);
+        double ay = ydefault ? -p->b : maintainPrecision(y * lf);
+        double az = maintainPrecision(z * lf);
+        double pv = samplePerlin(p, ax, ay, az, yamp * lf, ymin * lf);
+        v += p->amplitude * pv;
+    }
+    return v;
+}
 
 double sampleOctave(const OctaveNoise *noise, double x, double y, double z)
 {

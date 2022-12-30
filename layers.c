@@ -465,31 +465,38 @@ void setLayerSeed(Layer *layer, uint64_t worldSeed)
 //==============================================================================
 
 
-void initSurfaceNoise(SurfaceNoise *rnd, uint64_t *seed,
-        double xzScale, double yScale, double xzFactor, double yFactor)
-{
-    rnd->xzScale = xzScale;
-    rnd->yScale = yScale;
-    rnd->xzFactor = xzFactor;
-    rnd->yFactor = yFactor;
-    octaveInit(&rnd->octmin, seed, rnd->oct+0, -15, 16);
-    octaveInit(&rnd->octmax, seed, rnd->oct+16, -15, 16);
-    octaveInit(&rnd->octmain, seed, rnd->oct+32, -7, 8);
-}
-
-void initSurfaceNoiseEnd(SurfaceNoise *rnd, uint64_t seed)
+void initSurfaceNoise(SurfaceNoise *sn, int dim, uint64_t seed)
 {
     uint64_t s;
     setSeed(&s, seed);
-    initSurfaceNoise(rnd, &s, 2.0, 1.0, 80.0, 160.0);
+    octaveInit(&sn->octmin, &s, sn->oct+0, -15, 16);
+    octaveInit(&sn->octmax, &s, sn->oct+16, -15, 16);
+    octaveInit(&sn->octmain, &s, sn->oct+32, -7, 8);
+    if (dim == DIM_END)
+    {
+        sn->xzScale = 2.0;
+        sn->yScale = 1.0;
+        sn->xzFactor = 80;
+        sn->yFactor = 160;
+    }
+    else // DIM_OVERWORLD
+    {
+        octaveInit(&sn->octsurf, &s, sn->oct+40, -3, 4);
+        skipNextN(&s, 262*10);
+        octaveInit(&sn->octdepth, &s, sn->oct+44, -15, 16);
+        sn->xzScale = 0.9999999814507745;
+        sn->yScale = 0.9999999814507745;
+        sn->xzFactor = 80;
+        sn->yFactor = 160;
+    }
 }
 
-double sampleSurfaceNoise(const SurfaceNoise *rnd, int x, int y, int z)
+double sampleSurfaceNoise(const SurfaceNoise *sn, int x, int y, int z)
 {
-    double xzScale = 684.412 * rnd->xzScale;
-    double yScale = 684.412 * rnd->yScale;
-    double xzStep = xzScale / rnd->xzFactor;
-    double yStep = yScale / rnd->yFactor;
+    double xzScale = 684.412 * sn->xzScale;
+    double yScale = 684.412 * sn->yScale;
+    double xzStep = xzScale / sn->xzFactor;
+    double yStep = yScale / sn->yFactor;
 
     double minNoise = 0;
     double maxNoise = 0;
@@ -506,8 +513,8 @@ double sampleSurfaceNoise(const SurfaceNoise *rnd, int x, int y, int z)
         sy = yScale * persist;
         ty = y * sy;
 
-        minNoise += samplePerlin(&rnd->octmin.octaves[i], dx, dy, dz, sy, ty) / persist;
-        maxNoise += samplePerlin(&rnd->octmax.octaves[i], dx, dy, dz, sy, ty) / persist;
+        minNoise += samplePerlin(&sn->octmin.octaves[i], dx, dy, dz, sy, ty) / persist;
+        maxNoise += samplePerlin(&sn->octmax.octaves[i], dx, dy, dz, sy, ty) / persist;
 
         if (i < 8)
         {
@@ -516,7 +523,7 @@ double sampleSurfaceNoise(const SurfaceNoise *rnd, int x, int y, int z)
             dz = maintainPrecision(z * xzStep * persist);
             sy = yStep * persist;
             ty = y * sy;
-            mainNoise += samplePerlin(&rnd->octmain.octaves[i], dx, dy, dz, sy, ty) / persist;
+            mainNoise += samplePerlin(&sn->octmain.octaves[i], dx, dy, dz, sy, ty) / persist;
         }
         persist /= 2.0;
     }
@@ -970,7 +977,6 @@ int getSurfaceHeight(
                 return celly * blockspercell + y;
         }
     }
-
     return 0;
 }
 
@@ -980,7 +986,7 @@ int getSurfaceHeightEnd(int mc, uint64_t seed, int x, int z)
     setEndSeed(&en, mc, seed);
 
     SurfaceNoise sn;
-    initSurfaceNoiseEnd(&sn, seed);
+    initSurfaceNoise(&sn, DIM_END, seed);
 
     // end noise columns vary on a grid of cell size = eight
     int cellx = (x >> 3);
@@ -1600,6 +1606,89 @@ int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int mc, uint64_
         genBiomeNoise3D(bn, out, r, r.scale > 4);
     }
     return 0;
+}
+
+
+int getBiomeDepthAndScale(int id, double *depth, double *scale, int *grass)
+{
+    const int dh = 62; // default height
+    double s = 0, d = 0, g = 0;
+    switch (id) {
+    case ocean:                         s = 0.100; d = -1.000; g = dh; break;
+    case plains:                        s = 0.050; d =  0.125; g = dh; break;
+    case desert:                        s = 0.050; d =  0.125; g =  0; break;
+    case mountains:                     s = 0.500; d =  1.000; g = dh; break;
+    case forest:                        s = 0.200; d =  0.100; g = dh; break;
+    case taiga:                         s = 0.200; d =  0.200; g = dh; break;
+    case swamp:                         s = 0.100; d = -0.200; g = dh; break;
+    case river:                         s = 0.000; d = -0.500; g = 60; break;
+    case frozen_ocean:                  s = 0.100; d = -1.000; g = dh; break;
+    case frozen_river:                  s = 0.000; d = -0.500; g = 60; break;
+    case snowy_tundra:                  s = 0.050; d =  0.125; g = dh; break;
+    case snowy_mountains:               s = 0.300; d =  0.450; g = dh; break;
+    case mushroom_fields:               s = 0.300; d =  0.200; g =  0; break;
+    case mushroom_field_shore:          s = 0.025; d =  0.000; g =  0; break;
+    case beach:                         s = 0.025; d =  0.000; g = 64; break;
+    case desert_hills:                  s = 0.300; d =  0.450; g =  0; break;
+    case wooded_hills:                  s = 0.300; d =  0.450; g = dh; break;
+    case taiga_hills:                   s = 0.300; d =  0.450; g = dh; break;
+    case mountain_edge:                 s = 0.300; d =  0.800; g = dh; break;
+    case jungle:                        s = 0.200; d =  0.100; g = dh; break;
+    case jungle_hills:                  s = 0.300; d =  0.450; g = dh; break;
+    case jungle_edge:                   s = 0.200; d =  0.100; g = dh; break;
+    case deep_ocean:                    s = 0.100; d = -1.800; g = dh; break;
+    case stone_shore:                   s = 0.800; d =  0.100; g = 64; break;
+    case snowy_beach:                   s = 0.025; d =  0.000; g = 64; break;
+    case birch_forest:                  s = 0.200; d =  0.100; g = dh; break;
+    case birch_forest_hills:            s = 0.300; d =  0.450; g = dh; break;
+    case dark_forest:                   s = 0.200; d =  0.100; g = dh; break;
+    case snowy_taiga:                   s = 0.200; d =  0.200; g = dh; break;
+    case snowy_taiga_hills:             s = 0.300; d =  0.450; g = dh; break;
+    case giant_tree_taiga:              s = 0.200; d =  0.200; g = dh; break;
+    case giant_tree_taiga_hills:        s = 0.300; d =  0.450; g = dh; break;
+    case wooded_mountains:              s = 0.500; d =  1.000; g = dh; break;
+    case savanna:                       s = 0.050; d =  0.125; g = dh; break;
+    case savanna_plateau:               s = 0.025; d =  1.500; g = dh; break;
+    case badlands:                      s = 0.200; d =  0.100; g =  0; break;
+    case wooded_badlands_plateau:       s = 0.025; d =  1.500; g =  0; break;
+    case badlands_plateau:              s = 0.025; d =  1.500; g =  0; break;
+    case warm_ocean:                    s = 0.100; d = -1.000; g =  0; break;
+    case lukewarm_ocean:                s = 0.100; d = -1.000; g = dh; break;
+    case cold_ocean:                    s = 0.100; d = -1.000; g = dh; break;
+    case deep_warm_ocean:               s = 0.100; d = -1.800; g =  0; break;
+    case deep_lukewarm_ocean:           s = 0.100; d = -1.800; g = dh; break;
+    case deep_cold_ocean:               s = 0.100; d = -1.800; g = dh; break;
+    case deep_frozen_ocean:             s = 0.100; d = -1.800; g = dh; break;
+    case sunflower_plains:              s = 0.050; d =  0.125; g = dh; break;
+    case desert_lakes:                  s = 0.250; d =  0.225; g =  0; break;
+    case gravelly_mountains:            s = 0.500; d =  1.000; g = dh; break;
+    case flower_forest:                 s = 0.400; d =  0.100; g = dh; break;
+    case taiga_mountains:               s = 0.400; d =  0.300; g = dh; break;
+    case swamp_hills:                   s = 0.300; d = -0.100; g = dh; break;
+    case ice_spikes:                    s = 0.450; d =  0.425; g =  0; break;
+    case modified_jungle:               s = 0.400; d =  0.200; g = dh; break;
+    case modified_jungle_edge:          s = 0.400; d =  0.200; g = dh; break;
+    case tall_birch_forest:             s = 0.400; d =  0.200; g = dh; break;
+    case tall_birch_hills:              s = 0.500; d =  0.550; g = dh; break;
+    case dark_forest_hills:             s = 0.400; d =  0.200; g = dh; break;
+    case snowy_taiga_mountains:         s = 0.400; d =  0.300; g = dh; break;
+    case giant_spruce_taiga:            s = 0.200; d =  0.200; g = dh; break;
+    case giant_spruce_taiga_hills:      s = 0.200; d =  0.200; g = dh; break;
+    case modified_gravelly_mountains:   s = 0.500; d =  1.000; g = dh; break;
+    case shattered_savanna:             s = 1.225; d = 0.3625; g = dh; break;
+    case shattered_savanna_plateau:     s = 1.212; d =  1.050; g = dh; break;
+    case eroded_badlands:               s = 0.200; d =  0.100; g =  0; break;
+    case modified_wooded_badlands_plateau: s = 0.300; d = 0.450; g = 0; break;
+    case modified_badlands_plateau:     s = 0.300; d =  0.450; g =  0; break;
+    case bamboo_jungle:                 s = 0.200; d =  0.100; g = dh; break;
+    case bamboo_jungle_hills:           s = 0.300; d =  0.450; g = dh; break;
+    default:
+        return 0;
+    }
+    if (scale) *scale = s;
+    if (depth) *depth = d;
+    if (grass) *grass = g;
+    return 1;
 }
 
 

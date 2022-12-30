@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 
 int mapOceanMixMod(const Layer * l, int * out, int x, int z, int w, int h)
@@ -534,6 +535,123 @@ int genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, i
     memset(out, 0, areaWidth*areaHeight*sizeof(*out));
     return layer->getMap(layer, out, areaX, areaZ, areaWidth, areaHeight);
 }
+
+
+int mapApproxHeight(int *y, int *ids, const Generator *g, const SurfaceNoise *sn,
+    int x, int z, int w, int h)
+{
+    if (g->dim != DIM_OVERWORLD)
+        return 1;
+
+    const float biome_kernel[25] = { // with 10 / (sqrt(i**2 + j**2) + 0.2)
+        3.302044127, 4.104975761, 4.545454545, 4.104975761, 3.302044127,
+        4.104975761, 6.194967155, 8.333333333, 6.194967155, 4.104975761,
+        4.545454545, 8.333333333, 50.00000000, 8.333333333, 4.545454545,
+        4.104975761, 6.194967155, 8.333333333, 6.194967155, 4.104975761,
+        3.302044127, 4.104975761, 4.545454545, 4.104975761, 3.302044127,
+    };
+
+    double *depth = (double*) malloc(w * h * sizeof(double) * 2);
+    double *scale = depth + w * h;
+    int i, j, ii, jj;
+
+    Range r = {4, x-2, z-2, w+5, h+5, 0, 1};
+    int *cache = allocCache(g, r);
+    genBiomes(g, cache, r);
+
+    for (j = 0; j < h; j++)
+    {
+        for (i = 0; i < w; i++)
+        {
+            double d0, s0;
+            double wt = 0, ws = 0, wd = 0;
+            int id0 = cache[(j+2)*r.sx + (i+2)];
+            getBiomeDepthAndScale(id0, &d0, &s0, 0);
+
+            for (jj = 0; jj < 5; jj++)
+            {
+                for (ii = 0; ii < 5; ii++)
+                {
+                    double d, s;
+                    int id = cache[(j+jj)*r.sx + (i+ii)];
+                    getBiomeDepthAndScale(id, &d, &s, 0);
+                    float weight = biome_kernel[jj*5+ii] / (d + 2);
+                    if (d > d0)
+                        weight *= 0.5;
+                    ws += s * weight;
+                    wd += d * weight;
+                    wt += weight;
+                }
+            }
+            ws /= wt;
+            wd /= wt;
+            ws = ws * 0.9 + 0.1;
+            wd = (wd * 4.0 - 1) / 8;
+            ws = 96 / ws;
+            wd = wd * 17./64;
+            depth[j*w+i] = wd;
+            scale[j*w+i] = ws;
+            if (ids)
+                ids[j*w+i] = id0;
+        }
+    }
+    free(cache);
+
+    for (j = 0; j < h; j++)
+    {
+        for (i = 0; i < w; i++)
+        {
+            int px = x+i, pz = z+j;
+            double off = sampleOctaveAmp(&sn->octdepth, px*200, 10, pz*200, 1, 0, 1);
+            off *= 65535./8000;
+            if (off < 0) off = -0.3 * off;
+            off = off * 3 - 2;
+            if (off > 1) off = 1;
+            off *= 17./64;
+            if (off < 0) off *= 1./28;
+            else off *= 1./40;
+
+            double vmin = 0, vmax = 0;
+            int ytest = 8, ymin = 0, ymax = 32;
+            do
+            {
+                double v[2];
+                int k;
+                for (k = 0; k < 2; k++)
+                {
+                    int py = ytest + k;
+                    double n0 = sampleSurfaceNoise(sn, px, py, pz);
+                    double fall = 1 - 2 * py / 32.0 + off - 0.46875;
+                    fall = scale[j*w+i] * (fall + depth[j*w+i]);
+                    n0 += (fall > 0 ? 4*fall : fall);
+                    v[k] = n0;
+                    if (n0 >= 0 && py > ymin)
+                    {
+                        ymin = py;
+                        vmin = n0;
+                    }
+                    if (n0 < 0 && py < ymax)
+                    {
+                        ymax = py;
+                        vmax = n0;
+                    }
+                }
+                double dy = v[0] / (v[0] - v[1]);
+                dy = (dy <= 0 ? floor(dy) : ceil(dy)); // round away from zero
+                ytest += (int) dy;
+                if (ytest <= ymin) ytest = ymin+1;
+                if (ytest >= ymax) ytest = ymax-1;
+            }
+            while (ymax - ymin > 1);
+
+            double ysurf = 8 * (vmin / (double)(vmin - vmax) + ymin);
+            y[j*w+i] = (int) ysurf;
+        }
+    }
+    free(depth);
+    return 0;
+}
+
 
 
 

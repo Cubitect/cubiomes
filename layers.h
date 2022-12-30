@@ -323,7 +323,9 @@ STRUCT(SurfaceNoise)
     OctaveNoise octmin;
     OctaveNoise octmax;
     OctaveNoise octmain;
-    PerlinNoise oct[16+16+8];
+    OctaveNoise octsurf;
+    OctaveNoise octdepth;
+    PerlinNoise oct[16+16+8+4+16];
 };
 
 STRUCT(Spline)
@@ -389,10 +391,8 @@ void setLayerSeed(Layer *layer, uint64_t worldSeed);
 // Noise
 //==============================================================================
 
-void initSurfaceNoise(SurfaceNoise *rnd, uint64_t *seed,
-        double xzScale, double yScale, double xzFactor, double yFactor);
-void initSurfaceNoiseEnd(SurfaceNoise *rnd, uint64_t seed);
-double sampleSurfaceNoise(const SurfaceNoise *rnd, int x, int y, int z);
+void initSurfaceNoise(SurfaceNoise *sn, int dim, uint64_t seed);
+double sampleSurfaceNoise(const SurfaceNoise *sn, int x, int y, int z);
 
 
 //==============================================================================
@@ -510,6 +510,7 @@ int isShallowOcean(int id);
 int isDeepOcean(int id);
 int isOceanic(int id);
 int isSnowy(int id);
+int getBiomeDepthAndScale(int id, double *depth, double *scale, int *grass);
 
 
 //==============================================================================

@@ -47,6 +47,8 @@ int xOctaveInit(OctaveNoise *noise, Xoroshiro *xr, PerlinNoise *octaves,
         const double *amplitudes, int omin, int len);
 
 double sampleOctave(const OctaveNoise *noise, double x, double y, double z);
+double sampleOctaveAmp(const OctaveNoise *noise, double x, double y, double z,
+    double yamp, double ymin, int ydefault);
 
 /// Double Perlin
 void doublePerlinInit(DoublePerlinNoise *noise, uint64_t *seed,
