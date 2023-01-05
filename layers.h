@@ -468,12 +468,16 @@ void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int large);
 int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
     uint64_t *dat, uint32_t sample_flags);
 /**
+ * Noise point to overworld biome mapping. (defined in biome_tree.c)
+ */
+int p2overworld(int mc, const uint64_t np[6], uint64_t *dat);
+/**
  * Initialize BiomeNoise for only a single climate parameter.
  * If nptype == NP_DEPTH, the value is sampled at y=0. Note that this value
  * changes linearly with the height (i.e. -= y/128).
  */
 void setClimateParaSeed(BiomeNoise *bn, uint64_t seed, int large, int nptype);
-double sampleClimatePara(const BiomeNoise *bn, double x, double z);
+double sampleClimatePara(const BiomeNoise *bn, int64_t *np, double x, double z);
 
 /**
  * Currently, in 1.18, we have to generate biomes a chunk at a time to get an

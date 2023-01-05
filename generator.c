@@ -543,6 +543,26 @@ int mapApproxHeight(int *y, int *ids, const Generator *g, const SurfaceNoise *sn
     if (g->dim != DIM_OVERWORLD)
         return 1;
 
+    if (g->mc >= MC_1_18)
+    {
+        if (g->bn.nptype != -1 && g->bn.nptype != NP_DEPTH)
+            return 1;
+        int i, j;
+        for (j = 0; j < h; j++)
+        {
+            for (i = 0; i < w; i++)
+            {
+                int flags = SAMPLE_NO_SHIFT;
+                int64_t np[6];
+                int id = sampleBiomeNoise(&g->bn, np, x+i, 0, z+j, 0, flags);
+                if (ids)
+                    ids[j*w+i] = id;
+                y[j*w+i] = (np[NP_DEPTH] + 64) / 128 + 25;
+            }
+        }
+        return 0;
+    }
+
     const float biome_kernel[25] = { // with 10 / (sqrt(i**2 + j**2) + 0.2)
         3.302044127, 4.104975761, 4.545454545, 4.104975761, 3.302044127,
         4.104975761, 6.194967155, 8.333333333, 6.194967155, 4.104975761,

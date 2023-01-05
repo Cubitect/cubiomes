@@ -1397,10 +1397,6 @@ void initBiomeNoise(BiomeNoise *bn, int mc)
     bn->mc = mc;
 }
 
-#if __cplusplus
-extern "C"
-#endif
-int p2overworld(int mc, const uint64_t np[6], uint64_t *dat);
 
 /// Biome sampler for MC 1.18
 int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
@@ -1408,12 +1404,9 @@ int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
 {
     if (bn->nptype >= 0)
     {   // initialized for a specific climate parameter
-        int64_t id = (int64_t) (10000.0 * sampleClimatePara(bn, x, z));
         if (np)
-        {
             memset(np, 0, NP_MAX*sizeof(*np));
-            np[bn->nptype] = id;
-        }
+        int64_t id = (int64_t) (10000.0 * sampleClimatePara(bn, np, x, z));
         return (int) id;
     }
 
@@ -1481,7 +1474,7 @@ void setClimateParaSeed(BiomeNoise *bn, uint64_t seed, int large, int nptype)
     bn->nptype = nptype;
 }
 
-double sampleClimatePara(const BiomeNoise *bn, double x, double z)
+double sampleClimatePara(const BiomeNoise *bn, int64_t *np, double x, double z)
 {
     if (bn->nptype == NP_DEPTH)
     {
@@ -1495,9 +1488,20 @@ double sampleClimatePara(const BiomeNoise *bn, double x, double z)
         };
         double off = getSpline(bn->sp, np_param) + 0.015F;
         int y = 0;
-        return 1.0 - (y << 2) / 128.0 - 83.0/160.0 + off;
+        float d = 1.0 - (y << 2) / 128.0 - 83.0/160.0 + off;
+        if (np)
+        {
+            np[2] = (int64_t)(10000.0F*c);
+            np[3] = (int64_t)(10000.0F*e);
+            np[4] = (int64_t)(10000.0F*d);
+            np[5] = (int64_t)(10000.0F*w);
+        }
+        return d;
     }
-    return sampleDoublePerlin(bn->climate + bn->nptype, x, 0, z);
+    double p = sampleDoublePerlin(bn->climate + bn->nptype, x, 0, z);
+    if (np)
+        np[bn->nptype] = (int64_t)(10000.0F*p);
+    return p;
 }
 
 void genBiomeNoiseChunkSection(const BiomeNoise *bn, int out[4][4][4],

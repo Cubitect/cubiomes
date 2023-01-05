@@ -167,12 +167,12 @@ uint32_t testAreas(int mc, int dim, int scale)
 int testGeneration()
 {
     const int mc_vers[] = {
-        MC_1_18,
+        MC_1_19, MC_1_18,
         MC_1_16, MC_1_15, MC_1_13, MC_1_12, MC_1_9, MC_1_7,
         MC_1_6,  MC_1_2,  MC_1_1,  MC_1_0,
     };
     const uint32_t b6_hashes[] = {
-        0xade7f891,
+        0x391c36ec, /*0xea3e8c1c, 1.19.2 */ 0xade7f891,
         0xde9a6574, 0x3a568a6d, 0x96c97323, 0xbc75e996, 0xe27a45a2, 0xbc75e996,
         0x15b47206, 0x2d7e0fed, 0x5cbf4709, 0xbd794adb,
     };
@@ -194,13 +194,12 @@ int testGeneration()
     //    printf("Stronghold #: (%6d, %6d)\n", sh.pos.x, sh.pos.z);
 
     printf("Area generation tests:\n");
-    testAreas(MC_1_18, 0, 1);
+    testAreas(MC_1_19, 0, 4);
     testAreas(MC_1_18, 0, 4);
-    testAreas(MC_1_18, 0, 16);
-    testAreas(MC_1_18, 0, 64);
+    testAreas(MC_1_17, 0, 4);
 
     //const uint32_t b10_hashes[] = {
-    //    0x00000000,
+    //    0x00000000, 0x00000000,
     //    0xfdede71d, 0xca8005d7, 0x399f7cc8, 0xb3363967, 0x17e5592f, 0xb3363967,
     //    0xa52e377c, 0xdb1df71d, 0x58e86947, 0xe1e89cc3,
     //};
@@ -420,7 +419,7 @@ void findStructures(int structureType, int mc, int dim, uint64_t seed,
     // ignore this if you are not looking for end cities
     SurfaceNoise sn;
     if (structureType == End_City)
-        initSurfaceNoiseEnd(&sn, seed);
+        initSurfaceNoise(&sn, DIM_END, seed);
 
     StructureConfig sconf;
     if (!getStructureConfig(structureType, mc, &sconf))
@@ -463,17 +462,12 @@ void findStructures(int structureType, int mc, int dim, uint64_t seed,
 
 int main()
 {
-    int mc = MC_1_19;
-    uint64_t seed = 0;
-    Generator g;
-    setupGenerator(&g, mc, 0);
-    applySeed(&g, 0, seed);
-
     //testCanBiomesGenerate();
-    //testGeneration();
+    testGeneration();
     //findBiomeParaBounds();
     return 0;
 }
+
 
 
 

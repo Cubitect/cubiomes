@@ -1467,7 +1467,7 @@ int isViableStructureTerrain(int structType, Generator *g, int x, int z)
     g->bn.nptype = NP_DEPTH;
     for (i = 0; i < 4; i++)
     {
-        double depth = sampleClimatePara(&g->bn, corners[i][0], corners[i][1]);
+        double depth = sampleClimatePara(&g->bn, 0, corners[i][0], corners[i][1]);
         if (depth < 0.48)
         {
             ret = 0;
