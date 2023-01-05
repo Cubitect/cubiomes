@@ -590,8 +590,15 @@ int nextStronghold(StrongholdIter *sh, const Generator *g)
             validM |= (1ULL << i);
     }
 
+    uint64_t lbr = sh->rnds;
+    if (sh->mc >= MC_1_19)
+        setSeed(&lbr, nextLong(&sh->rnds));
+
     sh->pos = locateBiome(g, sh->nextapprox.x, 0, sh->nextapprox.z, 112,
-        validB, validM, &sh->rnds, NULL);
+        validB, validM, &lbr, NULL);
+
+    if (sh->mc < MC_1_19)
+        sh->rnds = lbr;
 
     sh->ringidx++;
     sh->angle += 2 * PI / sh->ringmax;
