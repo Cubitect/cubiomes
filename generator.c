@@ -557,7 +557,7 @@ int mapApproxHeight(int *y, int *ids, const Generator *g, const SurfaceNoise *sn
                 int id = sampleBiomeNoise(&g->bn, np, x+i, 0, z+j, 0, flags);
                 if (ids)
                     ids[j*w+i] = id;
-                y[j*w+i] = (np[NP_DEPTH] + 64) / 128 + 25;
+                y[j*w+i] = np[NP_DEPTH] / 76;
             }
         }
         return 0;
