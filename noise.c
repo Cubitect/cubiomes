@@ -253,12 +253,21 @@ int xOctaveInit(OctaveNoise *noise, Xoroshiro *xr, PerlinNoise *octaves,
         {0xdffa22b534c5f608, 0xb9b67517d3665ca9}, // md5 "octave_-1"
         {0xd50708086cef4d7c, 0x6e1651ecc7f43309}, // md5 "octave_0"
     };
-    const double lacuna_ini[] = { // -omin = 3..10
+    const double lacuna_ini[] = { // -omin = 3..12
         1, .5, .25, 1./8, 1./16, 1./32, 1./64, 1./128, 1./256, 1./512, 1./1024,
+        1./2048, 1./4096,
     };
     const double persist_ini[] = { // len = 4..9
         0, 1, 2./3, 4./7, 8./15, 16./31, 32./63, 64./127, 128./255, 256./511,
     };
+#if DEBUG
+    if (-omin < 0 || -omin >= (int) (sizeof(lacuna_ini)/sizeof(double)) ||
+        len < 0 || len >= (int) (sizeof(persist_ini)/sizeof(double)))
+    {
+        printf("Fatal: octave initialization out of range\n");
+        exit(1);
+    }
+#endif
     double lacuna = lacuna_ini[-omin];
     double persist = persist_ini[len];
     uint64_t xlo = xNextLong(xr);

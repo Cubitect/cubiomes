@@ -552,7 +552,7 @@ int mapApproxHeight(int *y, int *ids, const Generator *g, const SurfaceNoise *sn
         {
             for (i = 0; i < w; i++)
             {
-                int flags = 0;// SAMPLE_NO_SHIFT;
+                int flags = SAMPLE_NO_SHIFT;
                 int64_t np[6];
                 int id = sampleBiomeNoise(&g->bn, np, x+i, 0, z+j, 0, flags);
                 if (ids)
