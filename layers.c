@@ -2121,6 +2121,58 @@ int mapLand16(const Layer * l, int * out, int x, int z, int w, int h)
     return 0;
 }
 
+int mapLandB18(const Layer * l, int * out, int x, int z, int w, int h)
+{
+    int pX = x - 1;
+    int pZ = z - 1;
+    int pW = w + 2;
+    int pH = h + 2;
+    int i, j;
+
+    int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
+    if unlikely(err != 0)
+        return err;
+    
+    uint64_t ss = l->startSeed;
+    uint64_t cs;
+
+    for (j = 0; j < h; j++)
+    {
+        int *vz0 = out + (j+0)*pW;
+        int *vz1 = out + (j+1)*pW;
+        int *vz2 = out + (j+2)*pW;
+
+        int v00 = vz0[0], vt0 = vz0[1];
+        int v02 = vz2[0], vt2 = vz2[1];
+        int v20, v22;
+        int v11, v;
+
+        for (i = 0; i < w; i++)
+        {
+            v11 = vz1[i+1];
+            v20 = vz0[i+2];
+            v22 = vz2[i+2];
+            v = v11;
+
+            if (v11 == 0 && (v00 != 0 || v02 != 0 || v20 != 0 || v22 != 0))
+            {
+                cs = getChunkSeed(ss, i+x, j+z);
+		v = mcFirstInt(cs, 3) / 2;
+            }
+            else if (v11 == 1 && (v00 != 1 || v02 != 1 || v20 != 1 || v22 != 1))
+            {
+                cs = getChunkSeed(ss, i+x, j+z);
+                v = 1 - mcFirstInt(cs, 5) / 4;
+            }
+
+            out[i + j*w] = v;
+            v00 = vt0; vt0 = v20;
+            v02 = vt2; vt2 = v22;
+        }
+    }
+
+    return 0;
+}
 
 int mapIsland(const Layer * l, int * out, int x, int z, int w, int h)
 {

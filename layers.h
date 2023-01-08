@@ -529,6 +529,7 @@ mapfunc_t mapZoomFuzzy;
 mapfunc_t mapZoom;
 mapfunc_t mapLand;          // mapAddIsland
 mapfunc_t mapLand16;
+mapfunc_t mapLandB18;
 mapfunc_t mapIsland;        // mapRemoveTooMuchOcean
 mapfunc_t mapSnow;          // mapAddSnow
 mapfunc_t mapSnow16;
