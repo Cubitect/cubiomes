@@ -4409,8 +4409,8 @@ int getParaRange(const DoublePerlinNoise *para, double *pmin, double *pmax,
     int maxrad, maxiter;
     int err = 1;
 
-    *pmin = DBL_MAX;
-    *pmax = -DBL_MAX;
+    if (pmin) *pmin = DBL_MAX;
+    if (pmax) *pmax = -DBL_MAX;
 
     lmin = DBL_MAX, lmax = 0;
     for (i = 0; i < para->octA.octcnt; i++)
@@ -4436,8 +4436,8 @@ int getParaRange(const DoublePerlinNoise *para, double *pmin, double *pmax,
                     if (err)
                         return err;
                 }
-                if (v < *pmin) *pmin = v;
-                if (v > *pmax) *pmax = v;
+                if (pmin && v < *pmin) *pmin = v;
+                if (pmax && v > *pmax) *pmax = v;
             }
         }
         return 0;
@@ -4451,14 +4451,20 @@ int getParaRange(const DoublePerlinNoise *para, double *pmin, double *pmax,
     {
         for (i = 0; i < w; i += step)
         {
-            v = getParaDescent(para, +factor, x, z, w, h, i, j,
-                step, step, dr, data, func);
-            if (v != v) goto L_end;
-            if (v < *pmin) *pmin = v;
-            v = -getParaDescent(para, -factor, x, z, w, h, i, j,
-                step, step, dr, data, func);
-            if (v != v) goto L_end;
-            if (v > *pmax) *pmax = v;
+            if (pmin)
+            {
+                v = getParaDescent(para, +factor, x, z, w, h, i, j,
+                    step, step, dr, data, func);
+                if (v != v) goto L_end;
+                if (v < *pmin) *pmin = v;
+            }
+            if (pmax)
+            {
+                v = -getParaDescent(para, -factor, x, z, w, h, i, j,
+                    step, step, dr, data, func);
+                if (v != v) goto L_end;
+                if (v > *pmax) *pmax = v;
+            }
         }
     }
 
@@ -4498,93 +4504,97 @@ int getParaRange(const DoublePerlinNoise *para, double *pmin, double *pmax,
     skipsiz = (ww+1) * (hh+1) * sizeof(*skip);
     skip = (char*) malloc(skipsiz);
 
-    // look for minima
-    memset(skip, 0, skipsiz);
+    if (pmin)
+    {   // look for minima
+        memset(skip, 0, skipsiz);
 
-    for (jj = 0; jj <= hh; jj++)
-    {
-        j = jj * step; if (j >= h) j = h-1;
-        for (ii = 0; ii <= ww; ii++)
+        for (jj = 0; jj <= hh; jj++)
         {
-            i = ii * step; if (i >= w) i = w-1;
-            if (skip[jj*ww+ii]) continue;
-
-            v = factor * sampleDoublePerlin(para, x+i, 0, z+j);
-            if (func)
+            j = jj * step; if (j >= h) j = h-1;
+            for (ii = 0; ii <= ww; ii++)
             {
-                int e = func(data, x+i, z+j, v);
-                if (e)
-                {
-                    err = e;
-                    goto L_end;
-                }
-            }
-            // not looking for maxima yet, but we'll update the bounds anyway
-            if (v > *pmax) *pmax = v;
+                i = ii * step; if (i >= w) i = w-1;
+                if (skip[jj*ww+ii]) continue;
 
-            dr = beta * (v - *pmin) / vdif;
-            if (dr > 1.0)
-            {   // difference is too large -> mark visinity to be skipped
-                int a, b, r = (int) dr;
-                for (b = 0; b < r; b++)
+                v = factor * sampleDoublePerlin(para, x+i, 0, z+j);
+                if (func)
                 {
-                    if (b+jj < 0 || b+jj >= hh) continue;
-                    for (a = -r+1; a < r; a++)
+                    int e = func(data, x+i, z+j, v);
+                    if (e)
                     {
-                        if (a+ii < 0 || a+ii >= ww) continue;
-                        skip[(b+jj)*ww + (a+ii)] = 1;
+                        err = e;
+                        goto L_end;
                     }
                 }
-                continue;
+                // not looking for maxima yet, but update the bounds anyway
+                if (pmax && v > *pmax) *pmax = v;
+
+                dr = beta * (v - *pmin) / vdif;
+                if (dr > 1.0)
+                {   // difference is too large -> mark visinity to be skipped
+                    int a, b, r = (int) dr;
+                    for (b = 0; b < r; b++)
+                    {
+                        if (b+jj < 0 || b+jj >= hh) continue;
+                        for (a = -r+1; a < r; a++)
+                        {
+                            if (a+ii < 0 || a+ii >= ww) continue;
+                            skip[(b+jj)*ww + (a+ii)] = 1;
+                        }
+                    }
+                    continue;
+                }
+                v = getParaDescent(para, +factor, x, z, w, h, i, j,
+                    maxrad, maxiter, dr, data, func);
+                if (v != v) goto L_end;
+                if (v < *pmin) *pmin = v;
             }
-            v = getParaDescent(para, +factor, x, z, w, h, i, j,
-                maxrad, maxiter, dr, data, func);
-            if (v != v) goto L_end;
-            if (v < *pmin) *pmin = v;
         }
     }
 
-    // look for maxima
-    memset(skip, 0, skipsiz);
+    if (pmax)
+    {   // look for maxima
+        memset(skip, 0, skipsiz);
 
-    for (jj = 0; jj <= hh; jj++)
-    {
-        j = jj * step; if (j >= h) j = h-1;
-        for (ii = 0; ii <= ww; ii++)
+        for (jj = 0; jj <= hh; jj++)
         {
-            i = ii * step; if (i >= w) i = w-1;
-            if (skip[jj*ww+ii]) continue;
-
-            v = -factor * sampleDoublePerlin(para, x+i, 0, z+j);
-            if (func)
+            j = jj * step; if (j >= h) j = h-1;
+            for (ii = 0; ii <= ww; ii++)
             {
-                int e = func(data, x+i, z+j, -v);
-                if (e)
-                {
-                    err = e;
-                    goto L_end;
-                }
-            }
+                i = ii * step; if (i >= w) i = w-1;
+                if (skip[jj*ww+ii]) continue;
 
-            dr = beta * (v + *pmax) / vdif;
-            if (dr > 1.0)
-            {   // difference too large -> mark visinity to be skipped
-                int a, b, r = (int) dr;
-                for (b = 0; b < r; b++)
+                v = -factor * sampleDoublePerlin(para, x+i, 0, z+j);
+                if (func)
                 {
-                    if (b+jj < 0 || b+jj >= hh) continue;
-                    for (a = -r+1; a < r; a++)
+                    int e = func(data, x+i, z+j, -v);
+                    if (e)
                     {
-                        if (a+ii < 0 || a+ii >= ww) continue;
-                        skip[(b+jj)*ww + (a+ii)] = 1;
+                        err = e;
+                        goto L_end;
                     }
                 }
-                continue;
+
+                dr = beta * (v + *pmax) / vdif;
+                if (dr > 1.0)
+                {   // difference too large -> mark visinity to be skipped
+                    int a, b, r = (int) dr;
+                    for (b = 0; b < r; b++)
+                    {
+                        if (b+jj < 0 || b+jj >= hh) continue;
+                        for (a = -r+1; a < r; a++)
+                        {
+                            if (a+ii < 0 || a+ii >= ww) continue;
+                            skip[(b+jj)*ww + (a+ii)] = 1;
+                        }
+                    }
+                    continue;
+                }
+                v = -getParaDescent(para, -factor, x, z, w, h, i, j,
+                    maxrad, maxiter, dr, data, func);
+                if (v != v) goto L_end;
+                if (v > *pmax) *pmax = v;
             }
-            v = -getParaDescent(para, -factor, x, z, w, h, i, j,
-                maxrad, maxiter, dr, data, func);
-            if (v != v) goto L_end;
-            if (v > *pmax) *pmax = v;
         }
     }
 
