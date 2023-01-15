@@ -658,7 +658,8 @@ static int findServerSpawn(Pos *sp, const Generator *g, const SurfaceNoise *sn,
     }
     else
     {
-        int y[16], ids[16];
+        float y[16];
+        int ids[16];
         mapApproxHeight(y, ids, g, sn, chunkX << 2, chunkZ << 2, 4, 4);
 
         for (i = 0; i < 4; i++)
@@ -812,7 +813,8 @@ Pos getSpawn(const Generator *g)
     {
         for (i = 0; i < 1000; i++)
         {
-            int y, id, grass = 0;
+            float y;
+            int id, grass = 0;
             mapApproxHeight(&y, &id, g, &sn, spawn.x >> 2, spawn.z >> 2, 1, 1);
             getBiomeDepthAndScale(id, 0, 0, &grass);
             if (grass > 0 && y >= grass)

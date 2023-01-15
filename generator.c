@@ -537,7 +537,7 @@ int genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, i
 }
 
 
-int mapApproxHeight(int *y, int *ids, const Generator *g, const SurfaceNoise *sn,
+int mapApproxHeight(float *y, int *ids, const Generator *g, const SurfaceNoise *sn,
     int x, int z, int w, int h)
 {
     if (g->dim != DIM_OVERWORLD)
@@ -552,12 +552,12 @@ int mapApproxHeight(int *y, int *ids, const Generator *g, const SurfaceNoise *sn
         {
             for (i = 0; i < w; i++)
             {
-                int flags = SAMPLE_NO_SHIFT;
+                int flags = 0;//SAMPLE_NO_SHIFT;
                 int64_t np[6];
                 int id = sampleBiomeNoise(&g->bn, np, x+i, 0, z+j, 0, flags);
                 if (ids)
                     ids[j*w+i] = id;
-                y[j*w+i] = np[NP_DEPTH] / 76;
+                y[j*w+i] = np[NP_DEPTH] / 76.0;
             }
         }
         return 0;
@@ -664,8 +664,7 @@ int mapApproxHeight(int *y, int *ids, const Generator *g, const SurfaceNoise *sn
             }
             while (ymax - ymin > 1);
 
-            double ysurf = 8 * (vmin / (double)(vmin - vmax) + ymin);
-            y[j*w+i] = (int) ysurf;
+            y[j*w+i] = 8 * (vmin / (double)(vmin - vmax) + ymin);
         }
     }
     free(depth);
