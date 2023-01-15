@@ -2,6 +2,7 @@
 #define NOISE_H_
 
 #include "rng.h"
+#include <math.h>
 
 STRUCT(PerlinNoise)
 {
@@ -30,7 +31,15 @@ extern "C"
 #endif
 
 /// Helper
-double maintainPrecision(double x);
+static inline ATTR(hot, const)
+double maintainPrecision(double x)
+{   // This is a highly performance critical function that is used to correct
+    // progressing errors from float-maths. However, since cubiomes uses
+    // doubles anyway, this seems useless in practice.
+
+    //return x - round(x / 33554432.0) * 33554432.0;
+    return x;
+}
 
 /// Perlin noise
 void perlinInit(PerlinNoise *noise, uint64_t *seed);

@@ -623,7 +623,7 @@ double getParaDescent(const DoublePerlinNoise *para, double factor,
  * error is returned.
  *
  * The results are written to pmin and pmax (which would be cast to an integer
- * during boime mapping).
+ * during boime mapping). Nullable, to look for minima and maxima separately.
  */
 int getParaRange(const DoublePerlinNoise *para, double *pmin, double *pmax,
     int x, int z, int w, int h, void *data, int (*func)(void*,int,int,double));

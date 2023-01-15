@@ -5,11 +5,6 @@
 #include <stdio.h>
 
 
-double maintainPrecision(double x)
-{
-    return x - floor(x / 33554432.0 + 0.5) * 33554432.0;
-}
-
 // grad()
 /*
 static double indexedLerp(int idx, double d1, double d2, double d3)
@@ -61,17 +56,18 @@ void perlinInit(PerlinNoise *noise, uint64_t *seed)
     noise->amplitude = 1.0;
     noise->lacunarity = 1.0;
 
+    uint8_t *idx = noise->d;
     for (i = 0; i < 256; i++)
     {
-        noise->d[i] = i;
+        idx[i] = i;
     }
     for (i = 0; i < 256; i++)
     {
         int j = nextInt(seed, 256 - i) + i;
-        uint8_t n = noise->d[i];
-        noise->d[i] = noise->d[j];
-        noise->d[j] = n;
-        noise->d[i + 256] = noise->d[i];
+        uint8_t n = idx[i];
+        idx[i] = idx[j];
+        idx[j] = n;
+        idx[i + 256] = idx[i];
     }
 }
 
@@ -85,20 +81,20 @@ void xPerlinInit(PerlinNoise *noise, Xoroshiro *xr)
     noise->amplitude = 1.0;
     noise->lacunarity = 1.0;
 
+    uint8_t *idx = noise->d;
     for (i = 0; i < 256; i++)
     {
-        noise->d[i] = i;
+        idx[i] = i;
     }
     for (i = 0; i < 256; i++)
     {
         int j = xNextInt(xr, 256 - i) + i;
-        uint8_t n = noise->d[i];
-        noise->d[i] = noise->d[j];
-        noise->d[j] = n;
-        noise->d[i + 256] = noise->d[i];
+        uint8_t n = idx[i];
+        idx[i] = idx[j];
+        idx[j] = n;
+        idx[i + 256] = idx[i];
     }
 }
-
 
 double samplePerlin(const PerlinNoise *noise, double d1, double d2, double d3,
         double yamp, double ymin)
@@ -106,9 +102,10 @@ double samplePerlin(const PerlinNoise *noise, double d1, double d2, double d3,
     d1 += noise->a;
     d2 += noise->b;
     d3 += noise->c;
-    int i1 = (int)d1 - (int)(d1 < 0);
-    int i2 = (int)d2 - (int)(d2 < 0);
-    int i3 = (int)d3 - (int)(d3 < 0);
+    const uint8_t *idx = noise->d;
+    int i1 = (int) floor(d1);
+    int i2 = (int) floor(d2);
+    int i3 = (int) floor(d3);
     d1 -= i1;
     d2 -= i2;
     d3 -= i3;
@@ -126,21 +123,22 @@ double samplePerlin(const PerlinNoise *noise, double d1, double d2, double d3,
     i2 &= 0xff;
     i3 &= 0xff;
 
-    int a1 = noise->d[i1]   + i2;
-    int a2 = noise->d[a1]   + i3;
-    int a3 = noise->d[a1+1] + i3;
-    int b1 = noise->d[i1+1] + i2;
-    int b2 = noise->d[b1]   + i3;
-    int b3 = noise->d[b1+1] + i3;
+    int a1 = idx[i1]   + i2;
+    int b1 = idx[i1+1] + i2;
 
-    double l1 = indexedLerp(noise->d[a2],   d1,   d2,   d3);
-    double l2 = indexedLerp(noise->d[b2],   d1-1, d2,   d3);
-    double l3 = indexedLerp(noise->d[a3],   d1,   d2-1, d3);
-    double l4 = indexedLerp(noise->d[b3],   d1-1, d2-1, d3);
-    double l5 = indexedLerp(noise->d[a2+1], d1,   d2,   d3-1);
-    double l6 = indexedLerp(noise->d[b2+1], d1-1, d2,   d3-1);
-    double l7 = indexedLerp(noise->d[a3+1], d1,   d2-1, d3-1);
-    double l8 = indexedLerp(noise->d[b3+1], d1-1, d2-1, d3-1);
+    int a2 = idx[a1]   + i3;
+    int a3 = idx[a1+1] + i3;
+    int b2 = idx[b1]   + i3;
+    int b3 = idx[b1+1] + i3;
+
+    double l1 = indexedLerp(idx[a2],   d1,   d2,   d3);
+    double l2 = indexedLerp(idx[b2],   d1-1, d2,   d3);
+    double l3 = indexedLerp(idx[a3],   d1,   d2-1, d3);
+    double l4 = indexedLerp(idx[b3],   d1-1, d2-1, d3);
+    double l5 = indexedLerp(idx[a2+1], d1,   d2,   d3-1);
+    double l6 = indexedLerp(idx[b2+1], d1-1, d2,   d3-1);
+    double l7 = indexedLerp(idx[a3+1], d1,   d2-1, d3-1);
+    double l8 = indexedLerp(idx[b3+1], d1-1, d2-1, d3-1);
 
     l1 = lerp(t1, l1, l2);
     l3 = lerp(t1, l3, l4);
@@ -191,7 +189,6 @@ double sampleSimplex2D(const PerlinNoise *noise, double x, double y)
     t += simplexGrad(gi2 % 12, x2, y2, 0.0, 0.5);
     return 70.0 * t;
 }
-
 
 void octaveInit(OctaveNoise *noise, uint64_t *seed, PerlinNoise *octaves,
         int omin, int len)
