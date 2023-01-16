@@ -48,53 +48,55 @@ const char* mc2str(int mc)
 {
     switch (mc)
     {
-    case MC_B1_8: return "Beta 1.8"; break;
-    case MC_1_0:  return "1.0"; break;
-    case MC_1_1:  return "1.1"; break;
-    case MC_1_2:  return "1.2"; break;
-    case MC_1_3:  return "1.3"; break;
-    case MC_1_4:  return "1.4"; break;
-    case MC_1_5:  return "1.5"; break;
-    case MC_1_6:  return "1.6"; break;
-    case MC_1_7:  return "1.7"; break;
-    case MC_1_8:  return "1.8"; break;
-    case MC_1_9:  return "1.9"; break;
-    case MC_1_10: return "1.10"; break;
-    case MC_1_11: return "1.11"; break;
-    case MC_1_12: return "1.12"; break;
-    case MC_1_13: return "1.13"; break;
-    case MC_1_14: return "1.14"; break;
-    case MC_1_15: return "1.15"; break;
-    case MC_1_16: return "1.16"; break;
-    case MC_1_17: return "1.17"; break;
-    case MC_1_18: return "1.18"; break;
-    case MC_1_19: return "1.19"; break;
-    default: return NULL;
+    case MC_B1_8:   return "Beta 1.8"; break;
+    case MC_1_0:    return "1.0"; break;
+    case MC_1_1:    return "1.1"; break;
+    case MC_1_2:    return "1.2"; break;
+    case MC_1_3:    return "1.3"; break;
+    case MC_1_4:    return "1.4"; break;
+    case MC_1_5:    return "1.5"; break;
+    case MC_1_6:    return "1.6"; break;
+    case MC_1_7:    return "1.7"; break;
+    case MC_1_8:    return "1.8"; break;
+    case MC_1_9:    return "1.9"; break;
+    case MC_1_10:   return "1.10"; break;
+    case MC_1_11:   return "1.11"; break;
+    case MC_1_12:   return "1.12"; break;
+    case MC_1_13:   return "1.13"; break;
+    case MC_1_14:   return "1.14"; break;
+    case MC_1_15:   return "1.15"; break;
+    case MC_1_16_1: return "1.16.1"; break;
+    case MC_1_16:   return "1.16"; break;
+    case MC_1_17:   return "1.17"; break;
+    case MC_1_18:   return "1.18"; break;
+    case MC_1_19:   return "1.19"; break;
+    default:        return NULL;
     }
 }
 
 int str2mc(const char *s)
 {
-    if (!strcmp(s, "1.19")) return MC_1_19;
-    if (!strcmp(s, "1.18")) return MC_1_18;
-    if (!strcmp(s, "1.17")) return MC_1_17;
-    if (!strcmp(s, "1.16")) return MC_1_16;
-    if (!strcmp(s, "1.15")) return MC_1_15;
-    if (!strcmp(s, "1.14")) return MC_1_14;
-    if (!strcmp(s, "1.13")) return MC_1_13;
-    if (!strcmp(s, "1.12")) return MC_1_12;
-    if (!strcmp(s, "1.11")) return MC_1_11;
-    if (!strcmp(s, "1.10")) return MC_1_10;
-    if (!strcmp(s, "1.9")) return MC_1_9;
-    if (!strcmp(s, "1.8")) return MC_1_8;
-    if (!strcmp(s, "1.7")) return MC_1_7;
-    if (!strcmp(s, "1.6")) return MC_1_6;
-    if (!strcmp(s, "1.5")) return MC_1_5;
-    if (!strcmp(s, "1.4")) return MC_1_4;
-    if (!strcmp(s, "1.3")) return MC_1_3;
-    if (!strcmp(s, "1.2")) return MC_1_2;
-    if (!strcmp(s, "1.1")) return MC_1_1;
-    if (!strcmp(s, "1.0")) return MC_1_0;
+    if (!strcmp(s, "1.19"))     return MC_1_19;
+    if (!strcmp(s, "1.18"))     return MC_1_18;
+    if (!strcmp(s, "1.17"))     return MC_1_17;
+    if (!strcmp(s, "1.16.1"))   return MC_1_16_1;
+    if (!strcmp(s, "1.16"))     return MC_1_16;
+    if (!strcmp(s, "1.15"))     return MC_1_15;
+    if (!strcmp(s, "1.14"))     return MC_1_14;
+    if (!strcmp(s, "1.13"))     return MC_1_13;
+    if (!strcmp(s, "1.12"))     return MC_1_12;
+    if (!strcmp(s, "1.11"))     return MC_1_11;
+    if (!strcmp(s, "1.10"))     return MC_1_10;
+    if (!strcmp(s, "1.9"))      return MC_1_9;
+    if (!strcmp(s, "1.8"))      return MC_1_8;
+    if (!strcmp(s, "1.7"))      return MC_1_7;
+    if (!strcmp(s, "1.6"))      return MC_1_6;
+    if (!strcmp(s, "1.5"))      return MC_1_5;
+    if (!strcmp(s, "1.4"))      return MC_1_4;
+    if (!strcmp(s, "1.3"))      return MC_1_3;
+    if (!strcmp(s, "1.2"))      return MC_1_2;
+    if (!strcmp(s, "1.1"))      return MC_1_1;
+    if (!strcmp(s, "1.0"))      return MC_1_0;
     if (!strcmp(s, "Beta 1.8")) return MC_B1_8;
     return -1;
 }

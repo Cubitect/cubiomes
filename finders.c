@@ -123,10 +123,10 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
         return mc >= MC_1_13;
     case Ruined_Portal:
         *sconf = s_ruined_portal;
-        return mc >= MC_1_16;
+        return mc >= MC_1_16_1;
     case Ruined_Portal_N:
         *sconf = mc <= MC_1_17 ? s_ruined_portal_n_117 : s_ruined_portal;
-        return mc >= MC_1_16;
+        return mc >= MC_1_16_1;
     case Monument:
         *sconf = s_monument;
         return mc >= MC_1_8;
@@ -153,7 +153,7 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
         return mc >= MC_1_0;
     case Bastion:
         *sconf = s_bastion;
-        return mc >= MC_1_16;
+        return mc >= MC_1_16_1;
     case End_Gateway:
         if      (mc <= MC_1_15) *sconf = s_end_gateway_115;
         else if (mc <= MC_1_17) *sconf = s_end_gateway_117;
@@ -233,7 +233,7 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
         if (mc >= MC_1_18) {
             *pos = getFeaturePos(sconf, seed, regX, regZ);
             return 1; // fortresses gen where bastions don't (biome dependent)
-        } else if (mc >= MC_1_16) {
+        } else if (mc >= MC_1_16_1) {
             getRegPos(pos, &seed, regX, regZ, sconf);
             return nextInt(&seed, 5) < 2;
         } else {
@@ -591,13 +591,13 @@ int nextStronghold(StrongholdIter *sh, const Generator *g)
     }
 
     uint64_t lbr = sh->rnds;
-    if (sh->mc >= MC_1_19)
+    if (sh->mc >= MC_1_19_3)
         setSeed(&lbr, nextLong(&sh->rnds));
 
     sh->pos = locateBiome(g, sh->nextapprox.x, 0, sh->nextapprox.z, 112,
         validB, validM, &lbr, NULL);
 
-    if (sh->mc < MC_1_19)
+    if (sh->mc < MC_1_19_3)
         sh->rnds = lbr;
 
     sh->ringidx++;
@@ -877,38 +877,38 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
         return biomeID == swamp;
 
     case Igloo:
-        if (mc < MC_1_9) return 0;
+        if (mc <= MC_1_8) return 0;
         return biomeID == snowy_tundra || biomeID == snowy_taiga || biomeID == snowy_slopes;
 
     case Ocean_Ruin:
-        if (mc < MC_1_13) return 0;
+        if (mc <= MC_1_12) return 0;
         return isOceanic(biomeID);
 
     case Shipwreck:
-        if (mc < MC_1_13) return 0;
+        if (mc <= MC_1_12) return 0;
         return isOceanic(biomeID) || biomeID == beach || biomeID == snowy_beach;
 
     case Ruined_Portal:
     case Ruined_Portal_N:
-        return mc >= MC_1_16;
+        return mc >= MC_1_16_1;
 
     case Ancient_City:
-        if (mc < MC_1_19) return 0;
+        if (mc <= MC_1_18) return 0;
         return biomeID == deep_dark;
 
     case Treasure:
-        if (mc < MC_1_13) return 0;
+        if (mc <= MC_1_12) return 0;
         return biomeID == beach || biomeID == snowy_beach;
 
     case Mineshaft:
         return isOverworld(mc, biomeID);
 
     case Monument:
-        if (mc < MC_1_8) return 0;
+        if (mc <= MC_1_7) return 0;
         return isDeepOcean(biomeID);
 
     case Outpost:
-        if (mc < MC_1_14) return 0;
+        if (mc <= MC_1_13) return 0;
         if (mc >= MC_1_18) {
             switch (biomeID) {
             case desert:
@@ -940,7 +940,7 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
         return 0;
 
     case Mansion:
-        if (mc < MC_1_11) return 0;
+        if (mc <= MC_1_10) return 0;
         return biomeID == dark_forest || biomeID == dark_forest_hills;
 
     case Fortress:
@@ -949,16 +949,16 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
                 biomeID == basalt_deltas);
 
     case Bastion:
-        if (mc < MC_1_16) return 0;
+        if (mc <= MC_1_15) return 0;
         return (biomeID == nether_wastes || biomeID == soul_sand_valley ||
                 biomeID == warped_forest || biomeID == crimson_forest);
 
     case End_City:
-        if (mc < MC_1_9) return 0;
+        if (mc <= MC_1_8) return 0;
         return biomeID == end_midlands || biomeID == end_highlands;
 
     case End_Gateway:
-        if (mc < MC_1_13) return 0;
+        if (mc <= MC_1_12) return 0;
         return biomeID == end_highlands;
 
     default:
@@ -1107,7 +1107,7 @@ int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t
     {
         if (structureType == Fortress && g->mc <= MC_1_17)
             return 1;
-        if (g->mc < MC_1_16)
+        if (g->mc <= MC_1_15)
             return 0;
         if (structureType == Ruined_Portal_N)
             return 1;
@@ -1147,10 +1147,10 @@ int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t
         switch (structureType)
         {
         case End_City:
-            if (g->mc < MC_1_9) return 0;
+            if (g->mc <= MC_1_8) return 0;
             break;
         case End_Gateway:
-            if (g->mc < MC_1_13) return 0;
+            if (g->mc <= MC_1_12) return 0;
             break;
         default:
             return 0;
@@ -1184,27 +1184,27 @@ int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t
     case Ocean_Ruin:
     case Shipwreck:
     case Treasure:
-        if (g->mc < MC_1_13) goto L_not_viable;
+        if (g->mc <= MC_1_12) goto L_not_viable;
         goto L_feature;
     case Igloo:
-        if (g->mc < MC_1_9) goto L_not_viable;
+        if (g->mc <= MC_1_8) goto L_not_viable;
         goto L_feature;
     case Desert_Pyramid:
     case Jungle_Pyramid:
     case Swamp_Hut:
 L_feature:
-        if (g->mc >= MC_1_16)
-        {
-            if (g->mc < MC_1_18)
-                g->entry = &g->ls.layers[L_RIVER_MIX_4];
-            sampleX = (chunkX << 2) + 2;
-            sampleZ = (chunkZ << 2) + 2;
-        }
-        else
+        if (g->mc <= MC_1_15)
         {
             g->entry = &g->ls.layers[L_VORONOI_1];
             sampleX = (chunkX << 4) + 9;
             sampleZ = (chunkZ << 4) + 9;
+        }
+        else
+        {
+            if (g->mc <= MC_1_17)
+                g->entry = &g->ls.layers[L_RIVER_MIX_4];
+            sampleX = (chunkX << 2) + 2;
+            sampleZ = (chunkZ << 2) + 2;
         }
         id = getBiomeAt(g, 0, sampleX, 319>>2, sampleZ);
         if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
@@ -1268,7 +1268,7 @@ L_feature:
 
     case Outpost:
     {
-        if (g->mc < MC_1_14)
+        if (g->mc <= MC_1_13)
             goto L_not_viable;
         uint64_t rng = g->seed;
         setAttemptSeed(&rng, chunkX, chunkZ);
@@ -1293,7 +1293,7 @@ L_feature:
                 int cx = p.x >> 4, cz = p.z >> 4;
                 if (cx >= cx0 && cx <= cx1 && cz >= cz0 && cz <= cz1)
                 {
-                    if (g->mc >= MC_1_16)
+                    if (g->mc >= MC_1_16_1)
                         goto L_not_viable;
                     if (isViableStructurePos(Village, g, p.x, p.z, 0))
                         goto L_not_viable;
@@ -1313,7 +1313,7 @@ L_feature:
             sampleX = ((chunkX << 5) + sampleX) / 2 >> 2;
             sampleZ = ((chunkZ << 5) + sampleZ) / 2 >> 2;
         }
-        else if (g->mc >= MC_1_16)
+        else if (g->mc >= MC_1_16_1)
         {
             g->entry = &g->ls.layers[L_RIVER_MIX_4];
             sampleX = (chunkX << 2) + 2;
@@ -1332,7 +1332,7 @@ L_feature:
     }
 
     case Monument:
-        if (g->mc < MC_1_8)
+        if (g->mc <= MC_1_7)
             goto L_not_viable;
         else if (g->mc == MC_1_8)
         {   // In 1.8 monuments require only a single deep ocean block.
@@ -1366,7 +1366,7 @@ L_feature:
         goto L_not_viable;
 
     case Mansion:
-        if (g->mc < MC_1_11)
+        if (g->mc <= MC_1_10)
             goto L_not_viable;
         if (g->mc <= MC_1_17)
         {
@@ -1393,12 +1393,12 @@ L_feature:
 
     case Ruined_Portal:
     case Ruined_Portal_N:
-        if (g->mc >= MC_1_16)
-            goto L_viable;
-        goto L_not_viable;
+        if (g->mc <= MC_1_15)
+            goto L_not_viable;
+        goto L_viable;
 
     case Ancient_City:
-        if (g->mc < MC_1_19)
+        if (g->mc <= MC_1_18)
             goto L_not_viable;
         {
             StructureVariant sv;
@@ -1439,7 +1439,7 @@ L_not_viable:
 int isViableStructureTerrain(int structType, Generator *g, int x, int z)
 {
     int sx, sz;
-    if (g->mc < MC_1_18)
+    if (g->mc <= MC_1_17)
         return 1;
     if (structType == Desert_Pyramid || structType == Jungle_Temple)
     {
@@ -1699,6 +1699,12 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
     case Bastion:
         r->rotation = nextInt(&rng, 4);
         r->start = nextInt(&rng, 4);
+        if (mc == MC_1_16_1)
+        {   // swapped in 1.16.1 only
+            uint8_t tmp = r->start;
+            r->start = r->rotation;
+            r->rotation = tmp;
+        }
         switch (r->start)
         {
         case 0: sx = 46; sy = 24; sz = 46; break; // units/air_base
@@ -2321,17 +2327,18 @@ void extendFortressPiece(PieceEnv *env, Piece *p)
 int getFortressPieces(Piece *list, int n, int mc, uint64_t seed, int chunkX, int chunkZ)
 {
     uint64_t rng = seed;
-    if (mc >= MC_1_16)
-    {
-        rng = chunkGenerateRnd(seed, chunkX, chunkZ);
-    }
-    else
+    if (mc <= MC_1_15)
     {
         setAttemptSeed(&rng, chunkX, chunkZ);
         nextInt(&rng, 3);
         nextInt(&rng, 8);
         nextInt(&rng, 8);
     }
+    else
+    {
+        rng = chunkGenerateRnd(seed, chunkX, chunkZ);
+    }
+
     int count = 1;
     PieceEnv env;
     memset(&env, 0, sizeof(env));
@@ -3865,7 +3872,7 @@ int canBiomeGenerate(int layerId, int mc, uint32_t flags, int id)
             return 0;
         }
     }
-    if (dofilter || (layerId == L_ZOOM_64 && mc == MC_1_0))
+    if (dofilter || (layerId == L_ZOOM_64 && mc <= MC_1_0))
     {
         dofilter = 1;
         if (id == mushroom_field_shore)
@@ -4070,7 +4077,7 @@ static void _genPotential(struct _gp_args *a, int layer, int id)
     case L_BIOME_256: // biomes added in (L_BIOME_256, L_BIOME_EDGE_64]
     case L_BAMBOO_256:
     case L_ZOOM_64:
-        if (mc < MC_1_14 && layer == L_BAMBOO_256) goto L_bad_layer;
+        if (mc <= MC_1_13 && layer == L_BAMBOO_256) goto L_bad_layer;
         if (mc >= MC_1_7) {
             if (mc >= MC_1_14 && id == jungle)
                 _genPotential(a, L_BIOME_EDGE_64, bamboo_jungle);
@@ -4214,7 +4221,7 @@ static void _genPotential(struct _gp_args *a, int layer, int id)
             _genPotential(a, L_RIVER_MIX_4, frozen_river);
         else if (id == mushroom_fields || id == mushroom_field_shore)
             _genPotential(a, L_RIVER_MIX_4, mushroom_field_shore);
-        else if (id != ocean && (mc < MC_1_7 || !isOceanic(id)))
+        else if (id != ocean && (mc <= MC_1_6 || !isOceanic(id)))
             _genPotential(a, L_RIVER_MIX_4, river);
         _genPotential(a, L_RIVER_MIX_4, id);
         break;
@@ -4678,7 +4685,7 @@ static const int g_biome_para_range_19_diff[][13] = {
  */
 const int *getBiomeParaExtremes(int mc)
 {
-    if (mc < MC_1_18)
+    if (mc <= MC_1_17)
         return NULL;
     static const int extremes[] = {
         -4501, 5500,
@@ -4698,7 +4705,7 @@ const int *getBiomeParaExtremes(int mc)
  */
 const int *getBiomeParaLimits(int mc, int id)
 {
-    if (mc < MC_1_18)
+    if (mc <= MC_1_17)
         return NULL;
     int i, n;
     if (mc >= MC_1_19)

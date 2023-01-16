@@ -82,7 +82,20 @@ int biomeExists(int mc, int id)
         }
     }
 
-    if (mc == MC_1_0)
+    if (mc <= MC_B1_8)
+    {
+        switch (id)
+        {
+        case frozen_ocean:
+        case frozen_river:
+        case snowy_tundra:
+        case mushroom_fields:
+        case mushroom_field_shore:
+        case the_end:
+            return 0;
+        }
+    }
+    if (mc <= MC_1_0)
     {
         switch (id)
         {
@@ -135,7 +148,7 @@ int biomeExists(int mc, int id)
     case crimson_forest:
     case warped_forest:
     case basalt_deltas:
-        return mc >= MC_1_16;
+        return mc >= MC_1_16_1;
     case dripstone_caves:
     case lush_caves:
         return mc >= MC_1_17;
@@ -686,7 +699,7 @@ int genNetherScaled(const NetherNoise *nn, int *out, Range r, int mc, uint64_t s
 
     uint64_t siz = (uint64_t)r.sx*r.sy*r.sz;
 
-    if (mc < MC_1_16)
+    if (mc <= MC_1_15)
     {
         uint64_t i;
         for (i = 0; i < siz; i++)
@@ -1013,7 +1026,7 @@ int genEndScaled(const EndNoise *en, int *out, Range r, int mc, uint64_t sha)
     if (r.sy == 0)
         r.sy = 1;
 
-    if (mc < MC_1_9)
+    if (mc <= MC_1_8)
     {
         uint64_t i, siz = (uint64_t)r.sx*r.sy*r.sz;
         for (i = 0; i < siz; i++)
@@ -2132,7 +2145,7 @@ int mapLandB18(const Layer * l, int * out, int x, int z, int w, int h)
     int err = l->p->getMap(l->p, out, pX, pZ, pW, pH);
     if unlikely(err != 0)
         return err;
-    
+
     uint64_t ss = l->startSeed;
     uint64_t cs;
 
@@ -2157,7 +2170,7 @@ int mapLandB18(const Layer * l, int * out, int x, int z, int w, int h)
             if (v11 == 0 && (v00 != 0 || v02 != 0 || v20 != 0 || v22 != 0))
             {
                 cs = getChunkSeed(ss, i+x, j+z);
-		v = mcFirstInt(cs, 3) / 2;
+                v = mcFirstInt(cs, 3) / 2;
             }
             else if (v11 == 1 && (v00 != 1 || v02 != 1 || v20 != 1 || v22 != 1))
             {
@@ -3244,7 +3257,7 @@ int mapRiverMix(const Layer * l, int * out, int x, int z, int w, int h)
     {
         int v = out[idx];
 
-        if (buf[idx] == river && v != ocean && (mc < MC_1_7 || !isOceanic(v)))
+        if (buf[idx] == river && v != ocean && (mc <= MC_1_6 || !isOceanic(v)))
         {
             if (v == snowy_tundra)
                 v = frozen_river;
