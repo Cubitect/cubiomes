@@ -10,7 +10,7 @@
 /* Minecraft versions */
 enum MCVersion
 {
-    MC_1_0, // <=1.0 Experimental!
+    MC_B1_8, MC_1_0, // <=1.0 Experimental!
     MC_1_1,  MC_1_2,  MC_1_3,  MC_1_4,  MC_1_5,  MC_1_6,
     MC_1_7,  MC_1_8,  MC_1_9,  MC_1_10, MC_1_11, MC_1_12,
     MC_1_13, MC_1_14, MC_1_15, MC_1_16, MC_1_17, MC_1_18,
@@ -157,6 +157,8 @@ enum LayerId
 {
     // new                  [[deprecated]]
     L_CONTINENT_4096 = 0,   L_ISLAND_4096 = L_CONTINENT_4096,
+    L_ZOOM_4096,                                                    // b1.8
+    L_LAND_4096,                                                    // b1.8
     L_ZOOM_2048,
     L_LAND_2048,            L_ADD_ISLAND_2048 = L_LAND_2048,
     L_ZOOM_1024,
@@ -527,6 +529,7 @@ mapfunc_t mapZoomFuzzy;
 mapfunc_t mapZoom;
 mapfunc_t mapLand;          // mapAddIsland
 mapfunc_t mapLand16;
+mapfunc_t mapLandB18;
 mapfunc_t mapIsland;        // mapRemoveTooMuchOcean
 mapfunc_t mapSnow;          // mapAddSnow
 mapfunc_t mapSnow16;

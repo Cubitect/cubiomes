@@ -48,6 +48,7 @@ const char* mc2str(int mc)
 {
     switch (mc)
     {
+    case MC_B1_8: return "Beta 1.8"; break;
     case MC_1_0:  return "1.0"; break;
     case MC_1_1:  return "1.1"; break;
     case MC_1_2:  return "1.2"; break;
@@ -94,6 +95,7 @@ int str2mc(const char *s)
     if (!strcmp(s, "1.2")) return MC_1_2;
     if (!strcmp(s, "1.1")) return MC_1_1;
     if (!strcmp(s, "1.0")) return MC_1_0;
+    if (!strcmp(s, "Beta 1.8")) return MC_B1_8;
     return -1;
 }
 

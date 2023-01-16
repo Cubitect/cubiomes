@@ -272,14 +272,31 @@ void setupLayerStack(LayerStack *g, int mc, int largeBiomes)
     // P1: parent 1
     // P2: parent 2
 
-    //             L                       M               V   Z  E  S     P1 P2
-    p = setupLayer(l+L_CONTINENT_4096,     mapContinent,   mc, 1, 0, 1,    0, 0);
-    p = setupLayer(l+L_ZOOM_2048,          mapZoomFuzzy,   mc, 2, 3, 2000, p, 0);
-    p = setupLayer(l+L_LAND_2048,          mapLand,        mc, 1, 2, 1,    p, 0);
-    p = setupLayer(l+L_ZOOM_1024,          mapZoom,        mc, 2, 3, 2001, p, 0);
-    p = setupLayer(l+L_LAND_1024_A,        mapLand,        mc, 1, 2, 2,    p, 0);
+    if (mc == MC_B1_8)
+    {   //             L                   M               V   Z  E  S     P1 P2
+        // NOTE: reusing slot for continent:4096, but scale is 1:8192
+        p = setupLayer(l+L_CONTINENT_4096, mapContinent,   mc, 1, 0, 1,    0, 0);
+        p = setupLayer(l+L_ZOOM_4096,      mapZoomFuzzy,   mc, 2, 3, 2000, p, 0);
+        p = setupLayer(l+L_LAND_4096,      mapLandB18,     mc, 1, 2, 1,    p, 0);
+        p = setupLayer(l+L_ZOOM_2048,      mapZoom,        mc, 2, 3, 2001, p, 0);
+        p = setupLayer(l+L_LAND_2048,      mapLandB18,     mc, 1, 2, 2,    p, 0);
+        p = setupLayer(l+L_ZOOM_1024,      mapZoom,        mc, 2, 3, 2002, p, 0);
+        p = setupLayer(l+L_LAND_1024_A,    mapLandB18,     mc, 1, 2, 3,    p, 0);
+        p = setupLayer(l+L_ZOOM_512,       mapZoom,        mc, 2, 3, 2003, p, 0);
+	p = setupLayer(l+L_LAND_512,       mapLandB18,     mc, 1, 2, 3,    p, 0);
+        p = setupLayer(l+L_ZOOM_256,       mapZoom,        mc, 2, 3, 2004, p, 0);
+	p = setupLayer(l+L_LAND_256,       mapLandB18,     mc, 1, 2, 3,    p, 0);
+    }
+    else
+    {   //             L                   M               V   Z  E  S     P1 P2
+        p = setupLayer(l+L_CONTINENT_4096, mapContinent,   mc, 1, 0, 1,    0, 0);
+        p = setupLayer(l+L_ZOOM_2048,      mapZoomFuzzy,   mc, 2, 3, 2000, p, 0);
+        p = setupLayer(l+L_LAND_2048,      mapLand,        mc, 1, 2, 1,    p, 0);
+        p = setupLayer(l+L_ZOOM_1024,      mapZoom,        mc, 2, 3, 2001, p, 0);
+        p = setupLayer(l+L_LAND_1024_A,    mapLand,        mc, 1, 2, 2,    p, 0);
+    }
 
-    if (mc <= MC_1_6)
+    if (mc > MC_B1_8 && mc <= MC_1_6)
     {   //             L                   M               V   Z  E  S     P1 P2
         p = setupLayer(l+L_SNOW_1024,      mapSnow16,      mc, 1, 2, 2,    p, 0);
         p = setupLayer(l+L_ZOOM_512,       mapZoom,        mc, 2, 3, 2002, p, 0);
@@ -287,12 +304,16 @@ void setupLayerStack(LayerStack *g, int mc, int largeBiomes)
         p = setupLayer(l+L_ZOOM_256,       mapZoom,        mc, 2, 3, 2003, p, 0);
         p = setupLayer(l+L_LAND_256,       mapLand16,      mc, 1, 2, 4,    p, 0);
         p = setupLayer(l+L_MUSHROOM_256,   mapMushroom,    mc, 1, 2, 5,    p, 0);
+    }
+
+    if (mc <= MC_1_6)
+    {
         p = setupLayer(l+L_BIOME_256,      mapBiome,       mc, 1, 0, 200,  p, 0);
         p = setupLayer(l+L_ZOOM_128,       mapZoom,        mc, 2, 3, 1000, p, 0);
         p = setupLayer(l+L_ZOOM_64,        mapZoom,        mc, 2, 3, 1001, p, 0);
         // river noise layer chain, also used to determine where hills generate
         p = setupLayer(l+L_NOISE_256,      mapNoise,       mc, 1, 0, 100,
-                       l+L_MUSHROOM_256, 0);
+                       (mc > MC_B1_8) ? l+L_MUSHROOM_256 : l+L_LAND_256, 0);
     }
     else
     {   //             L                   M               V   Z  E  S     P1 P2
@@ -335,7 +356,9 @@ void setupLayerStack(LayerStack *g, int mc, int largeBiomes)
     {   //             L                   M               V   Z  E  S     P1 P2
         p = setupLayer(l+L_ZOOM_32,        mapZoom,        mc, 2, 3, 1000,
                        l+L_ZOOM_64, 0);
-        p = setupLayer(l+L_LAND_32,        mapLand16,      mc, 1, 2, 3,    p, 0);
+        p = setupLayer(l+L_LAND_32,        (mc == MC_1_0) ?
+                                           mapLand16 :
+                                           mapLandB18,     mc, 1, 2, 3,    p, 0);
         // NOTE: reusing slot for shore:16, but scale is 1:32
         p = setupLayer(l+L_SHORE_16,       mapShore,       mc, 1, 2, 1000, p, 0);
         p = setupLayer(l+L_ZOOM_16,        mapZoom,        mc, 2, 3, 1001, p, 0);

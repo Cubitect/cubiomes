@@ -150,7 +150,7 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
         return 1;
     case Fortress:
         *sconf = mc <= MC_1_15 ? s_fortress_115 : s_fortress;
-        return 1;
+        return mc >= MC_1_0;
     case Bastion:
         *sconf = s_bastion;
         return mc >= MC_1_16;
