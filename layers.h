@@ -13,6 +13,7 @@ enum MCVersion
     // NOTE: Development effort focuses on just the newest patch for each major
     // release. Minor releases and major versions <= 1.0 are experimental.
     MC_UNDEF,
+    MC_B1_7,
     MC_B1_8,
     MC_1_0_0,  MC_1_0  = MC_1_0_0,
     MC_1_1_0,  MC_1_1  = MC_1_1_0,
@@ -163,6 +164,10 @@ enum BiomeID
     // 1.19
     deep_dark                       = 183,
     mangrove_swamp                  = 184,
+    // Alpha 1.2 - Beta 1.7
+    seasonal_forest                 = wooded_hills;
+    rainforest                      = jungle;
+    shrubland                       = windswept_savanna;
 };
 
 

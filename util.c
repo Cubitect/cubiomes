@@ -48,6 +48,7 @@ const char* mc2str(int mc)
 {
     switch (mc)
     {
+    case MC_B1_7:   return "Beta 1.7"; break;
     case MC_B1_8:   return "Beta 1.8"; break;
     case MC_1_0:    return "1.0"; break;
     case MC_1_1:    return "1.1"; break;
@@ -98,6 +99,7 @@ int str2mc(const char *s)
     if (!strcmp(s, "1.1"))      return MC_1_1;
     if (!strcmp(s, "1.0"))      return MC_1_0;
     if (!strcmp(s, "Beta 1.8")) return MC_B1_8;
+    if (!strcmp(s, "Beta 1.7")) return MC_B1_7;
     return -1;
 }
 
@@ -121,6 +123,19 @@ const char *biome2str(int mc, int id)
         case windswept_gravelly_hills: return "windswept_gravelly_hills";
         case windswept_savanna: return "windswept_savanna";
         case wooded_badlands: return "wooded_badlands";
+        }
+    }
+    if (mc <= MC_B1_7)
+    {
+        // ids and colors re-used for Alpha 1.2 - Beta 1.7 biomes:
+        // wooded_hills      used for seasonal_forest
+        // windswept_savanna used for shrubland
+        // jungle            used for rainforest
+        switch(id)
+        {
+        case wooded_hills: return "seasonal_forest";
+        case windswept_savanna: return "shrubland";
+        case jungle: return "rainforest";
         }
     }
 
