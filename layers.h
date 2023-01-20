@@ -165,9 +165,9 @@ enum BiomeID
     deep_dark                       = 183,
     mangrove_swamp                  = 184,
     // Alpha 1.2 - Beta 1.7
-    seasonal_forest                 = wooded_hills;
-    rainforest                      = jungle;
-    shrubland                       = windswept_savanna;
+    seasonal_forest                 = wooded_hills,
+    rainforest                      = jungle,
+    shrubland                       = windswept_savanna,
 };
 
 
@@ -494,6 +494,13 @@ void initBiomeNoise(BiomeNoise *bn, int mc);
 void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int large);
 int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
     uint64_t *dat, uint32_t sample_flags);
+/**
+ * (Alpha 1.2 - Beta 1.7) 
+ * Temperature and humidity values to biome.
+ * If isWater is set, returned biome ID will be for ocean or frozen_ocean.
+ * (defined in biome_tree.c)
+ */
+int getOldBetaBiome(double d, double d1, int isWater);
 /**
  * Noise point to overworld biome mapping. (defined in biome_tree.c)
  */

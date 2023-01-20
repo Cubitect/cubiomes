@@ -232,6 +232,27 @@ void octaveInit(OctaveNoise *noise, uint64_t *seed, PerlinNoise *octaves,
     noise->octcnt = len;
 }
 
+void octaveInitOldBetaBiome(OctaveNoise *noise, uint64_t *seed,
+        PerlinNoise *octaves, int octcnt, double lacBase, double lacStretch)
+{
+    double persist = 1;
+    double lacMult = 1;
+    lacBase /= 1.5;
+    int i;
+    
+    for (i = 0; i < octcnt; i++)
+    {
+        perlinInit(&octaves[i], seed);
+        octaves[i].amplitude = 0.55 / persist;
+        octaves[i].lacunarity = lacBase*lacMult;
+        persist /= 2;
+        lacMult *= lacStretch;
+    }
+
+    noise->octaves = octaves;
+    noise->octcnt = octcnt;
+}
+
 int xOctaveInit(OctaveNoise *noise, Xoroshiro *xr, PerlinNoise *octaves,
         const double *amplitudes, int omin, int len)
 {
@@ -320,6 +341,22 @@ double sampleOctave(const OctaveNoise *noise, double x, double y, double z)
         double ay = maintainPrecision(y * lf);
         double az = maintainPrecision(z * lf);
         double pv = samplePerlin(p, ax, ay, az, 0, 0);
+        v += p->amplitude * pv;
+    }
+    return v;
+}
+
+double sampleOctaveOldBetaBiome(const OctaveNoise *noise, double x, double z)
+{
+    double v = 0;
+    int i;
+    for (i = 0; i < noise->octcnt; i++)
+    {
+        PerlinNoise *p = noise->octaves + i;
+        double lf = p->lacunarity;
+        double ax = maintainPrecision(x * lf) + p->a;
+        double az = maintainPrecision(z * lf) + p->b;
+        double pv = sampleSimplex2D(p, ax, az);
         v += p->amplitude * pv;
     }
     return v;

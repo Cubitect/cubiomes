@@ -52,12 +52,15 @@ double sampleSimplex2D(const PerlinNoise *noise, double x, double y);
 /// Perlin Octaves
 void octaveInit(OctaveNoise *noise, uint64_t *seed, PerlinNoise *octaves,
         int omin, int len);
+void octaveInitOldBetaBiome(OctaveNoise *noise, uint64_t *seed, 
+        PerlinNoise *octaves, int octcnt, double lacBase, double lacStretch);
 int xOctaveInit(OctaveNoise *noise, Xoroshiro *xr, PerlinNoise *octaves,
         const double *amplitudes, int omin, int len);
 
 double sampleOctave(const OctaveNoise *noise, double x, double y, double z);
 double sampleOctaveAmp(const OctaveNoise *noise, double x, double y, double z,
     double yamp, double ymin, int ydefault);
+double sampleOctaveOldBetaBiome(const OctaveNoise *noise, double x, double z);
 
 /// Double Perlin
 void doublePerlinInit(DoublePerlinNoise *noise, uint64_t *seed,
