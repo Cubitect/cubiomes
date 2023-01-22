@@ -78,7 +78,7 @@ const char* mc2str(int mc)
 int str2mc(const char *s)
 {
     if (!strcmp(s, "1.19"))     return MC_1_19;
-    if (!strcmp(s, "1.19_2"))   return MC_1_19_2;
+    if (!strcmp(s, "1.19.2"))   return MC_1_19_2;
     if (!strcmp(s, "1.18"))     return MC_1_18;
     if (!strcmp(s, "1.17"))     return MC_1_17;
     if (!strcmp(s, "1.16.1"))   return MC_1_16_1;
