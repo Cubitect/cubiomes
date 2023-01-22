@@ -272,7 +272,9 @@ Pos initFirstStronghold(StrongholdIter *sh, int mc, uint64_t s48);
  * location, as well as the approximate location of the next stronghold.
  *
  * @sh      : stronghold iteration state, holding position info
- * @g       : generator, should be initialized for Overworld generation
+ * @g       : generator, should be initialized for Overworld generation,
+ *            for version 1.19.3+ the generator may be left NULL to iterate
+ *            over the approximate locations without biome check
  *
  * Returns the number of further strongholds after this one.
  */

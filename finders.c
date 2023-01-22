@@ -141,7 +141,7 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
         return mc >= MC_1_14;
     case Ancient_City:
         *sconf = s_ancient_city;
-        return mc >= MC_1_19;
+        return mc >= MC_1_19_2;
     case Treasure:
         *sconf = s_treasure;
         return mc >= MC_1_13;
@@ -590,15 +590,26 @@ int nextStronghold(StrongholdIter *sh, const Generator *g)
             validM |= (1ULL << i);
     }
 
-    uint64_t lbr = sh->rnds;
     if (sh->mc >= MC_1_19_3)
-        setSeed(&lbr, nextLong(&sh->rnds));
-
-    sh->pos = locateBiome(g, sh->nextapprox.x, 0, sh->nextapprox.z, 112,
-        validB, validM, &lbr, NULL);
-
-    if (sh->mc < MC_1_19_3)
-        sh->rnds = lbr;
+    {
+        if (g)
+        {
+            uint64_t lbr = sh->rnds;
+            setSeed(&lbr, nextLong(&sh->rnds));
+            sh->pos = locateBiome(g, sh->nextapprox.x, 0, sh->nextapprox.z, 112,
+                validB, validM, &lbr, NULL);
+        }
+        else
+        {
+            nextLong(&sh->rnds);
+            sh->pos = sh->nextapprox;
+        }
+    }
+    else
+    {
+        sh->pos = locateBiome(g, sh->nextapprox.x, 0, sh->nextapprox.z, 112,
+            validB, validM, &sh->rnds, NULL);
+    }
 
     sh->ringidx++;
     sh->angle += 2 * PI / sh->ringmax;
@@ -1131,7 +1142,7 @@ int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t
             getVariant(&sv, Bastion, g->mc, g->seed, x, z, -1);
             sampleX = ((chunkX << 5) + 2*sv.x + sv.sx-1) / 2 >> 2;
             sampleZ = ((chunkZ << 5) + 2*sv.z + sv.sz-1) / 2 >> 2;
-            if (g->mc >= MC_1_19)
+            if (g->mc >= MC_1_19_2)
                 sampleY = 33 >> 2; // nether biomes don't actually vary in Y
         }
         else
@@ -4708,7 +4719,7 @@ const int *getBiomeParaLimits(int mc, int id)
     if (mc <= MC_1_17)
         return NULL;
     int i, n;
-    if (mc >= MC_1_19)
+    if (mc > MC_1_18)
     {
         n = sizeof(g_biome_para_range_19_diff) / sizeof(g_biome_para_range_19_diff[0]);
         for (i = 0; i < n; i++)
