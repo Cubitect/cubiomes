@@ -19,7 +19,7 @@ int biomeExists(int mc, int id)
             return 1;
 
         if (id == deep_dark || id == mangrove_swamp)
-            return mc >= MC_1_19;
+            return mc >= MC_1_19_2;
 
         switch (id)
         {
