@@ -356,6 +356,16 @@ STRUCT(SurfaceNoise)
     PerlinNoise oct[16+16+8+4+16];
 };
 
+STRUCT(SurfaceNoiseBeta)
+{
+    OctaveNoise octmin;
+    OctaveNoise octmax;
+    OctaveNoise octmain;
+    OctaveNoise octA;
+    OctaveNoise octB;
+    PerlinNoise oct[16+16+8+10+16];
+};
+
 STRUCT(Spline)
 {
     int len, typ;
@@ -398,6 +408,14 @@ STRUCT(BiomeNoise)
     int nptype;
     int mc;
 };
+// Overworld biome generator for pre-Beta 1.8
+STRUCT(BiomeNoiseBeta)
+{
+    OctaveNoise climate[3];
+    PerlinNoise oct[10];
+    int nptype;
+    int mc;
+};
 
 
 #ifdef __cplusplus
@@ -420,6 +438,7 @@ void setLayerSeed(Layer *layer, uint64_t worldSeed);
 //==============================================================================
 
 void initSurfaceNoise(SurfaceNoise *sn, int dim, uint64_t seed);
+void initSurfaceNoiseBeta(SurfaceNoiseBeta *snb, uint64_t seed);
 double sampleSurfaceNoise(const SurfaceNoise *sn, int x, int y, int z);
 
 
@@ -493,15 +512,17 @@ enum {
 };
 void initBiomeNoise(BiomeNoise *bn, int mc);
 void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int large);
+void setBetaBiomeSeed(BiomeNoiseBeta *bnb, uint64_t seed);
 int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
     uint64_t *dat, uint32_t sample_flags);
+int sampleBiomeNoiseBeta(const BiomeNoiseBeta *bnb, int64_t *np, double *nv,
+    int x, int z);
 /**
  * (Alpha 1.2 - Beta 1.7) 
  * Temperature and humidity values to biome.
- * If isWater is set, returned biome ID will be for ocean or frozen_ocean.
  * (defined in biome_tree.c)
  */
-int getOldBetaBiome(double d, double d1, int isWater);
+int getOldBetaBiome(double d, double d1);
 /**
  * Noise point to overworld biome mapping. (defined in biome_tree.c)
  */
@@ -532,6 +553,8 @@ void genBiomeNoiseChunkSection(const BiomeNoise *bn, int out[4][4][4],
  * A scale of zero is interpreted as the default 1:4 scale.
  */
 int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int mc, uint64_t sha);
+int genBetaBiomeNoiseScaled(const BiomeNoiseBeta *bnb, const SurfaceNoiseBeta *snb,
+    int *out, Range r, int mc, int noOcean);
 
 
 //==============================================================================

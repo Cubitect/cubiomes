@@ -6793,14 +6793,9 @@ static const uint8_t biome_table_old_beta[64*64] =
     06,06,06,06,06,06,06,06,06,06,06,06,06,04,04,04,04,04,04,04,04,04,04,04,04,04,04,04,04,04,21,21
 }; 
 
-// TODO: Confirm whether or not "climate biome == (tundra || taiga) -> ocean is frozen"
-// is accurate on a block-to-block basis. If not, this functionality may be
-// moved to the surface-finding code.
-int getOldBetaBiome(double d, double d1, int isWater) {
+int getOldBetaBiome(double d, double d1) {
     int id = biome_table_old_beta[(int)(d * 63) + (int)(d1 * 63) * 64];
-    if (isWater)
-        return (id == snowy_tundra || id == taiga) ? frozen_ocean : ocean;
-    return (id == 99) ? windswept_savanna : id;
+    return (id == 99) ? shrubland : id;
 }
 
 /// --------------------------------- 1.18 -------------------------------------

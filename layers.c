@@ -504,6 +504,10 @@ void initSurfaceNoise(SurfaceNoise *sn, int dim, uint64_t seed)
     }
 }
 
+void initSurfaceNoiseBeta(SurfaceNoiseBeta *snb, uint64_t seed) {
+    // TODO: Implement
+}
+
 double sampleSurfaceNoise(const SurfaceNoise *sn, int x, int y, int z)
 {
     double xzScale = 684.412 * sn->xzScale;
@@ -1214,6 +1218,21 @@ void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int large)
     bn->nptype = -1;
 }
 
+void setBetaBiomeSeed(BiomeNoiseBeta *bnb, uint64_t seed)
+{
+    uint64_t seedScratch;
+    setSeed(&seedScratch, seed*9871);
+    octaveInitOldBetaBiome(bnb->climate, &seedScratch, bnb->oct,
+        4, 0.02500000037252903, 0.25);
+    setSeed(&seedScratch, seed*39811);
+    octaveInitOldBetaBiome(bnb->climate+1, &seedScratch, bnb->oct+4,
+        4, 0.05000000074505806, 0.33333333333333331);
+    setSeed(&seedScratch, seed*0x84a59L);
+    octaveInitOldBetaBiome(bnb->climate+2, &seedScratch, bnb->oct+8,
+        2, 0.25, 0.58823529411764708);
+    bnb->nptype = -1;
+}
+
 
 enum { CONTINENTALNESS, EROSION, RIDGES, WEIRDNESS };
 
@@ -1464,6 +1483,44 @@ int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
     return id;
 }
 
+// Note: When selecting Temperature and Humidity with bnb->nptype, noise
+// varies from 0 to 10000, not -10000 to 10000.
+int sampleBiomeNoiseBeta(const BiomeNoiseBeta *bnb, int64_t *np, double *nv,
+    int x, int z)
+{
+    if (bnb->nptype >= 0 && np)
+        memset(np, 0, 2*sizeof(*np));
+
+    double t = 0; // prevent compiler warning
+    double h, f;
+    f = sampleOctaveOldBetaBiome(&bnb->climate[2], x, z) * 1.1 + 0.5;
+    if (bnb->nptype != NP_HUMIDITY)
+    {
+        t = (sampleOctaveOldBetaBiome(&bnb->climate[0], x, z) *
+            0.15 + 0.7) * 0.99 + f * 0.01;
+        t = 1 - (1 - t) * (1 - t);
+        t = (t < 0) ? 0 : t;
+        t = (t > 1) ? 1 : t;
+        if (bnb->nptype == NP_TEMPERATURE)
+            return (int64_t) (10000.0F * t);
+    }
+
+    h = (sampleOctaveOldBetaBiome(&bnb->climate[1], x, z) *
+        0.15 + 0.5) * 0.998 + f * 0.002;
+    h = (h < 0) ? 0 : h;
+    h = (h > 1) ? 1 : h;
+    if (bnb->nptype == NP_HUMIDITY)
+        return (int64_t) (10000.0F * h);
+
+    if (nv)
+    {
+        nv[0] = t;
+        nv[1] = h;
+    }
+
+    return getOldBetaBiome((float) t, (float) h);
+}
+
 void setClimateParaSeed(BiomeNoise *bn, uint64_t seed, int large, int nptype)
 {
     Xoroshiro pxr;
@@ -1621,6 +1678,32 @@ int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int mc, uint64_
         // situations that want to use a higher scale are usually better off
         // with a faster, if imperfect, result.
         genBiomeNoise3D(bn, out, r, r.scale > 4);
+    }
+    return 0;
+}
+
+int genBetaBiomeNoiseScaled(const BiomeNoiseBeta *bnb,
+    const SurfaceNoiseBeta *snb, int *out, Range r, int mc, int noOcean)
+{
+    if (mc >= MC_B1_8)
+        return 1;
+
+    // TODO: Implement surface-finding algorithm to determine locations of
+    // oceans and frozen oceans. This may require a diagonal traversal of
+    // the generation range starting in the high x/high z corner.
+
+    int i, j;
+    int *p = out;
+    int mid = r.scale / 2;
+    for (j = 0; j < r.sz; j++)
+    {
+        int zj = (r.z+j)*r.scale + mid;
+        for (i = 0; i < r.sx; i++)
+        {
+            int xi = (r.x+i)*r.scale + mid;
+            *p = sampleBiomeNoiseBeta(bnb, NULL, NULL, xi, zj);
+            p++;
+        }
     }
     return 0;
 }

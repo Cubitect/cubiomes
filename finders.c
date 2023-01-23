@@ -114,7 +114,7 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
         return mc >= MC_1_9;
     case Village:
         *sconf = mc <= MC_1_17 ? s_village_117 : s_village;
-        return 1;
+        return mc >= MC_B1_8;
     case Ocean_Ruin:
         *sconf = mc <= MC_1_15 ? s_ocean_ruin_115 : s_ocean_ruin;
         return mc >= MC_1_13;
@@ -147,7 +147,7 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
         return mc >= MC_1_13;
     case Mineshaft:
         *sconf = s_mineshaft;
-        return 1;
+        return mc >= MC_B1_8;
     case Fortress:
         *sconf = mc <= MC_1_15 ? s_fortress_115 : s_fortress;
         return mc >= MC_1_0;
