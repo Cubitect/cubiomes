@@ -110,11 +110,7 @@ void applySeed(Generator *g, int dim, uint64_t seed)
         else if (g->mc >= MC_1_18)
             setBiomeSeed(&g->bn, seed, g->flags & LARGE_BIOMES);
         else
-        {
             setBetaBiomeSeed(&g->bnb, seed);
-            if (!(g->flags & NO_BETA_OCEAN))
-                initSurfaceNoiseBeta(&g->snb, seed);
-        }
     }
     else if (dim == DIM_NETHER && g->mc >= MC_1_16_1)
     {
@@ -192,8 +188,13 @@ int genBiomes(const Generator *g, int *cache, Range r)
         }
         else // g->mc <= MC_B1_7
         {
-            return genBetaBiomeNoiseScaled(&g->bnb, &g->snb, cache, r, g->mc, 
-                (g->flags & NO_BETA_OCEAN));
+            if (!(g->flags & NO_BETA_OCEAN))
+            {
+                SurfaceNoiseBeta snb;
+                initSurfaceNoiseBeta(&snb, g->seed);
+                return genBetaBiomeNoiseScaled(&g->bnb, &snb, cache, r, g->mc, 0);
+            }
+            return genBetaBiomeNoiseScaled(&g->bnb, NULL, cache, r, g->mc, 1);
         }
     }
     else if (g->dim == DIM_NETHER)
@@ -202,7 +203,8 @@ int genBiomes(const Generator *g, int *cache, Range r)
     }
     else if (g->dim == DIM_END)
     {
-        return genEndScaled(&g->en, cache, r, g->mc, g->sha);
+        if (g->mc >= MC_1_0)
+            return genEndScaled(&g->en, cache, r, g->mc, g->sha);
     }
 
     return err;

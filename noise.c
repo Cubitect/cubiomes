@@ -127,28 +127,116 @@ double samplePerlin(const PerlinNoise *noise, double d1, double d2, double d3,
     int b1 = idx[i1+1] + i2;
 
     int a2 = idx[a1]   + i3;
-    int a3 = idx[a1+1] + i3;
     int b2 = idx[b1]   + i3;
-    int b3 = idx[b1+1] + i3;
 
     double l1 = indexedLerp(idx[a2],   d1,   d2,   d3);
     double l2 = indexedLerp(idx[b2],   d1-1, d2,   d3);
-    double l3 = indexedLerp(idx[a3],   d1,   d2-1, d3);
-    double l4 = indexedLerp(idx[b3],   d1-1, d2-1, d3);
     double l5 = indexedLerp(idx[a2+1], d1,   d2,   d3-1);
     double l6 = indexedLerp(idx[b2+1], d1-1, d2,   d3-1);
-    double l7 = indexedLerp(idx[a3+1], d1,   d2-1, d3-1);
-    double l8 = indexedLerp(idx[b3+1], d1-1, d2-1, d3-1);
+
+    if (d2 != 0) {
+        int a3 = idx[a1+1] + i3;
+        int b3 = idx[b1+1] + i3;
+
+        double l3 = indexedLerp(idx[a3],   d1,   d2-1, d3);
+        double l4 = indexedLerp(idx[b3],   d1-1, d2-1, d3);
+        double l7 = indexedLerp(idx[a3+1], d1,   d2-1, d3-1);
+        double l8 = indexedLerp(idx[b3+1], d1-1, d2-1, d3-1);
+
+        l3 = lerp(t1, l3, l4);
+        l7 = lerp(t1, l7, l8);
+
+        l1 = lerp(t2, l1, l3);
+        l5 = lerp(t2, l5, l7);
+    }
 
     l1 = lerp(t1, l1, l2);
-    l3 = lerp(t1, l3, l4);
     l5 = lerp(t1, l5, l6);
-    l7 = lerp(t1, l7, l8);
-
-    l1 = lerp(t2, l1, l3);
-    l5 = lerp(t2, l5, l7);
 
     return lerp(t3, l1, l5);
+}
+
+void samplePerlinOldBetaTerrain3D(const PerlinNoise *noise, double *v,
+        double d1, double d3, int yLacFlag)
+{
+    int genFlag = -1;
+    double l1 = 0;
+    double l3 = 0;
+    double l5 = 0;
+    double l7 = 0;
+
+    d1 += noise->a;
+    d3 += noise->c;
+    const uint8_t *idx = noise->d;
+    int i1 = (int) floor(d1);
+    int i3 = (int) floor(d3);
+    d1 -= i1;
+    d3 -= i3;
+    double t1 = d1*d1*d1 * (d1 * (d1*6.0-15.0) + 10.0);
+    double t3 = d3*d3*d3 * (d3 * (d3*6.0-15.0) + 10.0);
+
+    i1 &= 0xff;
+    i3 &= 0xff;
+
+    double d2;
+    int i2, yi, yic, gfCopy;
+    for (yi = 0; yi <= 7; yi++)
+    {
+        d2 = yi*(noise->lacunarity*((yLacFlag) ? 0.5 : 1))+noise->b;
+        i2 = ((int) floor(d2)) & 0xff;
+        if (yi == 0 || i2 != genFlag)
+        {
+            yic = yi;
+            gfCopy = genFlag;
+            genFlag = i2;
+        }
+    }
+    genFlag = gfCopy;
+
+    double t2;
+    for (yi = yic; yi <= 8; yi++)
+    {
+        d2 = yi*(noise->lacunarity*((yLacFlag) ? 0.5 : 1))+noise->b;
+        i2 = (int) floor(d2);
+        d2 -= i2;
+        t2 = d2*d2*d2 * (d2 * (d2*6.0-15.0) + 10.0);
+
+        i2 &= 0xff;
+
+        if (yi == 0 || i2 != genFlag)
+        {
+            genFlag = i2;
+            int a1 = idx[i1]   + i2;
+            int b1 = idx[i1+1] + i2;
+
+            int a2 = idx[a1]   + i3;
+            int a3 = idx[a1+1] + i3;
+            int b2 = idx[b1]   + i3;
+            int b3 = idx[b1+1] + i3;
+
+            double m1 = indexedLerp(idx[a2],   d1,   d2,   d3);
+            double l2 = indexedLerp(idx[b2],   d1-1, d2,   d3);
+            double m3 = indexedLerp(idx[a3],   d1,   d2-1, d3);
+            double l4 = indexedLerp(idx[b3],   d1-1, d2-1, d3);
+            double m5 = indexedLerp(idx[a2+1], d1,   d2,   d3-1);
+            double l6 = indexedLerp(idx[b2+1], d1-1, d2,   d3-1);
+            double m7 = indexedLerp(idx[a3+1], d1,   d2-1, d3-1);
+            double l8 = indexedLerp(idx[b3+1], d1-1, d2-1, d3-1);
+
+            l1 = lerp(t1, m1, l2);
+            l3 = lerp(t1, m3, l4);
+            l5 = lerp(t1, m5, l6);
+            l7 = lerp(t1, m7, l8);
+        }
+
+        if (yi >= 7)
+        {
+            double n1 = lerp(t2, l1, l3);
+            double n5 = lerp(t2, l5, l7);
+
+            v[yi-7] += lerp(t3, n1, n5) * noise->amplitude;
+        }
+    }
 }
 
 static double simplexGrad(int idx, double x, double y, double z, double d)
@@ -253,6 +341,24 @@ void octaveInitOldBetaBiome(OctaveNoise *noise, uint64_t *seed,
     noise->octcnt = octcnt;
 }
 
+void octaveInitOldBetaTerrain(OctaveNoise *noise, uint64_t *seed,
+        PerlinNoise *octaves, int octcnt, double lacBase)
+{
+    double modifier = 1;
+    int i;
+
+    for (i = 0; i < octcnt; i++)
+    {
+        perlinInit(&octaves[i], seed);
+        octaves[i].amplitude = 1 / modifier;
+        octaves[i].lacunarity = lacBase*modifier;
+        modifier /= 2;
+    }
+
+    noise->octaves = octaves;
+    noise->octcnt = octcnt;
+}
+
 int xOctaveInit(OctaveNoise *noise, Xoroshiro *xr, PerlinNoise *octaves,
         const double *amplitudes, int omin, int len)
 {
@@ -346,6 +452,23 @@ double sampleOctave(const OctaveNoise *noise, double x, double y, double z)
     return v;
 }
 
+double sampleOctave2D(const OctaveNoise *noise, double x, double z)
+{
+    double v = 0;
+    int i;
+    for (i = 0; i < noise->octcnt; i++)
+    {
+        PerlinNoise *p = noise->octaves + i;
+        double lf = p->lacunarity;
+        double ax = maintainPrecision(x * lf);
+        double ay = -(p->b);
+        double az = maintainPrecision(z * lf);
+        double pv = samplePerlin(p, ax, ay, az, 0, 0);
+        v += p->amplitude * pv;
+    }
+    return v;
+}
+
 double sampleOctaveOldBetaBiome(const OctaveNoise *noise, double x, double z)
 {
     double v = 0;
@@ -360,6 +483,22 @@ double sampleOctaveOldBetaBiome(const OctaveNoise *noise, double x, double z)
         v += p->amplitude * pv;
     }
     return v;
+}
+
+void sampleOctaveOldBetaTerrain3D(const OctaveNoise *noise, double *v, double x, double z,
+        int yLacFlag)
+{
+    v[0] = 0.0;
+    v[1] = 0.0;
+    int i;
+    for (i = 0; i < noise->octcnt; i++)
+    {
+        PerlinNoise *p = noise->octaves + i;
+        double lf = p->lacunarity;
+        double ax = maintainPrecision(x * lf);
+        double az = maintainPrecision(z * lf);
+        samplePerlinOldBetaTerrain3D(p, v, ax, az, yLacFlag);
+    }
 }
 
 

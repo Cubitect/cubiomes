@@ -6793,7 +6793,8 @@ static const uint8_t biome_table_old_beta[64*64] =
     06,06,06,06,06,06,06,06,06,06,06,06,06,04,04,04,04,04,04,04,04,04,04,04,04,04,04,04,04,04,21,21
 }; 
 
-int getOldBetaBiome(double d, double d1) {
+int getOldBetaBiome(double d, double d1)
+{
     int id = biome_table_old_beta[(int)(d * 63) + (int)(d1 * 63) * 64];
     return (id == 99) ? shrubland : id;
 }

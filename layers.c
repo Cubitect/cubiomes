@@ -82,6 +82,21 @@ int biomeExists(int mc, int id)
         }
     }
 
+    if (mc <= MC_B1_7)
+    {
+        switch(id)
+        {
+        case mountains:
+        case river:
+            return 0;
+        case seasonal_forest:
+        case savanna:
+        case shrubland:
+        case rainforest:
+            return 1;
+        }
+    }
+
     if (mc <= MC_B1_8)
     {
         switch (id)
@@ -505,7 +520,14 @@ void initSurfaceNoise(SurfaceNoise *sn, int dim, uint64_t seed)
 }
 
 void initSurfaceNoiseBeta(SurfaceNoiseBeta *snb, uint64_t seed) {
-    // TODO: Implement
+    uint64_t s;
+    setSeed(&s, seed);
+    octaveInitOldBetaTerrain(&snb->octmin, &s, snb->oct+0, 16, 684.412);
+    octaveInitOldBetaTerrain(&snb->octmax, &s, snb->oct+16, 16, 684.412);
+    octaveInitOldBetaTerrain(&snb->octmain, &s, snb->oct+32, 8, 684.412/80.0);
+    skipNextN(&s, 262*8);
+    octaveInitOldBetaTerrain(&snb->octA, &s, snb->oct+40, 10, 1.121);
+    octaveInitOldBetaTerrain(&snb->octB, &s, snb->oct+50, 16, 200.0);
 }
 
 double sampleSurfaceNoise(const SurfaceNoise *sn, int x, int y, int z)
@@ -1485,6 +1507,8 @@ int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
 
 // Note: When selecting Temperature and Humidity with bnb->nptype, noise
 // varies from 0 to 10000, not -10000 to 10000.
+// Note: Climate noise exists at a 1:1 scale. 1:4 is obtained by sampling
+// midpoints.
 int sampleBiomeNoiseBeta(const BiomeNoiseBeta *bnb, int64_t *np, double *nv,
     int x, int z)
 {
