@@ -791,7 +791,6 @@ Pos getSpawn(const Generator *g)
     else
     {
         spawn = findFittestPos(g);
-        return spawn;
     }
 
     SurfaceNoise sn;
