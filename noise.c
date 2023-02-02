@@ -127,31 +127,26 @@ double samplePerlin(const PerlinNoise *noise, double d1, double d2, double d3,
     int b1 = idx[i1+1] + i2;
 
     int a2 = idx[a1]   + i3;
+    int a3 = idx[a1+1] + i3;
     int b2 = idx[b1]   + i3;
+    int b3 = idx[b1+1] + i3;
 
     double l1 = indexedLerp(idx[a2],   d1,   d2,   d3);
     double l2 = indexedLerp(idx[b2],   d1-1, d2,   d3);
+    double l3 = indexedLerp(idx[a3],   d1,   d2-1, d3);
+    double l4 = indexedLerp(idx[b3],   d1-1, d2-1, d3);
     double l5 = indexedLerp(idx[a2+1], d1,   d2,   d3-1);
     double l6 = indexedLerp(idx[b2+1], d1-1, d2,   d3-1);
-
-    if (d2 != 0) {
-        int a3 = idx[a1+1] + i3;
-        int b3 = idx[b1+1] + i3;
-
-        double l3 = indexedLerp(idx[a3],   d1,   d2-1, d3);
-        double l4 = indexedLerp(idx[b3],   d1-1, d2-1, d3);
-        double l7 = indexedLerp(idx[a3+1], d1,   d2-1, d3-1);
-        double l8 = indexedLerp(idx[b3+1], d1-1, d2-1, d3-1);
-
-        l3 = lerp(t1, l3, l4);
-        l7 = lerp(t1, l7, l8);
-
-        l1 = lerp(t2, l1, l3);
-        l5 = lerp(t2, l5, l7);
-    }
+    double l7 = indexedLerp(idx[a3+1], d1,   d2-1, d3-1);
+    double l8 = indexedLerp(idx[b3+1], d1-1, d2-1, d3-1);
 
     l1 = lerp(t1, l1, l2);
+    l3 = lerp(t1, l3, l4);
     l5 = lerp(t1, l5, l6);
+    l7 = lerp(t1, l7, l8);
+
+    l1 = lerp(t2, l1, l3);
+    l5 = lerp(t2, l5, l7);
 
     return lerp(t3, l1, l5);
 }

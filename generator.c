@@ -135,6 +135,12 @@ size_t getMinCacheSize(const Generator *g, int scale, int sx, int sy, int sz)
     if (sy == 0)
         sy = 1;
     size_t len = (size_t)sx * sz * sy;
+    if (g->mc <= MC_B1_7 && scale <=4 && !(g->flags & NO_BETA_OCEAN))
+    {
+        int sxa = (int) floor((double) sx / (4.0/scale)) + 1;
+        int sza = (int) floor((double) sz / (4.0/scale)) + 1;
+        len += (2*((sxa <= sza) ? sxa : sza)-1)*sizeof(SeaLevelColumnNoiseBeta);
+    }
     if (g->mc >= MC_B1_8 && g->mc <= MC_1_17 && g->dim == DIM_OVERWORLD)
     {   // recursively check the layer stack for the max buffer
         const Layer *entry = getLayerForScale(g, scale);

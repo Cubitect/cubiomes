@@ -361,9 +361,18 @@ STRUCT(SurfaceNoiseBeta)
     OctaveNoise octmin;
     OctaveNoise octmax;
     OctaveNoise octmain;
-    OctaveNoise octA;
-    OctaveNoise octB;
+    OctaveNoise octcontA;
+    OctaveNoise octcontB;
     PerlinNoise oct[16+16+8+10+16];
+};
+
+STRUCT(SeaLevelColumnNoiseBeta)
+{
+    double contASample;
+    double contBSample;
+    double minSample[2];
+    double maxSample[2];
+    double mainSample[2];
 };
 
 STRUCT(Spline)
@@ -553,6 +562,13 @@ void genBiomeNoiseChunkSection(const BiomeNoise *bn, int out[4][4][4],
  * A scale of zero is interpreted as the default 1:4 scale.
  */
 int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int mc, uint64_t sha);
+void genColumnNoise(const SurfaceNoiseBeta *snb, SeaLevelColumnNoiseBeta *dest,
+    int cx, int cz);
+void processColumnNoise(double *out, SeaLevelColumnNoiseBeta *src,
+    const BiomeNoiseBeta *bnb, int x, int z, int chunkBorderX, int chunkBorderZ);
+void sampleBlocks(double *src, uint8_t *out, int scale);
+int sampleBetaBiomeOneBlock(const BiomeNoiseBeta *bnb,
+    const SurfaceNoiseBeta *snb, int x, int z);
 int genBetaBiomeNoiseScaled(const BiomeNoiseBeta *bnb, const SurfaceNoiseBeta *snb,
     int *out, Range r, int mc, int noOcean);
 
