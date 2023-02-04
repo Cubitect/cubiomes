@@ -7,6 +7,7 @@
 enum
 {
     LARGE_BIOMES            = 0x1,
+    NO_BETA_OCEAN           = 0x2,
     FORCE_OCEAN_VARIANTS    = 0x4,
 };
 
@@ -26,6 +27,9 @@ STRUCT(Generator)
         };
         struct { // MC 1.18
             BiomeNoise bn;
+        };
+        struct { // MC A1.2 - B1.7
+            BiomeNoiseBeta bnb;
         };
     };
     NetherNoise nn; // MC 1.16

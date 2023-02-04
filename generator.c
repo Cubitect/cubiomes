@@ -68,7 +68,7 @@ void setupGenerator(Generator *g, int mc, uint32_t flags)
     g->seed = 0;
     g->sha = 0;
 
-    if (mc <= MC_1_17)
+    if (mc >= MC_B1_8 && mc <= MC_1_17)
     {
         setupLayerStack(&g->ls, mc, flags & LARGE_BIOMES);
         g->entry = NULL;
@@ -87,9 +87,13 @@ void setupGenerator(Generator *g, int mc, uint32_t flags)
                 g->ls.entry_256, &g->ls.layers[L_OCEAN_TEMP_256]);
         }
     }
-    else
+    else if (mc >= MC_1_18)
     {
         initBiomeNoise(&g->bn, mc);
+    }
+    else
+    {
+        g->bnb.mc = mc;
     }
 }
 
@@ -101,10 +105,12 @@ void applySeed(Generator *g, int dim, uint64_t seed)
 
     if (dim == DIM_OVERWORLD)
     {
-        if (g->mc <= MC_1_17)
+        if (g->mc >= MC_B1_8 && g->mc <= MC_1_17)
             setLayerSeed(g->entry ? g->entry : g->ls.entry_1, seed);
-        else
+        else if (g->mc >= MC_1_18)
             setBiomeSeed(&g->bn, seed, g->flags & LARGE_BIOMES);
+        else
+            setBetaBiomeSeed(&g->bnb, seed);
     }
     else if (dim == DIM_NETHER && g->mc >= MC_1_16_1)
     {
@@ -128,9 +134,14 @@ size_t getMinCacheSize(const Generator *g, int scale, int sx, int sy, int sz)
 {
     if (sy == 0)
         sy = 1;
-
     size_t len = (size_t)sx * sz * sy;
-    if (g->mc <= MC_1_17 && g->dim == DIM_OVERWORLD)
+    if (g->mc <= MC_B1_7 && scale <=4 && !(g->flags & NO_BETA_OCEAN))
+    {
+        int sxa = (int) floor((double) sx / (4.0/scale)) + 1;
+        int sza = (int) floor((double) sz / (4.0/scale)) + 1;
+        len += (2*((sxa <= sza) ? sxa : sza)-1)*sizeof(SeaLevelColumnNoiseBeta);
+    }
+    if (g->mc >= MC_B1_8 && g->mc <= MC_1_17 && g->dim == DIM_OVERWORLD)
     {   // recursively check the layer stack for the max buffer
         const Layer *entry = getLayerForScale(g, scale);
         if (!entry) {
@@ -140,7 +151,7 @@ size_t getMinCacheSize(const Generator *g, int scale, int sx, int sy, int sz)
         size_t len2d = getMinLayerCacheSize(entry, sx, sz);
         len += len2d - sx*sz;
     }
-    else if (scale <= 1)
+    else if (g->mc >= MC_1_18 && scale <= 1)
     {   // allocate space for temporary copy of voronoi source
         sx = ((sx+3) >> 2) + 2;
         sy = ((sy+3) >> 2) + 2;
@@ -164,7 +175,7 @@ int genBiomes(const Generator *g, int *cache, Range r)
 
     if (g->dim == DIM_OVERWORLD)
     {
-        if (g->mc <= MC_1_17)
+        if (g->mc >= MC_B1_8 && g->mc <= MC_1_17)
         {
             const Layer *entry = getLayerForScale(g, r.scale);
             if (!entry) return -1;
@@ -177,9 +188,19 @@ int genBiomes(const Generator *g, int *cache, Range r)
             }
             return 0;
         }
-        else
+        else if (g->mc >= MC_1_18)
         {
             return genBiomeNoiseScaled(&g->bn, cache, r, g->mc, g->sha);
+        }
+        else // g->mc <= MC_B1_7
+        {
+            if (!(g->flags & NO_BETA_OCEAN))
+            {
+                SurfaceNoiseBeta snb;
+                initSurfaceNoiseBeta(&snb, g->seed);
+                return genBetaBiomeNoiseScaled(&g->bnb, &snb, cache, r, g->mc, 0);
+            }
+            return genBetaBiomeNoiseScaled(&g->bnb, NULL, cache, r, g->mc, 1);
         }
     }
     else if (g->dim == DIM_NETHER)
@@ -188,7 +209,8 @@ int genBiomes(const Generator *g, int *cache, Range r)
     }
     else if (g->dim == DIM_END)
     {
-        return genEndScaled(&g->en, cache, r, g->mc, g->sha);
+        if (g->mc >= MC_1_0)
+            return genEndScaled(&g->en, cache, r, g->mc, g->sha);
     }
 
     return err;
