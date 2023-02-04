@@ -107,7 +107,11 @@ enum BiomeID
     deep_cold_ocean,            coldDeepOcean = deep_cold_ocean,
     // 50
     deep_frozen_ocean,          frozenDeepOcean = deep_frozen_ocean,
-    BIOME_NUM,
+    // Alpha 1.2 - Beta 1.7
+    seasonal_forest,
+    rainforest,
+    shrubland,
+
 
     the_void = 127,
 
@@ -165,10 +169,6 @@ enum BiomeID
     // 1.19
     deep_dark                       = 183,
     mangrove_swamp                  = 184,
-    // Alpha 1.2 - Beta 1.7
-    seasonal_forest                 = wooded_hills,
-    rainforest                      = jungle,
-    shrubland                       = windswept_savanna,
 };
 
 
@@ -541,7 +541,7 @@ int p2overworld(int mc, const uint64_t np[6], uint64_t *dat);
  * If nptype == NP_DEPTH, the value is sampled at y=0. Note that this value
  * changes linearly with the height (i.e. -= y/128).
  */
-void setClimateParaSeed(BiomeNoise *bn, uint64_t seed, int large, int nptype);
+void setClimateParaSeed(BiomeNoise *bn, uint64_t seed, int large, int nptype, int nmax);
 double sampleClimatePara(const BiomeNoise *bn, int64_t *np, double x, double z);
 
 /**
@@ -562,11 +562,7 @@ void genBiomeNoiseChunkSection(const BiomeNoise *bn, int out[4][4][4],
  * A scale of zero is interpreted as the default 1:4 scale.
  */
 int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int mc, uint64_t sha);
-void genColumnNoise(const SurfaceNoiseBeta *snb, SeaLevelColumnNoiseBeta *dest,
-    int cx, int cz);
-void processColumnNoise(double *out, SeaLevelColumnNoiseBeta *src,
-    const BiomeNoiseBeta *bnb, int x, int z, int chunkBorderX, int chunkBorderZ);
-void sampleBlocks(double *src, uint8_t *out, int scale);
+
 int sampleBetaBiomeOneBlock(const BiomeNoiseBeta *bnb,
     const SurfaceNoiseBeta *snb, int x, int z);
 int genBetaBiomeNoiseScaled(const BiomeNoiseBeta *bnb, const SurfaceNoiseBeta *snb,

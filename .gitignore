@@ -8,4 +8,5 @@ docs/LayerSummary.synctex.gz
 docs/LayerSummary.toc
 *.o
 *.a
+a.out
 

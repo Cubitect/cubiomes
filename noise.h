@@ -59,7 +59,7 @@ void octaveInitOldBetaBiome(OctaveNoise *noise, uint64_t *seed,
 void octaveInitOldBetaTerrain(OctaveNoise *noise, uint64_t *seed,
         PerlinNoise *octaves, int octcnt, double lacBase);
 int xOctaveInit(OctaveNoise *noise, Xoroshiro *xr, PerlinNoise *octaves,
-        const double *amplitudes, int omin, int len);
+        const double *amplitudes, int omin, int len, int nmax);
 
 double sampleOctave(const OctaveNoise *noise, double x, double y, double z);
 double sampleOctaveAmp(const OctaveNoise *noise, double x, double y, double z,
@@ -73,7 +73,7 @@ void sampleOctaveOldBetaTerrain3D(const OctaveNoise *noise, double *v,
 void doublePerlinInit(DoublePerlinNoise *noise, uint64_t *seed,
         PerlinNoise *octavesA, PerlinNoise *octavesB, int omin, int len);
 int xDoublePerlinInit(DoublePerlinNoise *noise, Xoroshiro *xr,
-        PerlinNoise *octaves, const double *amplitudes, int omin, int len);
+        PerlinNoise *octaves, const double *amplitudes, int omin, int len, int nmax);
 
 double sampleDoublePerlin(const DoublePerlinNoise *noise,
         double x, double y, double z);

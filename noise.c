@@ -6,7 +6,7 @@
 
 
 // grad()
-/*
+#if 0
 static double indexedLerp(int idx, double d1, double d2, double d3)
 {
     const double cEdgeX[] = { 1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 1.0,-1.0,
@@ -19,8 +19,8 @@ static double indexedLerp(int idx, double d1, double d2, double d3)
     idx &= 0xf;
     return cEdgeX[idx] * d1 + cEdgeY[idx] * d2 + cEdgeZ[idx] * d3;
 }
-*/
-ATTR(hot, const, always_inline, artificial)
+#else
+ATTR(hot, const)
 static inline double indexedLerp(int idx, double a, double b, double c)
 {
    switch (idx & 0xf)
@@ -45,6 +45,7 @@ static inline double indexedLerp(int idx, double a, double b, double c)
    UNREACHABLE();
    return 0;
 }
+#endif
 
 void perlinInit(PerlinNoise *noise, uint64_t *seed)
 {
@@ -355,9 +356,9 @@ void octaveInitOldBetaTerrain(OctaveNoise *noise, uint64_t *seed,
 }
 
 int xOctaveInit(OctaveNoise *noise, Xoroshiro *xr, PerlinNoise *octaves,
-        const double *amplitudes, int omin, int len)
+        const double *amplitudes, int omin, int len, int nmax)
 {
-    const uint64_t md5_octave_n[][2] = {
+    static const uint64_t md5_octave_n[][2] = {
         {0xb198de63a8012672, 0x7b84cad43ef7b5a8}, // md5 "octave_-12"
         {0x0fd787bfbc403ec3, 0x74a4a31ca21b48b8}, // md5 "octave_-11"
         {0x36d326eed40efeb2, 0x5be9ce18223c636a}, // md5 "octave_-10"
@@ -372,11 +373,11 @@ int xOctaveInit(OctaveNoise *noise, Xoroshiro *xr, PerlinNoise *octaves,
         {0xdffa22b534c5f608, 0xb9b67517d3665ca9}, // md5 "octave_-1"
         {0xd50708086cef4d7c, 0x6e1651ecc7f43309}, // md5 "octave_0"
     };
-    const double lacuna_ini[] = { // -omin = 3..12
+    static const double lacuna_ini[] = { // -omin = 3..12
         1, .5, .25, 1./8, 1./16, 1./32, 1./64, 1./128, 1./256, 1./512, 1./1024,
         1./2048, 1./4096,
     };
-    const double persist_ini[] = { // len = 4..9
+    static const double persist_ini[] = { // len = 4..9
         0, 1, 2./3, 4./7, 8./15, 16./31, 32./63, 64./127, 128./255, 256./511,
     };
 #if DEBUG
@@ -393,7 +394,7 @@ int xOctaveInit(OctaveNoise *noise, Xoroshiro *xr, PerlinNoise *octaves,
     uint64_t xhi = xNextLong(xr);
     int i = 0, n = 0;
 
-    for (; i < len; i++, lacuna *= 2.0, persist *= 0.5)
+    for (; i < len && n != nmax; i++, lacuna *= 2.0, persist *= 0.5)
     {
         if (amplitudes[i] == 0)
             continue;
@@ -506,29 +507,37 @@ void doublePerlinInit(DoublePerlinNoise *noise, uint64_t *seed,
 }
 
 /**
- * Sets up a DoublePerlinNoise generator (MC 1.18).
+ * Sets up a DoublePerlinNoise generator (MC 1.18+).
  * @noise:      Object to be initialized
  * @xr:         Xoroshiro random object
- * @octaves:    Octaves buffer, size has to be 2x (No. non-zeros in amplitudes)
+ * @octaves:    Octaves buffer, size has to be 2x (# non-zeros in amplitudes)
  * @amplitudes: Octave amplitude, needs at least one non-zero
  * @omin:       First octave
  * @len:        Length of amplitudes array
+ * @nmax:       Number of octaves available in buffer (can be <=0 to ignore)
  * @return Number of octaves used (see octaves buffer size).
  */
 int xDoublePerlinInit(DoublePerlinNoise *noise, Xoroshiro *xr,
-        PerlinNoise *octaves, const double *amplitudes,
-        int omin, int len)
+        PerlinNoise *octaves, const double *amplitudes, int omin, int len, int nmax)
 {
-    int i, n = 0;
-    n += xOctaveInit(&noise->octA, xr, octaves+n, amplitudes, omin, len);
-    n += xOctaveInit(&noise->octB, xr, octaves+n, amplitudes, omin, len);
+    int i, n = 0, na = -1, nb = -1;
+    if (nmax > 0)
+    {
+        na = (nmax + 1) >> 1;
+        nb = nmax - na;
+    }
+    n += xOctaveInit(&noise->octA, xr, octaves+n, amplitudes, omin, len, na);
+    n += xOctaveInit(&noise->octB, xr, octaves+n, amplitudes, omin, len, nb);
 
     // trim amplitudes of zero
     for (i = len-1; i >= 0 && amplitudes[i] == 0.0; i--)
         len--;
     for (i = 0; amplitudes[i] == 0.0; i++)
         len--;
-    noise->amplitude = (10.0 / 6.0) * len / (len + 1);
+    static const double amp_ini[] = { // (5 ./ 3) * len / (len + 1), len = 2..9
+        0, 5./6, 10./9, 15./12, 20./15, 25./18, 30./21, 35./24, 40./27, 45./30,
+    };
+    noise->amplitude = amp_ini[len];
     return n;
 }
 

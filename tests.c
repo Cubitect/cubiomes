@@ -136,14 +136,14 @@ uint32_t testAreas(int mc, int dim, int scale)
     double t = -now();
     uint32_t hash = 0;
     uint64_t s;
-    for (s = 0; s < 100; s++)
+    for (s = 0; s < 1000; s++)
     {
         int d = 40000;
         int x = hash32(s << 5) % d - d/2;
         int y = ((int)(hash32(s << 7) % 384) - 64);
         int z = hash32(s << 9) % d - d/2;
-        int w = 1 + hash32(s << 11) % 128; w = 128;
-        int h = 1 + hash32(s << 13) % 128; h = 128;
+        int w = 1 + hash32(s << 11) % 128;
+        int h = 1 + hash32(s << 13) % 128;
 
         applySeed(&g, dim, s);
         Range r = {scale, x, z, w, h, y, 1};
@@ -466,8 +466,10 @@ void findStructures(int structureType, int mc, int dim, uint64_t seed,
 
 int main()
 {
+    //testAreas(MC_1_19, 0, 4);
+    testAreas(MC_B1_7, 0, 4);
     //testCanBiomesGenerate();
-    testGeneration();
+    //testGeneration();
     //findBiomeParaBounds();
     return 0;
 }

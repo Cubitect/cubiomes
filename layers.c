@@ -1152,7 +1152,7 @@ int genEndScaled(const EndNoise *en, int *out, Range r, int mc, uint64_t sha)
 
 static int init_climate_seed(
     DoublePerlinNoise *dpn, PerlinNoise *oct,
-    uint64_t xlo, uint64_t xhi, int large, int nptype
+    uint64_t xlo, uint64_t xhi, int large, int nptype, int nmax
     )
 {
     Xoroshiro pxr;
@@ -1161,57 +1161,51 @@ static int init_climate_seed(
     switch (nptype)
     {
     case NP_SHIFT: {
-        double amp_s[] = {1, 1, 1, 0};
-        int len = sizeof(amp_s)/sizeof(double);
+        static const double amp[] = {1, 1, 1, 0};
         // md5 "minecraft:offset"
         pxr.lo = xlo ^ 0x080518cf6af25384;
         pxr.hi = xhi ^ 0x3f3dfb40a54febd5;
-        n += xDoublePerlinInit(dpn, &pxr, oct, amp_s, -3, len);
+        n += xDoublePerlinInit(dpn, &pxr, oct, amp, -3, 4, nmax);
         } break;
 
     case NP_TEMPERATURE: {
-        double amp_t[] = {1.5, 0, 1, 0, 0, 0};
-        int len = sizeof(amp_t)/sizeof(double);
+        static const double amp[] = {1.5, 0, 1, 0, 0, 0};
         // md5 "minecraft:temperature" or "minecraft:temperature_large"
         pxr.lo = xlo ^ (large ? 0x944b0073edf549db : 0x5c7e6b29735f0d7f);
         pxr.hi = xhi ^ (large ? 0x4ff44347e9d22b96 : 0xf7d86f1bbc734988);
-        n += xDoublePerlinInit(dpn, &pxr, oct, amp_t, large ? -12 : -10, len);
+        n += xDoublePerlinInit(dpn, &pxr, oct, amp, large ? -12 : -10, 6, nmax);
         } break;
 
     case NP_HUMIDITY: {
-        double amp_h[] = {1, 1, 0, 0, 0, 0};
-        int len = sizeof(amp_h)/sizeof(double);
+        static const double amp[] = {1, 1, 0, 0, 0, 0};
         // md5 "minecraft:vegetation" or "minecraft:vegetation_large"
         pxr.lo = xlo ^ (large ? 0x71b8ab943dbd5301 : 0x81bb4d22e8dc168e);
         pxr.hi = xhi ^ (large ? 0xbb63ddcf39ff7a2b : 0xf1c8b4bea16303cd);
-        n += xDoublePerlinInit(dpn, &pxr, oct, amp_h, large ? -10 : -8, len);
+        n += xDoublePerlinInit(dpn, &pxr, oct, amp, large ? -10 : -8, 6, nmax);
         } break;
 
     case NP_CONTINENTALNESS: {
-        double amp_c[] = {1, 1, 2, 2, 2, 1, 1, 1, 1};
-        int len = sizeof(amp_c)/sizeof(double);
+        static const double amp[] = {1, 1, 2, 2, 2, 1, 1, 1, 1};
         // md5 "minecraft:continentalness" or "minecraft:continentalness_large"
         pxr.lo = xlo ^ (large ? 0x9a3f51a113fce8dc : 0x83886c9d0ae3a662);
         pxr.hi = xhi ^ (large ? 0xee2dbd157e5dcdad : 0xafa638a61b42e8ad);
-        n += xDoublePerlinInit(dpn, &pxr, oct, amp_c, large ? -11 : -9, len);
+        n += xDoublePerlinInit(dpn, &pxr, oct, amp, large ? -11 : -9, 9, nmax);
         } break;
 
     case NP_EROSION: {
-        double amp_e[] = {1, 1, 0, 1, 1};
-        int len = sizeof(amp_e)/sizeof(double);
+        static const double amp[] = {1, 1, 0, 1, 1};
         // md5 "minecraft:erosion" or "minecraft:erosion_large"
         pxr.lo = xlo ^ (large ? 0x8c984b1f8702a951 : 0xd02491e6058f6fd8);
         pxr.hi = xhi ^ (large ? 0xead7b1f92bae535f : 0x4792512c94c17a80);
-        n += xDoublePerlinInit(dpn, &pxr, oct, amp_e, large ? -11 : -9, len);
+        n += xDoublePerlinInit(dpn, &pxr, oct, amp, large ? -11 : -9, 5, nmax);
         } break;
 
     case NP_WEIRDNESS: {
-        double amp_w[] = {1, 2, 1, 0, 0, 0};
-        int len = sizeof(amp_w)/sizeof(double);
+        static const double amp[] = {1, 2, 1, 0, 0, 0};
         // md5 "minecraft:ridge"
         pxr.lo = xlo ^ 0xefc8ef4d36102b34;
         pxr.hi = xhi ^ 0x1beeeb324a0f24ea;
-        n += xDoublePerlinInit(dpn, &pxr, oct, amp_w, -7, len);
+        n += xDoublePerlinInit(dpn, &pxr, oct, amp, -7, 6, nmax);
         } break;
 
     default:
@@ -1230,7 +1224,7 @@ void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int large)
 
     int n = 0, i = 0;
     for (; i < NP_MAX; i++)
-        n += init_climate_seed(&bn->climate[i], bn->oct+n, xlo, xhi, large, i);
+        n += init_climate_seed(&bn->climate[i], bn->oct+n, xlo, xhi, large, i, -1);
 
     if ((size_t)n > sizeof(bn->oct) / sizeof(*bn->oct))
     {
@@ -1505,8 +1499,6 @@ int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
     return id;
 }
 
-// Note: When selecting Temperature and Humidity with bnb->nptype, noise
-// varies from 0 to 10000, not -10000 to 10000.
 // Note: Climate noise exists at a 1:1 scale. 1:4 is obtained by sampling
 // midpoints.
 int sampleBiomeNoiseBeta(const BiomeNoiseBeta *bnb, int64_t *np, double *nv,
@@ -1515,8 +1507,7 @@ int sampleBiomeNoiseBeta(const BiomeNoiseBeta *bnb, int64_t *np, double *nv,
     if (bnb->nptype >= 0 && np)
         memset(np, 0, 2*sizeof(*np));
 
-    double t = 0; // prevent compiler warning
-    double h, f;
+    double t, h, f;
     f = sampleOctaveOldBetaBiome(&bnb->climate[2], x, z) * 1.1 + 0.5;
 
     t = (sampleOctaveOldBetaBiome(&bnb->climate[0], x, z) *
@@ -1543,7 +1534,7 @@ int sampleBiomeNoiseBeta(const BiomeNoiseBeta *bnb, int64_t *np, double *nv,
     return getOldBetaBiome((float) t, (float) h);
 }
 
-void setClimateParaSeed(BiomeNoise *bn, uint64_t seed, int large, int nptype)
+void setClimateParaSeed(BiomeNoise *bn, uint64_t seed, int large, int nptype, int nmax)
 {
     Xoroshiro pxr;
     xSetSeed(&pxr, seed);
@@ -1553,15 +1544,15 @@ void setClimateParaSeed(BiomeNoise *bn, uint64_t seed, int large, int nptype)
     {
         int n = 0;
         n += init_climate_seed(bn->climate + NP_CONTINENTALNESS,
-            bn->oct + n, xlo, xhi, large,    NP_CONTINENTALNESS);
+            bn->oct + n, xlo, xhi, large,    NP_CONTINENTALNESS, nmax);
         n += init_climate_seed(bn->climate + NP_EROSION,
-            bn->oct + n, xlo, xhi, large,    NP_EROSION);
+            bn->oct + n, xlo, xhi, large,    NP_EROSION, nmax);
         n += init_climate_seed(bn->climate + NP_WEIRDNESS,
-            bn->oct + n, xlo, xhi, large,    NP_WEIRDNESS);
+            bn->oct + n, xlo, xhi, large,    NP_WEIRDNESS, nmax);
     }
     else
     {
-        init_climate_seed(bn->climate + nptype, bn->oct, xlo, xhi, large, nptype);
+        init_climate_seed(bn->climate + nptype, bn->oct, xlo, xhi, large, nptype, nmax);
     }
     bn->nptype = nptype;
 }
@@ -1884,7 +1875,7 @@ int genBetaBiomeNoiseScaled(const BiomeNoiseBeta *bnb,
     SeaLevelColumnNoiseBeta *buf = (SeaLevelColumnNoiseBeta*) (out + r.sx * r.sy * r.sz);
     SeaLevelColumnNoiseBeta *colNoise;
     double colsProcessed[8];
-    uint8_t blockSamples[4/scale * 4/scale];
+    uint8_t blockSamples[16]; // sufficient buffer for 4x4 at scale 1:1
 
     // Diagonal traversal of range region, in order to minimize size of saved
     // column noise buffer

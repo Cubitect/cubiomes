@@ -127,19 +127,6 @@ const char *biome2str(int mc, int id)
         case wooded_badlands: return "wooded_badlands";
         }
     }
-    if (mc <= MC_B1_7)
-    {
-        // ids and colors re-used for Alpha 1.2 - Beta 1.7 biomes:
-        // wooded_hills      used for seasonal_forest
-        // windswept_savanna used for shrubland
-        // jungle            used for rainforest
-        switch(id)
-        {
-        case wooded_hills: return "seasonal_forest";
-        case windswept_savanna: return "shrubland";
-        case jungle: return "rainforest";
-        }
-    }
 
     switch (id)
     {
@@ -199,6 +186,10 @@ const char *biome2str(int mc, int id)
     case deep_cold_ocean: return "deep_cold_ocean";
     // 50
     case deep_frozen_ocean: return "deep_frozen_ocean";
+    // Alpha 1.2 - Beta 1.7
+    case seasonal_forest: return "seasonal_forest";
+    case shrubland: return "shrubland";
+    case rainforest: return "rainforest";
 
     case the_void: return "the_void";
 
@@ -326,6 +317,10 @@ void initBiomeColors(unsigned char biomeColors[256][3])
     setBiomeColor(biomeColors, deep_lukewarm_ocean, 0, 0, 64);
     setBiomeColor(biomeColors, deep_cold_ocean, 32, 32, 56);
     setBiomeColor(biomeColors, deep_frozen_ocean, 64, 64, 144);
+
+    setBiomeColor(biomeColors, seasonal_forest, 49, 93, 25);
+    setBiomeColor(biomeColors, shrubland, 197, 193, 82);
+    setBiomeColor(biomeColors, rainforest, 71, 132, 14);
 
     setBiomeColor(biomeColors, the_void, 0, 0, 0);
 

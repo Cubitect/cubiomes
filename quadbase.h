@@ -283,9 +283,10 @@ static inline float isQuadBase(const StructureConfig sconf, uint64_t seed, int r
         return isQuadBaseLarge(sconf, seed, 58, 23, 58, radius);
 
     //case Mansion:
-    //case Ocean_Ruin:
-    //case Shipwreck:
-    //case Ruined_Portal:
+    case Ocean_Ruin:
+    case Shipwreck:
+    case Ruined_Portal:
+        return isQuadBaseFeature(sconf, seed, 0, 0, 0, radius);
 
     default:
         fprintf(stderr, "isQuadBase: not implemented for structure type %d\n",
