@@ -605,10 +605,14 @@ int nextStronghold(StrongholdIter *sh, const Generator *g)
             sh->pos = sh->nextapprox;
         }
     }
-    else
+    else if (sh->mc >= MC_B1_8)
     {
         sh->pos = locateBiome(g, sh->nextapprox.x, 0, sh->nextapprox.z, 112,
             validB, validM, &sh->rnds, NULL);
+    }
+    else
+    {
+        return 0;
     }
 
     sh->ringidx++;
