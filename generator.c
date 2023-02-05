@@ -137,9 +137,9 @@ size_t getMinCacheSize(const Generator *g, int scale, int sx, int sy, int sz)
     size_t len = (size_t)sx * sz * sy;
     if (g->mc <= MC_B1_7 && scale <=4 && !(g->flags & NO_BETA_OCEAN))
     {
-        int sxa = (int) floor((double) sx / (4.0/scale)) + 1;
-        int sza = (int) floor((double) sz / (4.0/scale)) + 1;
-        len += (2*((sxa <= sza) ? sxa : sza)-1)*sizeof(SeaLevelColumnNoiseBeta);
+        int sxa = (sx >> (2>>(scale>>1))) + 1;
+        int sza = (sz >> (2>>(scale>>1))) + 1;
+        len += ((((sxa <= sza) ? sxa : sza) << 1) + 1)*sizeof(SeaLevelColumnNoiseBeta);
     }
     if (g->mc >= MC_B1_8 && g->mc <= MC_1_17 && g->dim == DIM_OVERWORLD)
     {   // recursively check the layer stack for the max buffer
@@ -198,9 +198,17 @@ int genBiomes(const Generator *g, int *cache, Range r)
             {
                 SurfaceNoiseBeta snb;
                 initSurfaceNoiseBeta(&snb, g->seed);
-                return genBetaBiomeNoiseScaled(&g->bnb, &snb, cache, r, g->mc, 0);
+                err = genBetaBiomeNoiseScaled(&g->bnb, &snb, cache, r, g->mc, 0);
             }
-            return genBetaBiomeNoiseScaled(&g->bnb, NULL, cache, r, g->mc, 1);
+            else
+                err = genBetaBiomeNoiseScaled(&g->bnb, NULL, cache, r, g->mc, 1);
+            if (err) return err;
+            for (k = 1; k < r.sy; k++)
+            {   // overworld has no vertical noise: expanding 2D into 3D
+                for (i = 0; i < r.sx*r.sz; i++)
+                    cache[k*r.sx*r.sz + i] = cache[i];
+            }
+            return 0;
         }
     }
     else if (g->dim == DIM_NETHER)
