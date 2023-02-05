@@ -318,8 +318,8 @@ void initBiomeColors(unsigned char biomeColors[256][3])
     setBiomeColor(biomeColors, deep_cold_ocean, 32, 32, 56);
     setBiomeColor(biomeColors, deep_frozen_ocean, 64, 64, 144);
 
-    setBiomeColor(biomeColors, seasonal_forest, 49, 93, 25);
-    setBiomeColor(biomeColors, shrubland, 197, 193, 82);
+    setBiomeColor(biomeColors, seasonal_forest, 47, 86, 15);
+    setBiomeColor(biomeColors, shrubland, 120, 158, 49);
     setBiomeColor(biomeColors, rainforest, 71, 132, 14);
 
     setBiomeColor(biomeColors, the_void, 0, 0, 0);
