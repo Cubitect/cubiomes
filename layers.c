@@ -86,14 +86,22 @@ int biomeExists(int mc, int id)
     {
         switch(id)
         {
-        case mountains:
-        case river:
-            return 0;
-        case seasonal_forest:
+        case plains:
+        case desert:
+        case forest:
+        case taiga:
+        case swamp:
+        case snowy_tundra:
         case savanna:
-        case shrubland:
+        case seasonal_forest:
         case rainforest:
+        case shrubland:
+        // we treat areas below the sea level as oceans
+        case ocean:
+        case frozen_ocean:
             return 1;
+        default:
+            return 0;
         }
     }
 

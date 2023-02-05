@@ -763,7 +763,7 @@ Pos findFittestPos(const Generator *g)
 }
 
 // valid spawn biomes up to 1.17
-static const uint64_t g_spawn_biomes =
+static const uint64_t g_spawn_biomes_17 =
     (1ULL << forest) |
     (1ULL << plains) |
     (1ULL << taiga) |
@@ -779,10 +779,19 @@ Pos getSpawn(const Generator *g)
     int i;
 
     uint64_t rnd = 0;
-    if (g->mc <= MC_1_17)
+    if (g->mc <= MC_B1_7)
     {
+        // finds a random sandblock (location is not fixed)
+        spawn.x = spawn.z = 0;
+        return spawn;
+    }
+    else if (g->mc <= MC_1_17)
+    {
+        uint64_t spawn_biomes = g_spawn_biomes_17;
+        if (g->mc <= MC_1_0)
+            spawn_biomes = (1ULL << forest) | (1ULL << swamp) |(1ULL << taiga);
         setSeed(&rnd, g->seed);
-        spawn = locateBiome(g, 0, 63, 0, 256, g_spawn_biomes, 0, &rnd, &found);
+        spawn = locateBiome(g, 0, 63, 0, 256, spawn_biomes, 0, &rnd, &found);
         if (!found)
         {
             spawn.x = spawn.z = 8;
@@ -839,14 +848,22 @@ Pos getSpawn(const Generator *g)
 
 Pos estimateSpawn(const Generator *g)
 {
-    Pos spawn;
+    Pos spawn = {0, 0};
 
-    if (g->mc <= MC_1_17)
+    if (g->mc <= MC_B1_7)
+    {
+        // finds a random sandblock (location is not fixed)
+        return spawn;
+    }
+    else if (g->mc <= MC_1_17)
     {
         int found;
         uint64_t rnd;
+        uint64_t spawn_biomes = g_spawn_biomes_17;
+        if (g->mc <= MC_1_0)
+            spawn_biomes = (1ULL << forest) | (1ULL << swamp) |(1ULL << taiga);
         setSeed(&rnd, g->seed);
-        spawn = locateBiome(g, 0, 63, 0, 256, g_spawn_biomes, 0, &rnd, &found);
+        spawn = locateBiome(g, 0, 63, 0, 256, spawn_biomes, 0, &rnd, &found);
         if (!found)
         {
             spawn.x = spawn.z = 8;
@@ -2896,6 +2913,33 @@ int checkForBiomes(
     if (r.sy == 0)
         r.sy = 1;
 
+    if (g->mc <= MC_B1_7)
+    {   // TODO: optimize
+        int *ids;
+        if (cache)
+            ids = cache;
+        else
+            ids = allocCache(g, r);
+
+        if (g->dim != dim || g->seed != seed)
+            applySeed(g, dim, seed);
+
+        genBiomes(g, ids, r);
+        uint64_t b = 0;
+        for (i = 0; i < r.sx*r.sz; i++)
+            b |= (1ULL << ids[i]);
+
+        if (ids != cache)
+            free(ids);
+
+        int match_exc = (filter->biomeToExcl) == 0;
+        int match_any = (filter->biomeToPick) == 0;
+        int match_req = (filter->biomeToFind) == 0;
+        match_exc |= (b & filter->biomeToExcl) == 0;
+        match_any |= (b & filter->biomeToPick) != 0;
+        match_req |= (b & filter->biomeToFind) == filter->biomeToFind;
+        return match_exc && match_any && match_req;
+    }
     if (g->mc <= MC_1_17 && dim == DIM_OVERWORLD)
     {
         Layer *entry = (Layer*) getLayerForScale(g, r.scale);
@@ -3957,7 +4001,7 @@ void getAvailableBiomes(uint64_t *mL, uint64_t *mM, int layerId, int mc, uint32_
 {
     *mL = *mM = 0;
     int i;
-    if (mc >= MC_1_18)
+    if (mc <= MC_B1_7 || mc >= MC_1_18)
     {
         for (i = 0; i < 64; i++)
         {

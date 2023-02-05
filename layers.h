@@ -531,7 +531,7 @@ int sampleBiomeNoiseBeta(const BiomeNoiseBeta *bnb, int64_t *np, double *nv,
  * Temperature and humidity values to biome.
  * (defined in biome_tree.c)
  */
-int getOldBetaBiome(double d, double d1);
+int getOldBetaBiome(double t, double h);
 /**
  * Noise point to overworld biome mapping. (defined in biome_tree.c)
  */
