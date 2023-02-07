@@ -152,8 +152,9 @@ double samplePerlin(const PerlinNoise *noise, double d1, double d2, double d3,
     return lerp(t3, l1, l5);
 }
 
-void samplePerlinOldBetaTerrain3D(const PerlinNoise *noise, double *v,
-        double d1, double d3, int yLacFlag)
+static
+void samplePerlinBeta17Terrain(const PerlinNoise *noise, double *v,
+        double d1, double d3, double yLacAmp)
 {
     int genFlag = -1;
     double l1 = 0;
@@ -178,7 +179,7 @@ void samplePerlinOldBetaTerrain3D(const PerlinNoise *noise, double *v,
     int i2, yi, yic, gfCopy;
     for (yi = 0; yi <= 7; yi++)
     {
-        d2 = yi*(noise->lacunarity*((yLacFlag) ? 0.5 : 1))+noise->b;
+        d2 = yi*noise->lacunarity*yLacAmp+noise->b;
         i2 = ((int) floor(d2)) & 0xff;
         if (yi == 0 || i2 != genFlag)
         {
@@ -192,7 +193,7 @@ void samplePerlinOldBetaTerrain3D(const PerlinNoise *noise, double *v,
     double t2;
     for (yi = yic; yi <= 8; yi++)
     {
-        d2 = yi*(noise->lacunarity*((yLacFlag) ? 0.5 : 1))+noise->b;
+        d2 = yi*noise->lacunarity*yLacAmp+noise->b;
         i2 = (int) floor(d2);
         d2 -= i2;
         t2 = d2*d2*d2 * (d2 * (d2*6.0-15.0) + 10.0);
@@ -316,41 +317,18 @@ void octaveInit(OctaveNoise *noise, uint64_t *seed, PerlinNoise *octaves,
     noise->octcnt = len;
 }
 
-void octaveInitOldBetaBiome(OctaveNoise *noise, uint64_t *seed,
-        PerlinNoise *octaves, int octcnt, double lacBase, double lacStretch)
+void octaveInitBeta(OctaveNoise *noise, uint64_t *seed, PerlinNoise *octaves,
+    int octcnt, double lac, double lacMul, double persist, double persistMul)
 {
-    double persist = 1;
-    double lacMult = 1;
-    lacBase /= 1.5;
     int i;
-    
     for (i = 0; i < octcnt; i++)
     {
         perlinInit(&octaves[i], seed);
-        octaves[i].amplitude = 0.55 / persist;
-        octaves[i].lacunarity = lacBase*lacMult;
-        persist /= 2;
-        lacMult *= lacStretch;
+        octaves[i].amplitude = persist;
+        octaves[i].lacunarity = lac;
+        persist *= persistMul;
+        lac *= lacMul;
     }
-
-    noise->octaves = octaves;
-    noise->octcnt = octcnt;
-}
-
-void octaveInitOldBetaTerrain(OctaveNoise *noise, uint64_t *seed,
-        PerlinNoise *octaves, int octcnt, double lacBase)
-{
-    double modifier = 1;
-    int i;
-
-    for (i = 0; i < octcnt; i++)
-    {
-        perlinInit(&octaves[i], seed);
-        octaves[i].amplitude = 1 / modifier;
-        octaves[i].lacunarity = lacBase*modifier;
-        modifier /= 2;
-    }
-
     noise->octaves = octaves;
     noise->octcnt = octcnt;
 }
@@ -414,7 +392,7 @@ int xOctaveInit(OctaveNoise *noise, Xoroshiro *xr, PerlinNoise *octaves,
 
 
 double sampleOctaveAmp(const OctaveNoise *noise, double x, double y, double z,
-    double yamp, double ymin, int ydefault)
+        double yamp, double ymin, int ydefault)
 {
     double v = 0;
     int i;
@@ -448,7 +426,7 @@ double sampleOctave(const OctaveNoise *noise, double x, double y, double z)
     return v;
 }
 
-double sampleOctaveOldBetaBiome(const OctaveNoise *noise, double x, double z)
+double sampleOctaveBeta17Biome(const OctaveNoise *noise, double x, double z)
 {
     double v = 0;
     int i;
@@ -464,8 +442,8 @@ double sampleOctaveOldBetaBiome(const OctaveNoise *noise, double x, double z)
     return v;
 }
 
-void sampleOctaveOldBetaTerrain3D(const OctaveNoise *noise, double *v, double x, double z,
-        int yLacFlag)
+void sampleOctaveBeta17Terrain(const OctaveNoise *noise, double *v,
+        double x, double z, int yLacFlag, double lacmin)
 {
     v[0] = 0.0;
     v[1] = 0.0;
@@ -474,9 +452,11 @@ void sampleOctaveOldBetaTerrain3D(const OctaveNoise *noise, double *v, double x,
     {
         PerlinNoise *p = noise->octaves + i;
         double lf = p->lacunarity;
+        if (lacmin && lf > lacmin)
+            continue;
         double ax = maintainPrecision(x * lf);
         double az = maintainPrecision(z * lf);
-        samplePerlinOldBetaTerrain3D(p, v, ax, az, yLacFlag);
+        samplePerlinBeta17Terrain(p, v, ax, az, yLacFlag ? 0.5 : 1.0);
     }
 }
 

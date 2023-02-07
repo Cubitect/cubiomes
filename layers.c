@@ -5,6 +5,7 @@
 #include <math.h>
 #include <float.h>
 
+
 //==============================================================================
 // Essentials
 //==============================================================================
@@ -527,15 +528,17 @@ void initSurfaceNoise(SurfaceNoise *sn, int dim, uint64_t seed)
     }
 }
 
-void initSurfaceNoiseBeta(SurfaceNoiseBeta *snb, uint64_t seed) {
+void initSurfaceNoiseBeta(SurfaceNoiseBeta *snb, uint64_t seed)
+{
     uint64_t s;
     setSeed(&s, seed);
-    octaveInitOldBetaTerrain(&snb->octmin, &s, snb->oct+0, 16, 684.412);
-    octaveInitOldBetaTerrain(&snb->octmax, &s, snb->oct+16, 16, 684.412);
-    octaveInitOldBetaTerrain(&snb->octmain, &s, snb->oct+32, 8, 684.412/80.0);
+
+    octaveInitBeta(&snb->octmin, &s, snb->oct+0, 16, 684.412, 0.5, 1.0, 2.0);
+    octaveInitBeta(&snb->octmax, &s, snb->oct+16, 16, 684.412, 0.5, 1.0, 2.0);
+    octaveInitBeta(&snb->octmain, &s, snb->oct+32, 8, 684.412/80.0, 0.5, 1.0, 2.0);
     skipNextN(&s, 262*8);
-    octaveInitOldBetaTerrain(&snb->octcontA, &s, snb->oct+40, 10, 1.121);
-    octaveInitOldBetaTerrain(&snb->octcontB, &s, snb->oct+50, 16, 200.0);
+    octaveInitBeta(&snb->octcontA, &s, snb->oct+40, 10, 1.121, 0.5, 1.0, 2.0);
+    octaveInitBeta(&snb->octcontB, &s, snb->oct+50, 16, 200.0, 0.5, 1.0, 2.0);
 }
 
 double sampleSurfaceNoise(const SurfaceNoise *sn, int x, int y, int z)
@@ -1057,6 +1060,8 @@ int getSurfaceHeightEnd(int mc, uint64_t seed, int x, int z)
 
 int genEndScaled(const EndNoise *en, int *out, Range r, int mc, uint64_t sha)
 {
+    if (mc < MC_1_0)
+        return 1;
     if (r.sy == 0)
         r.sy = 1;
 
@@ -1246,14 +1251,14 @@ void setBetaBiomeSeed(BiomeNoiseBeta *bnb, uint64_t seed)
 {
     uint64_t seedScratch;
     setSeed(&seedScratch, seed*9871);
-    octaveInitOldBetaBiome(bnb->climate, &seedScratch, bnb->oct,
-        4, 0.02500000037252903, 0.25);
+    octaveInitBeta(bnb->climate, &seedScratch, bnb->oct,
+        4, 0.025/1.5, 0.25, 0.55, 2.0);
     setSeed(&seedScratch, seed*39811);
-    octaveInitOldBetaBiome(bnb->climate+1, &seedScratch, bnb->oct+4,
-        4, 0.05000000074505806, 0.33333333333333331);
+    octaveInitBeta(bnb->climate+1, &seedScratch, bnb->oct+4,
+        4, 0.05/1.5, 1./3, 0.55, 2.0);
     setSeed(&seedScratch, seed*0x84a59L);
-    octaveInitOldBetaBiome(bnb->climate+2, &seedScratch, bnb->oct+8,
-        2, 0.25, 0.58823529411764708);
+    octaveInitBeta(bnb->climate+2, &seedScratch, bnb->oct+8,
+        2, 0.25/1.5, 10./17, 0.55, 2.0);
     bnb->nptype = -1;
 }
 
@@ -1507,18 +1512,16 @@ int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
     return id;
 }
 
-// Note: Climate noise exists at a 1:1 scale. 1:4 is obtained by sampling
-// midpoints.
+// Note: Climate noise is sampled at a 1:1 scale.
 int sampleBiomeNoiseBeta(const BiomeNoiseBeta *bnb, int64_t *np, double *nv,
     int x, int z)
 {
     if (bnb->nptype >= 0 && np)
         memset(np, 0, 2*sizeof(*np));
-
     double t, h, f;
-    f = sampleOctaveOldBetaBiome(&bnb->climate[2], x, z) * 1.1 + 0.5;
+    f = sampleOctaveBeta17Biome(&bnb->climate[2], x, z) * 1.1 + 0.5;
 
-    t = (sampleOctaveOldBetaBiome(&bnb->climate[0], x, z) *
+    t = (sampleOctaveBeta17Biome(&bnb->climate[0], x, z) *
         0.15 + 0.7) * 0.99 + f * 0.01;
     t = 1 - (1 - t) * (1 - t);
     t = (t < 0) ? 0 : t;
@@ -1526,7 +1529,7 @@ int sampleBiomeNoiseBeta(const BiomeNoiseBeta *bnb, int64_t *np, double *nv,
     if (bnb->nptype == NP_TEMPERATURE)
         return (int64_t) (10000.0F * t);
 
-    h = (sampleOctaveOldBetaBiome(&bnb->climate[1], x, z) *
+    h = (sampleOctaveBeta17Biome(&bnb->climate[1], x, z) *
         0.15 + 0.5) * 0.998 + f * 0.002;
     h = (h < 0) ? 0 : h;
     h = (h > 1) ? 1 : h;
@@ -1538,7 +1541,6 @@ int sampleBiomeNoiseBeta(const BiomeNoiseBeta *bnb, int64_t *np, double *nv,
         nv[0] = t;
         nv[1] = h;
     }
-
     return getOldBetaBiome((float) t, (float) h);
 }
 
@@ -1643,11 +1645,8 @@ static void genBiomeNoise3D(const BiomeNoise *bn, int *out, Range r, int opt)
     }
 }
 
-int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int mc, uint64_t sha)
+int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, uint64_t sha)
 {
-    if (mc <= MC_1_17)
-        return 1; // bad version
-
     if (r.sy == 0)
         r.sy = 1;
 
@@ -1703,23 +1702,19 @@ int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int mc, uint64_
     return 0;
 }
 
-void genColumnNoise(const SurfaceNoiseBeta *snb, SeaLevelColumnNoiseBeta *dest,
-    int cx, int cz)
+static void genColumnNoise(const SurfaceNoiseBeta *snb, SeaLevelColumnNoiseBeta *dest,
+    int cx, int cz, double lacmin)
 {
     dest->contASample = sampleOctaveAmp(&snb->octcontA, cx, 0, cz, 0, 0, 1);
     dest->contBSample = sampleOctaveAmp(&snb->octcontB, cx, 0, cz, 0, 0, 1);
-    sampleOctaveOldBetaTerrain3D(&snb->octmin, dest->minSample, cx, cz, 0);
-    sampleOctaveOldBetaTerrain3D(&snb->octmax, dest->maxSample, cx, cz, 0);
-    sampleOctaveOldBetaTerrain3D(&snb->octmain, dest->mainSample, cx, cz, 1);
+    sampleOctaveBeta17Terrain(&snb->octmin, dest->minSample, cx, cz, 0, lacmin);
+    sampleOctaveBeta17Terrain(&snb->octmax, dest->maxSample, cx, cz, 0, lacmin);
+    sampleOctaveBeta17Terrain(&snb->octmain, dest->mainSample, cx, cz, 1, lacmin);
 }
 
-void processColumnNoise(double *out, SeaLevelColumnNoiseBeta *src,
-    const BiomeNoiseBeta *bnb, int x, int z, int chunkBorderX, int chunkBorderZ)
+static void processColumnNoise(double *out, const SeaLevelColumnNoiseBeta *src,
+    const double climate[2])
 {
-    int climateX = (chunkBorderX) ? (((x>>2)-1)<<4)+13 : ((x>>2)<<4) + (x&3)*3+1;
-    int climateZ = (chunkBorderZ) ? (((z>>2)-1)<<4)+13 : ((z>>2)<<4) + (z&3)*3+1;
-    double climate[2];
-    sampleBiomeNoiseBeta(bnb, NULL, climate, climateX, climateZ);
     double humi = 1 - climate[0] * climate[1];
     humi *= humi;
     humi *= humi;
@@ -1727,24 +1722,30 @@ void processColumnNoise(double *out, SeaLevelColumnNoiseBeta *src,
     double contA = (src->contASample + 256) / 512 * humi;
     contA = (contA > 1) ? 1.0 : contA;
     double contB = src->contBSample / 8000;
-    if(contB < 0)
-        contB = -contB * 0.29999999999999999;
+    if (contB < 0)
+        contB = -contB * 0.3;
     contB = contB*3-2;
-    if (contB < 0) {
+    if (contB < 0)
+    {
         contB /= 2;
         contB = (contB < -1) ? -1.0 / 1.4 / 2 : contB / 1.4 / 2;
         contA = 0;
-    } else
+    }
+    else
+    {
         contB = (contB > 1) ? 1.0/8 : contB/8;
+    }
     contA = (contA < 0) ? 0.5 : contA+0.5;
-    contB = (contB * (double)17) / 16;
-    contB = (double)17 / 2 + contB * 4;
-    double *low = src->minSample;
-    double *high = src->maxSample;
-    double *selector = src->mainSample;
-    for (int i=0; i<=1; i++) {
+    contB = (contB * 17.0) / 16;
+    contB = 17.0 / 2 + contB * 4;
+    const double *low = src->minSample;
+    const double *high = src->maxSample;
+    const double *selector = src->mainSample;
+    int i;
+    for (i = 0; i <= 1; i++)
+    {
         double chooseLHS;
-        double procCont = (((double)(i+7) - contB) * 12) / contA;
+        double procCont = ((i + 7 - contB) * 12) / contA;
         procCont = (procCont < 0) ? procCont*4 : procCont;
         double lSample = low[i] / 512;
         double hSample = high[i] / 512;
@@ -1756,116 +1757,57 @@ void processColumnNoise(double *out, SeaLevelColumnNoiseBeta *src,
     }
 }
 
-void sampleBlocks(double *src, uint8_t *out, int scale)
+static double lerp4(
+    const double a[2], const double b[2], const double c[2], const double d[2],
+    double dy, double dx, double dz)
 {
-    int offs = (scale >= 8) ? 0 : ((scale > 4) ? 4 : scale)>>1;
-    scale = (scale > 4) ? 4 : scale;
-    int idx = 0;
-    double b000 = src[0];
-    double b010 = src[2];
-    double b100 = src[4];
-    double b110 = src[6];
-    double b001 = (src[1] - b000) * 0.125;
-    double b011 = (src[3] - b010) * 0.125;
-    double b101 = (src[5] - b100) * 0.125;
-    double b111 = (src[7] - b110) * 0.125;
-    int x, y, z;
-    for (y = 0; y < 8; y++)
-    {
-        double b000c = b000;
-        double b010c = b010;
-        double bd1 = (b100 - b000) * 0.25;
-        double bd2 = (b110 - b010) * 0.25;
-        for (z = 0; z < 4; z++)
-        {
-            int validZ = (((z - offs) & (scale-1)) == 0);
-            double b000c1 = b000c;
-            double bDiag = (b010c - b000c) * 0.25;
-            for (x = 0; x < 4; x++)
-            {
-                int validX = (((x - offs) & (scale-1)) == 0);
-                if (y == 7 && (scale == 1 || (validX && validZ)))
-                {
-                    out[idx++] = (b000c1 > 0);
-                    if (idx == (4>>(scale>>1)) * (4>>(scale>>1)))
-                        return;
-                }
-                b000c1 += bDiag;
-            }
-            b000c += bd1;
-            b010c += bd2;
-        }
-        b000 += b001;
-        b010 += b011;
-        b100 += b101;
-        b110 += b111;
-    }
+    double b00 = a[0] + (a[1] - a[0]) * dy;
+    double b01 = b[0] + (b[1] - b[0]) * dy;
+    double b10 = c[0] + (c[1] - c[0]) * dy;
+    double b11 = d[0] + (d[1] - d[0]) * dy;
+    double b0 = b00 + (b10 - b00) * dz;
+    double b1 = b01 + (b11 - b01) * dz;
+    return b0 + (b1 - b0) * dx;
 }
 
-int sampleBetaBiomeOneBlock(const BiomeNoiseBeta *bnb,
-    const SurfaceNoiseBeta *snb, int x, int z)
+int genBiomeNoiseBetaScaled(const BiomeNoiseBeta *bnb,
+    const SurfaceNoiseBeta *snb, int *out, Range r)
 {
-    double colsProcessed[8];
-    SeaLevelColumnNoiseBeta colNoise;
-    genColumnNoise(snb, &colNoise, x>>2, z>>2);
-    processColumnNoise(&colsProcessed[0], &colNoise, bnb,
-        x>>2, z>>2, 0, 0);
-
-    genColumnNoise(snb, &colNoise, (x>>2)+1, z>>2);
-    processColumnNoise(&colsProcessed[2], &colNoise, bnb,
-        (x>>2)+1, z>>2, (x & 15) >= 12, 0);
-
-    genColumnNoise(snb, &colNoise, x>>2, (z>>2)+1);
-    processColumnNoise(&colsProcessed[4], &colNoise, bnb,
-        x>>2, (z>>2)+1, 0, (z & 15) >= 12);
-
-    genColumnNoise(snb, &colNoise, (x>>2)+1, (z>>2)+1);
-    processColumnNoise(&colsProcessed[6], &colNoise, bnb,
-        (x>>2)+1, (z>>2)+1, (x & 15) >= 12, (z & 15) >= 12);
-
-    uint8_t blockSample;
-    sampleBlocks(colsProcessed, &blockSample, 8);
-
-    double climate[2];
-    sampleBiomeNoiseBeta(bnb, NULL, climate, x, z);
-    if (blockSample)
-        return getOldBetaBiome((float) climate[0], (float) climate[1]);
-    else
-        return (climate[0] < 0.5) ? frozen_ocean : ocean;
-}
-
-int genBetaBiomeNoiseScaled(const BiomeNoiseBeta *bnb,
-    const SurfaceNoiseBeta *snb, int *out, Range r, int mc, int noOcean)
-{
-    if (mc >= MC_B1_8)
-        return 1;
-
-    if (noOcean || r.scale >= 8)
+    if (!snb || r.scale >= 4)
     {
         int i, j;
         int *p = out;
         int mid = r.scale >> 1;
         for (j = 0; j < r.sz; j++)
         {
-            int zj = (r.z+j)*r.scale + mid;
+            int z = (r.z+j)*r.scale + mid;
             for (i = 0; i < r.sx; i++)
             {
-                int xi = (r.x+i)*r.scale + mid;
-                *p = (noOcean) ? sampleBiomeNoiseBeta(bnb, NULL, NULL, xi, zj) :
-                    sampleBetaBiomeOneBlock(bnb, snb, xi, zj);
+                int x = (r.x+i)*r.scale + mid;
+                double climate[2];
+                *p = sampleBiomeNoiseBeta(bnb, NULL, climate, x, z);
+
+                if (snb)
+                {
+                    double cols[2];
+                    SeaLevelColumnNoiseBeta colNoise;
+                    genColumnNoise(snb, &colNoise, x>>2, z>>2, 4.0 / r.scale);
+                    processColumnNoise(cols, &colNoise, climate);
+                    if (cols[0]*0.125 + cols[1] <= 0)
+                        *p = (climate[0] < 0.5) ? frozen_ocean : ocean;
+                }
                 p++;
             }
         }
         return 0;
     }
 
-    int scale = r.scale;
-    int id;
-
-    int cx1 = r.x >> (2>>(scale>>1));
-    int cz1 = r.z >> (2>>(scale>>1));
-    int cx2 = cx1 + (r.sx >> (2>>(scale>>1))) + 1;
-    int cz2 = cz1 + (r.sz >> (2>>(scale>>1))) + 1;
+    int cellwidth = r.scale >> 1;
+    int cx1 = r.x >> (2 >> cellwidth);
+    int cz1 = r.z >> (2 >> cellwidth);
+    int cx2 = cx1 + (r.sx >> (2 >> cellwidth)) + 1;
+    int cz2 = cz1 + (r.sz >> (2 >> cellwidth)) + 1;
+    int steps = 4 >> cellwidth;
     int minDim, maxDim;
     if (cx2-cx1 > cz2-cz1) {
         maxDim = cx2-cx1;
@@ -1874,75 +1816,81 @@ int genBetaBiomeNoiseScaled(const BiomeNoiseBeta *bnb,
         maxDim = cz2-cz1;
         minDim = cx2-cx1;
     }
-    int bufLen = (minDim<<1)+1;
+    int bufLen = (minDim << 1) + 1;
 
-    int xi, zi, xii, zii;
+    int i, j, x, z, cx, cz;
     int xStart = cx1;
     int zStart = cz1;
     int idx = 0;
-    SeaLevelColumnNoiseBeta *buf = (SeaLevelColumnNoiseBeta*) (out + r.sx * r.sy * r.sz);
+    SeaLevelColumnNoiseBeta *buf = (SeaLevelColumnNoiseBeta*) (out + r.sx * r.sz);
     SeaLevelColumnNoiseBeta *colNoise;
-    double colsProcessed[8];
-    uint8_t blockSamples[16]; // sufficient buffer for 4x4 at scale 1:1
+    double cols[8];
+    double climate[2];
+    static const int off[] = { 1, 4, 7, 10, 13 };
 
     // Diagonal traversal of range region, in order to minimize size of saved
     // column noise buffer
     int stripe;
     for (stripe = 0; stripe < maxDim + minDim - 1; stripe++)
     {
-        xi = xStart;
-        zi = zStart;
-        while (xi < cx2 && zi >= cz1)
+        cx = xStart;
+        cz = zStart;
+        while (cx < cx2 && cz >= cz1)
         {
+            int csx = (cx << 2) & ~15; // start of chunk coordinates
+            int csz = (cz << 2) & ~15;
+            int ci = cx & 3;
+            int cj = cz & 3;
+
+            colNoise = &buf[idx];
             if (stripe == 0)
-                genColumnNoise(snb, &buf[idx], xi, zi);
-            colNoise = &buf[idx];
-            processColumnNoise(&colsProcessed[0], colNoise, bnb,
-                xi, zi, 0, 0);
+                genColumnNoise(snb, colNoise, cx, cz, 0);
+            sampleBiomeNoiseBeta(bnb, NULL, climate, csx+off[ci], csz+off[cj]);
+            processColumnNoise(&cols[0], colNoise, climate);
 
-            if (zi == cz1)
-                genColumnNoise(snb, &buf[(idx + minDim + 1) % bufLen], xi+1, zi);
             colNoise = &buf[(idx + minDim + 1) % bufLen];
-            processColumnNoise(&colsProcessed[2], colNoise, bnb,
-                xi+1, zi, (xi & 3) == 3, 0);
+            if (cz == cz1)
+                genColumnNoise(snb, colNoise, cx+1, cz, 0);
+            sampleBiomeNoiseBeta(bnb, NULL, climate, csx+off[ci+1], csz+off[cj]);
+            processColumnNoise(&cols[2], colNoise, climate);
 
-            if (xi == cx1)
-                genColumnNoise(snb, &buf[(idx + minDim) % bufLen], xi, zi+1);
             colNoise = &buf[(idx + minDim) % bufLen];
-            processColumnNoise(&colsProcessed[4], colNoise, bnb,
-                xi, zi+1, 0, (zi & 3) == 3);
+            if (cx == cx1)
+                genColumnNoise(snb, colNoise, cx, cz+1, 0);
+            sampleBiomeNoiseBeta(bnb, NULL, climate, csx+off[ci], csz+off[cj+1]);
+            processColumnNoise(&cols[4], colNoise, climate);
 
-            genColumnNoise(snb, &buf[idx], xi+1, zi+1);
             colNoise = &buf[idx];
-            processColumnNoise(&colsProcessed[6], colNoise, bnb,
-                xi+1, zi+1, (xi & 3) == 3, (zi & 3) == 3);
+            genColumnNoise(snb, colNoise, cx+1, cz+1, 0);
+            sampleBiomeNoiseBeta(bnb, NULL, climate, csx+off[ci+1], csz+off[cj+1]);
+            processColumnNoise(&cols[6], colNoise, climate);
 
-            sampleBlocks(colsProcessed, blockSamples, scale);
-
-            for (zii = 0; zii < (4>>(scale>>1)); zii++)
+            // scale=1: cellwidth=0, steps=4
+            // scale=4: cellwidth=2, steps=1
+            for (j = 0; j < steps; j++)
             {
-                if (zi * (4>>(scale>>1)) + zii < r.z || 
-                    zi * (4>>(scale>>1)) + zii >= r.z + r.sz)
+                z = cz * steps + j;
+                if (z < r.z || z >= r.z + r.sz)
                     continue;
-                for (xii = 0; xii < (4>>(scale>>1)); xii++)
+                for (i = 0; i < steps; i++)
                 {
-                    if (xi * (4>>(scale>>1)) + xii < r.x || 
-                        xi * (4>>(scale>>1)) + xii >= r.x + r.sx)
+                    x = cx * steps + i;
+                    if (x < r.x || x >= r.x + r.sx)
                         continue;
-                    double climate[2];
-                    sampleBiomeNoiseBeta(bnb, NULL, climate,
-                        (xi<<2) + xii + (scale>>1), (zi<<2) + zii + (scale>>1));
-                    if (blockSamples[zii * (4>>(scale>>1)) + xii] == 1)
-                        id = getOldBetaBiome((float) climate[0], (float) climate[1]);
-                    else
+                    int mid = r.scale >> 1;
+                    int bx = x * r.scale + mid;
+                    int bz = z * r.scale + mid;
+                    int id = sampleBiomeNoiseBeta(bnb, NULL, climate, bx, bz);
+                    double dx = (bx & 3) * 0.25;
+                    double dz = (bz & 3) * 0.25;
+                    if (lerp4(cols+0, cols+2, cols+4, cols+6, 7./8, dx, dz) <= 0)
                         id = (climate[0] < 0.5) ? frozen_ocean : ocean;
-                    out[(zi * (4>>(scale>>1)) + zii - r.z) * r.sx + 
-                        (xi * (4>>(scale>>1)) + xii - r.x)] = id;
+                    out[(z - r.z) * r.sx + (x - r.x)] = id;
                 }
             }
 
-            xi++;
-            zi--;
+            cx++;
+            cz--;
             idx = (idx+1) % bufLen;
         }
         if (zStart < cz2-1)
@@ -3752,13 +3700,13 @@ Range getVoronoiSrcRange(Range r)
     }
 
     Range s; // output has scale 1:4
-    int tx = r.x - 2;
-    int tz = r.z - 2;
+    int x = r.x - 2;
+    int z = r.z - 2;
     s.scale = 4;
-    s.x = tx >> 2;
-    s.z = tz >> 2;
-    s.sx = ((tx + r.sx) >> 2) - s.x + 2;
-    s.sz = ((tz + r.sz) >> 2) - s.z + 2;
+    s.x = x >> 2;
+    s.z = z >> 2;
+    s.sx = ((x + r.sx) >> 2) - s.x + 2;
+    s.sz = ((z + r.sz) >> 2) - s.z + 2;
     if (r.sy < 1)
     {
         s.y = s.sy = 0;

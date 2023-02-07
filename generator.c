@@ -105,12 +105,19 @@ void applySeed(Generator *g, int dim, uint64_t seed)
 
     if (dim == DIM_OVERWORLD)
     {
-        if (g->mc >= MC_B1_8 && g->mc <= MC_1_17)
-            setLayerSeed(g->entry ? g->entry : g->ls.entry_1, seed);
-        else if (g->mc >= MC_1_18)
-            setBiomeSeed(&g->bn, seed, g->flags & LARGE_BIOMES);
-        else
+        if (g->mc <= MC_B1_7)
+        {
             setBetaBiomeSeed(&g->bnb, seed);
+            //initSurfaceNoiseBeta(&g->snb, g->seed);
+        }
+        else if (g->mc <= MC_1_17)
+        {
+            setLayerSeed(g->entry ? g->entry : g->ls.entry_1, seed);
+        }
+        else // if (g->mc >= MC_1_18)
+        {
+            setBiomeSeed(&g->bn, seed, g->flags & LARGE_BIOMES);
+        }
     }
     else if (dim == DIM_NETHER && g->mc >= MC_1_16_1)
     {
@@ -190,18 +197,20 @@ int genBiomes(const Generator *g, int *cache, Range r)
         }
         else if (g->mc >= MC_1_18)
         {
-            return genBiomeNoiseScaled(&g->bn, cache, r, g->mc, g->sha);
+            return genBiomeNoiseScaled(&g->bn, cache, r, g->sha);
         }
         else // g->mc <= MC_B1_7
         {
-            if (!(g->flags & NO_BETA_OCEAN))
+            if (g->flags & NO_BETA_OCEAN)
+            {
+                err = genBiomeNoiseBetaScaled(&g->bnb, NULL, cache, r);
+            }
+            else
             {
                 SurfaceNoiseBeta snb;
                 initSurfaceNoiseBeta(&snb, g->seed);
-                err = genBetaBiomeNoiseScaled(&g->bnb, &snb, cache, r, g->mc, 0);
+                err = genBiomeNoiseBetaScaled(&g->bnb, &snb, cache, r);
             }
-            else
-                err = genBetaBiomeNoiseScaled(&g->bnb, NULL, cache, r, g->mc, 1);
             if (err) return err;
             for (k = 1; k < r.sy; k++)
             {   // overworld has no vertical noise: expanding 2D into 3D
@@ -217,8 +226,7 @@ int genBiomes(const Generator *g, int *cache, Range r)
     }
     else if (g->dim == DIM_END)
     {
-        if (g->mc >= MC_1_0)
-            return genEndScaled(&g->en, cache, r, g->mc, g->sha);
+        return genEndScaled(&g->en, cache, r, g->mc, g->sha);
     }
 
     return err;

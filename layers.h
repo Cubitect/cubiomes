@@ -515,9 +515,9 @@ int genEndScaled(const EndNoise *en, int *out, Range r, int mc, uint64_t sha);
  * biome noise.
  */
 enum {
-    SAMPLE_NO_SHIFT = 0x1,
-    SAMPLE_NO_DEPTH = 0x2,
-    SAMPLE_NO_BIOME = 0x4,
+    SAMPLE_NO_SHIFT = 0x1,  // skip local distortions
+    SAMPLE_NO_DEPTH = 0x2,  // skip depth sampling for vertical biomes
+    SAMPLE_NO_BIOME = 0x4,  // do not apply climate noise to biome mapping
 };
 void initBiomeNoise(BiomeNoise *bn, int mc);
 void setBiomeSeed(BiomeNoise *bn, uint64_t seed, int large);
@@ -531,7 +531,7 @@ int sampleBiomeNoiseBeta(const BiomeNoiseBeta *bnb, int64_t *np, double *nv,
  * Temperature and humidity values to biome.
  * (defined in biome_tree.c)
  */
-int getOldBetaBiome(double t, double h);
+int getOldBetaBiome(float t, float h);
 /**
  * Noise point to overworld biome mapping. (defined in biome_tree.c)
  */
@@ -561,12 +561,14 @@ void genBiomeNoiseChunkSection(const BiomeNoise *bn, int out[4][4][4],
  * The 'sha' hash of the seed is only required for voronoi at scale 1:1.
  * A scale of zero is interpreted as the default 1:4 scale.
  */
-int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, int mc, uint64_t sha);
+int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, uint64_t sha);
 
-int sampleBetaBiomeOneBlock(const BiomeNoiseBeta *bnb,
-    const SurfaceNoiseBeta *snb, int x, int z);
-int genBetaBiomeNoiseScaled(const BiomeNoiseBeta *bnb, const SurfaceNoiseBeta *snb,
-    int *out, Range r, int mc, int noOcean);
+/**
+ * Generates the biomes for Beta 1.7, the surface noise is optional and enables
+ * ocean mapping in areas that fall below the sea level.
+ */
+int genBiomeNoiseBetaScaled(const BiomeNoiseBeta *bnb, const SurfaceNoiseBeta *snb,
+    int *out, Range r);
 
 
 //==============================================================================

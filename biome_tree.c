@@ -6791,7 +6791,7 @@ static const uint8_t biome_table_beta_1_7[64*64] =
     4,4,4,4,4,4,4,4,4,4,4,4,4,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,8,8,
 };
 
-int getOldBetaBiome(double t, double h)
+int getOldBetaBiome(float t, float h)
 {
     static const int bmap[] = {
         plains, desert, forest, taiga, swamp, snowy_tundra, savanna,

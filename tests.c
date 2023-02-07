@@ -10,7 +10,7 @@
 #include <string.h>
 #include <limits.h>
 
-uint32_t hash32(uint32_t x)
+static uint32_t hash32(uint32_t x)
 {
     x ^= x >> 15;
     x *= 0xd168aaad;
@@ -20,7 +20,7 @@ uint32_t hash32(uint32_t x)
     return x;
 }
 
-double now()
+static double now()
 {
     struct timespec t;
     clock_gettime(CLOCK_MONOTONIC, &t);
@@ -73,7 +73,7 @@ benchmark(int64_t (*f)(int64_t n, void*), void *dat, double *tmin, double *tavg)
     return cnt;
 }
 
-uint32_t getRef(int mc, int dim, int bits, int spread, const char *path)
+uint32_t getRef(int mc, int dim, int bits, int scale, int spread, const char *path)
 {
     Generator g;
     setupGenerator(&g, mc, 0);
@@ -91,7 +91,7 @@ uint32_t getRef(int mc, int dim, int bits, int spread, const char *path)
             int64_t s = (int64_t)( (z << bits) ^ x );
             applySeed(&g, dim, s);
             int y = (int)((hash32((int)s) & 0x7fffffff) % 384 - 64) >> 2;
-            int id = getBiomeAt(&g, 4, x, y, z);
+            int id = getBiomeAt(&g, scale, x, y, z);
             h ^= hash32( (int) s ^ (id << 2*bits) );
             if (fp)
                 //fprintf(fp, "%5d%6d%4d\n", x*spread, z*spread, id);
@@ -116,7 +116,7 @@ int testBiomeGen1x1(const int *mc, const uint32_t *expect, int dim, int bits, in
         fflush(stdout);
 
         double t = -now();
-        h = getRef(mc[test], dim, bits, spread, NULL);
+        h = getRef(mc[test], dim, bits, 4, spread, NULL);
         t += now();
         printf("got %08x %s\e[0m (%ld msec)\n",
             h, h == expect[test] ? "\e[1;92mOK" : "\e[1;91mFAILED",
@@ -463,13 +463,23 @@ void findStructures(int structureType, int mc, int dim, uint64_t seed,
     }
 }
 
-
 int main()
 {
-    //testAreas(MC_1_19, 0, 4);
-    testAreas(MC_B1_7, 0, 4);
+    int mc = MC_B1_7;
+    for (int i = 1; i <= 16; i *= 4)
+    {
+        double t = -now();
+        uint32_t h = getRef(mc, DIM_OVERWORLD, 7, i, 1, NULL);
+        t += now();
+        printf("1:%-2d: %08x t = %-8.4f\n", i, h, t);
+    }
+    
+    testAreas(mc, 0, 1);
+    testAreas(mc, 0, 4);
+    testAreas(mc, 0, 16);
+    testAreas(mc, 0, 256);
     //testCanBiomesGenerate();
-    //testGeneration();
+    testGeneration();
     //findBiomeParaBounds();
     return 0;
 }

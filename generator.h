@@ -30,6 +30,7 @@ STRUCT(Generator)
         };
         struct { // MC A1.2 - B1.7
             BiomeNoiseBeta bnb;
+            //SurfaceNoiseBeta snb;
         };
     };
     NetherNoise nn; // MC 1.16
