@@ -727,29 +727,26 @@ uint64_t getSpawnDist(const Generator *g, int x, int z)
 static
 void findFittest(const Generator *g, Pos *pos, uint64_t *fitness, double maxrad, double step)
 {
-    double rad = step, ang = 0;
     Pos p = *pos;
-    while (rad <= maxrad)
+    for (double rad = step; rad <= maxrad; rad += step)
     {
-        int x = p.x + (int)(sin(ang) * rad);
-        int z = p.z + (int)(cos(ang) * rad);
-        // calc fitness
-        double d = ((double)x*x + (double)z*z) / (2500*2500);
-        uint64_t fit = (uint64_t)(d*d * 1e8);
-        // calculate the distance to the noise points for spawn
-        fit += getSpawnDist(g, x, z);
-        if (fit < *fitness)
+        for (double ang = 0; ang <= PI*2; ang += step/rad)
         {
-            pos->x = x;
-            pos->z = z;
-            *fitness = fit;
+            int x = p.x + (int)(sin(ang) * rad);
+            int z = p.z + (int)(cos(ang) * rad);
+            // Calcuate portion of fitness dependent on distance from origin
+            double d = ((double)x*x + (double)z*z) / (2500*2500);
+            uint64_t fit = (uint64_t)(d*d * 1e8);
+            // Calculate portion of fitness dependent on climate values
+            fit += getSpawnDist(g, x, z);
+            // Then updates pos and fitness if combined total is lower ( = better) than previous best fitness
+            if (fit < *fitness)
+            {
+                pos->x = x;
+                pos->z = z;
+                *fitness = fit;
+            }
         }
-
-        ang += step / rad;
-        if (ang <= PI*2)
-            continue;
-        ang = 0;
-        rad += step;
     }
 }
 
