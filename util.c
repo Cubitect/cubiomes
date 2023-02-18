@@ -72,12 +72,14 @@ const char* mc2str(int mc)
     case MC_1_18:   return "1.18"; break;
     case MC_1_19_2: return "1.19.2"; break;
     case MC_1_19:   return "1.19"; break;
+    case MC_1_20:   return "1.20"; break;
     default:        return NULL;
     }
 }
 
 int str2mc(const char *s)
 {
+    if (!strcmp(s, "1.20"))     return MC_1_20;
     if (!strcmp(s, "1.19"))     return MC_1_19;
     if (!strcmp(s, "1.19.2"))   return MC_1_19_2;
     if (!strcmp(s, "1.18"))     return MC_1_18;
@@ -236,6 +238,8 @@ const char *biome2str(int mc, int id)
     // 1.19
     case deep_dark: return "deep_dark";
     case mangrove_swamp: return "mangrove_swamp";
+    // 1.20
+    case cherry_grove: return "cherry_grove";
     }
     return NULL;
 }
@@ -354,18 +358,19 @@ void initBiomeColors(unsigned char biomeColors[256][3])
     setBiomeColor(biomeColors, warped_forest, 73, 144, 123);
     setBiomeColor(biomeColors, basalt_deltas, 100, 95, 99);
 
-    setBiomeColor(biomeColors, dripstone_caves, 78, 48, 18); // TBD
-    setBiomeColor(biomeColors, lush_caves, 40, 60, 0); // TBD
+    setBiomeColor(biomeColors, dripstone_caves, 78, 48, 18);
+    setBiomeColor(biomeColors, lush_caves, 40, 60, 0);
 
-    setBiomeColor(biomeColors, meadow, 96, 164, 69); // TBD
-    setBiomeColor(biomeColors, grove, 71, 114, 108); // TBD
-    setBiomeColor(biomeColors, snowy_slopes, 196, 196, 196); // TBD
-    setBiomeColor(biomeColors, stony_peaks, 123, 143, 116); // TBD
-    setBiomeColor(biomeColors, jagged_peaks, 220, 220, 200); // TBD
-    setBiomeColor(biomeColors, frozen_peaks, 176, 179, 206); // TBD
+    setBiomeColor(biomeColors, meadow, 96, 164, 69);
+    setBiomeColor(biomeColors, grove, 71, 114, 108);
+    setBiomeColor(biomeColors, snowy_slopes, 196, 196, 196);
+    setBiomeColor(biomeColors, stony_peaks, 123, 143, 116);
+    setBiomeColor(biomeColors, jagged_peaks, 220, 220, 200);
+    setBiomeColor(biomeColors, frozen_peaks, 176, 179, 206);
 
-    setBiomeColor(biomeColors, deep_dark, 3, 31, 41); // TBD
-    setBiomeColor(biomeColors, mangrove_swamp, 44, 204, 142); // TBD
+    setBiomeColor(biomeColors, deep_dark, 3, 31, 41);
+    setBiomeColor(biomeColors, mangrove_swamp, 44, 204, 142);
+    setBiomeColor(biomeColors, cherry_grove, 255, 145, 200);
 }
 
 void initBiomeTypeColors(unsigned char biomeColors[256][3])

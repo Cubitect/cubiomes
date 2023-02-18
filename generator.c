@@ -142,13 +142,14 @@ size_t getMinCacheSize(const Generator *g, int scale, int sx, int sy, int sz)
     if (sy == 0)
         sy = 1;
     size_t len = (size_t)sx * sz * sy;
-    if (g->mc <= MC_B1_7 && scale <=4 && !(g->flags & NO_BETA_OCEAN))
+    if (g->mc <= MC_B1_7 && scale <= 4 && !(g->flags & NO_BETA_OCEAN))
     {
-        int sxa = (sx >> (2>>(scale>>1))) + 1;
-        int sza = (sz >> (2>>(scale>>1))) + 1;
-        len += ((((sxa <= sza) ? sxa : sza) << 1) + 1)*sizeof(SeaLevelColumnNoiseBeta);
+        int cellwidth = scale >> 1;
+        int smin = (sx < sz ? sx : sz);
+        int slen = (((smin >> (2 >> cellwidth)) + 1) << 1) + 1;
+        len += slen * sizeof(SeaLevelColumnNoiseBeta);
     }
-    if (g->mc >= MC_B1_8 && g->mc <= MC_1_17 && g->dim == DIM_OVERWORLD)
+    else if (g->mc >= MC_B1_8 && g->mc <= MC_1_17 && g->dim == DIM_OVERWORLD)
     {   // recursively check the layer stack for the max buffer
         const Layer *entry = getLayerForScale(g, scale);
         if (!entry) {
@@ -158,7 +159,7 @@ size_t getMinCacheSize(const Generator *g, int scale, int sx, int sy, int sz)
         size_t len2d = getMinLayerCacheSize(entry, sx, sz);
         len += len2d - sx*sz;
     }
-    else if (g->mc >= MC_1_18 && scale <= 1)
+    else if ((g->mc >= MC_1_18 || g->dim != DIM_OVERWORLD) && scale <= 1)
     {   // allocate space for temporary copy of voronoi source
         sx = ((sx+3) >> 2) + 2;
         sy = ((sy+3) >> 2) + 2;
@@ -625,6 +626,23 @@ int mapApproxHeight(float *y, int *ids, const Generator *g, const SurfaceNoise *
                 if (ids)
                     ids[j*w+i] = id;
                 y[j*w+i] = np[NP_DEPTH] / 76.0;
+            }
+        }
+        return 0;
+    }
+    else if (g->mc <= MC_B1_7)
+    {
+        SurfaceNoiseBeta snb; // TODO: merge SurfaceNoise and SurfaceNoiseBeta?
+        initSurfaceNoiseBeta(&snb, g->seed);
+        int i, j;
+        for (j = 0; j < h; j++)
+        {
+            for (i = 0; i < w; i++)
+            {
+                int samplex = ((x + i) << 2) + 2;
+                int samplez = ((z + j) << 2) + 2;
+                // TODO: properly implement beta surface finder
+                y[j*w+i] = approxSurfaceBeta(&g->bnb, &snb, samplex, samplez);
             }
         }
         return 0;

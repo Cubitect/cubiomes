@@ -530,6 +530,8 @@ int isStrongholdBiome(int mc, int id)
     case snowy_beach:
     case swamp_hills:
         return 0;
+    case mushroom_field_shore:
+        return mc >= MC_1_13;
     case stone_shore:
         return mc <= MC_1_17;
     case bamboo_jungle:
@@ -590,7 +592,7 @@ int nextStronghold(StrongholdIter *sh, const Generator *g)
             validM |= (1ULL << i);
     }
 
-    if (sh->mc >= MC_1_19_3)
+    if (sh->mc > MC_1_19_2)
     {
         if (g)
         {
@@ -727,10 +729,11 @@ uint64_t getSpawnDist(const Generator *g, int x, int z)
 static
 void findFittest(const Generator *g, Pos *pos, uint64_t *fitness, double maxrad, double step)
 {
+    double rad, ang;
     Pos p = *pos;
-    for (double rad = step; rad <= maxrad; rad += step)
+    for (rad = step; rad <= maxrad; rad += step)
     {
-        for (double ang = 0; ang <= PI*2; ang += step/rad)
+        for (ang = 0; ang <= PI*2; ang += step/rad)
         {
             int x = p.x + (int)(sin(ang) * rad);
             int z = p.z + (int)(cos(ang) * rad);
@@ -739,7 +742,7 @@ void findFittest(const Generator *g, Pos *pos, uint64_t *fitness, double maxrad,
             uint64_t fit = (uint64_t)(d*d * 1e8);
             // Calculate portion of fitness dependent on climate values
             fit += getSpawnDist(g, x, z);
-            // Then updates pos and fitness if combined total is lower ( = better) than previous best fitness
+            // Then update pos and fitness if combined total is lower/better
             if (fit < *fitness)
             {
                 pos->x = x;
@@ -4734,6 +4737,16 @@ static const int g_biome_para_range_19_diff[][13] = {
 {mangrove_swamp          ,  2000, IMAX,  IMIN, IMAX, -1100, IMAX,  5500, IMAX,  IMIN, IMAX,  IMIN, IMAX},
 };
 
+static const int g_biome_para_range_20_diff[][13] = {
+{swamp                   , -4500, 2000,  IMIN, IMAX, -1100, IMAX,  5500, IMAX,  IMIN, IMAX,  IMIN, IMAX},
+{grove                   ,  IMIN, 2000, -1000, IMAX, -1899, IMAX,  IMIN,-3750,  IMIN,10500,  IMIN, IMAX},
+{snowy_slopes            ,  IMIN, 2000,  IMIN,-1000, -1899, IMAX,  IMIN,-3750,  IMIN,10500,  IMIN, IMAX},
+{jagged_peaks            ,  IMIN, 2000,  IMIN, IMAX, -1899, IMAX,  IMIN,-3750,  IMIN,10500, -9333,-4000},
+{frozen_peaks            ,  IMIN, 2000,  IMIN, IMAX, -1899, IMAX,  IMIN,-3750,  IMIN,10500,  4000, 9333},
+{stony_peaks             ,  2000, 5500,  IMIN, IMAX, -1899, IMAX,  IMIN,-3750,  IMIN,10500, -9333, 9333},
+{cherry_grove            , -4500, 2000,  IMIN,-1000,   300, IMAX, -7799,  500,  IMIN, IMAX,  2666, IMAX},
+};
+
 
 /**
  * Gets the min/max parameter values within which a biome change can occur.
@@ -4763,6 +4776,15 @@ const int *getBiomeParaLimits(int mc, int id)
     if (mc <= MC_1_17)
         return NULL;
     int i, n;
+    if (mc > MC_1_19)
+    {
+        n = sizeof(g_biome_para_range_20_diff) / sizeof(g_biome_para_range_20_diff[0]);
+        for (i = 0; i < n; i++)
+        {
+            if (g_biome_para_range_20_diff[i][0] == id)
+                return &g_biome_para_range_20_diff[i][1];
+        }
+    }
     if (mc > MC_1_18)
     {
         n = sizeof(g_biome_para_range_19_diff) / sizeof(g_biome_para_range_19_diff[0]);
@@ -4772,7 +4794,6 @@ const int *getBiomeParaLimits(int mc, int id)
                 return &g_biome_para_range_19_diff[i][1];
         }
     }
-
     n = sizeof(g_biome_para_range_18) / sizeof(g_biome_para_range_18[0]);
     for (i = 0; i < n; i++)
     {

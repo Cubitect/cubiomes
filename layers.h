@@ -36,7 +36,9 @@ enum MCVersion
     MC_1_17_1, MC_1_17 = MC_1_17_1,
     MC_1_18_2, MC_1_18 = MC_1_18_2,
     MC_1_19_2,
-    MC_1_19_3, MC_1_19 = MC_1_19_3, MC_NEWEST = MC_1_19,
+    MC_1_19,    // 1.19.3 - 1.19.4
+    MC_1_20,
+    MC_NEWEST = MC_1_20,
 };
 
 enum Dimension
@@ -169,6 +171,8 @@ enum BiomeID
     // 1.19
     deep_dark                       = 183,
     mangrove_swamp                  = 184,
+    // 1.20
+    cherry_grove                    = 185,
 };
 
 
@@ -526,6 +530,9 @@ int sampleBiomeNoise(const BiomeNoise *bn, int64_t *np, int x, int y, int z,
     uint64_t *dat, uint32_t sample_flags);
 int sampleBiomeNoiseBeta(const BiomeNoiseBeta *bnb, int64_t *np, double *nv,
     int x, int z);
+double approxSurfaceBeta(const BiomeNoiseBeta *bnb, const SurfaceNoiseBeta *snb,
+    int x, int z); // doesn't really work yet
+
 /**
  * (Alpha 1.2 - Beta 1.7) 
  * Temperature and humidity values to biome.

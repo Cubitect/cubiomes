@@ -19,6 +19,9 @@ int biomeExists(int mc, int id)
         if (id >= small_end_islands && id <= end_barrens)
             return 1;
 
+        if (id == cherry_grove)
+            return mc >= MC_1_20;
+
         if (id == deep_dark || id == mangrove_swamp)
             return mc >= MC_1_19_2;
 
@@ -201,7 +204,7 @@ int isOverworld(int mc, int id)
     case deep_warm_ocean:
     case the_void:
         return 0;
-    case tall_birch_hills:
+    case tall_birch_forest:
         return mc <= MC_1_8 || mc >= MC_1_11;
     case dripstone_caves:
     case lush_caves:
@@ -1263,7 +1266,7 @@ void setBetaBiomeSeed(BiomeNoiseBeta *bnb, uint64_t seed)
 }
 
 
-enum { CONTINENTALNESS, EROSION, RIDGES, WEIRDNESS };
+enum { SP_CONTINENTALNESS, SP_EROSION, SP_RIDGES, SP_WEIRDNESS };
 
 static void addSplineVal(Spline *rsp, float loc, Spline *val, float der)
 {
@@ -1300,7 +1303,7 @@ static float getOffsetValue(float weirdness, float continentalness)
 static Spline *createSpline_38219(SplineStack *ss, float f, int bl)
 {
     Spline *sp = &ss->stack[ss->len++];
-    sp->typ = RIDGES;
+    sp->typ = SP_RIDGES;
 
     float i = getOffsetValue(-1.0F, f);
     float k = getOffsetValue( 1.0F, f);
@@ -1342,7 +1345,7 @@ static Spline *createFlatOffsetSpline(
     SplineStack *ss, float f, float g, float h, float i, float j, float k)
 {
     Spline *sp = &ss->stack[ss->len++];
-    sp->typ = RIDGES;
+    sp->typ = SP_RIDGES;
 
     float l = 0.5F * (g - f); if (l < k) l = k;
     float m = 5.0F * (h - g);
@@ -1369,14 +1372,14 @@ static Spline *createLandSpline(
     Spline *sp7 = createFlatOffsetSpline(ss, f, j, j, g, h, 0.5F);
 
     Spline *sp8 = &ss->stack[ss->len++];
-    sp8->typ = RIDGES;
+    sp8->typ = SP_RIDGES;
     addSplineVal(sp8, -1.0F, createFixSpline(ss, f), 0.0F);
     addSplineVal(sp8, -0.4F, sp6, 0.0F);
     addSplineVal(sp8,  0.0F, createFixSpline(ss, h + 0.07F), 0.0F);
 
     Spline *sp9 = createFlatOffsetSpline(ss, -0.02F, k, k, g, h, 0.0F);
     Spline *sp = &ss->stack[ss->len++];
-    sp->typ = EROSION;
+    sp->typ = SP_EROSION;
     addSplineVal(sp, -0.85F, sp1, 0.0F);
     addSplineVal(sp, -0.7F,  sp2, 0.0F);
     addSplineVal(sp, -0.4F,  sp3, 0.0F);
@@ -1436,7 +1439,7 @@ void initBiomeNoise(BiomeNoise *bn, int mc)
     SplineStack *ss = &bn->ss;
     memset(ss, 0, sizeof(*ss));
     Spline *sp = &ss->stack[ss->len++];
-    sp->typ = CONTINENTALNESS;
+    sp->typ = SP_CONTINENTALNESS;
 
     Spline *sp1 = createLandSpline(ss, -0.15F, 0.00F, 0.0F, 0.1F, 0.00F, -0.03F, 0);
     Spline *sp2 = createLandSpline(ss, -0.10F, 0.03F, 0.1F, 0.1F, 0.01F, -0.03F, 0);
@@ -1703,7 +1706,7 @@ int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, uint64_t sha)
 }
 
 static void genColumnNoise(const SurfaceNoiseBeta *snb, SeaLevelColumnNoiseBeta *dest,
-    int cx, int cz, double lacmin)
+    double cx, double cz, double lacmin)
 {
     dest->contASample = sampleOctaveAmp(&snb->octcontA, cx, 0, cz, 0, 0, 1);
     dest->contBSample = sampleOctaveAmp(&snb->octcontB, cx, 0, cz, 0, 0, 1);
@@ -1770,33 +1773,45 @@ static double lerp4(
     return b0 + (b1 - b0) * dx;
 }
 
+double approxSurfaceBeta(const BiomeNoiseBeta *bnb, const SurfaceNoiseBeta *snb,
+    int x, int z)
+{
+    // TODO: sample vertically to get a more accurate height value
+    double climate[2];
+    sampleBiomeNoiseBeta(bnb, NULL, climate, x, z);
+    double cols[2];
+    SeaLevelColumnNoiseBeta colNoise;
+    genColumnNoise(snb, &colNoise, x*0.25, z*0.25, 0);
+    processColumnNoise(cols, &colNoise, climate);
+    return 63 + (cols[0]*0.125 + cols[1]*0.875) * 0.5;
+}
+
 int genBiomeNoiseBetaScaled(const BiomeNoiseBeta *bnb,
     const SurfaceNoiseBeta *snb, int *out, Range r)
 {
     if (!snb || r.scale >= 4)
     {
         int i, j;
-        int *p = out;
         int mid = r.scale >> 1;
         for (j = 0; j < r.sz; j++)
         {
             int z = (r.z+j)*r.scale + mid;
             for (i = 0; i < r.sx; i++)
             {
-                int x = (r.x+i)*r.scale + mid;
                 double climate[2];
-                *p = sampleBiomeNoiseBeta(bnb, NULL, climate, x, z);
+                int x = (r.x+i)*r.scale + mid;
+                int id = sampleBiomeNoiseBeta(bnb, NULL, climate, x, z);
 
                 if (snb)
                 {
                     double cols[2];
                     SeaLevelColumnNoiseBeta colNoise;
-                    genColumnNoise(snb, &colNoise, x>>2, z>>2, 4.0 / r.scale);
+                    genColumnNoise(snb, &colNoise, x*0.25, z*0.25, 4.0/r.scale);
                     processColumnNoise(cols, &colNoise, climate);
-                    if (cols[0]*0.125 + cols[1] <= 0)
-                        *p = (climate[0] < 0.5) ? frozen_ocean : ocean;
+                    if (cols[0]*0.125 + cols[1]*0.875 <= 0)
+                        id = (climate[0] < 0.5) ? frozen_ocean : ocean;
                 }
-                p++;
+                out[j*r.sx + i] = id;
             }
         }
         return 0;

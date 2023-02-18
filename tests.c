@@ -322,7 +322,7 @@ void findBiomeParaBounds()
     }
 
     Generator g;
-    setupGenerator(&g, MC_1_18, 0);
+    setupGenerator(&g, MC_1_20, 0);
     int64_t s;
     int r = 1000;
     for (s = 0; s < 20000; s++)
@@ -341,10 +341,10 @@ void findBiomeParaBounds()
 
     for (i = 0; i < 256; i++)
     {
-        if (!isOverworld(MC_1_18, i))
+        if (!isOverworld(MC_1_20, i))
             continue;
 
-        printf("{%-24s", biome2str(MC_1_18, i));
+        printf("{%-24s", biome2str(MC_1_20, i));
         for (j = 0; j < 6; j++)
         {
             printf(", %6ld,%6ld", bbounds[i][j][0], bbounds[i][j][1]);
@@ -465,22 +465,13 @@ void findStructures(int structureType, int mc, int dim, uint64_t seed,
 
 int main()
 {
-    int mc = MC_B1_7;
-    for (int i = 1; i <= 16; i *= 4)
-    {
-        double t = -now();
-        uint32_t h = getRef(mc, DIM_OVERWORLD, 7, i, 1, NULL);
-        t += now();
-        printf("1:%-2d: %08x t = %-8.4f\n", i, h, t);
-    }
-    
-    testAreas(mc, 0, 1);
-    testAreas(mc, 0, 4);
-    testAreas(mc, 0, 16);
-    testAreas(mc, 0, 256);
+    //testAreas(mc, 0, 1);
+    //testAreas(mc, 0, 4);
+    //testAreas(mc, 0, 16);
+    //testAreas(mc, 0, 256);
     //testCanBiomesGenerate();
-    testGeneration();
-    //findBiomeParaBounds();
+    //testGeneration();
+    findBiomeParaBounds();
     return 0;
 }
 
