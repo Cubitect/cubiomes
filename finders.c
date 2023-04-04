@@ -664,7 +664,7 @@ static int findServerSpawn(Pos *sp, const Generator *g, const SurfaceNoise *sn,
             {
                 int x4 = (chunkX << 2) + i, z4 = (chunkZ << 2) + j;
                 int id = getBiomeAt(g, 4, x4, 16, z4);
-                if (isOceanic(id) || id == river)
+                if ((isOceanic(id) && id != frozen_ocean && id != deep_frozen_ocean) || id == river)
                     continue;
                 sp->x = x4 << 2;
                 sp->z = z4 << 2;
@@ -814,13 +814,10 @@ Pos getSpawn(const Generator *g)
         int j, k, u, v;
         j = k = u = 0;
         v = -1;
-        for (i = 0; i < 1024; i++)
+        for (i = 0; i < 121; i++)
         {
-            if (j > -16 && j <= 16 && k > -16 && k <= 16)
-            {
-                if (findServerSpawn(&spawn, g, &sn, (spawn.x>>4)+j, (spawn.z>>4)+k))
-                    return spawn;
-            }
+            if (findServerSpawn(&spawn, g, &sn, (spawn.x>>4)+j, (spawn.z>>4)+k))
+                return spawn;
 
             if (j == k || (j < 0 && j == -k) || (j > 0 && j == 1 - k))
             {
