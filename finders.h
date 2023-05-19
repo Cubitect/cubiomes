@@ -30,10 +30,13 @@ enum StructureType
     Ancient_City,
     Treasure,
     Mineshaft,
+    Desert_Well,
+    Geode,
     Fortress,
     Bastion,
     End_City,
     End_Gateway,
+    Trail_Ruin,
     FEATURE_NUM
 };
 
@@ -53,6 +56,7 @@ STRUCT(StructureConfig)
     int8_t  chunkRange;
     uint8_t structType;
     uint8_t properties;
+    float   rarity;
 };
 
 
@@ -81,7 +85,8 @@ STRUCT(StructureVariant)
     uint8_t giant       :1; // giant portal variant
     uint8_t underground :1; // underground portal
     uint8_t airpocket   :1; // portal with air pocket
-    //uint8_t ship        :1; // end city with ship
+    uint8_t cracked     :1; // geode with crack
+    uint8_t size;           // geode size
     uint8_t start;          // starting piece index
     short   biome;          // biome variant
     uint8_t rotation;       // 0:0, 1:cw90, 2:cw180, 3:cw270=ccw90

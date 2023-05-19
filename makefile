@@ -17,7 +17,7 @@ endif
 
 all: release
 
-debug: CFLAGS += -DDEBUG -O0 -ggdb3
+debug: CFLAGS += -DDEBUG -O0 -ggdb3 -fsanitize=undefined
 debug: libcubiomes
 release: CFLAGS += -O3 -g3
 release: libcubiomes
