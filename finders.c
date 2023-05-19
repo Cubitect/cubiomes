@@ -548,7 +548,12 @@ int isStrongholdBiome(int mc, int id)
         return 0;
     switch (id)
     {
+    case plains:
+    case mushroom_fields:
+    case taiga_hills:
+        return mc >= MC_1_7;
     case swamp:
+        return mc <= MC_1_6;
     case river:
     case frozen_river:
     case beach:
@@ -641,6 +646,9 @@ int nextStronghold(StrongholdIter *sh, const Generator *g)
     {
         return 0;
     }
+    // staircase is located at (4, 4) in chunk
+    sh->pos.x = (sh->pos.x & ~15) + 4;
+    sh->pos.z = (sh->pos.z & ~15) + 4;
 
     sh->ringidx++;
     sh->angle += 2 * PI / sh->ringmax;
@@ -752,6 +760,7 @@ static const uint64_t g_spawn_biomes_17 =
     (1ULL << wooded_hills) |
     (1ULL << jungle) |
     (1ULL << jungle_hills);
+
 
 Pos estimateSpawn(const Generator *g, uint64_t *rng)
 {
