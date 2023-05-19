@@ -285,15 +285,17 @@ Pos initFirstStronghold(StrongholdIter *sh, int mc, uint64_t s48);
  */
 int nextStronghold(StrongholdIter *sh, const Generator *g);
 
+
+/* Finds the approximate spawn point in the world.
+ * The random state 'rng' output can be NULL to ignore.
+ */
+Pos estimateSpawn(const Generator *g, uint64_t *rng);
+
 /* Finds the spawn point in the world.
  * Warning: Slow, and may be inaccurate because the world spawn depends on
  * grass blocks!
  */
 Pos getSpawn(const Generator *g);
-
-/* Finds the approximate spawn point in the world.
- */
-Pos estimateSpawn(const Generator *g);
 
 
 /* Finds a suitable pseudo-random location in the specified area.

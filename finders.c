@@ -673,54 +673,6 @@ int nextStronghold(StrongholdIter *sh, const Generator *g)
 }
 
 
-static int findServerSpawn(Pos *sp, const Generator *g, const SurfaceNoise *sn,
-    int chunkX, int chunkZ)
-{
-    int i, j;
-
-    if (g->mc >= MC_1_18)
-    {
-        // It seems the search for spawn in 1.18 looks for a block with a
-        // solid top and a height above sea level. We can approximate this by
-        // looking for a non-ocean biome at y=63 ~> y=16 at scale 1:4.
-        for (i = 0; i < 4; i++)
-        {
-            for (j = 0; j < 4; j++)
-            {
-                int x4 = (chunkX << 2) + i, z4 = (chunkZ << 2) + j;
-                int id = getBiomeAt(g, 4, x4, 16, z4);
-                if (isOceanic(id) || id == river)
-                    continue;
-                sp->x = x4 << 2;
-                sp->z = z4 << 2;
-                return 1;
-            }
-        }
-        return 0;
-    }
-    else
-    {
-        float y[16];
-        int ids[16];
-        mapApproxHeight(y, ids, g, sn, chunkX << 2, chunkZ << 2, 4, 4);
-
-        for (i = 0; i < 4; i++)
-        {
-            for (j = 0; j < 4; j++)
-            {
-                int grass = 0;
-                getBiomeDepthAndScale(ids[j*4+i], 0, 0, &grass);
-                if (grass <= 0 || y[j*4+i] < grass)
-                    continue;
-                sp->x = (chunkX << 4) + (i << 2);
-                sp->z = (chunkZ << 4) + (j << 2);
-                return 1;
-            }
-        }
-        return 0;
-    }
-}
-
 static
 uint64_t getSpawnDist(const Generator *g, int x, int z)
 {
@@ -801,81 +753,7 @@ static const uint64_t g_spawn_biomes_17 =
     (1ULL << jungle) |
     (1ULL << jungle_hills);
 
-Pos getSpawn(const Generator *g)
-{
-    Pos spawn;
-    int found;
-    int i;
-
-    uint64_t rnd = 0;
-    if (g->mc <= MC_B1_7)
-    {
-        // finds a random sandblock (location is not fixed)
-        spawn.x = spawn.z = 0;
-        return spawn;
-    }
-    else if (g->mc <= MC_1_17)
-    {
-        uint64_t spawn_biomes = g_spawn_biomes_17;
-        if (g->mc <= MC_1_0)
-            spawn_biomes = (1ULL << forest) | (1ULL << swamp) |(1ULL << taiga);
-        setSeed(&rnd, g->seed);
-        spawn = locateBiome(g, 0, 63, 0, 256, spawn_biomes, 0, &rnd, &found);
-        if (!found)
-        {
-            spawn.x = spawn.z = 8;
-        }
-    }
-    else
-    {
-        spawn = findFittestPos(g);
-    }
-
-    SurfaceNoise sn;
-    initSurfaceNoise(&sn, DIM_OVERWORLD, g->seed);
-
-    if (g->mc >= MC_1_13)
-    {
-        int j, k, u, v;
-        j = k = u = 0;
-        v = -1;
-        for (i = 0; i < 1024; i++)
-        {
-            if (j > -16 && j <= 16 && k > -16 && k <= 16)
-            {
-                if (findServerSpawn(&spawn, g, &sn, (spawn.x>>4)+j, (spawn.z>>4)+k))
-                    return spawn;
-            }
-
-            if (j == k || (j < 0 && j == -k) || (j > 0 && j == 1 - k))
-            {
-                int tmp = u;
-                u = -v;
-                v = tmp;
-            }
-            j += u;
-            k += v;
-        }
-    }
-    else
-    {
-        for (i = 0; i < 1000; i++)
-        {
-            float y;
-            int id, grass = 0;
-            mapApproxHeight(&y, &id, g, &sn, spawn.x >> 2, spawn.z >> 2, 1, 1);
-            getBiomeDepthAndScale(id, 0, 0, &grass);
-            if (grass > 0 && y >= grass)
-                break;
-            spawn.x += nextInt(&rnd, 64) - nextInt(&rnd, 64);
-            spawn.z += nextInt(&rnd, 64) - nextInt(&rnd, 64);
-        }
-    }
-
-    return spawn;
-}
-
-Pos estimateSpawn(const Generator *g)
+Pos estimateSpawn(const Generator *g, uint64_t *rng)
 {
     Pos spawn = {0, 0};
 
@@ -887,25 +765,139 @@ Pos estimateSpawn(const Generator *g)
     else if (g->mc <= MC_1_17)
     {
         int found;
-        uint64_t rnd;
         uint64_t spawn_biomes = g_spawn_biomes_17;
         if (g->mc <= MC_1_0)
             spawn_biomes = (1ULL << forest) | (1ULL << swamp) |(1ULL << taiga);
-        setSeed(&rnd, g->seed);
-        spawn = locateBiome(g, 0, 63, 0, 256, spawn_biomes, 0, &rnd, &found);
+        uint64_t s;
+        setSeed(&s, g->seed);
+        spawn = locateBiome(g, 0, 63, 0, 256, spawn_biomes, 0, &s, &found);
         if (!found)
-        {
             spawn.x = spawn.z = 8;
-        }
-        if (g->mc >= MC_1_13)
-        {
-            spawn.x &= ~0xf;
-            spawn.z &= ~0xf;
-        }
+        if (rng)
+            *rng = s;
     }
     else
     {
         spawn = findFittestPos(g);
+    }
+
+    return spawn;
+}
+
+Pos getSpawn(const Generator *g)
+{
+    uint64_t rng;
+    Pos spawn = estimateSpawn(g, &rng);
+    int i, j, k, u, v, ii, jj;
+    int x4, z4;
+
+    if (g->mc <= MC_B1_7)
+        return spawn;
+
+    SurfaceNoise sn;
+    initSurfaceNoise(&sn, DIM_OVERWORLD, g->seed);
+
+    if (g->mc <= MC_1_12)
+    {
+        for (i = 0; i < 1000; i++)
+        {
+            float y;
+            int id, grass = 0;
+            x4 = spawn.x >> 2;
+            z4 = spawn.z >> 2;
+            mapApproxHeight(&y, &id, g, &sn, x4, z4, 1, 1);
+            getBiomeDepthAndScale(id, 0, 0, &grass);
+            if (grass > 0 && y >= grass)
+                break;
+            spawn.x += nextInt(&rng, 64) - nextInt(&rng, 64);
+            spawn.z += nextInt(&rng, 64) - nextInt(&rng, 64);
+        }
+    }
+    else if (g->mc <= MC_1_17)
+    {
+        j = k = u = 0;
+        v = -1;
+        for (i = 0; i < 1024; i++)
+        {
+            if (j > -16 && j <= 16 && k > -16 && k <= 16)
+            {
+                // find server spawn point in chunk
+                int cx = (spawn.x >> 4) + j;
+                int cz = (spawn.z >> 4) + k;
+                float y[16];
+                int ids[16];
+                x4 = cx << 2;
+                z4 = cz << 2;
+                mapApproxHeight(y, ids, g, &sn, x4, z4, 4, 4);
+                for (ii = 0; ii < 4; ii++)
+                {
+                    for (jj = 0; jj < 4; jj++)
+                    {
+                        int grass = 0;
+                        getBiomeDepthAndScale(ids[jj*4+ii], 0, 0, &grass);
+                        if (grass <= 0 || y[jj*4+ii] < grass)
+                            continue;
+                        spawn.x = (cx << 4) + (ii << 2);
+                        spawn.z = (cz << 4) + (jj << 2);
+                        return spawn;
+                    }
+                }
+            }
+            if (j == k || (j < 0 && j == -k) || (j > 0 && j == 1 - k))
+            {
+                int tmp = u;
+                u = -v;
+                v = tmp;
+            }
+            j += u;
+            k += v;
+        }
+        // chunk center
+        spawn.x = (spawn.x & ~15) + 8;
+        spawn.z = (spawn.z & ~15) + 8;
+    }
+    else
+    {
+        j = k = u = 0;
+        v = -1;
+        for (i = 0; i < 121; i++)
+        {
+            if (j >= -5 && j <= 5 && k >= -5 && k <= 5)
+            {
+                // find server spawn point in chunk
+                int cx = (spawn.x >> 4) + j;
+                int cz = (spawn.z >> 4) + k;
+                for (ii = 0; ii < 4; ii++)
+                {
+                    for (jj = 0; jj < 4; jj++)
+                    {
+                        float y;
+                        int id;
+                        x4 = (cx << 2) + ii;
+                        z4 = (cz << 2) + jj;
+                        mapApproxHeight(&y, &id, g, &sn, x4, z4, 1, 1);
+                        if (y > 63 || id == frozen_ocean ||
+                            id == deep_frozen_ocean || id == frozen_river)
+                        {
+                            spawn.x = x4 << 2;
+                            spawn.z = z4 << 2;
+                            return spawn;
+                        }
+                    }
+                }
+            }
+            if (j == k || (j < 0 && j == -k) || (j > 0 && j == 1 - k))
+            {
+                int tmp = u;
+                u = -v;
+                v = tmp;
+            }
+            j += u;
+            k += v;
+        }
+        // chunk center
+        spawn.x = (spawn.x & ~15) + 8;
+        spawn.z = (spawn.z & ~15) + 8;
     }
 
     return spawn;
