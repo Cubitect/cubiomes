@@ -10,7 +10,7 @@
 int mapOceanMixMod(const Layer * l, int * out, int x, int z, int w, int h)
 {
     int *otyp;
-    int i, j;
+    int64_t i, j;
     l->p2->getMap(l->p2, out, x, z, w, h);
 
     otyp = (int *) malloc(w*h*sizeof(int));
@@ -25,12 +25,12 @@ int mapOceanMixMod(const Layer * l, int * out, int x, int z, int w, int h)
         {
             int landID, oceanID;
 
-            landID = out[i + j*w];
+            landID = out[j*w + i];
 
             if (!isOceanic(landID))
                 continue;
 
-            oceanID = otyp[i + j*w];
+            oceanID = otyp[j*w + i];
 
             if (landID == deep_ocean)
             {
@@ -51,7 +51,7 @@ int mapOceanMixMod(const Layer * l, int * out, int x, int z, int w, int h)
                 }
             }
 
-            out[i + j*w] = oceanID;
+            out[j*w + i] = oceanID;
         }
     }
 
@@ -146,7 +146,7 @@ size_t getMinCacheSize(const Generator *g, int scale, int sx, int sy, int sz)
     {
         int cellwidth = scale >> 1;
         int smin = (sx < sz ? sx : sz);
-        int slen = (((smin >> (2 >> cellwidth)) + 1) << 1) + 1;
+        int slen = ((smin >> (2 >> cellwidth)) + 1) * 2 + 1;
         len += slen * sizeof(SeaLevelColumnNoiseBeta);
     }
     else if (g->mc >= MC_B1_8 && g->mc <= MC_1_17 && g->dim == DIM_OVERWORLD)
@@ -179,7 +179,7 @@ int *allocCache(const Generator *g, Range r)
 int genBiomes(const Generator *g, int *cache, Range r)
 {
     int err = 1;
-    int i, k;
+    int64_t i, k;
 
     if (g->dim == DIM_OVERWORLD)
     {
@@ -600,7 +600,7 @@ size_t getMinLayerCacheSize(const Layer *layer, int sizeX, int sizeZ)
 
 int genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, int areaHeight)
 {
-    memset(out, 0, areaWidth*areaHeight*sizeof(*out));
+    memset(out, 0, sizeof(*out)*areaWidth*areaHeight);
     return layer->getMap(layer, out, areaX, areaZ, areaWidth, areaHeight);
 }
 
@@ -615,7 +615,7 @@ int mapApproxHeight(float *y, int *ids, const Generator *g, const SurfaceNoise *
     {
         if (g->bn.nptype != -1 && g->bn.nptype != NP_DEPTH)
             return 1;
-        int i, j;
+        int64_t i, j;
         for (j = 0; j < h; j++)
         {
             for (i = 0; i < w; i++)
@@ -634,13 +634,13 @@ int mapApproxHeight(float *y, int *ids, const Generator *g, const SurfaceNoise *
     {
         SurfaceNoiseBeta snb; // TODO: merge SurfaceNoise and SurfaceNoiseBeta?
         initSurfaceNoiseBeta(&snb, g->seed);
-        int i, j;
+        int64_t i, j;
         for (j = 0; j < h; j++)
         {
             for (i = 0; i < w; i++)
             {
-                int samplex = ((x + i) << 2) + 2;
-                int samplez = ((z + j) << 2) + 2;
+                int samplex = (x + i) * 4 + 2;
+                int samplez = (z + j) * 4 + 2;
                 // TODO: properly implement beta surface finder
                 y[j*w+i] = approxSurfaceBeta(&g->bnb, &snb, samplex, samplez);
             }
@@ -656,9 +656,10 @@ int mapApproxHeight(float *y, int *ids, const Generator *g, const SurfaceNoise *
         3.302044127, 4.104975761, 4.545454545, 4.104975761, 3.302044127,
     };
 
-    double *depth = (double*) malloc(w * h * sizeof(double) * 2);
+    double *depth = (double*) malloc(sizeof(double) * 2 * w * h);
     double *scale = depth + w * h;
-    int i, j, ii, jj;
+    int64_t i, j;
+    int ii, jj;
 
     Range r = {4, x-2, z-2, w+5, h+5, 0, 1};
     int *cache = allocCache(g, r);

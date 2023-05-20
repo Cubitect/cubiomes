@@ -194,8 +194,8 @@ static inline
 void getRegPos(Pos *p, uint64_t *s, int rx, int rz, StructureConfig sc)
 {
     setSeed(s, rx*341873128712ULL + rz*132897987541ULL + *s + sc.salt);
-    p->x = (int)(((uint64_t)rx * sc.regionSize + nextInt(s, sc.chunkRange)) << 4);
-    p->z = (int)(((uint64_t)rz * sc.regionSize + nextInt(s, sc.chunkRange)) << 4);
+    p->x = ((uint64_t)rx * sc.regionSize + nextInt(s, sc.chunkRange)) << 4;
+    p->z = ((uint64_t)rz * sc.regionSize + nextInt(s, sc.chunkRange)) << 4;
 }
 
 int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ, Pos *pos)
@@ -242,8 +242,8 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
         return nextInt(&seed, 5) == 0;
 
     case Treasure:
-        pos->x = (int)( ((uint32_t)regX << 4) + 9 );
-        pos->z = (int)( ((uint32_t)regZ << 4) + 9 );
+        pos->x = regX * 16 + 9;
+        pos->z = regZ * 16 + 9;
         seed = regX*341873128712ULL + regZ*132897987541ULL + seed + sconf.salt;
         setSeed(&seed, seed);
         return nextFloat(&seed) < 0.01;
@@ -259,10 +259,10 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
             getRegPos(pos, &seed, regX, regZ, sconf);
             return nextInt(&seed, 5) < 2;
         } else {
-            setAttemptSeed(&seed, regX << 4, regZ << 4);
+            setAttemptSeed(&seed, regX * 16, regZ * 16);
             int valid = nextInt(&seed, 3) == 0;
-            pos->x = (int)((((uint64_t)regX << 4) + nextInt(&seed,8) + 4) << 4);
-            pos->z = (int)((((uint64_t)regZ << 4) + nextInt(&seed,8) + 4) << 4);
+            pos->x = (regX * 16 + nextInt(&seed, 8) + 4) * 16;
+            pos->z = (regZ * 16 + nextInt(&seed, 8) + 4) * 16;
             return valid;
         }
 
@@ -280,8 +280,8 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
     case Desert_Well:
     case Geode:
         // decorator features
-        pos->x = (int)( ((uint32_t)regX << 4) );
-        pos->z = (int)( ((uint32_t)regZ << 4) );
+        pos->x = regX * 16;
+        pos->z = regZ * 16;
         seed = getPopulationSeed(mc, seed, pos->x, pos->z);
         if (mc >= MC_1_18)
         {
@@ -340,8 +340,8 @@ int getMineshafts(int mc, uint64_t seed, int cx0, int cz0, int cx1, int cz1,
                 {
                     if (out && n < nout)
                     {
-                        out[n].x = (int)((uint32_t)i << 4);
-                        out[n].z = (int)((uint32_t)j << 4);
+                        out[n].x = i * 16;
+                        out[n].z = j * 16;
                     }
                     n++;
                 }
@@ -359,8 +359,8 @@ int getMineshafts(int mc, uint64_t seed, int cx0, int cz0, int cx1, int cz1,
                     {
                         if (out && n < nout)
                         {
-                            out[n].x = (int)((uint32_t)i << 4);
-                            out[n].z = (int)((uint32_t)j << 4);
+                            out[n].x = i * 16;
+                            out[n].z = j * 16;
                         }
                         n++;
                     }
@@ -411,8 +411,8 @@ Pos locateBiome(
 
                 if (found == 0 || nextInt(rng, found+1) == 0)
                 {
-                    out.x = (x+i) << 2;
-                    out.z = (z+j) << 2;
+                    out.x = (x+i) * 4;
+                    out.z = (z+j) * 4;
                 }
                 found++;
             }
@@ -439,8 +439,8 @@ Pos locateBiome(
                     continue;
                 if (found == 0 || nextInt(rng, j++) == 0)
                 {
-                    out.x = (x1 + i%width) << 2;
-                    out.z = (z1 + i/width) << 2;
+                    out.x = (x1 + i%width) * 4;
+                    out.z = (z1 + i/width) * 4;
                     found = 1;
                 }
             }
@@ -454,8 +454,8 @@ Pos locateBiome(
                     continue;
                 if (found == 0 || nextInt(rng, found + 1) == 0)
                 {
-                    out.x = (x1 + i%width) << 2;
-                    out.z = (z1 + i/width) << 2;
+                    out.x = (x1 + i%width) * 4;
+                    out.z = (z1 + i/width) * 4;
                     ++found;
                 }
             }
@@ -493,7 +493,7 @@ int areBiomesViable(
     for (i = 0; i < 4; i++)
     {
         id = getBiomeAt(g, 4, corners[i].x, y, corners[i].z);
-        if (!id_matches(id, validB, validM))
+        if (id < 0 || !id_matches(id, validB, validM))
             goto L_no;
     }
     if (approx >= 1) goto L_yes;
@@ -509,7 +509,7 @@ int areBiomesViable(
                     id = sampleBiomeNoise(&g->bn, NULL, x1+i, y, z1+j, &dat, 0);
                 else
                     id = getBiomeAt(g, 4, x1+i, y, z1+j);
-                if (!id_matches(id, validB, validM))
+                if (id < 0 || !id_matches(id, validB, validM))
                     goto L_no;
             }
         }
@@ -522,7 +522,7 @@ int areBiomesViable(
             goto L_no;
         for (i = 0; i < sx*sz; i++)
         {
-            if (!id_matches(ids[i], validB, validM))
+            if (id < 0 || !id_matches(ids[i], validB, validM))
                 goto L_no;
         }
     }
@@ -590,8 +590,8 @@ Pos initFirstStronghold(StrongholdIter *sh, int mc, uint64_t s48)
     else
         dist = (1.25 + nextDouble(&rnds)) * 32.0;
 
-    p.x = ((int)round(cos(angle) * dist) << 4) + 8;
-    p.z = ((int)round(sin(angle) * dist) << 4) + 8;
+    p.x = ((int)round(cos(angle) * dist) * 16) + 8;
+    p.z = ((int)round(sin(angle) * dist) * 16) + 8;
 
     if (sh)
     {
@@ -673,8 +673,8 @@ int nextStronghold(StrongholdIter *sh, const Generator *g)
         sh->dist = (1.25 + nextDouble(&sh->rnds)) * 32.0;
     }
 
-    sh->nextapprox.x = ((int)round(cos(sh->angle) * sh->dist) << 4) + 8;
-    sh->nextapprox.z = ((int)round(sin(sh->angle) * sh->dist) << 4) + 8;
+    sh->nextapprox.x = ((int)round(cos(sh->angle) * sh->dist) * 16) + 8;
+    sh->nextapprox.z = ((int)round(sin(sh->angle) * sh->dist) * 16) + 8;
     sh->index++;
 
     return (sh->mc >= MC_1_9 ? 128 : 3) - (sh->index-1);
@@ -746,8 +746,8 @@ Pos findFittestPos(const Generator *g)
     findFittest(g, &spawn, &fitness, 2048.0, 512.0);
     findFittest(g, &spawn, &fitness, 512.0, 32.0);
     // center of chunk
-    spawn.x = ((spawn.x >> 4) << 4) + 8;
-    spawn.z = ((spawn.z >> 4) << 4) + 8;
+    spawn.x = (spawn.x & ~15) + 8;
+    spawn.z = (spawn.z & ~15) + 8;
     return spawn;
 }
 
@@ -797,8 +797,8 @@ Pos getSpawn(const Generator *g)
 {
     uint64_t rng;
     Pos spawn = estimateSpawn(g, &rng);
-    int i, j, k, u, v, ii, jj;
-    int x4, z4;
+    int i, j, k, u, v, cx0, cz0;
+    uint32_t ii, jj;
 
     if (g->mc <= MC_B1_7)
         return spawn;
@@ -812,9 +812,7 @@ Pos getSpawn(const Generator *g)
         {
             float y;
             int id, grass = 0;
-            x4 = spawn.x >> 2;
-            z4 = spawn.z >> 2;
-            mapApproxHeight(&y, &id, g, &sn, x4, z4, 1, 1);
+            mapApproxHeight(&y, &id, g, &sn, spawn.x >> 2, spawn.z >> 2, 1, 1);
             getBiomeDepthAndScale(id, 0, 0, &grass);
             if (grass > 0 && y >= grass)
                 break;
@@ -831,13 +829,11 @@ Pos getSpawn(const Generator *g)
             if (j > -16 && j <= 16 && k > -16 && k <= 16)
             {
                 // find server spawn point in chunk
-                int cx = (spawn.x >> 4) + j;
-                int cz = (spawn.z >> 4) + k;
                 float y[16];
                 int ids[16];
-                x4 = cx << 2;
-                z4 = cz << 2;
-                mapApproxHeight(y, ids, g, &sn, x4, z4, 4, 4);
+                cx0 = (spawn.x & ~15) + j * 16; // start of chunk
+                cz0 = (spawn.z & ~15) + k * 16;
+                mapApproxHeight(y, ids, g, &sn, cx0 >> 2, cz0 >> 2, 4, 4);
                 for (ii = 0; ii < 4; ii++)
                 {
                     for (jj = 0; jj < 4; jj++)
@@ -846,8 +842,8 @@ Pos getSpawn(const Generator *g)
                         getBiomeDepthAndScale(ids[jj*4+ii], 0, 0, &grass);
                         if (grass <= 0 || y[jj*4+ii] < grass)
                             continue;
-                        spawn.x = (cx << 4) + (ii << 2);
-                        spawn.z = (cz << 4) + (jj << 2);
+                        spawn.x = cx0 + ii * 4;
+                        spawn.z = cz0 + jj * 4;
                         return spawn;
                     }
                 }
@@ -874,22 +870,22 @@ Pos getSpawn(const Generator *g)
             if (j >= -5 && j <= 5 && k >= -5 && k <= 5)
             {
                 // find server spawn point in chunk
-                int cx = (spawn.x >> 4) + j;
-                int cz = (spawn.z >> 4) + k;
+                cx0 = (spawn.x & ~15) + j * 16;
+                cz0 = (spawn.z & ~15) + k * 16;
                 for (ii = 0; ii < 4; ii++)
                 {
                     for (jj = 0; jj < 4; jj++)
                     {
                         float y;
                         int id;
-                        x4 = (cx << 2) + ii;
-                        z4 = (cz << 2) + jj;
-                        mapApproxHeight(&y, &id, g, &sn, x4, z4, 1, 1);
+                        int x = cx0 + ii * 4;
+                        int z = cz0 + jj * 4;
+                        mapApproxHeight(&y, &id, g, &sn, x >> 2, z >> 2, 1, 1);
                         if (y > 63 || id == frozen_ocean ||
                             id == deep_frozen_ocean || id == frozen_river)
                         {
-                            spawn.x = x4 << 2;
-                            spawn.z = z4 << 2;
+                            spawn.x = x;
+                            spawn.z = z;
                             return spawn;
                         }
                     }
@@ -1207,15 +1203,15 @@ int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t
         {
             StructureVariant sv;
             getVariant(&sv, Bastion, g->mc, g->seed, x, z, -1);
-            sampleX = ((chunkX << 5) + 2*sv.x + sv.sx-1) / 2 >> 2;
-            sampleZ = ((chunkZ << 5) + 2*sv.z + sv.sz-1) / 2 >> 2;
+            sampleX = (chunkX*32 + 2*sv.x + sv.sx-1) / 2 >> 2;
+            sampleZ = (chunkZ*32 + 2*sv.z + sv.sz-1) / 2 >> 2;
             if (g->mc >= MC_1_19_2)
                 sampleY = 33 >> 2; // nether biomes don't actually vary in Y
         }
         else
         {
-            sampleX = (chunkX << 2) + 2;
-            sampleZ = (chunkZ << 2) + 2;
+            sampleX = (chunkX * 4) + 2;
+            sampleZ = (chunkZ * 4) + 2;
         }
         id = getBiomeAt(g, 4, sampleX, sampleY, sampleZ);
         return isViableFeatureBiome(g->mc, structureType, id);
@@ -1277,15 +1273,15 @@ L_feature:
         if (g->mc <= MC_1_15)
         {
             g->entry = &g->ls.layers[L_VORONOI_1];
-            sampleX = (chunkX << 4) + 9;
-            sampleZ = (chunkZ << 4) + 9;
+            sampleX = chunkX * 16 + 9;
+            sampleZ = chunkZ * 16 + 9;
         }
         else
         {
             if (g->mc <= MC_1_17)
                 g->entry = &g->ls.layers[L_RIVER_MIX_4];
-            sampleX = (chunkX << 2) + 2;
-            sampleZ = (chunkZ << 2) + 2;
+            sampleX = chunkX * 4 + 2;
+            sampleZ = chunkZ * 4 + 2;
         }
         id = getBiomeAt(g, 0, sampleX, 319>>2, sampleZ);
         if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
@@ -1296,7 +1292,7 @@ L_feature:
         if (g->mc <= MC_1_15)
         {
             g->entry = &g->ls.layers[L_VORONOI_1];
-            sampleX = x; // TODO: check sampling position
+            sampleX = x;
             sampleZ = z;
         }
         else
@@ -1318,14 +1314,14 @@ L_feature:
             {   // exclusively in MC_1_15, villages used the same biome check
                 // as other structures
                 g->entry = &g->ls.layers[L_VORONOI_1];
-                sampleX = (chunkX << 4) + 9;
-                sampleZ = (chunkZ << 4) + 9;
+                sampleX = chunkX * 16 + 9;
+                sampleZ = chunkZ * 16 + 9;
             }
             else
             {
                 g->entry = &g->ls.layers[L_RIVER_MIX_4];
-                sampleX = (chunkX << 2) + 2;
-                sampleZ = (chunkZ << 2) + 2;
+                sampleX = chunkX * 4 + 2;
+                sampleZ = chunkZ * 4 + 2;
             }
             id = getBiomeAt(g, 0, sampleX, 0, sampleZ);
             if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
@@ -1336,8 +1332,8 @@ L_feature:
             {   // before MC_1_10 villages did not spread into invalid biomes,
                 // which could cause them to fail to generate on the first
                 // check at block (2, 2) in the starting chunk
-                sampleX = (chunkX << 4) + 2;
-                sampleZ = (chunkZ << 4) + 2;
+                sampleX = chunkX * 16 + 2;
+                sampleZ = chunkZ * 16 + 2;
                 id = getBiomeAt(g, 1, sampleX, 0, sampleZ);
                 if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
                     goto L_not_viable;
@@ -1354,8 +1350,8 @@ L_feature:
                     continue;
                 StructureVariant sv;
                 getVariant(&sv, Village, g->mc, g->seed, x, z, vv[i]);
-                sampleX = ((chunkX << 5) + 2*sv.x + sv.sx-1) / 2 >> 2;
-                sampleZ = ((chunkZ << 5) + 2*sv.z + sv.sz-1) / 2 >> 2;
+                sampleX = (chunkX*32 + 2*sv.x + sv.sx-1) / 2 >> 2;
+                sampleZ = (chunkZ*32 + 2*sv.z + sv.sz-1) / 2 >> 2;
                 sampleY = 319 >> 2;
                 id = getBiomeAt(g, 0, sampleX, sampleY, sampleZ);
                 if (id == vv[i] || (id == meadow && vv[i] == plains)) {
@@ -1410,20 +1406,20 @@ L_feature:
                 case 3: sampleX = +15; sampleZ = -15; break;
                 default: return 0; // unreachable
             }
-            sampleX = ((chunkX << 5) + sampleX) / 2 >> 2;
-            sampleZ = ((chunkZ << 5) + sampleZ) / 2 >> 2;
+            sampleX = (chunkX * 32 + sampleX) / 2 >> 2;
+            sampleZ = (chunkZ * 32 + sampleZ) / 2 >> 2;
         }
         else if (g->mc >= MC_1_16_1)
         {
             g->entry = &g->ls.layers[L_RIVER_MIX_4];
-            sampleX = (chunkX << 2) + 2;
-            sampleZ = (chunkZ << 2) + 2;
+            sampleX = chunkX * 4 + 2;
+            sampleZ = chunkZ * 4 + 2;
         }
         else
         {
             g->entry = &g->ls.layers[L_VORONOI_1];
-            sampleX = (chunkX << 4) + 9;
-            sampleZ = (chunkZ << 4) + 9;
+            sampleX = chunkX * 16 + 9;
+            sampleZ = chunkZ * 16 + 9;
         }
         id = getBiomeAt(g, 0, sampleX, 319>>2, sampleZ);
         if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
@@ -1436,7 +1432,7 @@ L_feature:
             goto L_not_viable;
         else if (g->mc == MC_1_8)
         {   // In 1.8 monuments require only a single deep ocean block.
-            id = getBiomeAt(g, 1, (chunkX << 4) + 8, 0, (chunkZ << 4) + 8);
+            id = getBiomeAt(g, 1, chunkX * 16 + 8, 0, chunkZ * 16 + 8);
             if (id < 0 || !isDeepOcean(id))
                 goto L_not_viable;
         }
@@ -1448,8 +1444,8 @@ L_feature:
             if (id < 0 || !isDeepOcean(id))
                 goto L_not_viable;
         }
-        sampleX = (chunkX << 4) + 8;
-        sampleZ = (chunkZ << 4) + 8;
+        sampleX = chunkX * 16 + 8;
+        sampleZ = chunkZ * 16 + 8;
         if (g->mc >= MC_1_9 && g->mc <= MC_1_17)
         {   // check for deep ocean center
             if (!areBiomesViable(g, sampleX, 63, sampleZ, 16, g_monument_biomes2, 0, approx))
@@ -1470,8 +1466,8 @@ L_feature:
             goto L_not_viable;
         if (g->mc <= MC_1_17)
         {
-            sampleX = (chunkX << 4) + 8;
-            sampleZ = (chunkZ << 4) + 8;
+            sampleX = chunkX * 16 + 8;
+            sampleZ = chunkZ * 16 + 8;
             uint64_t b = (1ULL << dark_forest);
             uint64_t m = (1ULL << (dark_forest_hills-128));
             if (!areBiomesViable(g, sampleX, 0, sampleZ, 32, b, m, approx))
@@ -1483,8 +1479,8 @@ L_feature:
             // This minimum height has to be y >= 60. The biome check is done
             // at the center position at that height.
             // TODO: get surface height
-            sampleX = (chunkX << 4) + 7;
-            sampleZ = (chunkZ << 4) + 7;
+            sampleX = chunkX * 16 + 7;
+            sampleZ = chunkZ * 16 + 7;
             id = getBiomeAt(g, 4, sampleX>>2, 319>>2, sampleZ>>2);
             if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
                 goto L_not_viable;
@@ -1508,8 +1504,8 @@ L_feature:
         {
             StructureVariant sv;
             getVariant(&sv, Ancient_City, g->mc, g->seed, x, z, -1);
-            sampleX = ((chunkX << 5) + 2*sv.x + sv.sx) / 2 >> 2;
-            sampleZ = ((chunkZ << 5) + 2*sv.z + sv.sz) / 2 >> 2;
+            sampleX = (chunkX*32 + 2*sv.x + sv.sx) / 2 >> 2;
+            sampleZ = (chunkZ*32 + 2*sv.z + sv.sz) / 2 >> 2;
             sampleY = -27 >> 2;
             id = getBiomeAt(g, 4, sampleX, sampleY, sampleZ);
         }
@@ -1561,8 +1557,8 @@ int isViableStructureTerrain(int structType, Generator *g, int x, int z)
         if (rot == 0) { sx = -5; }
         if (rot == 1) { sx = -5; sz = -5; }
         if (rot == 2) { sz = -5; }
-        x = (cx << 4) + 7;
-        z = (cz << 4) + 7;
+        x = cx * 16 + 7;
+        z = cz * 16 + 7;
     }
     else
     {
@@ -1610,8 +1606,8 @@ int isViableEndCityTerrain(const EndNoise *en, const SurfaceNoise *sn,
 {
     int chunkX = blockX >> 4;
     int chunkZ = blockZ >> 4;
-    blockX = (chunkX << 4) + 7;
-    blockZ = (chunkZ << 4) + 7;
+    blockX = chunkX * 16 + 7;
+    blockZ = chunkZ * 16 + 7;
     int cellx = (blockX >> 3);
     int cellz = (blockZ >> 3);
     // TODO: make sure upper bound is ok
@@ -2276,7 +2272,7 @@ int getEndCityPieces(Piece *list, uint64_t seed, int chunkX, int chunkZ)
     env.rng = &rng;
     env.ship = &ship;
     Piece *base = NULL;
-    int x = (chunkX << 4) + 8, z = (chunkZ << 4) + 8;
+    int x = chunkX * 16 + 8, z = chunkZ * 16 + 8;
     base = addEndCityPiece(&env, base, rot, x, 0, z, BASE_FLOOR);
     base = addEndCityPiece(&env, base, rot, -1, 0, -1, SECOND_FLOOR_1);
     base = addEndCityPiece(&env, base, rot, -1, 4, -1, THIRD_FLOOR_1);
@@ -2511,7 +2507,7 @@ int getFortressPieces(Piece *list, int n, int mc, uint64_t seed, int chunkX, int
     env.typlast = 0;
     env.nmax = n;
     Piece *p = list;
-    Pos3 pos = {(chunkX << 4) + 2, 64, (chunkZ << 4) + 2};
+    Pos3 pos = {chunkX * 16 + 2, 64, chunkZ * 16 + 2};
     p->name = fortress_info[0].name;
     p->bb0 = p->bb1 = p->pos = pos;
     p->bb1.x += fortress_info[0].size.x;
