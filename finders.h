@@ -85,8 +85,9 @@ STRUCT(StructureVariant)
     uint8_t giant       :1; // giant portal variant
     uint8_t underground :1; // underground portal
     uint8_t airpocket   :1; // portal with air pocket
+    uint8_t basement    :1; // igloo with basement
     uint8_t cracked     :1; // geode with crack
-    uint8_t size;           // geode size
+    uint8_t size;           // geode size | igloo middel pieces
     uint8_t start;          // starting piece index
     short   biome;          // biome variant
     uint8_t rotation;       // 0:0, 1:cw90, 2:cw180, 3:cw270=ccw90

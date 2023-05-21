@@ -1950,6 +1950,25 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
         r->sx = r->sz = 58;
         return 1;
 
+    case Igloo:
+        if (mc <= MC_1_12)
+        {
+            setSeed(&rng, getPopulationSeed(mc, seed, (x>>4) - 1, (z>>4) - 1));
+        }
+        r->rotation = nextInt(&rng, 4);
+        r->basement = nextDouble(&rng) < 0.5;
+        r->size = nextInt(&rng, 8) + 4;
+        sx = 7; sy = 5; sz = 8;
+        r->sy = sy;
+        switch (r->rotation)
+        { // orientation: 0:north, 1:east, 2:south, 3:west
+        case 0: r->rotation = 0; r->mirror = 0; r->sx = sx; r->sz = sz; break;
+        case 1: r->rotation = 1; r->mirror = 0; r->sx = sz; r->sz = sx; break;
+        case 2: r->rotation = 0; r->mirror = 1; r->sx = sx; r->sz = sz; break;
+        case 3: r->rotation = 1; r->mirror = 1; r->sx = sz; r->sz = sx; break;
+        }
+        return 1;
+
     case Desert_Pyramid:
         sx = 21; sy = 15; sz = 21;
         goto L_rotate_temple;
