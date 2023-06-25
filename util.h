@@ -27,6 +27,9 @@ int str2mc(const char *s);
 /// get the resource id name for a biome (for versions 1.13+)
 const char *biome2str(int mc, int id);
 
+/// get the resource id name for a structure
+const char *struct2str(int stype);
+
 /// initialize a biome colormap with some defaults
 void initBiomeColors(unsigned char biomeColors[256][3]);
 void initBiomeTypeColors(unsigned char biomeColors[256][3]);

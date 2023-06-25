@@ -17,7 +17,7 @@ endif
 
 all: release
 
-debug: CFLAGS += -DDEBUG -O0 -ggdb3 -fsanitize=undefined
+debug: CFLAGS += -DDEBUG -O0 -ggdb3
 debug: libcubiomes
 release: CFLAGS += -O3 -g3
 release: libcubiomes
@@ -26,8 +26,10 @@ native: libcubiomes
 
 ifeq ($(OS),Windows_NT)
 else
+debug: CFLAGS += -fsanitize=undefined
 libcubiomes: CFLAGS += -fPIC
 endif
+
 libcubiomes: noise.o biome_tree.o layers.o generator.o finders.o util.o quadbase.o
 	$(AR) $(ARFLAGS) libcubiomes.a $^
 
