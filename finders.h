@@ -357,7 +357,7 @@ int isViableStructureTerrain(int structType, Generator *g, int blockX, int block
  * The world seed should be applied to the EndNoise and SurfaceNoise before
  * calling this function. (Use initSurfaceNoiseEnd() for initialization.)
  */
-int isViableEndCityTerrain(const EndNoise *en, const SurfaceNoise *sn,
+int isViableEndCityTerrain(const Generator *g, const SurfaceNoise *sn,
         int blockX, int blockZ);
 
 

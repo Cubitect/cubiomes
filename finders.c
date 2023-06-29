@@ -1601,9 +1601,10 @@ int getSurfaceHeight(
 void sampleNoiseColumnEnd(double column[], const SurfaceNoise *sn,
         const EndNoise *en, int x, int z, int colymin, int colymax);
 
-int isViableEndCityTerrain(const EndNoise *en, const SurfaceNoise *sn,
+int isViableEndCityTerrain(const Generator *g, const SurfaceNoise *sn,
         int blockX, int blockZ)
 {
+    const EndNoise *en = &g->en;
     int chunkX = blockX >> 4;
     int chunkZ = blockZ >> 4;
     blockX = chunkX * 16 + 7;
@@ -1624,7 +1625,11 @@ int isViableEndCityTerrain(const EndNoise *en, const SurfaceNoise *sn,
             y0, y1, 4, (blockX & 7) / 8.0, (blockZ & 7) / 8.0);
 
     uint64_t cs;
-    setSeed(&cs, chunkX + chunkZ * 10387313ULL);
+    if (en->mc <= MC_1_18)
+        setSeed(&cs, chunkX + chunkZ * 10387313ULL);
+    else
+        cs = chunkGenerateRnd(g->seed, chunkX, chunkZ);
+
     switch (nextInt(&cs, 4))
     {
     case 0: // (++) 0
