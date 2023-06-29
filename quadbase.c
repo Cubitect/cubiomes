@@ -213,10 +213,14 @@ STRUCT(threadinfo_t)
     const uint64_t *lowBits;
     int lowBitCnt;
     int lowBitN;
+    char skipStart;
 
     // testing function
     int (*check)(uint64_t, void*);
     void *data;
+
+    // abort check
+    volatile char *stop;
 
     // output
     char path[MAX_PATHLEN];
@@ -288,7 +292,8 @@ static DWORD WINAPI searchAll48Thread(LPVOID data)
         {
             if unlikely(info->check(seed, info->data))
             {
-                if (info->fp)
+                if (seed == info->start && info->skipStart) {} // skip
+                else if (info->fp)
                 {
                     fprintf(info->fp, "%" PRId64"\n", (int64_t)seed);
                     fflush(info->fp);
@@ -316,6 +321,8 @@ static DWORD WINAPI searchAll48Thread(LPVOID data)
             {
                 idx = 0;
                 mid += hstep;
+                if (info->stop && *info->stop)
+                    break;
             }
 
             seed = mid | info->lowBits[idx];
@@ -327,7 +334,8 @@ static DWORD WINAPI searchAll48Thread(LPVOID data)
         {
             if unlikely(info->check(seed, info->data))
             {
-                if (info->fp)
+                if (seed == info->start && info->skipStart) {} // skip
+                else if (info->fp)
                 {
                     fprintf(info->fp, "%" PRId64"\n", (int64_t)seed);
                     fflush(info->fp);
@@ -350,6 +358,8 @@ static DWORD WINAPI searchAll48Thread(LPVOID data)
                 }
             }
             seed++;
+            if ((seed & 0xfff) == 0 && info->stop && *info->stop)
+                break;
         }
     }
 
@@ -369,7 +379,8 @@ int searchAll48(
         int                 lowBitCnt,
         int                 lowBitN,
         int (*check)(uint64_t s48, void *data),
-        void *              data
+        void *              data,
+        volatile char *     stop
         )
 {
     threadinfo_t *info = (threadinfo_t*) malloc(threads* sizeof(*info));
@@ -412,8 +423,10 @@ int searchAll48(
         info[t].lowBits = lowBits;
         info[t].lowBitCnt = lowBitCnt;
         info[t].lowBitN = lowBitN;
+        info[t].skipStart = 0;
         info[t].check = check;
         info[t].data = data;
+        info[t].stop = stop;
 
         if (path)
         {
@@ -442,6 +455,7 @@ int searchAll48(
                 if (sscanf(buf, "%" PRId64, &lentry) == 1)
                 {
                     info[t].start = lentry;
+                    info[t].skipStart = 1;
                     printf("Continuing thread %d at seed %" PRId64 "\n",
                         t, lentry);
                 }
@@ -482,6 +496,9 @@ int searchAll48(
     WaitForMultipleObjects(threads, tids, TRUE, INFINITE);
 
 #endif
+
+    if (stop && *stop)
+        goto L_err;
 
     if (path)
     {

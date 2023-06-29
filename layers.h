@@ -547,6 +547,8 @@ int p2overworld(int mc, const uint64_t np[6], uint64_t *dat);
  * Initialize BiomeNoise for only a single climate parameter.
  * If nptype == NP_DEPTH, the value is sampled at y=0. Note that this value
  * changes linearly with the height (i.e. -= y/128).
+ * A maximum of nmax octaves is set, initializing only the most contributing
+ * octaves up to that point. Use -1 for a full initialization.
  */
 void setClimateParaSeed(BiomeNoise *bn, uint64_t seed, int large, int nptype, int nmax);
 double sampleClimatePara(const BiomeNoise *bn, int64_t *np, double x, double z);

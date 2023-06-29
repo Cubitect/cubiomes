@@ -4682,8 +4682,6 @@ int getParaRange(const DoublePerlinNoise *para, double *pmin, double *pmax,
     }
 
     //(*(double*)data) = -1e9+1; // testing
-    if (lmin == lmax)
-        return 0;
 
     step = (int) (1.0 / (perlin_grad * lmax + FLT_EPSILON)) + 1;
 

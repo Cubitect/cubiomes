@@ -148,7 +148,8 @@ float isQuadBaseLarge (const StructureConfig sconf, uint64_t seed,
  * @lowBitCnt   length of lower bit subset
  * @lowBitN     number of bits in the subset values
  * @check       the testing function, should return non-zero for desired seeds
- * @data        custon data argument passed to 'check'
+ * @data        custom data argument passed to 'check'
+ * @stop        occasional check for abort (nullable)
  *
  * Returns zero upon success.
  */
@@ -161,7 +162,8 @@ int searchAll48(
         int                 lowBitCnt,
         int                 lowBitN,
         int (*check)(uint64_t s48, void *data),
-        void *              data
+        void *              data,
+        volatile char *     stop // should be atomic, but is fine as stop flag
         );
 
 /* Finds the optimal AFK location for four structures of size (ax,ay,az),
