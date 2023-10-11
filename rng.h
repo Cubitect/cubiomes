@@ -4,7 +4,7 @@
 #define __STDC_FORMAT_MACROS 1
 
 #include <stdlib.h>
-#include <stdint.h>
+#include <stddef.h>
 #include <inttypes.h>
 
 
@@ -23,9 +23,6 @@ typedef uint64_t    u64;
 typedef float       f32;
 typedef double      f64;
 
-#ifndef NULL
-#define NULL ((void*)0)
-#endif
 
 #define STRUCT(S) typedef struct S S; struct S
 
