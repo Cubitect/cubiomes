@@ -450,7 +450,7 @@ void findStructures(int structureType, int mc, int dim, uint64_t seed,
                 continue; // biomes are not viable
             if (structureType == End_City)
             {   // end cities have a dedicated terrain checker
-                if (!isViableEndCityTerrain(&g.en, &sn, pos.x, pos.z))
+                if (!isViableEndCityTerrain(&g, &sn, pos.x, pos.z))
                     continue;
             }
             else if (mc >= MC_1_18)
@@ -471,7 +471,17 @@ int main()
     //testAreas(mc, 0, 256);
     //testCanBiomesGenerate();
     //testGeneration();
-    findBiomeParaBounds();
+    //findBiomeParaBounds();
+
+    long seed = -3390226979891259151L;
+    int cx = 336 >> 4; //cx = -112>>4;
+    int cz = 352 >> 4; //cz = -96>>4;
+
+    Piece list[1000];
+    int n = getFortressPieces(list, 1000, MC_1_16, seed, cx, cz);
+
+    printf("%d\n", n);
+
     return 0;
 }
 

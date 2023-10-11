@@ -2380,21 +2380,21 @@ Piece *addFortressPiece(PieceEnv *env, int typ, int x, int y, int z, int depth, 
     }
     // accept the piece and append it to the processing front
     skipNextN(env->rng, fortress_info[typ].skip);
-    (*env->n)++;
-    env->ntyp[typ]++;
-    if (typ != FORTRESS_END)
-        env->typlast = typ;
     //int queue = 0;
     if (pending)
     {
+        (*env->n)++;
+        env->ntyp[typ]++;
+        if (typ != FORTRESS_END)
+            env->typlast = typ;
         Piece *q = env->list;
         while (q->next) {
             q = q->next; //queue++;
         }
         q->next = p;
     }
-    //printf("[%3d] typ=%2d @(%4d %4d %4d) f=%d queue=%2d   rng:%ld\n",
-    //    (*env->n-1), typ, b0.x, b0.y, b0.z, facing, pending?queue:-1, *env->rng);
+    //printf("[%3d] typ=%2d @(%4d %4d %4d) f=%d p=%d queue=%2d   rng:%ld\n",
+    //    (*env->n-1), typ, b0.x, b0.y, b0.z, facing, pending, queue, *env->rng);
     //fflush(stdout);
     return p;
 }

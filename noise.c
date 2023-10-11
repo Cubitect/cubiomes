@@ -176,7 +176,7 @@ void samplePerlinBeta17Terrain(const PerlinNoise *noise, double *v,
     i3 &= 0xff;
 
     double d2;
-    int i2, yi, yic, gfCopy;
+    int i2, yi, yic = 0, gfCopy = 0;
     for (yi = 0; yi <= 7; yi++)
     {
         d2 = yi*noise->lacunarity*yLacAmp+noise->b;

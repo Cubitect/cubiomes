@@ -19,7 +19,7 @@ all: release
 
 debug: CFLAGS += -DDEBUG -O0 -ggdb3
 debug: libcubiomes
-release: CFLAGS += -O3 -g3
+release: CFLAGS += -O3
 release: libcubiomes
 native: CFLAGS += -O3 -march=native -ffast-math
 native: libcubiomes
