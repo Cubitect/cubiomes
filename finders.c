@@ -994,6 +994,7 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
             case stony_peaks:
             case snowy_slopes:
             case grove:
+            case cherry_grove:
                 return 1;
             default:
                 return 0;

@@ -167,12 +167,12 @@ uint32_t testAreas(int mc, int dim, int scale)
 int testGeneration()
 {
     const int mc_vers[] = {
-        MC_1_19, MC_1_19_2, MC_1_18,
+        MC_1_20, MC_1_19, MC_1_19_2, MC_1_18,
         MC_1_16, MC_1_15,   MC_1_13, MC_1_12, MC_1_9,  MC_1_7,
         MC_1_6,  MC_1_2,    MC_1_1,  MC_1_0,  MC_B1_8,
     };
     const uint32_t b6_hashes[] = {
-        0x391c36ec, 0xea3e8c1c, 0xade7f891,
+        0x0f8888ab, 0x391c36ec, 0xea3e8c1c, 0xade7f891,
         0xde9a6574, 0x3a568a6d, 0x96c97323, 0xbc75e996, 0xe27a45a2, 0xbc75e996,
         0x15b47206, 0x2d7e0fed, 0x5cbf4709, 0xbd794adb, 0x00000000,
     };
@@ -199,7 +199,7 @@ int testGeneration()
     //testAreas(MC_1_17, 0, 4);
 
     const uint32_t b10_hashes[] = {
-       // 0x00000000, 0x00000000, 0x00000000,
+        0x00000000, 0x00000000, 0x00000000,
         0xfdede71d, 0xca8005d7, 0x399f7cc8, 0xb3363967, 0x17e5592f, 0xb3363967,
         0xa52e377c, 0xdb1df71d, 0x58e86947, 0xe1e89cc3, 0x00000000,
     };
@@ -470,17 +470,8 @@ int main()
     //testAreas(mc, 0, 16);
     //testAreas(mc, 0, 256);
     //testCanBiomesGenerate();
-    //testGeneration();
+    testGeneration();
     //findBiomeParaBounds();
-
-    long seed = -3390226979891259151L;
-    int cx = 336 >> 4; //cx = -112>>4;
-    int cz = 352 >> 4; //cz = -96>>4;
-
-    Piece list[1000];
-    int n = getFortressPieces(list, 1000, MC_1_16, seed, cx, cz);
-
-    printf("%d\n", n);
 
     return 0;
 }

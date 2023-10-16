@@ -2,6 +2,7 @@
 #define GENERATOR_H_
 
 #include "layers.h"
+#include "biomenoise.h"
 
 // generator flags
 enum
