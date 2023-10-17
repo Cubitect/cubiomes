@@ -70,6 +70,14 @@ uint32_t rotr32(uint32_t a, uint8_t b)
     return (a >> b) | (a << (32-b));
 }
 
+/// integer floor divide
+static inline ATTR(const, always_inline)
+int32_t floordiv(int32_t a, int32_t b)
+{
+    int32_t q = a / b;
+    int32_t r = a % b;
+    return q - ((a ^ b) < 0 && !!r);
+}
 
 ///=============================================================================
 ///                    C implementation of Java Random

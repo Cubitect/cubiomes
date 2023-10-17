@@ -1192,8 +1192,8 @@ int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t
             if (!getStructureConfig(Fortress, g->mc, &sc))
                 return 0;
             Pos rp = {
-                (int)chunkX / sc.regionSize - (x < 0),
-                (int)chunkZ / sc.regionSize - (z < 0)
+                floordiv(x, sc.regionSize << 4),
+                floordiv(z, sc.regionSize << 4)
             };
             if (!getStructurePos(Bastion, g->mc, g->seed, rp.x, rp.z, &rp))
                 return 1;
@@ -1377,10 +1377,10 @@ L_feature:
             goto L_not_viable;
         int cx0 = (chunkX-10), cx1 = (chunkX+10);
         int cz0 = (chunkZ-10), cz1 = (chunkZ+10);
-        int rx0 = cx0 / vilconf.regionSize - (cx0 < 0);
-        int rx1 = cx1 / vilconf.regionSize - (cx1 < 0);
-        int rz0 = cz0 / vilconf.regionSize - (cz0 < 0);
-        int rz1 = cz1 / vilconf.regionSize - (cz1 < 0);
+        int rx0 = floordiv(cx0, vilconf.regionSize);
+        int rx1 = floordiv(cx1, vilconf.regionSize);
+        int rz0 = floordiv(cz0, vilconf.regionSize);
+        int rz1 = floordiv(cz1, vilconf.regionSize);
         int rx, rz;
         for (rz = rz0; rz <= rz1; rz++)
         {
