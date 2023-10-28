@@ -1260,7 +1260,6 @@ int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t
         if (g->mc <= MC_1_19) goto L_not_viable;
         goto L_feature;
     case Ocean_Ruin:
-    case Shipwreck:
     case Treasure:
         if (g->mc <= MC_1_12) goto L_not_viable;
         goto L_feature;
@@ -1287,6 +1286,28 @@ L_feature:
         id = getBiomeAt(g, 0, sampleX, 319>>2, sampleZ);
         if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
             goto L_not_viable;
+        goto L_viable;
+
+    case Shipwreck:
+        if (g->mc <= MC_1_12)
+            goto L_not_viable;
+        if (g->mc <= MC_1_15)
+        {
+            g->entry = &g->ls.layers[L_VORONOI_1];
+            sampleX = chunkX * 16 + 9;
+            sampleZ = chunkZ * 16 + 9;
+        }
+        else
+        {
+            if (g->mc <= MC_1_17)
+                g->entry = &g->ls.layers[L_RIVER_MIX_4];
+            sampleX = chunkX * 4 + 2;
+            sampleZ = chunkZ * 4 + 2;
+        }
+        id = getBiomeAt(g, 0, sampleX, 319>>2, sampleZ);
+        if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
+            goto L_not_viable;
+        viable = id; // biome for further analysis
         goto L_viable;
 
     case Desert_Well:
