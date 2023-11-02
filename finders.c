@@ -66,7 +66,7 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
     s_jungle_temple_112     = { 14357617, 32, 24, Jungle_Pyramid,   0,0},
     // ocean features before 1.16
     s_ocean_ruin_115        = { 14357621, 16,  8, Ocean_Ruin,       0,0},
-    s_shipwreck_115         = {165745295, 15,  7, Shipwreck,        0,0},
+    s_shipwreck_115         = {165745295, 16,  8, Shipwreck,        0,0},
     // 1.13 separated feature seeds by type
     s_desert_pyramid        = { 14357617, 32, 24, Desert_Pyramid,   0,0},
     s_igloo                 = { 14357618, 32, 24, Igloo,            0,0},
