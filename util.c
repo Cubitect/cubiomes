@@ -274,144 +274,127 @@ const char* struct2str(int stype)
     return NULL;
 }
 
-void setBiomeColor(unsigned char biomeColor[256][3], int id,
-        unsigned char r, unsigned char g, unsigned char b)
+static void setColor(unsigned char colors[256][3], int id, uint32_t hex)
 {
-    biomeColor[id][0] = r;
-    biomeColor[id][1] = g;
-    biomeColor[id][2] = b;
+    colors[id][0] = (hex >> 16) & 0xff;
+    colors[id][1] = (hex >>  8) & 0xff;
+    colors[id][2] = (hex >>  0) & 0xff;
 }
 
-void setMutationColor(unsigned char biomeColor[256][3], int mutated, int parent)
-{
-    unsigned int c;
-    biomeColor[mutated][0] = (c = biomeColor[parent][0] + 40) > 255 ? 255 : c;
-    biomeColor[mutated][1] = (c = biomeColor[parent][1] + 40) > 255 ? 255 : c;
-    biomeColor[mutated][2] = (c = biomeColor[parent][2] + 40) > 255 ? 255 : c;
-}
-
-void initBiomeColors(unsigned char biomeColors[256][3])
+void initBiomeColors(unsigned char colors[256][3])
 {
     // This coloring scheme is largely inspired by the AMIDST program:
-    // https://github.com/toolbox4minecraft/amidst
-    // https://sourceforge.net/projects/amidst.mirror/
+    // https://github.com/toolbox4minecraft/amidst/wiki/Biome-Color-Table
+    // but with additional biomes for 1.18+, and with some subtle changes to
+    // improve contrast for the new world generation.
 
-    memset(biomeColors, 0, 256*3);
-
-    setBiomeColor(biomeColors, ocean, 0, 0, 112);
-    setBiomeColor(biomeColors, plains, 141, 179, 96);
-    setBiomeColor(biomeColors, desert, 250, 148, 24);
-    setBiomeColor(biomeColors, mountains, 96, 96, 96);
-    setBiomeColor(biomeColors, forest, 5, 102, 33);
-    setBiomeColor(biomeColors, taiga, 11, 106, 95);//11, 102, 89);
-    setBiomeColor(biomeColors, swamp, 7, 249, 178);
-    setBiomeColor(biomeColors, river, 0, 0, 255);
-    setBiomeColor(biomeColors, nether_wastes, 87, 37, 38);
-    setBiomeColor(biomeColors, the_end, 128, 128, 255);
-    setBiomeColor(biomeColors, frozen_ocean, 112, 112, 214);
-    setBiomeColor(biomeColors, frozen_river, 160, 160, 255);
-    setBiomeColor(biomeColors, snowy_tundra, 255, 255, 255);
-    setBiomeColor(biomeColors, snowy_mountains, 160, 160, 160);
-    setBiomeColor(biomeColors, mushroom_fields, 255, 0, 255);
-    setBiomeColor(biomeColors, mushroom_field_shore, 160, 0, 255);
-    setBiomeColor(biomeColors, beach, 250, 222, 85);
-    setBiomeColor(biomeColors, desert_hills, 210, 95, 18);
-    setBiomeColor(biomeColors, wooded_hills, 34, 85, 28);
-    setBiomeColor(biomeColors, taiga_hills, 22, 57, 51);
-    setBiomeColor(biomeColors, mountain_edge, 114, 120, 154);
-    setBiomeColor(biomeColors, jungle, 80, 123, 10);//83, 123, 9);
-    setBiomeColor(biomeColors, jungle_hills, 44, 66, 5);
-    setBiomeColor(biomeColors, jungle_edge, 96, 147, 15);//98, 139, 23);
-    setBiomeColor(biomeColors, deep_ocean, 0, 0, 48);
-    setBiomeColor(biomeColors, stone_shore, 162, 162, 132);
-    setBiomeColor(biomeColors, snowy_beach, 250, 240, 192);
-    setBiomeColor(biomeColors, birch_forest, 48, 116, 68);
-    setBiomeColor(biomeColors, birch_forest_hills, 31, 95, 50);
-    setBiomeColor(biomeColors, dark_forest, 64, 81, 26);
-    setBiomeColor(biomeColors, snowy_taiga, 49, 85, 74);
-    setBiomeColor(biomeColors, snowy_taiga_hills, 36, 63, 54);
-    setBiomeColor(biomeColors, giant_tree_taiga, 89, 102, 81);
-    setBiomeColor(biomeColors, giant_tree_taiga_hills, 69, 79, 62);
-    setBiomeColor(biomeColors, wooded_mountains, 91, 115, 82);//80, 112, 80);
-    setBiomeColor(biomeColors, savanna, 189, 178, 95);
-    setBiomeColor(biomeColors, savanna_plateau, 167, 157, 100);
-    setBiomeColor(biomeColors, badlands, 217, 69, 21);
-    setBiomeColor(biomeColors, wooded_badlands_plateau, 176, 151, 101);
-    setBiomeColor(biomeColors, badlands_plateau, 202, 140, 101);
-
-    setBiomeColor(biomeColors, small_end_islands, 75, 75, 171);
-    setBiomeColor(biomeColors, end_midlands, 201, 201, 89);
-    setBiomeColor(biomeColors, end_highlands, 181, 181, 54);
-    setBiomeColor(biomeColors, end_barrens, 112, 112, 204);
-
-    setBiomeColor(biomeColors, warm_ocean, 0, 0, 172);
-    setBiomeColor(biomeColors, lukewarm_ocean, 0, 0, 144);
-    setBiomeColor(biomeColors, cold_ocean, 32, 32, 112);
-    setBiomeColor(biomeColors, deep_warm_ocean, 0, 0, 80);
-    setBiomeColor(biomeColors, deep_lukewarm_ocean, 0, 0, 64);
-    setBiomeColor(biomeColors, deep_cold_ocean, 32, 32, 56);
-    setBiomeColor(biomeColors, deep_frozen_ocean, 64, 64, 144);
-
-    setBiomeColor(biomeColors, seasonal_forest, 47, 86, 15);
-    setBiomeColor(biomeColors, shrubland, 120, 158, 49);
-    setBiomeColor(biomeColors, rainforest, 71, 132, 14);
-
-    setBiomeColor(biomeColors, the_void, 0, 0, 0);
-
-    setMutationColor(biomeColors, sunflower_plains, plains);
-    setMutationColor(biomeColors, desert_lakes, desert);
-    setMutationColor(biomeColors, gravelly_mountains, mountains);
-    setMutationColor(biomeColors, flower_forest, forest);
-    setMutationColor(biomeColors, taiga_mountains, taiga);
-    setMutationColor(biomeColors, swamp_hills, swamp);
-    setBiomeColor(biomeColors, ice_spikes, 180, 220, 220);
-    setMutationColor(biomeColors, modified_jungle, jungle);
-    setMutationColor(biomeColors, modified_jungle_edge, jungle_edge);
-    setMutationColor(biomeColors, tall_birch_forest, birch_forest);
-    setMutationColor(biomeColors, tall_birch_hills, birch_forest_hills);
-    setMutationColor(biomeColors, dark_forest_hills, dark_forest);
-    setMutationColor(biomeColors, snowy_taiga_mountains, snowy_taiga);
-    setMutationColor(biomeColors, giant_spruce_taiga, giant_tree_taiga);
-    setMutationColor(biomeColors, giant_spruce_taiga_hills, giant_tree_taiga_hills);
-    setMutationColor(biomeColors, modified_gravelly_mountains, wooded_mountains);
-    setMutationColor(biomeColors, shattered_savanna, savanna);
-    setMutationColor(biomeColors, shattered_savanna_plateau, savanna_plateau);
-    setMutationColor(biomeColors, eroded_badlands, badlands);
-    setMutationColor(biomeColors, modified_wooded_badlands_plateau, wooded_badlands_plateau);
-    setMutationColor(biomeColors, modified_badlands_plateau, badlands_plateau);
-
-    setBiomeColor(biomeColors, bamboo_jungle, 132, 149, 0);//118, 142, 20);
-    setBiomeColor(biomeColors, bamboo_jungle_hills, 92, 108, 4);//;59, 71, 10);
-
-    setBiomeColor(biomeColors, soul_sand_valley, 77, 58, 46);
-    setBiomeColor(biomeColors, crimson_forest, 152, 26, 17);
-    setBiomeColor(biomeColors, warped_forest, 73, 144, 123);
-    setBiomeColor(biomeColors, basalt_deltas, 100, 95, 99);
-
-    setBiomeColor(biomeColors, dripstone_caves, 78, 48, 18);
-    setBiomeColor(biomeColors, lush_caves, 40, 60, 0);
-
-    setBiomeColor(biomeColors, meadow, 96, 164, 69);
-    setBiomeColor(biomeColors, grove, 71, 114, 108);
-    setBiomeColor(biomeColors, snowy_slopes, 196, 196, 196);
-    setBiomeColor(biomeColors, stony_peaks, 123, 143, 116);
-    setBiomeColor(biomeColors, jagged_peaks, 220, 220, 200);
-    setBiomeColor(biomeColors, frozen_peaks, 176, 179, 206);
-
-    setBiomeColor(biomeColors, deep_dark, 3, 31, 41);
-    setBiomeColor(biomeColors, mangrove_swamp, 44, 204, 142);
-    setBiomeColor(biomeColors, cherry_grove, 255, 145, 200);
+    memset(colors, 0, 256*3);
+    
+    //               biome                             hex color     AMIDST
+    setColor(colors, ocean,                            0x000070);
+    setColor(colors, plains,                           0x8db360);
+    setColor(colors, desert,                           0xfa9418);
+    setColor(colors, windswept_hills,                  0x606060);
+    setColor(colors, forest,                           0x056621);
+    setColor(colors, taiga,                            0x0b6a5f); // 0b6659
+    setColor(colors, swamp,                            0x07f9b2);
+    setColor(colors, river,                            0x0000ff);
+    setColor(colors, nether_wastes,                    0x572526); // bf3b3b
+    setColor(colors, the_end,                          0x8080ff);
+    setColor(colors, frozen_ocean,                     0x7070d6);
+    setColor(colors, frozen_river,                     0xa0a0ff);
+    setColor(colors, snowy_plains,                     0xffffff);
+    setColor(colors, snowy_mountains,                  0xa0a0a0);
+    setColor(colors, mushroom_fields,                  0xff00ff);
+    setColor(colors, mushroom_field_shore,             0xa000ff);
+    setColor(colors, beach,                            0xfade55);
+    setColor(colors, desert_hills,                     0xd25f12);
+    setColor(colors, wooded_hills,                     0x22551c);
+    setColor(colors, taiga_hills,                      0x163933);
+    setColor(colors, mountain_edge,                    0x72789a);
+    setColor(colors, jungle,                           0x507b0a); // 537b09
+    setColor(colors, jungle_hills,                     0x2c4205);
+    setColor(colors, sparse_jungle,                    0x60930f); // 628b17
+    setColor(colors, deep_ocean,                       0x000030);
+    setColor(colors, stony_shore,                      0xa2a284);
+    setColor(colors, snowy_beach,                      0xfaf0c0);
+    setColor(colors, birch_forest,                     0x307444);
+    setColor(colors, birch_forest_hills,               0x1f5f32);
+    setColor(colors, dark_forest,                      0x40511a);
+    setColor(colors, snowy_taiga,                      0x31554a);
+    setColor(colors, snowy_taiga_hills,                0x243f36);
+    setColor(colors, old_growth_pine_taiga,            0x596651);
+    setColor(colors, giant_tree_taiga_hills,           0x454f3e);
+    setColor(colors, windswept_forest,                 0x5b7352); // 507050
+    setColor(colors, savanna,                          0xbdb25f);
+    setColor(colors, savanna_plateau,                  0xa79d64);
+    setColor(colors, badlands,                         0xd94515);
+    setColor(colors, wooded_badlands,                  0xb09765);
+    setColor(colors, badlands_plateau,                 0xca8c65);
+    setColor(colors, small_end_islands,                0x4b4bab); // 8080ff
+    setColor(colors, end_midlands,                     0xc9c959); // 8080ff
+    setColor(colors, end_highlands,                    0xb5b536); // 8080ff
+    setColor(colors, end_barrens,                      0x7070cc); // 8080ff
+    setColor(colors, warm_ocean,                       0x0000ac);
+    setColor(colors, lukewarm_ocean,                   0x000090);
+    setColor(colors, cold_ocean,                       0x202070);
+    setColor(colors, deep_warm_ocean,                  0x000050);
+    setColor(colors, deep_lukewarm_ocean,              0x000040);
+    setColor(colors, deep_cold_ocean,                  0x202038);
+    setColor(colors, deep_frozen_ocean,                0x404090);
+    setColor(colors, seasonal_forest,                  0x2f560f); // -
+    setColor(colors, rainforest,                       0x47840e); // -
+    setColor(colors, shrubland,                        0x789e31); // -
+    setColor(colors, the_void,                         0x000000);
+    setColor(colors, sunflower_plains,                 0xb5db88);
+    setColor(colors, desert_lakes,                     0xffbc40);
+    setColor(colors, windswept_gravelly_hills,         0x888888);
+    setColor(colors, flower_forest,                    0x2d8e49);
+    setColor(colors, taiga_mountains,                  0x339287); // 338e81
+    setColor(colors, swamp_hills,                      0x2fffda);
+    setColor(colors, ice_spikes,                       0xb4dcdc);
+    setColor(colors, modified_jungle,                  0x78a332); // 7ba331
+    setColor(colors, modified_jungle_edge,             0x88bb37); // 8ab33f
+    setColor(colors, old_growth_birch_forest,          0x589c6c);
+    setColor(colors, tall_birch_hills,                 0x47875a);
+    setColor(colors, dark_forest_hills,                0x687942);
+    setColor(colors, snowy_taiga_mountains,            0x597d72);
+    setColor(colors, old_growth_spruce_taiga,          0x818e79);
+    setColor(colors, giant_spruce_taiga_hills,         0x6d7766);
+    setColor(colors, modified_gravelly_mountains,      0x839b7a); // 789878
+    setColor(colors, windswept_savanna,                0xe5da87);
+    setColor(colors, shattered_savanna_plateau,        0xcfc58c);
+    setColor(colors, eroded_badlands,                  0xff6d3d);
+    setColor(colors, modified_wooded_badlands_plateau, 0xd8bf8d);
+    setColor(colors, modified_badlands_plateau,        0xf2b48d);
+    setColor(colors, bamboo_jungle,                    0x849500); // 768e14
+    setColor(colors, bamboo_jungle_hills,              0x5c6c04); // 3b470a
+    setColor(colors, soul_sand_valley,                 0x4d3a2e); // 5e3830
+    setColor(colors, crimson_forest,                   0x981a11); // dd0808
+    setColor(colors, warped_forest,                    0x49907b);
+    setColor(colors, basalt_deltas,                    0x645f63); // 403636
+    setColor(colors, dripstone_caves,                  0x4e3012); // -
+    setColor(colors, lush_caves,                       0x283c00); // -
+    setColor(colors, meadow,                           0x60a445); // -
+    setColor(colors, grove,                            0x47726c); // -
+    setColor(colors, snowy_slopes,                     0xc4c4c4); // -
+    setColor(colors, jagged_peaks,                     0xdcdcc8); // -
+    setColor(colors, frozen_peaks,                     0xb0b3ce); // -
+    setColor(colors, stony_peaks,                      0x7b8f74); // -
+    setColor(colors, deep_dark,                        0x031f29); // -
+    setColor(colors, mangrove_swamp,                   0x2ccc8e); // -
+    setColor(colors, cherry_grove,                     0xff91c8); // -
 }
 
-void initBiomeTypeColors(unsigned char biomeColors[256][3])
+void initBiomeTypeColors(unsigned char colors[256][3])
 {
-    memset(biomeColors, 0, 256*3);
+    memset(colors, 0, 256*3);
 
-    setBiomeColor(biomeColors, Oceanic,  0x00, 0x00, 0xa0);
-    setBiomeColor(biomeColors, Warm,     0xff, 0xc0, 0x00);
-    setBiomeColor(biomeColors, Lush,     0x00, 0xa0, 0x00);
-    setBiomeColor(biomeColors, Cold,     0x60, 0x60, 0x60);
-    setBiomeColor(biomeColors, Freezing, 0xff, 0xff, 0xff);
+    setColor(colors, Oceanic,  0x0000a0);
+    setColor(colors, Warm,     0xffc000);
+    setColor(colors, Lush,     0x00a000);
+    setColor(colors, Cold,     0x606060);
+    setColor(colors, Freezing, 0xffffff);
 }
 
 
