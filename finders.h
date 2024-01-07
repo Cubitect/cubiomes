@@ -468,6 +468,57 @@ enum
 uint64_t getHouseList(int *houses, uint64_t seed, int chunkX, int chunkZ);
 
 
+
+//==============================================================================
+// Seed Filters (generic)
+//==============================================================================
+
+
+/* Add the given biome 'id' to a biome set which is represented by the
+ * bitfields mL and mM for ids 0-63 and 128-191, respectively.
+ */
+static inline void idSetAdd(uint64_t *mL, uint64_t *mM, int id)
+{
+    switch (id & ~0x3f) {
+    case 0:     *mL |= 1ULL << id;       break; // [0, 64)
+    case 128:   *mM |= 1ULL << (id-128); break; // [128, 192)
+    }
+}
+
+static inline int idSetTest(uint64_t mL, uint64_t mM, int id)
+{
+    switch (id & ~0x3f) {
+    case 0:     return !!(mL & (1ULL << id));       // [0, 64)
+    case 128:   return !!(mM & (1ULL << (id-128))); // [128, 192)
+    }
+    return 0;
+}
+
+/* Samples biomes within the specified range and checks that at least a given
+ * proportion of the biomes in that area evaluate as successes.
+ *
+ * @g           : biome generator
+ * @r           : range to be checked
+ * @rng         : random number seed for the sampling positions
+ * @coverage    : minimum coverage of successful evaluations, [0,1]
+ * @confidence  : confidence level, (0,1), e.g. 0.95 for a 95% confidence
+ * @eval        : evaluation function - 0:fail, 1:success, -1:skip, else:abort
+ * @data        : data argument for eval()
+ *
+ * Returns non-zero if a sufficient proportion of the sampled positions
+ * evaluted as successes.
+ */
+int monteCarloBiomes(
+        Generator         * g,
+        Range               r,
+        uint64_t          * rng,
+        double              coverage,
+        double              confidence,
+        int (*eval)(Generator *g, int scale, int x, int y, int z, void *data),
+        void              * data
+        );
+
+
 //==============================================================================
 // Seed Filters (for versions up to 1.17)
 //==============================================================================

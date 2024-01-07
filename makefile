@@ -24,11 +24,11 @@ release: libcubiomes
 native: CFLAGS += -O3 -march=native -ffast-math
 native: libcubiomes
 
-ifeq ($(OS),Windows_NT)
-else
-debug: CFLAGS += -fsanitize=undefined
-libcubiomes: CFLAGS += -fPIC
+ifneq ($(OS),Windows_NT)
+release: CFLAGS += -fPIC
+#debug: CFLAGS += -fsanitize=undefined
 endif
+
 
 libcubiomes: noise.o layers.o biometree.o biomenoise.o generator.o finders.o util.o quadbase.o
 	$(AR) $(ARFLAGS) libcubiomes.a $^

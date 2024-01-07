@@ -2609,6 +2609,148 @@ void getFixedEndGateways(Pos pos[20][2], uint64_t seed)
 //==============================================================================
 
 
+double inverf(double x)
+{   // compute the inverse error function via newton's method
+    double t = x, dt = 1;
+    while (fabs(dt) > FLT_EPSILON)
+    {
+        dt = 0.5 * sqrt(M_PI) * (erf(t) - x) / exp(-t*t);
+        t -= dt;
+    }
+    return t;
+}
+
+void wilson(double n, double p, double z, double *lo, double *hi)
+{   // compute the wilson score interval
+    double s = z * z / n;
+    double t = 1 / (1 + s);
+    double w = t * (p + 0.5 * s);
+    double d = t * z * sqrt( (p*(1-p) + 0.25*s) / n ) + FLT_EPSILON;
+    *lo = w - d;
+    *hi = w + d;
+}
+
+int monteCarloBiomes(
+        Generator         * g,
+        Range               r,
+        uint64_t          * rng,
+        double              coverage,
+        double              confidence,
+        int (*eval)(Generator *g, int scale, int x, int y, int z, void*),
+        void              * data
+        )
+{
+    if (r.sy == 0)
+        r.sy = 1;
+
+    struct touple { int x, y, z; } *buf = 0;
+    size_t n = (size_t)r.sx*r.sy*r.sz;
+
+    // z-score (i.e. probit, or standard deviations) for the confidence
+    double zscore = sqrt(2.0) * inverf(confidence);
+
+    // One standard deviation is approximately given by sqrt(n) elements,
+    // hence we will take zscore * sqrt(n) as the maximum number of samples
+    // to reach the desired confidence. This gives us a wilson score interval
+    // for the upper and lower bound of successes we aim for.
+    double wn = zscore * sqrt(n);
+    double wlo, whi;
+    wilson(wn, coverage, zscore, &wlo, &whi);
+
+    // When the number of samples approaches the total number elements,
+    // we can avoid repeated samples by shuffling a buffer.
+    // (TODO: adjust for hypergeometric distribution?)
+    if (n < 4 * wn && n < INT_MAX)
+        buf = (struct touple*) malloc(n * sizeof(*buf));
+
+    if (buf)
+    {
+        size_t idx = 0;
+        int i, k, j;
+        for (k = 0; k < r.sy; k++)
+        {
+            for (j = 0; j < r.sz; j++)
+            {
+                for (i = 0; i < r.sx; i++)
+                {
+                    buf[idx].x = i;
+                    buf[idx].y = k;
+                    buf[idx].z = j;
+                    idx++;
+                }
+            }
+        }
+    }
+
+    size_t i = 0;
+    double m = 0; // number of samples
+    double x = 0; // number of successes
+    int ret = 1;
+
+    // iterate over the area in a random order
+    for (i = 0; i < n; i++)
+    {
+        struct touple t;
+        if (buf)
+        {
+            int j = n - i;
+            int k = nextInt(rng, j);
+            t = buf[k];
+            if (k != j-1)
+            {
+                buf[k] = buf[j-1];
+                buf[j-1] = t;
+            }
+        }
+        else
+        {
+            t.x = nextInt(rng, r.sx);
+            t.y = nextInt(rng, r.sy);
+            t.z = nextInt(rng, r.sz);
+        }
+
+        int status = eval(g, r.scale, r.x+t.x, r.y+t.y, r.z+t.z, data);
+        if (status == -1)
+            continue;
+        else if (status == 0)
+            ;
+        else if (status == 1)
+            x += 1.0;
+        else
+        {
+            ret = 0;
+            break;
+        }
+        m += 1.0;
+
+        // check if we can abort early with the current confidence interval
+        double per_m = 1.0 / m;
+        double lo, hi;
+        wilson(m, x * per_m, zscore, &lo, &hi);
+
+        if (lo - per_m > coverage)
+        {
+            ret = 1;
+            break;
+        }
+        if (hi + per_m < coverage)
+        {
+            ret = 0;
+            break;
+        }
+
+        if (hi - lo < whi - wlo)
+        {   // should occur around i ~ wn
+            ret = x * per_m > coverage;
+            break;
+        }
+    }
+    if (buf)
+        free(buf);
+    return ret;
+}
+
+
 void setupBiomeFilter(
     BiomeFilter *bf,
     int mc, uint32_t flags,
