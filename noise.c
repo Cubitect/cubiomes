@@ -4,7 +4,6 @@
 #include <math.h>
 #include <stdio.h>
 
-
 // grad()
 #if 0
 static double indexedLerp(int idx, double d1, double d2, double d3)
@@ -21,7 +20,7 @@ static double indexedLerp(int idx, double d1, double d2, double d3)
 }
 #else
 ATTR(hot, const)
-static inline double indexedLerp(int idx, double a, double b, double c)
+static inline double indexedLerp(uint8_t idx, double a, double b, double c)
 {
    switch (idx & 0xf)
    {
@@ -68,8 +67,13 @@ void perlinInit(PerlinNoise *noise, uint64_t *seed)
         uint8_t n = idx[i];
         idx[i] = idx[j];
         idx[j] = n;
-        idx[i + 256] = idx[i];
     }
+    idx[256] = idx[0];
+    double i2 = floor(noise->b);
+    double d2 = noise->b - i2;
+    noise->h2 = (int) i2;
+    noise->d2 = d2;
+    noise->t2 = d2*d2*d2 * (d2 * (d2*6.0-15.0) + 10.0);
 }
 
 void xPerlinInit(PerlinNoise *noise, Xoroshiro *xr)
@@ -93,26 +97,49 @@ void xPerlinInit(PerlinNoise *noise, Xoroshiro *xr)
         uint8_t n = idx[i];
         idx[i] = idx[j];
         idx[j] = n;
-        idx[i + 256] = idx[i];
     }
+    idx[256] = idx[0];
+    double i2 = floor(noise->b);
+    double d2 = noise->b - i2;
+    noise->h2 = (int) i2;
+    noise->d2 = d2;
+    noise->t2 = d2*d2*d2 * (d2 * (d2*6.0-15.0) + 10.0);
 }
 
 double samplePerlin(const PerlinNoise *noise, double d1, double d2, double d3,
         double yamp, double ymin)
 {
+    uint8_t h1, h2, h3;
+    double t1, t2, t3;
+
+    if (d2 == 0.0)
+    {
+        d2 = noise->d2;
+        h2 = noise->h2;
+        t2 = noise->t2;
+    }
+    else
+    {
+        d2 += noise->b;
+        double i2 = floor(d2);
+        d2 -= i2;
+        h2 = (int) i2;
+        t2 = d2*d2*d2 * (d2 * (d2*6.0-15.0) + 10.0);
+    }
+
     d1 += noise->a;
-    d2 += noise->b;
     d3 += noise->c;
-    const uint8_t *idx = noise->d;
-    int i1 = (int) floor(d1);
-    int i2 = (int) floor(d2);
-    int i3 = (int) floor(d3);
+
+    double i1 = floor(d1);
+    double i3 = floor(d3);
     d1 -= i1;
-    d2 -= i2;
     d3 -= i3;
-    double t1 = d1*d1*d1 * (d1 * (d1*6.0-15.0) + 10.0);
-    double t2 = d2*d2*d2 * (d2 * (d2*6.0-15.0) + 10.0);
-    double t3 = d3*d3*d3 * (d3 * (d3*6.0-15.0) + 10.0);
+
+    h1 = (int) i1;
+    h3 = (int) i3;
+
+    t1 = d1*d1*d1 * (d1 * (d1*6.0-15.0) + 10.0);
+    t3 = d3*d3*d3 * (d3 * (d3*6.0-15.0) + 10.0);
 
     if (yamp)
     {
@@ -120,17 +147,44 @@ double samplePerlin(const PerlinNoise *noise, double d1, double d2, double d3,
         d2 -= floor(yclamp / yamp) * yamp;
     }
 
-    i1 &= 0xff;
-    i2 &= 0xff;
-    i3 &= 0xff;
+    const uint8_t *idx = noise->d;
 
-    int a1 = idx[i1]   + i2;
-    int b1 = idx[i1+1] + i2;
+#if 1
+    // try to promote optimizations that can utilize the {xh, xl} registers
+    typedef struct vec2 { uint8_t a, b; } vec2;
 
-    int a2 = idx[a1]   + i3;
-    int a3 = idx[a1+1] + i3;
-    int b2 = idx[b1]   + i3;
-    int b3 = idx[b1+1] + i3;
+    vec2 v1 = { idx[h1], idx[h1+1] };
+    v1.a += h2;
+    v1.b += h2;
+
+    vec2 v2 = { idx[v1.a], idx[v1.a+1] };
+    vec2 v3 = { idx[v1.b], idx[v1.b+1] };
+    v2.a += h3;
+    v2.b += h3;
+    v3.a += h3;
+    v3.b += h3;
+
+    vec2 v4 = { idx[v2.a], idx[v2.a+1] };
+    vec2 v5 = { idx[v2.b], idx[v2.b+1] };
+    vec2 v6 = { idx[v3.a], idx[v3.a+1] };
+    vec2 v7 = { idx[v3.b], idx[v3.b+1] };
+
+    double l1 = indexedLerp(v4.a, d1,   d2,   d3);
+    double l5 = indexedLerp(v4.b, d1,   d2,   d3-1);
+    double l2 = indexedLerp(v6.a, d1-1, d2,   d3);
+    double l6 = indexedLerp(v6.b, d1-1, d2,   d3-1);
+    double l3 = indexedLerp(v5.a, d1,   d2-1, d3);
+    double l7 = indexedLerp(v5.b, d1,   d2-1, d3-1);
+    double l4 = indexedLerp(v7.a, d1-1, d2-1, d3);
+    double l8 = indexedLerp(v7.b, d1-1, d2-1, d3-1);
+#else
+    uint8_t a1 = idx[h1]   + h2;
+    uint8_t b1 = idx[h1+1] + h2;
+
+    uint8_t a2 = idx[a1]   + h3;
+    uint8_t b2 = idx[b1]   + h3;
+    uint8_t a3 = idx[a1+1] + h3;
+    uint8_t b3 = idx[b1+1] + h3;
 
     double l1 = indexedLerp(idx[a2],   d1,   d2,   d3);
     double l2 = indexedLerp(idx[b2],   d1-1, d2,   d3);
@@ -140,6 +194,7 @@ double samplePerlin(const PerlinNoise *noise, double d1, double d2, double d3,
     double l6 = indexedLerp(idx[b2+1], d1-1, d2,   d3-1);
     double l7 = indexedLerp(idx[a3+1], d1,   d2-1, d3-1);
     double l8 = indexedLerp(idx[b3+1], d1-1, d2-1, d3-1);
+#endif
 
     l1 = lerp(t1, l1, l2);
     l3 = lerp(t1, l3, l4);

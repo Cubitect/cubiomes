@@ -169,11 +169,6 @@ enum BiomeID
     cherry_grove                    = 185,
 };
 
-#ifdef __cplusplus
-extern "C"
-#endif
-inline void initBiomes() {}
-
 
 #endif /* BIOMES_H_ */
 

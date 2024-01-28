@@ -6,10 +6,13 @@
 
 STRUCT(PerlinNoise)
 {
-    uint8_t d[512];
+    uint8_t d[256+1];
+    uint8_t h2;
     double a, b, c;
     double amplitude;
     double lacunarity;
+    double d2;
+    double t2;
 };
 
 STRUCT(OctaveNoise)
