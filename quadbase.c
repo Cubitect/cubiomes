@@ -18,6 +18,10 @@ typedef HANDLE thread_id_t;
 #define mkdir(P,X)      _mkdir(P)
 #define S_IFDIR         _S_IFDIR
 
+#ifndef _S_ISTYPE
+#define _S_ISTYPE(mode, mask)  (((mode) & _S_IFMT) == (mask))
+#endif
+
 #ifndef S_ISDIR
 #define S_ISDIR(mode) _S_ISTYPE((mode), _S_IFDIR)
 #endif
