@@ -80,6 +80,7 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
     s_monument              = { 10387313, 32, 27, Monument,         STRUCT_TRIANGULAR,0},
     s_mansion               = { 10387319, 80, 60, Mansion,          STRUCT_TRIANGULAR,0},
     s_ruined_portal         = { 34222645, 40, 25, Ruined_Portal,    0,0},
+    s_ruined_portal_n       = { 34222645, 40, 25, Ruined_Portal,    STRUCT_NETHER,0},
     s_ruined_portal_n_117   = { 34222645, 25, 15, Ruined_Portal_N,  STRUCT_NETHER,0},
     s_ancient_city          = { 20083232, 24, 16, Ancient_City,     0,0},
     s_trail_ruin            = { 83469867, 34, 26, Trail_Ruin,       0,0},
@@ -132,7 +133,7 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
         *sconf = s_ruined_portal;
         return mc >= MC_1_16_1;
     case Ruined_Portal_N:
-        *sconf = mc <= MC_1_17 ? s_ruined_portal_n_117 : s_ruined_portal;
+        *sconf = mc <= MC_1_17 ? s_ruined_portal_n_117 : s_ruined_portal_n;
         return mc >= MC_1_16_1;
     case Monument:
         *sconf = s_monument;
