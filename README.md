@@ -217,11 +217,8 @@ int main()
     printf("Preparing seed bases...\n");
     // Get all 48-bit quad-witch-hut bases, but consider only the best 20-bit
     // constellations where the structures are the closest together.
-    int err = searchAll48(
-        &bases, &basecnt, NULL, threads,
-        low20QuadIdeal, sizeof(low20QuadIdeal) / sizeof(uint64_t), 20,
-        check, &sconf
-        );
+    int err = searchAll48(&bases, &basecnt, NULL, threads,
+        low20QuadIdeal, 20, check, &sconf);
 
     if (err || !bases)
     {

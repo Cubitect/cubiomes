@@ -41,6 +41,24 @@ typedef pthread_t       thread_id_t;
 // Multi-Structure Checks
 //==============================================================================
 
+int getQuadHutCst(uint64_t low20)
+{
+    const uint64_t *cst;
+    for (cst = low20QuadIdeal; *cst; cst++)
+        if (*cst == low20)
+            return CST_IDEAL;
+    for (cst = low20QuadClassic; *cst; cst++)
+        if (*cst == low20)
+            return CST_CLASSIC;
+    for (cst = low20QuadHutNormal; *cst; cst++)
+        if (*cst == low20)
+            return CST_NORMAL;
+    for (cst = low20QuadHutBarely; *cst; cst++)
+        if (*cst == low20)
+            return CST_BARELY;
+    return CST_NONE;
+}
+
 // TODO: accurate seed testers for two or three structures in range
 
 
@@ -219,7 +237,6 @@ STRUCT(threadinfo_t)
     // seed range
     uint64_t start, end;
     const uint64_t *lowBits;
-    int lowBitCnt;
     int lowBitN;
     char skipStart;
 
@@ -258,7 +275,7 @@ static int mkdirp(char *path)
 
         struct stat st;
         if (stat(path, &st) == -1)
-            err = mkdir(path, 0773);
+            err = mkdir(path, 0755);
         else if (!S_ISDIR(st.st_mode))
             err = 1;
 
@@ -291,7 +308,9 @@ static DWORD WINAPI searchAll48Thread(LPVOID data)
         uint64_t hstep = 1ULL << info->lowBitN;
         uint64_t hmask = ~(hstep - 1);
         uint64_t mid;
-        int idx;
+        int idx, cnt;
+
+        for (cnt = 0; info->lowBits[cnt]; cnt++);
 
         mid = info->start & hmask;
         for (idx = 0; (seed = mid | info->lowBits[idx]) < info->start; idx++);
@@ -325,7 +344,7 @@ static DWORD WINAPI searchAll48Thread(LPVOID data)
             }
 
             idx++;
-            if (idx >= info->lowBitCnt)
+            if (idx >= cnt)
             {
                 idx = 0;
                 mid += hstep;
@@ -384,7 +403,6 @@ int searchAll48(
         const char *        path,
         int                 threads,
         const uint64_t *    lowBits,
-        int                 lowBitCnt,
         int                 lowBitN,
         int (*check)(uint64_t s48, void *data),
         void *              data,
@@ -429,7 +447,6 @@ int searchAll48(
         info[t].start = (t * (MASK48+1) / threads);
         info[t].end = ((t+1) * (MASK48+1) / threads - 1);
         info[t].lowBits = lowBits;
-        info[t].lowBitCnt = lowBitCnt;
         info[t].lowBitN = lowBitN;
         info[t].skipStart = 0;
         info[t].check = check;
@@ -631,7 +648,7 @@ int scanForQuadBits(const StructureConfig sconf, int radius, uint64_t s48,
 
 int scanForQuads(
         const StructureConfig sconf, int radius, uint64_t s48,
-        const uint64_t *lowBits, int lowBitCnt, int lowBitN, uint64_t salt,
+        const uint64_t *lowBits, int lowBitN, uint64_t salt,
         int x, int z, int w, int h, Pos *qplist, int n)
 {
     int i, cnt = 0;
@@ -643,7 +660,7 @@ int scanForQuads(
     else
         invB = mulInv(132897987541ULL, (1ULL << lowBitN));
 
-    for (i = 0; i < lowBitCnt; i++)
+    for (i = 0; lowBits[i]; i++)
     {
         cnt += scanForQuadBits(sconf, radius, s48, lowBits[i]-salt, lowBitN, invB,
                 x, z, w, h, qplist+cnt, n-cnt);

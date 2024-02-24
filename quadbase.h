@@ -34,13 +34,13 @@ extern "C"
 // (the structure salt has to be subtracted before use)
 static const uint64_t low20QuadIdeal[] =
 {
-        0x43f18,0xc751a,0xf520a,
+        0x43f18,0xc751a,0xf520a, 0
 };
 
 // lower 20 bits, the classic quad-structure constellations
 static const uint64_t low20QuadClassic[] =
 {
-        0x43f18,0x79a0a,0xc751a,0xf520a,
+        0x43f18,0x79a0a,0xc751a,0xf520a, 0
 };
 
 // for any valid quad-structure constellation with a structure size:
@@ -49,7 +49,7 @@ static const uint64_t low20QuadClassic[] =
 static const uint64_t low20QuadHutNormal[] =
 {
         0x43f18,0x65118,0x75618,0x79a0a, 0x89718,0x9371a,0xa5a08,0xb5e18,
-        0xc751a,0xf520a,
+        0xc751a,0xf520a, 0
 };
 
 // for any valid quad-structure constellation with a structure size:
@@ -59,9 +59,13 @@ static const uint64_t low20QuadHutBarely[] =
         0x1272d,0x17908,0x367b9,0x43f18, 0x487c9,0x487ce,0x50aa7,0x647b5,
         0x65118,0x75618,0x79a0a,0x89718, 0x9371a,0x967ec,0xa3d0a,0xa5918,
         0xa591d,0xa5a08,0xb5e18,0xc6749, 0xc6d9a,0xc751a,0xd7108,0xd717a,
-        0xe2739,0xe9918,0xee1c4,0xf520a,
+        0xe2739,0xe9918,0xee1c4,0xf520a, 0
 };
 
+
+// categorize a constellation
+enum { CST_NONE, CST_IDEAL, CST_CLASSIC, CST_NORMAL, CST_BARELY };
+int getQuadHutCst(uint64_t low20);
 
 
 //==============================================================================
@@ -145,7 +149,6 @@ float isQuadBaseLarge (const StructureConfig sconf, uint64_t seed,
  * @path        output file path (nullable, also toggles temporary files)
  * @threads     number of threads to use
  * @lowBits     lower bit subset (nullable)
- * @lowBitCnt   length of lower bit subset
  * @lowBitN     number of bits in the subset values
  * @check       the testing function, should return non-zero for desired seeds
  * @data        custom data argument passed to 'check'
@@ -159,7 +162,6 @@ int searchAll48(
         const char *        path,
         int                 threads,
         const uint64_t *    lowBits,
-        int                 lowBitCnt,
         int                 lowBitN,
         int (*check)(uint64_t s48, void *data),
         void *              data,
@@ -192,7 +194,6 @@ Pos getOptimalAfk(Pos p[4], int ax, int ay, int az, int *spcnt);
  * @radius      : radius for isQuadBase (use 128 for quad-huts)
  * @s48         : 48-bit seed to scan
  * @lowBits     : consider transformations that yield one of these lower bits
- * @lowBitCnt   : length of lower bit subset
  * @lowBitN     : number of bits in the subset values (0 < lowBitN <= 48)
  * @salt        : salt subtracted from subset values (useful for protobases)
  * @x,z,w,h     : area to scan in region coordinates (inclusive)
@@ -203,7 +204,7 @@ Pos getOptimalAfk(Pos p[4], int ax, int ay, int az, int *spcnt);
  */
 int scanForQuads(
         const StructureConfig sconf, int radius, uint64_t s48,
-        const uint64_t *lowBits, int lowBitCnt, int lowBitN, uint64_t salt,
+        const uint64_t *lowBits, int lowBitN, uint64_t salt,
         int x, int z, int w, int h, Pos *qplist, int n);
 
 
