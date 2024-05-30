@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
+#include <string.h>
 
 // Function to recursively create directories
 int createDir(const char *path) {
@@ -72,10 +73,19 @@ int main(int argc, char *argv[]) {
     biomesToImage(rgb, biomeColors, biomeIds, r.sx, r.sz, pix4cell, 2);
 
     // Define the output directory relative to the container's working directory
+    // const char *dirUrl = "/var/www/storage/app/public/images/seeds";
     const char *local = "/var/www/storage/app/public/images/seeds";
     const char *server = "/var/www/gme-backend/storage/app/public/images/seeds";
 
-    const char *dirUrl = server ? server : local;
+    const char *appEnv = getenv("APP_ENV");
+
+    const char *dirUrl;
+
+    if (strcmp(appEnv, "local") == 0) {
+        dirUrl = local;
+    } else {
+        dirUrl = server;
+    }
 
     // Ensure the directory exists
     if (createDir(dirUrl) != 0) {
