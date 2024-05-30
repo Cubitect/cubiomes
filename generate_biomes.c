@@ -72,8 +72,10 @@ int main(int argc, char *argv[]) {
     biomesToImage(rgb, biomeColors, biomeIds, r.sx, r.sz, pix4cell, 2);
 
     // Define the output directory relative to the container's working directory
-    // const char *dirUrl = "/var/www/storage/app/public/images/seeds";
-    const char *dirUrl = "/var/www/gme-backend/storage/app/public/images/seeds";
+    const char *local = "/var/www/storage/app/public/images/seeds";
+    const char *server = "/var/www/gme-backend/storage/app/public/images/seeds";
+
+    const char *dirUrl = server ? server : local;
 
     // Ensure the directory exists
     if (createDir(dirUrl) != 0) {
