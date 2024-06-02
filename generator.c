@@ -608,8 +608,15 @@ int genArea(const Layer *layer, int *out, int areaX, int areaZ, int areaWidth, i
 int mapApproxHeight(float *y, int *ids, const Generator *g, const SurfaceNoise *sn,
     int x, int z, int w, int h)
 {
-    if (g->dim != DIM_OVERWORLD)
-        return 1;
+    if (g->dim == DIM_NETHER)
+        return 127;
+
+    if (g->dim == DIM_END)
+    {
+        if (g->mc <= MC_1_8)
+            return 1;
+        return mapSurfaceHeightEnd(&g->en, sn, y, x, z, w, h, 4);
+    }
 
     if (g->mc >= MC_1_18)
     {

@@ -36,7 +36,9 @@ enum StructureType
     Bastion,
     End_City,
     End_Gateway,
-    Trail_Ruin,
+    End_Island,
+    Trail_Ruins,
+    Trial_Chambers,
     FEATURE_NUM
 };
 

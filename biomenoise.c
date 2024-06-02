@@ -51,6 +51,62 @@ void initSurfaceNoiseBeta(SurfaceNoiseBeta *snb, uint64_t seed)
     octaveInitBeta(&snb->octcontB, &s, snb->oct+50, 16, 200.0, 0.5, 1.0, 2.0);
 }
 
+double sampleSurfaceNoiseBetween(const SurfaceNoise *sn, int x, int y, int z,
+    double noiseMin, double noiseMax)
+{
+    double persist, amp;
+    double dx, dy, dz, sy;
+    int i;
+
+    double xzScale = 684.412 * sn->xzScale;
+    double yScale = 684.412 * sn->yScale;
+    double vmin = 0;
+    double vmax = 0;
+
+    persist = 1.0 / 32768.0;
+    amp = 64.0;
+
+    for (i = 15; i >= 0; i--)
+    {
+        dx = x * xzScale * persist;
+        dz = z * xzScale * persist;
+        sy = yScale * persist;
+        dy = y * sy;
+
+        vmin += samplePerlin(&sn->octmin.octaves[i], dx, dy, dz, sy, dy) * amp;
+        if (vmin - amp > noiseMax) return noiseMax;
+        vmax += samplePerlin(&sn->octmax.octaves[i], dx, dy, dz, sy, dy) * amp;
+        if (vmax + amp < noiseMin) return noiseMin;
+
+        amp *= 0.5;
+        persist *= 2.0;
+    }
+
+    double xzStep = xzScale / sn->xzFactor;
+    double yStep = yScale / sn->yFactor;
+    double vmain = 0.5;
+
+    persist = 1.0 / 128.0;
+    amp = 0.05 * 128.0;
+
+    for (i = 7; i >= 0; i--)
+    {
+        dx = x * xzStep * persist;
+        dz = z * xzStep * persist;
+        sy = yStep * persist;
+        dy = y * sy;
+
+        vmain += samplePerlin(&sn->octmain.octaves[i], dx, dy, dz, sy, dy) * amp;
+        if (vmain - amp > 1) return vmax;
+        if (vmain + amp < 0) return vmin;
+
+        amp *= 0.5;
+        persist *= 2.0;
+    }
+
+    return clampedLerp(vmain, vmin, vmax);
+}
+
 double sampleSurfaceNoise(const SurfaceNoise *sn, int x, int y, int z)
 {
     double xzScale = 684.412 * sn->xzScale;
@@ -62,6 +118,7 @@ double sampleSurfaceNoise(const SurfaceNoise *sn, int x, int y, int z)
     double maxNoise = 0;
     double mainNoise = 0;
     double persist = 1.0;
+    double contrib = 1.0;
     double dx, dy, dz, sy, ty;
     int i;
 
@@ -73,8 +130,8 @@ double sampleSurfaceNoise(const SurfaceNoise *sn, int x, int y, int z)
         sy = yScale * persist;
         ty = y * sy;
 
-        minNoise += samplePerlin(&sn->octmin.octaves[i], dx, dy, dz, sy, ty) / persist;
-        maxNoise += samplePerlin(&sn->octmax.octaves[i], dx, dy, dz, sy, ty) / persist;
+        minNoise += samplePerlin(&sn->octmin.octaves[i], dx, dy, dz, sy, ty) * contrib;
+        maxNoise += samplePerlin(&sn->octmax.octaves[i], dx, dy, dz, sy, ty) * contrib;
 
         if (i < 8)
         {
@@ -83,14 +140,14 @@ double sampleSurfaceNoise(const SurfaceNoise *sn, int x, int y, int z)
             dz = maintainPrecision(z * xzStep * persist);
             sy = yStep * persist;
             ty = y * sy;
-            mainNoise += samplePerlin(&sn->octmain.octaves[i], dx, dy, dz, sy, ty) / persist;
+            mainNoise += samplePerlin(&sn->octmain.octaves[i], dx, dy, dz, sy, ty) * contrib;
         }
-        persist /= 2.0;
+        persist *= 0.5;
+        contrib *= 2.0;
     }
 
     return clampedLerp(0.5 + 0.05*mainNoise, minNoise/512.0, maxNoise/512.0);
 }
-
 
 //==============================================================================
 // Nether (1.16+) and End (1.9+) Biome Generation
@@ -489,8 +546,12 @@ float getEndHeightNoise(const EndNoise *en, int x, int z, int range)
     return ret;
 }
 
+#define END_NOISE_COL_YMIN 2
+#define END_NOISE_COL_YMAX 18
+#define END_NOISE_COL_SIZE (END_NOISE_COL_YMAX - END_NOISE_COL_YMIN + 1)
+
 void sampleNoiseColumnEnd(double column[], const SurfaceNoise *sn,
-        const EndNoise *en, int x, int z, int colymin, int colymax)
+    const EndNoise *en, int x, int z, int colymin, int colymax)
 {
     double depth = getEndHeightNoise(en, x, z, 0) - 8.0f;
     int y;
@@ -502,6 +563,55 @@ void sampleNoiseColumnEnd(double column[], const SurfaceNoise *sn,
         noise = clampedLerp((32 + 46 - y) / 64.0, -3000, noise);
         noise = clampedLerp((y - 1) / 7.0, -30, noise);
         column[y - colymin] = noise;
+    }
+}
+
+void sampleNoiseColumnEndFull(double column[END_NOISE_COL_SIZE],
+    const SurfaceNoise *sn, const EndNoise *en, int x, int z)
+{
+    // clamped (32 + 46 - y) / 64.0
+    static const double upper_drop[] = {
+           1.0,    1.0,    1.0,    1.0,    1.0,    1.0,    1.0,    1.0, // 0-7
+           1.0,    1.0,    1.0,    1.0,    1.0,    1.0,    1.0, 63./64, // 8-15
+        62./64, 61./64, 60./64, 59./64, 58./64, 57./64, 56./64, 55./64, // 16-23
+        54./64, 53./64, 52./64, 51./64, 50./64, 49./64, 48./64, 47./64, // 24-31
+        46./64 // 32
+    };
+    // clamped (y - 1) / 7.0
+    static const double lower_drop[] = {
+          0.0,  0.0, 1./7, 2./7, 3./7, 4./7, 5./7, 6./7, // 0-7
+          1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0, // 8-15
+          1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0, // 16-23
+          1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0, // 24-31
+          1.0 // 32
+    };
+
+    // depth is between [-108, +72]
+    // noise is between [-128, +128]
+    // for a sold block we need the upper drop as:
+    //  (72 + 128) * u - 3000 * (1-u) > 0 => upper_drop = u < 15/16
+    // which occurs at y = 18 for the highest relevant noise cell
+    // for the lower drop we need:
+    //  (72 + 128) * l - 30 * (1-l) > 0 => lower_drop = l > 3/23
+    // which occurs at y = 3 for the lowest relevant noise cell
+
+    // in terms of the depth this becomes:
+    //  l > 30 / (103 + depth)
+
+    double depth = getEndHeightNoise(en, x, z, 0) - 8.0f;
+    int y;
+    for (y = END_NOISE_COL_YMIN; y <= END_NOISE_COL_YMAX; y++)
+    {
+        if (lower_drop[y] * (103.0 + depth) < 30)
+        {
+            column[y - END_NOISE_COL_YMIN] = -30;
+            continue;
+        }
+        double noise = sampleSurfaceNoiseBetween(sn, x, y, z, -128, 128);
+        double clamped = noise + depth;
+        clamped = lerp(upper_drop[y], -3000, clamped);
+        clamped = lerp(lower_drop[y], -30, clamped);
+        column[y - END_NOISE_COL_YMIN] = clamped;
     }
 }
 
@@ -566,6 +676,59 @@ int getSurfaceHeightEnd(int mc, uint64_t seed, int x, int z)
     sampleNoiseColumnEnd(ncol11, &sn, &en, cellx+1, cellz+1, y0, y1);
 
     return getSurfaceHeight(ncol00, ncol01, ncol10, ncol11, y0, y1, 4, dx, dz);
+}
+
+int mapSurfaceHeightEnd(const EndNoise *en, const SurfaceNoise *sn, float *y,
+    int x, int z, int w, int h, int scale)
+{
+    if (scale != 1 && scale != 2 && scale != 4 && scale != 8)
+        return 1;
+
+    enum { YSIZ = END_NOISE_COL_SIZE };
+
+    double cellmid = scale > 1 ? scale / 16.0 : 0;
+    int cellsiz = 8 / scale;
+    int cx = floordiv(x, cellsiz);
+    int cz = floordiv(z, cellsiz);
+    int cw = floordiv(x + w - 1, cellsiz) - cx + 2;
+    int i, j;
+
+    double *buf = malloc(sizeof(double) * YSIZ * cw * 2);
+    double *ncol[2];
+    ncol[0] = buf;
+    ncol[1] = buf + YSIZ * cw;
+
+    for (i = 0; i < cw; i++)
+        sampleNoiseColumnEndFull(ncol[1]+i*YSIZ, sn, en, cx+i, cz+0);
+
+    for (j = 0; j < h; j++)
+    {
+        int cj = floordiv(z + j, cellsiz);
+        int dj = z + j - cj * cellsiz;
+        if (j == 0 || dj == 0)
+        {
+            double *tmp = ncol[0];
+            ncol[0] = ncol[1];
+            ncol[1] = tmp;
+            for (i = 0; i < cw; i++)
+                sampleNoiseColumnEndFull(ncol[1]+i*YSIZ, sn, en, cx+i, cj+1);
+        }
+
+        for (i = 0; i < w; i++)
+        {
+            int ci = floordiv(x + i, cellsiz);
+            int di = x + i - ci * cellsiz;
+            double dx = di / (double) cellsiz + cellmid;
+            double dz = dj / (double) cellsiz + cellmid;
+            double *ncol0 = ncol[0] + (ci - cx) * YSIZ;
+            double *ncol1 = ncol[1] + (ci - cx) * YSIZ;
+            y[j*w+i] = getSurfaceHeight(ncol0, ncol1, ncol0+YSIZ, ncol1+YSIZ,
+                END_NOISE_COL_YMIN, END_NOISE_COL_YMAX, 4, dx, dz);
+        }
+    }
+
+    free(buf);
+    return 0;
 }
 
 int genEndScaled(const EndNoise *en, int *out, Range r, int mc, uint64_t sha)

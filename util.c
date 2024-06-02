@@ -73,12 +73,14 @@ const char* mc2str(int mc)
     case MC_1_19_2: return "1.19.2"; break;
     case MC_1_19:   return "1.19"; break;
     case MC_1_20:   return "1.20"; break;
+    case MC_1_21:   return "1.21"; break;
     default:        return NULL;
     }
 }
 
 int str2mc(const char *s)
 {
+    if (!strcmp(s, "1.21"))     return MC_1_21;
     if (!strcmp(s, "1.20"))     return MC_1_20;
     if (!strcmp(s, "1.19"))     return MC_1_19;
     if (!strcmp(s, "1.19.2"))   return MC_1_19_2;
@@ -265,7 +267,8 @@ const char* struct2str(int stype)
     case Ruined_Portal_N:   return "ruined_portal_nether";
     case Geode:             return "amethyst_geode";
     case Ancient_City:      return "ancient_city";
-    case Trail_Ruin:        return "trail_ruins";
+    case Trail_Ruins:       return "trail_ruins";
+    case Trial_Chambers:    return "trial_chambers";
     case Fortress:          return "fortress";
     case Bastion:           return "bastion_remnant";
     case End_City:          return "end_city";

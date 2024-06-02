@@ -19,5 +19,8 @@ BiomeTree g_btree[MC_NEWEST - MC_1_18 + 1] =
     // MC_1_20
     { btree20_steps, &btree20_param[0][0], btree20_nodes, btree20_order,
         sizeof(btree20_nodes) / sizeof(uint64_t) },
+    // MC_1_21
+    { btree20_steps, &btree20_param[0][0], btree20_nodes, btree20_order,
+        sizeof(btree20_nodes) / sizeof(uint64_t) },
 };
 

@@ -83,7 +83,8 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
     s_ruined_portal_n       = { 34222645, 40, 25, Ruined_Portal,    STRUCT_NETHER,0},
     s_ruined_portal_n_117   = { 34222645, 25, 15, Ruined_Portal_N,  STRUCT_NETHER,0},
     s_ancient_city          = { 20083232, 24, 16, Ancient_City,     0,0},
-    s_trail_ruin            = { 83469867, 34, 26, Trail_Ruin,       0,0},
+    s_trail_ruins           = { 83469867, 34, 26, Trail_Ruins,      0,0},
+    s_trial_chambers        = { 94251327, 34, 22, Trial_Chambers,   0,0},
     s_treasure              = { 10387320,  1,  1, Treasure,         STRUCT_CHUNK,0},
     s_mineshaft             = {        0,  1,  1, Mineshaft,        STRUCT_CHUNK,0},
     s_desert_well_115       = {    30010,  1,  1, Desert_Well,      STRUCT_CHUNK, 1.f/1000},
@@ -100,7 +101,9 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
     s_end_gateway_115       = {    30000,  1,  1, End_Gateway,      STRUCT_END|STRUCT_CHUNK, 700},
     s_end_gateway_116       = {    40013,  1,  1, End_Gateway,      STRUCT_END|STRUCT_CHUNK, 700},
     s_end_gateway_117       = {    40013,  1,  1, End_Gateway,      STRUCT_END|STRUCT_CHUNK, 1.f/700},
-    s_end_gateway           = {    40000,  1,  1, End_Gateway,      STRUCT_END|STRUCT_CHUNK, 1.f/700}
+    s_end_gateway           = {    40000,  1,  1, End_Gateway,      STRUCT_END|STRUCT_CHUNK, 1.f/700},
+    s_end_island_115        = {        0,  1,  1, End_Island,       STRUCT_END|STRUCT_CHUNK, 14},
+    s_end_island            = {        0,  1,  1, End_Island,       STRUCT_END|STRUCT_CHUNK, 1.f/14}
     ;
 
     switch (structureType)
@@ -170,6 +173,10 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
         // 1.11 and 1.12 generate gateways using a random source that passed
         // the block filling, making them much more difficult to predict
         return mc >= MC_1_13;
+    case End_Island:
+        if      (mc <= MC_1_15) *sconf = s_end_island_115;
+        else                    *sconf = s_end_island;
+        return mc >= MC_1_13; // we only support decorator features for 1.13+
     case Desert_Well:
         if      (mc <= MC_1_15) *sconf = s_desert_well_115;
         else if (mc <= MC_1_17) *sconf = s_desert_well_117;
@@ -180,9 +187,12 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
     case Geode:
         *sconf = mc <= MC_1_17 ? s_geode_117 : s_geode;
         return mc >= MC_1_17;
-    case Trail_Ruin:
-        *sconf = s_trail_ruin;
+    case Trail_Ruins:
+        *sconf = s_trail_ruins;
         return mc >= MC_1_20;
+    case Trial_Chambers:
+        *sconf = s_trial_chambers;
+        return mc >= MC_1_21;
     default:
         memset(sconf, 0, sizeof(StructureConfig));
         return 0;
@@ -224,7 +234,8 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
     case Ruined_Portal:
     case Ruined_Portal_N:
     case Ancient_City:
-    case Trail_Ruin:
+    case Trail_Ruins:
+    case Trial_Chambers:
         *pos = getFeaturePos(sconf, seed, regX, regZ);
         return 1;
 
@@ -278,6 +289,7 @@ int getStructurePos(int structureType, int mc, uint64_t seed, int regX, int regZ
         }
 
     case End_Gateway:
+    case End_Island:
     case Desert_Well:
     case Geode:
         // decorator features
@@ -950,7 +962,7 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
         if (mc <= MC_1_18) return 0;
         return biomeID == deep_dark;
 
-    case Trail_Ruin:
+    case Trail_Ruins:
         if (mc <= MC_1_19) return 0;
         else {
             switch (biomeID) {
@@ -965,6 +977,10 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
                 return 0;
             }
         }
+
+    case Trial_Chambers:
+        if (mc <= MC_1_20) return 0;
+        return biomeID != deep_dark && isOverworld(mc, biomeID);
 
     case Treasure:
         if (mc <= MC_1_12) return 0;
@@ -1257,7 +1273,7 @@ int isViableStructurePos(int structureType, Generator *g, int x, int z, uint32_t
 
     switch (structureType)
     {
-    case Trail_Ruin:
+    case Trail_Ruins:
         if (g->mc <= MC_1_19) goto L_not_viable;
         goto L_feature;
     case Ocean_Ruin:
@@ -1301,8 +1317,8 @@ L_feature:
         {
             if (g->mc <= MC_1_17)
                 g->entry = &g->ls.layers[L_RIVER_MIX_4];
-            sampleX = x >> 2;
-            sampleZ = z >> 2;
+            sampleX = x * 4;
+            sampleZ = z * 4;
         }
         id = getBiomeAt(g, 0, sampleX, 319>>2, sampleZ);
         if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
@@ -1501,14 +1517,18 @@ L_feature:
         goto L_viable;
 
     case Ancient_City:
-        if (g->mc <= MC_1_18)
-            goto L_not_viable;
+        if (g->mc <= MC_1_18) goto L_not_viable;
+        goto L_jigsaw;
+
+    case Trial_Chambers:
+        if (g->mc <= MC_1_20) goto L_not_viable;
+L_jigsaw:
         {
             StructureVariant sv;
-            getVariant(&sv, Ancient_City, g->mc, g->seed, x, z, -1);
-            sampleX = (chunkX*32 + 2*sv.x + sv.sx) / 2 >> 2;
-            sampleZ = (chunkZ*32 + 2*sv.z + sv.sz) / 2 >> 2;
-            sampleY = -27 >> 2;
+            getVariant(&sv, structureType, g->mc, g->seed, x, z, -1);
+            sampleX = (chunkX*32 + 2*sv.x + sv.sx - 1) / 2 >> 2;
+            sampleZ = (chunkZ*32 + 2*sv.z + sv.sz - 1) / 2 >> 2;
+            sampleY = sv.y >> 2;
             id = getBiomeAt(g, 4, sampleX, sampleY, sampleZ);
         }
         if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
@@ -1686,7 +1706,7 @@ int isViableEndCityTerrain(const Generator *g, const SurfaceNoise *sn,
     if (h01 < h00) h00 = h01;
     if (h10 < h00) h00 = h10;
     if (h11 < h00) h00 = h11;
-    return h00 >= 60;
+    return h00 >= 60 ? h00 : 0;
 }
 
 
@@ -1865,6 +1885,7 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
         case 2: r->x = x+sx; r->z = z+sz; break; // 2:cw180
         case 3: r->x = x-sz; r->z = z+sx; break; // 3:cw270=ccw90
         }
+        r->y = -27;
         r->sy = sy;
         return 1;
 
@@ -2037,6 +2058,21 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
             skipNextN(&rng, 2);
             r->cracked = nextFloat(&rng) < 0.95;
             r->x += 5; r->y += 5; r->z += 5;
+        }
+        return 1;
+
+    case Trial_Chambers:
+        r->y = nextInt(&rng, 1+20) + -40; // Y-level
+        r->rotation = nextInt(&rng, 4);
+        r->start = nextInt(&rng, 2); // corridor/end_[12]
+        r->sx = 19; r->sy = 20; r->sz = 19;
+        //r->y += -1; // groundLevelData
+        switch (r->rotation)
+        { // 0:0, 1:cw90, 2:cw180, 3:cw270=ccw90
+        case 0: break;
+        case 1: r->x = 1-r->sz; r->z = 0;       break;
+        case 2: r->x = 1-r->sx; r->z = 1-r->sz; break;
+        case 3: r->x = 0;       r->z = 1-r->sx; break;
         }
         return 1;
 
@@ -3996,7 +4032,10 @@ int floodFillGen(struct locate_info_t *info, int i, int j, Pos *p)
     while (--qn >= 0)
     {
         if (info->stop && *info->stop)
+        {
+            free(queue);
             return 0;
+        }
         int d = queue[qn].d;
         i = queue[qn].i;
         j = queue[qn].j;
@@ -4337,7 +4376,7 @@ struct _gp_args
     int mc;
     uint32_t flags;
 };
-// TODO: This function requires testing across versions
+
 static void _genPotential(struct _gp_args *a, int layer, int id)
 {
     int mc = a->mc;

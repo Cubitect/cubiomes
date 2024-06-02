@@ -223,6 +223,9 @@ void setEndSeed(EndNoise *en, int mc, uint64_t seed);
 int mapEndBiome(const EndNoise *en, int *out, int x, int z, int w, int h);
 int mapEnd(const EndNoise *en, int *out, int x, int z, int w, int h);
 int getSurfaceHeightEnd(int mc, uint64_t seed, int x, int z);
+int mapSurfaceHeightEnd(const EndNoise *en, const SurfaceNoise *sn, float *y,
+    int x, int z, int w, int h, int scale);
+
 /**
  * The scaled End generation supports scales 1, 4, 16, and 64.
  * The End biomes are usually 2D, but in 1.15+ there is 3D voronoi noise, which
