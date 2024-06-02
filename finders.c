@@ -1317,8 +1317,8 @@ L_feature:
         {
             if (g->mc <= MC_1_17)
                 g->entry = &g->ls.layers[L_RIVER_MIX_4];
-            sampleX = x * 4;
-            sampleZ = z * 4;
+            sampleX = x >> 2;
+            sampleZ = z >> 2;
         }
         id = getBiomeAt(g, 0, sampleX, 319>>2, sampleZ);
         if (id < 0 || !isViableFeatureBiome(g->mc, structureType, id))
