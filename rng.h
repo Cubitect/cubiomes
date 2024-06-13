@@ -108,7 +108,7 @@ static inline int nextInt(uint64_t *seed, const int n)
         bits = next(seed, 31);
         val = bits % n;
     }
-    while (bits - val + m < 0);
+    while (((int32_t)((uint32_t)bits - val + m) < 0));
     return val;
 }
 
@@ -261,7 +261,7 @@ static inline int xNextIntJ(Xoroshiro *xr, uint32_t n)
         bits = (xNextLong(xr) >> 33);
         val = bits % n;
     }
-    while (bits - val + m < 0);
+    while (((int32_t)((uint32_t)bits - val + m) < 0));
     return val;
 }
 
