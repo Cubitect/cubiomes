@@ -7,7 +7,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
-#include <string.h>
 
 // Function to recursively create directories
 int createDir(const char *path) {
@@ -38,7 +37,7 @@ int main(int argc, char *argv[]) {
 
     // Parse the seed argument
     uint64_t seed = strtoull(argv[1], NULL, 10);
-    
+
     // Set up the biome generator for Minecraft 1.18 with LARGE_BIOMES setting
     Generator g;
     setupGenerator(&g, MC_1_18, LARGE_BIOMES);
@@ -50,7 +49,7 @@ int main(int argc, char *argv[]) {
     Range r;
     r.scale = 16;         // Scale for biome coordinates
     r.x = -60; r.z = -60; // Starting coordinates
-    r.sx = 480; r.sz = 480; // Size of the area to generate
+    r.sx = 800; r.sz = 800; // Size of the area to generate
     r.y = 15; r.sy = 1;     // y and sy are typically not used in 2D generation
 
     // Allocate memory for storing biome IDs
@@ -73,19 +72,7 @@ int main(int argc, char *argv[]) {
     biomesToImage(rgb, biomeColors, biomeIds, r.sx, r.sz, pix4cell, 2);
 
     // Define the output directory relative to the container's working directory
-    // const char *dirUrl = "/var/www/storage/app/public/images/seeds";
-    const char *local = "/var/www/storage/app/public/images/seeds";
-    const char *server = "/var/www/gme-backend/storage/app/public/images/seeds";
-
-    const char *appEnv = getenv("APP_ENV");
-
-    const char *dirUrl;
-
-    if (strcmp(appEnv, "local") == 0) {
-        dirUrl = local;
-    } else {
-        dirUrl = server;
-    }
+    const char *dirUrl = "/var/www/storage/app/public/images/seeds";
 
     // Ensure the directory exists
     if (createDir(dirUrl) != 0) {
