@@ -539,13 +539,20 @@ int biomesToImage(unsigned char *pixels,
 int savePPM(const char *path, const unsigned char *pixels, const unsigned int sx, const unsigned int sy)
 {
     FILE *fp = fopen(path, "wb");
-    if (!fp)
+    if (!fp) {
+        perror("Error opening file");
         return -1;
+    }
     fprintf(fp, "P6\n%d %d\n255\n", sx, sy);
     size_t pixelsLen = 3 * sx * sy;
     size_t written = fwrite(pixels, sizeof pixels[0], pixelsLen, fp);
+    if (written != pixelsLen) {
+        perror("Error writing file");
+        fclose(fp);
+        return -1;
+    }
     fclose(fp);
-    return written != pixelsLen;
+    return 0;
 }
 
 
