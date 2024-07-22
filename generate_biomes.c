@@ -86,13 +86,13 @@ int main(int argc, char *argv[]) {
     Range r;
     r.scale = 16;         // Scale for biome coordinates
     r.x = -60; r.z = -60; // Starting coordinates
-    r.sx = 800; r.sz = 480; // Size of the area to generate
+    r.sx = 480; r.sz = 480; // Size of the area to generate
     r.y = 15; r.sy = 1;     // y and sy are typically not used in 2D generation
 
     // Allocate memory for storing biome IDs
     int *biomeIds = allocCache(&g, r);
     genBiomes(&g, biomeIds, r);
-    
+
     // Parameters for image generation
     int pix4cell = 16; // Pixels per cell
     int imgWidth = pix4cell * r.sx;
