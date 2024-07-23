@@ -29,43 +29,6 @@ int createDir(const char *path) {
     return 0;
 }
 
-// Function to perform bilinear interpolation
-void bilinearInterpolate(unsigned char *rgb, int width, int height, unsigned char *smoothRgb, int smoothWidth, int smoothHeight) {
-    for (int y = 0; y < smoothHeight; ++y) {
-        for (int x = 0; x < smoothWidth; ++x) {
-            float gx = ((float)x / (float)(smoothWidth - 1)) * (width - 1);
-            float gy = ((float)y / (float)(smoothHeight - 1)) * (height - 1);
-            int gxi = (int)gx;
-            int gyi = (int)gy;
-
-            // Ensure gxi and gyi are within bounds
-            gxi = (gxi < 0) ? 0 : (gxi >= width - 1) ? width - 2 : gxi;
-            gyi = (gyi < 0) ? 0 : (gyi >= height - 1) ? height - 2 : gyi;
-
-            // Bilinear interpolation weights
-            float wx = gx - gxi;
-            float wy = gy - gyi;
-            float wx1 = 1.0f - wx;
-            float wy1 = 1.0f - wy;
-
-            // Interpolate each channel separately
-            float r = wy1 * (wx1 * rgb[(gyi * width + gxi) * 3 + 0] + wx * rgb[(gyi * width + (gxi + 1)) * 3 + 0]) +
-                      wy * (wx1 * rgb[((gyi + 1) * width + gxi) * 3 + 0] + wx * rgb[((gyi + 1) * width + (gxi + 1)) * 3 + 0]);
-
-            float g = wy1 * (wx1 * rgb[(gyi * width + gxi) * 3 + 1] + wx * rgb[(gyi * width + (gxi + 1)) * 3 + 1]) +
-                      wy * (wx1 * rgb[((gyi + 1) * width + gxi) * 3 + 1] + wx * rgb[((gyi + 1) * width + (gxi + 1)) * 3 + 1]);
-
-            float b = wy1 * (wx1 * rgb[(gyi * width + gxi) * 3 + 2] + wx * rgb[(gyi * width + (gxi + 1)) * 3 + 2]) +
-                      wy * (wx1 * rgb[((gyi + 1) * width + gxi) * 3 + 2] + wx * rgb[((gyi + 1) * width + (gxi + 1)) * 3 + 2]);
-
-            // Store interpolated values
-            smoothRgb[(y * smoothWidth + x) * 3 + 0] = (unsigned char)r;
-            smoothRgb[(y * smoothWidth + x) * 3 + 1] = (unsigned char)g;
-            smoothRgb[(y * smoothWidth + x) * 3 + 2] = (unsigned char)b;
-        }
-    }
-}
-
 int main(int argc, char *argv[]) {
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <seed>\n", argv[0]);
@@ -108,12 +71,6 @@ int main(int argc, char *argv[]) {
     // Convert biomes to image
     biomesToImage(rgb, biomeColors, biomeIds, r.sx, r.sz, pix4cell, 2);
 
-    // Apply bilinear interpolation to smooth the image
-    int smoothWidth = imgWidth * 2;
-    int smoothHeight = imgHeight * 2;
-    unsigned char *smoothRgb = (unsigned char *)malloc(3 * smoothWidth * smoothHeight);
-    bilinearInterpolate(rgb, imgWidth, imgHeight, smoothRgb, smoothWidth, smoothHeight);
-
     // Define the output directory relative to the container's working directory
     const char *dirUrl = "/var/www/storage/app/public/images/seeds";
 
@@ -129,21 +86,20 @@ int main(int argc, char *argv[]) {
     // Debug: Print the output file path
     printf("Attempting to save PPM file to %s\n", outputFile);
 
-    // Save the smooth image to a PPM file
-    if (savePPM(outputFile, smoothRgb, smoothWidth, smoothHeight) != 0) {
+    // Save the image to a PPM file
+    if (savePPM(outputFile, rgb, imgWidth, imgHeight) != 0) {
         fprintf(stderr, "Error saving PPM file\n");
         free(biomeIds);
         free(rgb);
-        free(smoothRgb);
         return 1;
     }
 
     // Free allocated memory
     free(biomeIds);
     free(rgb);
-    free(smoothRgb);
 
     printf("Biome map generated and saved to %s\n", outputFile);
 
     return 0;
 }
+    
