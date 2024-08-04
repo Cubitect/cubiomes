@@ -54,6 +54,13 @@ int biomesToImage(unsigned char *pixels,
 int savePPM(const char* path, const unsigned char *pixels,
         const unsigned int sx, const unsigned int sy);
 
+
+void swap(int* array, int i, int j);
+
+
+void shuffle(int* list, uint64_t rand);
+
+
 #ifdef __cplusplus
 }
 #endif

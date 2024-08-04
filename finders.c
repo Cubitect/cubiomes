@@ -1,4 +1,5 @@
 #include "finders.h"
+#include "util.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -2639,6 +2640,26 @@ void getFixedEndGateways(Pos pos[20][2], uint64_t seed)
     }
 }
 
+
+void getEndPillars(uint64_t seed, EndPillar ep[10]){
+    uint64_t rng;
+    setSeed(&rng, seed);
+    uint64_t pillar_seed = nextLong(&rng) & 0xFFFFL;
+
+    setSeed(&rng, pillar_seed);
+
+    int list[10] = {0,1,2,3,4,5,6,7,8,9};
+    shuffle(list, rng);
+
+    for (int i = 0; i<10; ++i){
+        ep[i].x = floor(42.0 * cos(2 * (-PI + 0.3141592653589793 * (double)i)));
+        ep[i].z = floor(42.0 * sin(2 * (-PI + 0.3141592653589793 * (double)i)));
+        int n3 = list[i];
+        ep[i].radius = 2 + n3 / 3;
+        ep[i].height = 76 + n3 * 3;
+        ep[i].caged = n3 == 2 || n3 == 1;
+    }
+}
 
 
 //==============================================================================

@@ -3,6 +3,7 @@
 
 
 #include "generator.h"
+#include <stdbool.h>
 
 
 #ifdef __cplusplus
@@ -108,6 +109,15 @@ STRUCT(Piece)
     Piece *next;
 };
 
+
+STRUCT(EndPillar)
+{
+    int x; // Center x
+    int z; // Center z
+    int height; // Height
+    int radius; // Radius
+    bool caged; // Protected by cage
+};
 
 enum
 {
@@ -469,6 +479,8 @@ enum
 };
 uint64_t getHouseList(int *houses, uint64_t seed, int chunkX, int chunkZ);
 
+
+void getEndPillars(uint64_t seed, EndPillar ep[10]);
 
 
 //==============================================================================

@@ -552,3 +552,14 @@ int savePPM(const char *path, const unsigned char *pixels, const unsigned int sx
 }
 
 
+void swap(int* array, int i, int j) {
+    int temp = array[i];
+    array[i] = array[j];
+    array[j] = temp;
+}
+
+void shuffle(int* list, uint64_t rand){
+    for (int i = 10; i>1; i--){
+        swap(list,  i-1, nextInt(&rand, i));
+    } 
+}
