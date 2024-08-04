@@ -480,6 +480,15 @@ enum
 uint64_t getHouseList(int *houses, uint64_t seed, int chunkX, int chunkZ);
 
 
+
+/*
+Populates ep with EndPillars
+
+
+only for > MC_1_8_9
+*/ 
+
+
 void getEndPillars(uint64_t seed, EndPillar ep[10]);
 
 
