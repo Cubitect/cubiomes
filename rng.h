@@ -337,6 +337,12 @@ static inline uint64_t getStartSeed(uint64_t ws, uint64_t ls)
 }
 
 
+static inline void initCarverSeed(uint64_t *rand, uint64_t worldSeed, int chunkX, int chunkZ) 
+{
+    setSeed(rand, worldSeed);
+    setSeed(rand, ((uint64_t) chunkX) * nextLong(rand) ^ ((uint64_t) chunkZ) * nextLong(rand) ^ worldSeed);
+}
+
 ///============================================================================
 ///                               Arithmatic
 ///============================================================================

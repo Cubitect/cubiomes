@@ -307,7 +307,7 @@ int main()
 
 #### End Pillar generation
 
-End pillars generate quite diffrently to other structures and are therefore handled diffrently. First you initialize an array of EndPillars, and as there are always 10 pillars, its length must be 10. The function `getEndPillars()` then fills it with the 10 Pillars data. The first element is goint to be the most eastern tower, continuing in the clockwise direction. This method works from 1.9 onwards.
+End pillars generate quite diffrently to other structures and are therefore handled diffrently. First you initialize an array of EndPillars, and as there are always 10 pillars, its length must be 10. The function `getEndPillars` then fills it with the 10 Pillars data. The first element is goint to be the most eastern tower, continuing in the clockwise direction. This method works from 1.9 onwards.
 
 ```C
 #include "generator.h"

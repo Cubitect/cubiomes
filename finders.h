@@ -110,6 +110,19 @@ STRUCT(Piece)
 };
 
 
+typedef struct {
+    uint64_t rand;
+    uint8_t canSpawn;
+    int xGuess, zGuess;
+    int upperY, lowerY;
+    float yaw, pitch;
+    int ravineLength;
+    double verticalRadiusAtCenter;
+    double x, y, z;
+} RavineGenerator;
+
+
+
 STRUCT(EndPillar)
 {
     int x; // Center x
@@ -484,12 +497,17 @@ uint64_t getHouseList(int *houses, uint64_t seed, int chunkX, int chunkZ);
 /*
 Populates ep with EndPillars
 
-
 only for > MC_1_8_9
 */ 
-
-
 void getEndPillars(uint64_t seed, EndPillar ep[10]);
+
+
+// initializes ravine at specified chunk coords
+RavineGenerator initRavine(uint64_t worldSeed, int chunkX, int chunkZ);
+
+
+// Generates exact coords and stuff
+void simulateRavineToMiddle(RavineGenerator *gen);
 
 
 //==============================================================================
