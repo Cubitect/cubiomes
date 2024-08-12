@@ -1,6 +1,6 @@
-#include "stb_image_write.h"
 #include "generator.h"
 #include "util.h"
+#include "image_utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -8,26 +8,84 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
+#include <string.h>
 
-// Function to recursively create directories
+const int chunk_size = 16; // Minecraft chunk size (16x16 blocks)
+const int viewport_width = 1920;
+const int viewport_height = 1240;
+
 int createDir(const char *path) {
-    char tmp[256];
+    char tmp[2048];
     snprintf(tmp, sizeof(tmp), "%s", path);
     for (char *p = tmp + 1; *p; p++) {
         if (*p == '/') {
             *p = '\0';
             if (mkdir(tmp, 0777) && errno != EEXIST) {
-                perror("Error creating directory");
+                fprintf(stderr, "Error creating directory %s: %s\n", tmp, strerror(errno));
                 return -1;
             }
             *p = '/';
         }
     }
     if (mkdir(tmp, 0777) && errno != EEXIST) {
-        perror("Error creating directory");
+        fprintf(stderr, "Error creating directory %s: %s\n", tmp, strerror(errno));
         return -1;
     }
     return 0;
+}
+
+void generateTile(Generator *g, uint64_t seed, int tileX, int tileZ, int tileSize, const char *outputDir) {
+    setupGenerator(g, MC_1_18, LARGE_BIOMES);
+    applySeed(g, DIM_OVERWORLD, seed);
+
+    Range r;
+    r.scale = 4;
+    r.x = tileX * chunk_size; // Multiply by chunk size to get correct position in blocks
+    r.z = tileZ * chunk_size;
+    r.sx = tileSize * chunk_size;
+    r.sz = tileSize * chunk_size;
+    r.y = 15;
+    r.sy = 1;
+
+    int *biomeIds = allocCache(g, r);
+    genBiomes(g, biomeIds, r);
+
+    int pix4cell = 4;
+    int imgWidth = pix4cell * r.sx;
+    int imgHeight = pix4cell * r.sz;
+
+    unsigned char biomeColors[256][3];
+    initBiomeColors(biomeColors);
+
+    unsigned char *rgb = (unsigned char *)malloc(3 * imgWidth * imgHeight);
+    if (rgb == NULL) {
+        fprintf(stderr, "Error allocating memory for image\n");
+        free(biomeIds);
+        return;
+    }
+
+    biomesToImage(rgb, biomeColors, biomeIds, r.sx, r.sz, pix4cell, 2);
+
+    char seedDir[2048];
+    snprintf(seedDir, sizeof(seedDir), "%s/%lu", outputDir, seed);
+
+    if (createDir(seedDir) != 0) {
+        free(biomeIds);
+        free(rgb);
+        return;
+    }
+
+    char outputFile[4096];
+    snprintf(outputFile, sizeof(outputFile), "%s/%d_%d.png", seedDir, tileX, tileZ);
+
+    if (savePNG(outputFile, rgb, imgWidth, imgHeight) != 0) {
+        fprintf(stderr, "Error saving image file for tile %d_%d\n", tileX, tileZ);
+    } else {
+        printf("Tile map generated and saved to %s\n", outputFile);
+    }
+
+    free(biomeIds);
+    free(rgb);
 }
 
 int main(int argc, char *argv[]) {
@@ -36,77 +94,29 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Parse the seed argument
     uint64_t seed = strtoull(argv[1], NULL, 10);
+    
+    // Default values based on viewport and chunk size
+    int tileSize = 1; // Represents one chunk (16x16 blocks)
+    int tilesX = (viewport_width + chunk_size - 1) / chunk_size; // Number of tiles in X direction
+    int tilesZ = (viewport_height + chunk_size - 1) / chunk_size; // Number of tiles in Z direction
 
-    // Set up the biome generator for Minecraft 1.18 with LARGE_BIOMES setting
-    Generator g;
-    setupGenerator(&g, MC_1_18, LARGE_BIOMES);
+    // Create output directory based on seed
+    char outputDir[2048];
+    // snprintf(outputDir, sizeof(outputDir), "/var/www/storage/app/public/tiles");
+    snprintf(outputDir, sizeof(outputDir), "/var/www/gme-backend/storage/app/public/tiles");
 
-    // Apply the specified seed to the generator
-    applySeed(&g, DIM_OVERWORLD, seed);
-
-    // Define the number of chunks to generate
-    int viewportWidth = 320; // Viewport width in blocks
-    int viewportHeight = 420; // Viewport height in blocks
-    int chunkSize = 16; // Size of a chunk in blocks
-
-    int chunksX = (viewportWidth + chunkSize - 1) / chunkSize; // Number of chunks in the X direction
-    int chunksZ = (viewportHeight + chunkSize - 1) / chunkSize; // Number of chunks in the Z direction
-
-    // Define the output directory relative to the container's working directory
-    const char *dirUrl = "/var/www/storage/app/public/images/seeds"; // Local file path
-
-    // Ensure the directory exists
-    if (createDir(dirUrl) != 0) {
+    if (createDir(outputDir) != 0) {
         return 1;
     }
 
-    // Initialize colors for biomes
-    unsigned char biomeColors[256][3];
-    initBiomeColors(biomeColors);
+    Generator g;
+    setupGenerator(&g, MC_1_18, LARGE_BIOMES);
 
-    // Parameters for image generation
-    int pix4cell = 4; // Pixels per cell
-
-    for (int cx = 0; cx < chunksX; cx++) {
-        for (int cz = 0; cz < chunksZ; cz++) {
-            // Predefined range for generating biomes
-            Range r;
-            r.scale = 4; // Scale for biome coordinates, this should match Minecraft's large biome scale
-            r.x = (cx * chunkSize) / r.scale; // Starting X coordinate
-            r.z = (cz * chunkSize) / r.scale; // Starting Z coordinate
-            r.sx = chunkSize / r.scale; // Size of the area to generate in the X direction
-            r.sz = chunkSize / r.scale; // Size of the area to generate in the Z direction
-
-            // Allocate memory for storing biome IDs
-            int *biomeIds = allocCache(&g, r);
-            genBiomes(&g, biomeIds, r);
-
-            // Calculate image dimensions
-            int imgWidth = pix4cell * r.sx;
-            int imgHeight = pix4cell * r.sz;
-
-            // Allocate memory for the image
-            unsigned char *rgb = (unsigned char *)malloc(3 * imgWidth * imgHeight);
-
-            // Convert biomes to image
-            biomesToImage(rgb, biomeColors, biomeIds, r.sx, r.sz, pix4cell, 2);
-
-            // Save the image to file
-            char outputFile[512];
-            snprintf(outputFile, sizeof(outputFile), "%s/biome_map_chunk_%d_%d.png", dirUrl, cx, cz);
-            if (stbi_write_png(outputFile, imgWidth, imgHeight, 3, rgb, 3 * imgWidth) == 0) {
-                fprintf(stderr, "Error saving image to %s\n", outputFile);
-                free(rgb);
-                free(biomeIds);
-                return 1;
-            }
-
-            free(rgb);
-            free(biomeIds);
-
-            printf("Chunk (%d, %d) generated and saved to %s\n", cx, cz, outputFile);
+    // Generate all tiles necessary to cover the viewport
+    for (int x = 0; x < tilesX; ++x) {
+        for (int z = 0; z < tilesZ; ++z) {
+            generateTile(&g, seed, x, z, tileSize, outputDir);
         }
     }
 
