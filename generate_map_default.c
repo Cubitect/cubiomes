@@ -10,17 +10,13 @@
 #include <errno.h>
 #include <string.h>
 
-const int chunk_size = 64; // Minecraft chunk size (16x16 blocks)
-
-// Function to determine tile size based on zoom level
-int getTileSize(int zoomLevel) {
-    return chunk_size << zoomLevel; // Tile size increases exponentially with zoom level
-}
+const int tileSize = 32; // Fixed tile size (32x32 blocks)
+const int numTiles = 100; // Number of tiles to generate
 
 // Function to calculate the number of tiles needed based on viewport size and tile size
-void calculateTileDimensions(int viewportWidth, int viewportHeight, int tileSize, int *tilesX, int *tilesZ) {
+void calculateTileDimensions(int viewportWidth, int viewportHeight, int tileSize, int *tilesX, int *tilesY) {
     *tilesX = (viewportWidth + tileSize - 1) / tileSize; // Number of tiles in X direction
-    *tilesZ = (viewportHeight + tileSize - 1) / tileSize; // Number of tiles in Z direction
+    *tilesY = (viewportHeight + tileSize - 1) / tileSize; // Number of tiles in Y direction
 }
 
 int createDir(const char *path) {
@@ -58,15 +54,14 @@ int createDir(const char *path) {
     return 0;
 }
 
-
-void generateTile(Generator *g, uint64_t seed, int tileX, int tileY, int tileSize, int viewportWidth, int viewportHeight, const char *outputDir, int zoomLevel) {
+void generateTile(Generator *g, uint64_t seed, int tileX, int tileY, int tileSize, const char *outputDir) {
     setupGenerator(g, MC_1_18, LARGE_BIOMES);
     applySeed(g, DIM_OVERWORLD, seed);
 
     Range r;
     r.scale = 4;
-    r.x = (tileX - viewportWidth / 2) * tileSize; // Adjust for centering
-    r.z = (tileY - viewportHeight / 2) * tileSize; // Adjust for centering
+    r.x = tileX * tileSize; // Position of the tile in the world
+    r.z = tileY * tileSize; // Position of the tile in the world
     r.sx = tileSize; // Width of the tile in blocks
     r.sz = tileSize; // Height of the tile in blocks
     r.y = 15; // Height is not relevant in 2D maps; you might set it to a constant or ignore
@@ -91,22 +86,9 @@ void generateTile(Generator *g, uint64_t seed, int tileX, int tileY, int tileSiz
 
     biomesToImage(rgb, biomeColors, biomeIds, r.sx, r.sz, pix4cell, 2);
 
-    // Construct the directory path including zoom level
-    char zoomDir[2048];
-    snprintf(zoomDir, sizeof(zoomDir), "%s/%lu/%d", outputDir, seed, zoomLevel);
-
-    printf("Creating directory: %s\n", zoomDir);
-
-    // Create the directory if it does not exist
-    if (createDir(zoomDir) != 0) {
-        free(biomeIds);
-        free(rgb);
-        return;
-    }
-
-    // Construct the final directory path for the tile
+    // Construct the directory path
     char tileDir[4096];
-    snprintf(tileDir, sizeof(tileDir), "%s/%d", zoomDir, tileX);
+    snprintf(tileDir, sizeof(tileDir), "%s/%lu", outputDir, seed);
 
     printf("Creating tile directory: %s\n", tileDir);
 
@@ -117,14 +99,14 @@ void generateTile(Generator *g, uint64_t seed, int tileX, int tileY, int tileSiz
         return;
     }
 
-    // Construct the output file path with the new format
+    // Construct the output file path
     char outputFile[8096];
-    snprintf(outputFile, sizeof(outputFile), "%s/%d.png", tileDir, tileY);
+    snprintf(outputFile, sizeof(outputFile), "%s/%d_%d.png", tileDir, tileX, tileY);
 
     printf("Saving file to: %s\n", outputFile);
 
     if (savePNG(outputFile, rgb, imgWidth, imgHeight) != 0) {
-        fprintf(stderr, "Error saving image file for tile %d_%d at zoom level %d\n", tileX, tileY, zoomLevel);
+        fprintf(stderr, "Error saving image file for tile %d_%d\n", tileX, tileY);
     } else {
         printf("Tile map generated and saved to %s\n", outputFile);
     }
@@ -133,45 +115,40 @@ void generateTile(Generator *g, uint64_t seed, int tileX, int tileY, int tileSiz
     free(rgb);
 }
 
+void generateTiles(uint64_t seed, const char *outputDir) {
+    Generator g;
+    setupGenerator(&g, MC_1_18, LARGE_BIOMES);
+
+    // Example coordinates for generating tiles in all four quadrants
+    int startX = -5; // Start generating from -5 to 5 (example)
+    int startY = -5; // Start generating from -5 to 5 (example)
+    int tileCount = 0;
+
+    for (int x = startX; x <= 5 && tileCount < numTiles; ++x) {
+        for (int y = startY; y <= 5 && tileCount < numTiles; ++y) {
+            generateTile(&g, seed, x, y, tileSize, outputDir);
+            tileCount++;
+        }
+    }
+}
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s <seed> <zoom_level>\n", argv[0]);
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <seed>\n", argv[0]);
         return 1;
     }
 
     uint64_t seed = strtoull(argv[1], NULL, 10);
-    int zoomLevel = atoi(argv[2]);
-
-    if (zoomLevel < 0) {
-        fprintf(stderr, "Zoom level must be non-negative\n");
-        return 1;
-    }
-
-    int tileSize = getTileSize(zoomLevel);
-
-    const int viewportWidth = 1920;
-    const int viewportHeight = 1240;
-
-    int tilesX, tilesZ;
-    calculateTileDimensions(viewportWidth, viewportHeight, tileSize, &tilesX, &tilesZ);
 
     char outputDir[2048];
-    // snprintf(outputDir, sizeof(outputDir), "/var/www/gme-backend/storage/app/public/tiles"); //local
-    snprintf(outputDir, sizeof(outputDir), "/var/www/gme-backend/storage/app/public/tiles"); //development
+    // snprintf(outputDir, sizeof(outputDir), "/var/www/storage/app/public/tiles");
+    snprintf(outputDir, sizeof(outputDir), "/var/www/storage/app/public/tiles");
 
     if (createDir(outputDir) != 0) {
         return 1;
     }
 
-    Generator g;
-    setupGenerator(&g, MC_1_18, LARGE_BIOMES);
-
-    for (int x = -tilesX / 2; x <= tilesX / 2; ++x) {
-        for (int z = -tilesZ / 2; z <= tilesZ / 2; ++z) {
-            generateTile(&g, seed, x, z, tileSize, viewportWidth, viewportHeight, outputDir, zoomLevel);
-        }
-    }
+    generateTiles(seed, outputDir);
 
     return 0;
 }
