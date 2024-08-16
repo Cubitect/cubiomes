@@ -141,7 +141,8 @@ int main(int argc, char *argv[]) {
     uint64_t seed = strtoull(argv[1], NULL, 10);
 
     char outputDir[2048];
-    snprintf(outputDir, sizeof(outputDir), "/var/www/storage/app/public/tiles");
+    // snprintf(outputDir, sizeof(outputDir), "/var/www/storage/app/public/tiles");
+    snprintf(outputDir, sizeof(outputDir), "/var/www/storage/gme-backend/app/public/tiles");
 
     if (createDir(outputDir) != 0) {
         return 1;
