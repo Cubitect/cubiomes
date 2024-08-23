@@ -10,21 +10,13 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
-
-const int base_tile_size = 128;
-const int min_tile_size = 128;
+#include <pthread.h>
 
 int totalTiles = 0;
 int completedTiles = 0;
 time_t startTime;
 
-int getTileSize(int zoomLevel) {
-    int tileSize = base_tile_size >> zoomLevel;
-    if (tileSize < min_tile_size) {
-        return min_tile_size;
-    }
-    return tileSize;
-}
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int createDir(const char *path) {
     char tmp[2048];
@@ -57,12 +49,12 @@ int createDir(const char *path) {
     return 0;
 }
 
-void generateTile(Generator *g, uint64_t seed, int tileX, int tileY, int tileSize, const char *outputDir, int zoomLevel) {
+void generateTile(Generator *g, uint64_t seed, int tileX, int tileY, int tileSize, const char *outputDir, int zoomLevel, int scale) {
     setupGenerator(g, MC_1_18, LARGE_BIOMES);
     applySeed(g, DIM_OVERWORLD, seed);
 
     Range r;
-    r.scale = 21;
+    r.scale = scale;
     r.x = tileX * tileSize;
     r.z = tileY * tileSize;
     r.sx = tileSize;
@@ -113,6 +105,7 @@ void generateTile(Generator *g, uint64_t seed, int tileX, int tileY, int tileSiz
     if (savePNG(outputFile, rgb, imgWidth, imgHeight) != 0) {
         fprintf(stderr, "Error saving image file for tile %d_%d at zoom level %d\n", tileX, tileY, zoomLevel);
     } else {
+        pthread_mutex_lock(&mutex);
         completedTiles++;
         printf("Tile %d of %d generated and saved to %s\n", completedTiles, totalTiles, outputFile);
 
@@ -122,58 +115,53 @@ void generateTile(Generator *g, uint64_t seed, int tileX, int tileY, int tileSiz
         double timeRemaining = estimatedTotalTime - elapsedSeconds;
 
         printf("Estimated time remaining: %.2f seconds\n", timeRemaining);
+        pthread_mutex_unlock(&mutex);
     }
 
     free(biomeIds);
     free(rgb);
 }
 
-int main(int argc, char *argv[]) {
-    if (argc != 4) {
-        fprintf(stderr, "Usage: %s <seed> <zoom_level> <tile_count>\n", argv[0]);
-        return 1;
-    }
+typedef struct {
+    uint64_t seed;
+    const char *outputDir;
+    int zoomLevel;
+    int scale;
+    int base_tile_size;
+    int tile_count;
+} ZoomLevelParams;
 
-    uint64_t seed = strtoull(argv[1], NULL, 10);
-    int zoomLevel = atoi(argv[2]);
-    int tileCount = atoi(argv[3]);
+void *generateTilesForZoomLevel(void *arg) {
+    ZoomLevelParams *params = (ZoomLevelParams *)arg;
+    int zoomLevel = params->zoomLevel;
+    int scale = params->scale;
+    int base_tile_size = params->base_tile_size;
+    int tile_count = params->tile_count;
+    uint64_t seed = params->seed;
+    const char *outputDir = params->outputDir;
 
-    if (zoomLevel < 0) {
-        fprintf(stderr, "Zoom level must be non-negative\n");
-        return 1;
-    }
+    int tileSize = base_tile_size;
 
-    int tileSize = getTileSize(zoomLevel);
-
-    totalTiles = tileCount * tileCount;
-    printf("Total tiles to be generated: %d\n", totalTiles);
-
-    startTime = time(NULL);
-
-    char outputDir[2048];
-    snprintf(outputDir, sizeof(outputDir), "/var/www/gme-backend/storage/app/public/tiles");
-
-    if (createDir(outputDir) != 0) {
-        return 1;
-    }
+    printf("Generating tiles for zoom level %d with tile size %d, scale %d, and tile count %d\n", zoomLevel, tileSize, scale, tile_count);
 
     Generator g;
     setupGenerator(&g, MC_1_18, LARGE_BIOMES);
 
     // Initialize spiral parameters
-    int x = tileCount;  // Start at specified tileCount as the starting X coordinate
-    int y = tileCount;  // Start at specified tileCount as the starting Y coordinate
+    int centerX = tile_count / 2;
+    int centerY = tile_count / 2;
+    int x = centerX;
+    int y = centerY;
     int dx = 0;
     int dy = -1;
-    int maxIters = tileCount * tileCount;
     int segmentLength = 1;
     int segmentPassed = 0;
-    int segmentsToPass = 1;
     int turnsMade = 0;
 
-    for (int i = 0; i < maxIters; ++i) {
-        if (x >= 0 && x < totalTiles && y >= 0 && y < totalTiles) {
-            generateTile(&g, seed, x, y, tileSize, outputDir, zoomLevel);
+    for (int i = 0; i < (2 * centerX + 1) * (2 * centerY + 1); ++i) {
+        // Generate the tile only if within the defined range
+        if (x >= 0 && x < tile_count && y >= 0 && y < tile_count) {
+            generateTile(&g, seed, x, y, tileSize, outputDir, zoomLevel, scale);
         }
 
         // Move to the next point in the spiral
@@ -181,7 +169,7 @@ int main(int argc, char *argv[]) {
         y += dy;
         segmentPassed++;
 
-        if (segmentPassed == segmentsToPass) {
+        if (segmentPassed == segmentLength) {
             // Change direction
             int temp = dx;
             dx = -dy;
@@ -191,10 +179,63 @@ int main(int argc, char *argv[]) {
             turnsMade++;
 
             if (turnsMade % 2 == 0) {
-                segmentsToPass++;
+                segmentLength++;
             }
         }
     }
+
+    pthread_exit(NULL);
+}
+
+void generateTilesForZoomLevels(uint64_t seed, const char *outputDir) {
+    // Array of zoom level parameters
+    ZoomLevelParams zoomLevels[] = {
+        {seed, outputDir, 4, 48, 128, 16},
+        {seed, outputDir, 3, 96, 256, 8},
+        {seed, outputDir, 5, 24, 128, 32},
+        {seed, outputDir, 6, 12, 64, 32},
+        {seed, outputDir, 7, 6, 32, 64}
+    };
+
+    int numZoomLevels = sizeof(zoomLevels) / sizeof(zoomLevels[0]);
+
+    totalTiles = 0;
+    for (int i = 0; i < numZoomLevels; i++) {
+        totalTiles += zoomLevels[i].tile_count * zoomLevels[i].tile_count;
+    }
+
+    pthread_t threads[numZoomLevels];
+    for (int i = 0; i < numZoomLevels; i++) {
+        if (pthread_create(&threads[i], NULL, generateTilesForZoomLevel, (void *)&zoomLevels[i]) != 0) {
+            fprintf(stderr, "Error creating thread for zoom level %d\n", zoomLevels[i].zoomLevel);
+        }
+    }
+
+    for (int i = 0; i < numZoomLevels; i++) {
+        pthread_join(threads[i], NULL);
+    }
+}
+
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <seed>\n", argv[0]);
+        return 1;
+    }
+
+    uint64_t seed = strtoull(argv[1], NULL, 10);
+
+    printf("Starting tile generation for seed: %lu\n", seed);
+
+    startTime = time(NULL);
+
+    char outputDir[2048];
+    snprintf(outputDir, sizeof(outputDir), "/var/www/storage/app/public/tiles");
+
+    if (createDir(outputDir) != 0) {
+        return 1;
+    }
+
+    generateTilesForZoomLevels(seed, outputDir);
 
     time_t endTime = time(NULL);
     double totalTime = difftime(endTime, startTime);
