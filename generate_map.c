@@ -62,7 +62,7 @@ void generateTile(Generator *g, uint64_t seed, int tileX, int tileY, int tileSiz
     applySeed(g, DIM_OVERWORLD, seed);
 
     Range r;
-    r.scale = 24;
+    r.scale = 21;
     r.x = tileX * tileSize;
     r.z = tileY * tileSize;
     r.sx = tileSize;
