@@ -11,8 +11,8 @@
 #include <string.h>
 #include <time.h>
 
-const int base_tile_size = 16;
-const int min_tile_size = 16;
+const int base_tile_size = 128;
+const int min_tile_size = 128;
 
 int totalTiles = 0;
 int completedTiles = 0;
@@ -62,7 +62,7 @@ void generateTile(Generator *g, uint64_t seed, int tileX, int tileY, int tileSiz
     applySeed(g, DIM_OVERWORLD, seed);
 
     Range r;
-    r.scale = 4;
+    r.scale = 24;
     r.x = tileX * tileSize;
     r.z = tileY * tileSize;
     r.sx = tileSize;
@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
     startTime = time(NULL);
 
     char outputDir[2048];
-    snprintf(outputDir, sizeof(outputDir), "/var/www/gme-backend/storage/app/public/tiles");
+    snprintf(outputDir, sizeof(outputDir), "/var/www/storage/app/public/tiles");
 
     if (createDir(outputDir) != 0) {
         return 1;
