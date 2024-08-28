@@ -190,11 +190,10 @@ void *generateTilesForZoomLevel(void *arg) {
 void generateTilesForZoomLevels(uint64_t seed, const char *outputDir) {
     // Array of zoom level parameters
     ZoomLevelParams zoomLevels[] = {
+        {seed, outputDir, 3, 96, 128, 8},
         {seed, outputDir, 4, 48, 128, 16},
-        {seed, outputDir, 3, 96, 256, 8},
         {seed, outputDir, 5, 24, 128, 32},
-        {seed, outputDir, 6, 12, 64, 32},
-        {seed, outputDir, 7, 6, 32, 64}
+        {seed, outputDir, 6, 12, 128, 32},
     };
 
     int numZoomLevels = sizeof(zoomLevels) / sizeof(zoomLevels[0]);
