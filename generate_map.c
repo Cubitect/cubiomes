@@ -17,25 +17,12 @@ time_t startTime;
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-// Define a cache structure for biomes
-typedef struct {
-    uint64_t seed;
-    int tileX;
-    int tileY;
-    int tileSize;
-    int scale;
-    int *biomeIds;
-} TileCache;
-
-#define MAX_CACHE_SIZE 10000
-TileCache tileCache[MAX_CACHE_SIZE];
-int cacheIndex = 0;
-
 int createDir(const char *path) {
     char tmp[2048];
     char *p = tmp;
     snprintf(tmp, sizeof(tmp), "%s", path);
 
+    // Handle absolute and relative paths consistently
     if (tmp[0] == '/') {
         p = tmp + 1;
     } else {
@@ -45,6 +32,7 @@ int createDir(const char *path) {
     for (; *p; p++) {
         if (*p == '/') {
             *p = '\0';
+            // Create the directory if it doesn't exist
             if (mkdir(tmp, 0777) && errno != EEXIST) {
                 fprintf(stderr, "Error creating directory %s: %s\n", tmp, strerror(errno));
                 return -1;
@@ -53,6 +41,7 @@ int createDir(const char *path) {
         }
     }
 
+    // Final directory creation
     if (mkdir(tmp, 0777) && errno != EEXIST) {
         fprintf(stderr, "Error creating directory %s: %s\n", tmp, strerror(errno));
         return -1;
@@ -61,40 +50,6 @@ int createDir(const char *path) {
     return 0;
 }
 
-int *getBiomesFromCache(uint64_t seed, int tileX, int tileY, int tileSize, int scale) {
-    for (int i = 0; i < cacheIndex; i++) {
-        if (tileCache[i].seed == seed && tileCache[i].tileX == tileX &&
-            tileCache[i].tileY == tileY && tileCache[i].tileSize == tileSize &&
-            tileCache[i].scale == scale) {
-            return tileCache[i].biomeIds;
-        }
-    }
-    return NULL;
-}
-
-void addBiomesToCache(uint64_t seed, int tileX, int tileY, int tileSize, int scale, int *biomeIds) {
-    if (cacheIndex < MAX_CACHE_SIZE) {
-        tileCache[cacheIndex].seed = seed;
-        tileCache[cacheIndex].tileX = tileX;
-        tileCache[cacheIndex].tileY = tileY;
-        tileCache[cacheIndex].tileSize = tileSize;
-        tileCache[cacheIndex].scale = scale;
-        tileCache[cacheIndex].biomeIds = biomeIds;
-        cacheIndex++;
-    } else {
-        // Optionally, implement a cache eviction strategy here
-        free(tileCache[0].biomeIds);
-        for (int i = 1; i < MAX_CACHE_SIZE; i++) {
-            tileCache[i - 1] = tileCache[i];
-        }
-        tileCache[MAX_CACHE_SIZE - 1].seed = seed;
-        tileCache[MAX_CACHE_SIZE - 1].tileX = tileX;
-        tileCache[MAX_CACHE_SIZE - 1].tileY = tileY;
-        tileCache[MAX_CACHE_SIZE - 1].tileSize = tileSize;
-        tileCache[MAX_CACHE_SIZE - 1].scale = scale;
-        tileCache[MAX_CACHE_SIZE - 1].biomeIds = biomeIds;
-    }
-}
 
 void generateTile(Generator *g, uint64_t seed, int tileX, int tileY, int tileSize, const char *outputDir, int zoomLevel, int scale) {
     setupGenerator(g, MC_1_18, LARGE_BIOMES);
@@ -110,16 +65,13 @@ void generateTile(Generator *g, uint64_t seed, int tileX, int tileY, int tileSiz
         .sy = 1
     };
 
-    int *biomeIds = getBiomesFromCache(seed, tileX, tileY, tileSize, scale);
+    int *biomeIds = allocCache(g, r);
     if (!biomeIds) {
-        biomeIds = allocCache(g, r);
-        if (!biomeIds) {
-            fprintf(stderr, "Error allocating memory for biomes\n");
-            return;
-        }
-        genBiomes(g, biomeIds, r);
-        addBiomesToCache(seed, tileX, tileY, tileSize, scale, biomeIds);
+        fprintf(stderr, "Error allocating memory for biomes\n");
+        return;
     }
+
+    genBiomes(g, biomeIds, r);
 
     int pix4cell = 4;
     int imgWidth = pix4cell * r.sx;
@@ -128,6 +80,7 @@ void generateTile(Generator *g, uint64_t seed, int tileX, int tileY, int tileSiz
     unsigned char *rgb = (unsigned char *)malloc(3 * imgWidth * imgHeight);
     if (!rgb) {
         fprintf(stderr, "Error allocating memory for image\n");
+        free(biomeIds);
         return;
     }
 
@@ -152,8 +105,8 @@ void generateTile(Generator *g, uint64_t seed, int tileX, int tileY, int tileSiz
         pthread_mutex_unlock(&mutex);
     }
 
+    free(biomeIds);
     free(rgb);
-    // Note: Do not free biomeIds here, as it is managed in the cache
 }
 
 typedef struct {
@@ -170,6 +123,7 @@ void *generateTilesForZoomLevel(void *arg) {
     int tileSize = params->base_tile_size;
     Generator g;
 
+    // Initialize spiral parameters
     int x = params->tile_count / 2;
     int y = x;
     int dx = 0, dy = -1;
@@ -182,6 +136,7 @@ void *generateTilesForZoomLevel(void *arg) {
             generateTile(&g, params->seed, x, y, tileSize, params->outputDir, params->zoomLevel, params->scale);
         }
 
+        // Spiral logic
         x += dx;
         y += dy;
         segmentPassed++;
