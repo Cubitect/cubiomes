@@ -1,4 +1,5 @@
 #include "finders.h"
+#include "biomes.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -102,7 +103,7 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
     s_end_gateway_116       = {    40013,  1,  1, End_Gateway,      STRUCT_END|STRUCT_CHUNK, 700},
     s_end_gateway_117       = {    40013,  1,  1, End_Gateway,      STRUCT_END|STRUCT_CHUNK, 1.f/700},
     s_end_gateway           = {    40000,  1,  1, End_Gateway,      STRUCT_END|STRUCT_CHUNK, 1.f/700},
-    s_end_island_115        = {        0,  1,  1, End_Island,       STRUCT_END|STRUCT_CHUNK, 14},
+    s_end_island_116        = {        0,  1,  1, End_Island,       STRUCT_END|STRUCT_CHUNK, 14},
     s_end_island            = {        0,  1,  1, End_Island,       STRUCT_END|STRUCT_CHUNK, 1.f/14}
     ;
 
@@ -174,7 +175,7 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
         // the block filling, making them much more difficult to predict
         return mc >= MC_1_13;
     case End_Island:
-        if      (mc <= MC_1_15) *sconf = s_end_island_115;
+        if      (mc <= MC_1_16) *sconf = s_end_island_116;
         else                    *sconf = s_end_island;
         return mc >= MC_1_13; // we only support decorator features for 1.13+
     case Desert_Well:
@@ -385,7 +386,249 @@ int getMineshafts(int mc, uint64_t seed, int cx0, int cz0, int cx1, int cz1,
     return n;
 }
 
+int getEndIslands(EndIsland islands[2], int mc, uint64_t seed, int chunkX, int chunkZ)
+{
+    StructureConfig sconf;
+    if (!getStructureConfig(End_Island, mc, &sconf))
+        return 0;
 
+    int x = chunkX * 16;
+    int z = chunkZ * 16;
+    uint64_t rng = getPopulationSeed(mc, seed, x, z);
+    Xoroshiro xr;
+    float r;
+
+    if (mc <= MC_1_16)
+    {
+        setSeed(&rng, rng + sconf.salt);
+        if (nextInt(&rng, (int)sconf.rarity) != 0)
+            return 0;
+        islands[0].x = nextInt(&rng, 16) + x;
+        islands[0].y = nextInt(&rng, 16) + 55;
+        islands[0].z = nextInt(&rng, 16) + z;
+        if (nextInt(&rng, 4) != 0)
+        {
+            islands[0].r = nextInt(&rng, 3) + 4;
+            return 1;
+        }
+        islands[1].x = nextInt(&rng, 16) + x;
+        islands[1].y = nextInt(&rng, 16) + 55;
+        islands[1].z = nextInt(&rng, 16) + z;
+        islands[0].r = nextInt(&rng, 3) + 4;
+        for (r = islands[0].r; r > 0.5; r -= nextInt(&rng, 2) + 0.5);
+        islands[1].r = nextInt(&rng, 3) + 4;
+        return 2;
+    }
+    else if (mc <= MC_1_17)
+    {
+        setSeed(&rng, rng + sconf.salt);
+        if (nextFloat(&rng) >= sconf.rarity)
+            return 0;
+        int second = nextInt(&rng, 4) == 0;
+        islands[0].x = nextInt(&rng, 16) + x;
+        islands[0].z = nextInt(&rng, 16) + z;
+        islands[0].y = nextInt(&rng, 16) + 55;
+        islands[0].r = nextInt(&rng, 3) + 4;
+        for (r = islands[0].r; r > 0.5; r -= nextInt(&rng, 2) + 0.5);
+        if (!second)
+            return 1;
+        islands[1].x = nextInt(&rng, 16) + x;
+        islands[1].z = nextInt(&rng, 16) + z;
+        islands[1].y = nextInt(&rng, 16) + 55;
+        islands[1].r = nextInt(&rng, 3) + 4;
+        return 2;
+    }
+    else
+    {
+        xSetSeed(&xr, rng + sconf.salt);
+        if (xNextFloat(&xr) >= sconf.rarity)
+            return 0;
+        int second = (xNextIntJ(&xr, 4) == 3);
+        islands[0].x = xNextIntJ(&xr, 16) + x;
+        islands[0].z = xNextIntJ(&xr, 16) + z;
+        islands[0].y = xNextIntJ(&xr, 16) + 55;
+        islands[0].r = xNextIntJ(&xr, 3) + 4;
+        if (!second)
+            return 1;
+        for (r = islands[0].r; r > 0.5; r -= xNextIntJ(&xr, 2) + 0.5);
+        islands[1].x = xNextIntJ(&xr, 16) + x;
+        islands[1].z = xNextIntJ(&xr, 16) + z;
+        islands[1].y = xNextIntJ(&xr, 16) + 55;
+        islands[1].r = xNextIntJ(&xr, 3) + 4;
+        return 2;
+    }
+}
+
+static void applyEndIslandHeight(float *y, const EndIsland *island,
+    int x, int z, int w, int h, int scale)
+{
+    int r = island->r;
+    int r2 = (r + 1) * (r + 1);
+    int x0 = floordiv(island->x - r, scale);
+    int z0 = floordiv(island->z - r, scale);
+    int x1 = floordiv(island->x + r, scale);
+    int z1 = floordiv(island->z + r, scale);
+    int ds = 0;
+    int i, j;
+    for (j = z0; j <= z1; j++)
+    {
+        if (j < z || j >= z+h)
+            continue;
+        int dz = j * scale - island->z + ds;
+        for (i = x0; i <= x1; i++)
+        {
+            if (i < x || i >= x+w)
+                continue;
+            int dx = i * scale - island->x + ds;
+            if (dx*dx + dz*dz > r2)
+                continue;
+            int idx = (j - z) * w + (i - x);
+            if (y[idx] < island->y)
+                y[idx] = island->y;
+        }
+    }
+}
+
+int mapEndIslandHeight(float *y, const EndNoise *en, uint64_t seed,
+    int x, int z, int w, int h, int scale)
+{
+    int rmax = (6 + scale - 1) / scale;
+    int cx = floordiv(x - rmax, 16 / scale);
+    int cz = floordiv(z - rmax, 16 / scale);
+    int cw = floordiv(x + w + rmax, 16 / scale) - cx + 1;
+    int ch = floordiv(z + h + rmax, 16 / scale) - cz + 1;
+    int ci, cj;
+
+    int *ids = (int*) malloc(sizeof(int) * cw * ch);
+    mapEndBiome(en, ids, cx, cz, cw, ch);
+
+    for (cj = 0; cj < ch; cj++)
+    {
+        for (ci = 0; ci < cw; ci++)
+        {
+            if (ids[cj*cw + ci] != small_end_islands)
+                continue;
+            EndIsland islands[2];
+            int n = getEndIslands(islands, en->mc, seed, cx+ci, cz+cj);
+            while (n --> 0)
+                applyEndIslandHeight(y, islands+n, x, z, w, h, scale);
+        }
+    }
+
+    free(ids);
+    return 0;
+}
+
+float getEndHeightNoise(const EndNoise *en, int x, int z, int range);
+
+int isEndChunkEmpty(const EndNoise *en, const SurfaceNoise *sn, uint64_t seed,
+    int chunkX, int chunkZ)
+{
+    int i, j, k;
+    int x = chunkX * 2;
+    int z = chunkZ * 2;
+    double depth[3][3];
+    float y[256];
+
+    // check if small end islands intersect this chunk
+    for (j = -1; j <= +1; j++)
+    {
+        for (i = -1; i <= +1; i++)
+        {
+            EndIsland is[2];
+            int n = getEndIslands(is, en->mc, seed, chunkX+i, chunkZ+j);
+            while (n --> 0)
+            {
+                if (is[n].x + is[n].r <= chunkX*16) continue;
+                if (is[n].z + is[n].r <= chunkZ*16) continue;
+                if (is[n].x - is[n].r > chunkX*16 + 15) continue;
+                if (is[n].z - is[n].r > chunkZ*16 + 15) continue;
+                int id;
+                mapEndBiome(en, &id, is[n].x >> 4, is[n].z >> 4, 1, 1);
+                if (id == small_end_islands)
+                    return 0;
+            }
+        }
+    }
+
+    // clamped (32 + 46 - y) / 64.0
+    static const double upper_drop[] = {
+           1.0,    1.0,    1.0,    1.0,    1.0,    1.0,    1.0,    1.0, // 0-7
+           1.0,    1.0,    1.0,    1.0,    1.0,    1.0,    1.0, 63./64, // 8-15
+        62./64, 61./64, 60./64, 59./64, 58./64, 57./64, 56./64, 55./64, // 16-23
+        54./64, 53./64, 52./64, 51./64, 50./64, 49./64, 48./64, 47./64, // 24-31
+        46./64 // 32
+    };
+    // clamped (y - 1) / 7.0
+    static const double lower_drop[] = {
+          0.0,  0.0, 1./7, 2./7, 3./7, 4./7, 5./7, 6./7, // 0-7
+          1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0, // 8-15
+          1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0, // 16-23
+          1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0,  1.0, // 24-31
+          1.0, // 32
+    };
+    // inverse of clamping func: ( 30 * (1-l) / l + 3000 * (1-u) ) / u
+    static const double inverse_drop[] = {
+        1e9, 1e9, 180.0, 75.0, 40.0, 22.5, 12.0, 5.0, // 0-7
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, // 8-14
+        1000./21, 3000./31, 9000./61, 200.0, // 15-18
+    };
+    const double eps = 0.001;
+
+    // get the inner depth values and see if they imply blocks in the chunk
+    for (i = 0; i < 2; i++)
+    {
+        for (j = 0; j < 2; j++)
+        {
+            depth[i][j] = getEndHeightNoise(en, x+i, z+j, 0) - 8.0f;
+            for (k = 8; k <= 14; k++)
+            {
+                double u = upper_drop[k];
+                double l = lower_drop[k];
+                double noise = depth[i][j];
+                double pivot = inverse_drop[k] - noise;
+                noise += sampleSurfaceNoiseBetween(sn, x+i, k, z+j, pivot-eps, pivot+eps);
+                noise = lerp(u, -3000, noise);
+                noise = lerp(l, -30, noise);
+                if (noise > 0)
+                    return 0;
+            }
+        }
+    }
+
+    // fill in the depth values at the boundaries to neighbouring chunks
+    for (i = 0; i < 3; i++)
+        depth[i][2] = getEndHeightNoise(en, x+i, z+2, 0) - 8.0f;
+    for (j = 0; j < 2; j++)
+        depth[2][j] = getEndHeightNoise(en, x+2, z+j, 0) - 8.0f;
+
+    // see if none of the noise values can generate blocks
+    for (i = 0; i < 3; i++)
+    {
+        for (j = 0; j < 3; j++)
+        {
+            for (k = 2; k < 18; k++)
+            {
+                double u = upper_drop[k];
+                double l = lower_drop[k];
+                double noise = depth[i][j];
+                double pivot = inverse_drop[k] - noise;
+                noise += sampleSurfaceNoiseBetween(sn, x+i, k, z+j, pivot-eps, pivot+eps);
+                noise = lerp(u, -3000, noise);
+                noise = lerp(l, -30, noise);
+                if (noise > 0)
+                    goto L_check_full;
+            }
+        }
+    }
+    return 1;
+
+L_check_full:
+    mapEndSurfaceHeight(y, en, sn, chunkX*16, chunkZ*16, 16, 16, 1, 0);
+    for (k = 0; k < 256; k++)
+        if (y[k] != 0) return 0;
+    return 1;
+}
 
 //==============================================================================
 // Checking Biomes & Biome Helper Functions
@@ -1633,7 +1876,7 @@ int isViableEndCityTerrain(const Generator *g, const SurfaceNoise *sn,
     blockZ = chunkZ * 16 + 7;
     int cellx = (blockX >> 3);
     int cellz = (blockZ >> 3);
-    // TODO: make sure upper bound is ok
+
     enum { y0 = 15, y1 = 18, yn = y1-y0+1 };
     double ncol[3][3][yn];
 
@@ -2618,27 +2861,160 @@ uint64_t getHouseList(int *out, uint64_t seed, int chunkX, int chunkZ)
 }
 
 
-void getFixedEndGateways(Pos pos[20][2], uint64_t seed)
+void getFixedEndGateways(int mc, uint64_t seed, Pos src[20])
 {
-    (void) seed;
+    (void) mc;
     static const Pos fixed[20] = {
         { 96,  0}, { 91, 29}, { 77, 56}, { 56, 77}, { 29, 91},
         { -1, 96}, {-30, 91}, {-57, 77}, {-78, 56}, {-92, 29},
         {-96, -1}, {-92,-30}, {-78,-57}, {-57,-78}, {-30,-92},
         {  0,-96}, { 29,-92}, { 56,-78}, { 77,-57}, { 91,-30},
     };
-    int i;
-    for (i = 0; i < 20; i++)
+
+    uint8_t order[] = {
+        19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
+    };
+
+    uint64_t rng = 0;
+    setSeed(&rng, seed);
+
+    for (int i = 0; i < 20; i++)
     {
-        Pos p = pos[i][0] = fixed[i];
-        // TODO: estimated positions on outer island
-        float r = sqrtf(p.x * p.x + p.z * p.z);
-        r = 1024.0f / r;
-        pos[i][1].x = (int) (p.x * r);
-        pos[i][1].z = (int) (p.z * r);
+        uint8_t j = 19 - nextInt(&rng, 20-i);
+        uint8_t tmp = order[i];
+        order[i] = order[j];
+        order[j] = tmp;
     }
+
+    for (int i = 0; i < 20; i++)
+        src[i] = fixed[ order[i] ];
 }
 
+Pos getLinkedGatewayChunk(const EndNoise *en, const SurfaceNoise *sn, uint64_t seed,
+    Pos src, Pos *dst)
+{
+    double invr = 1.0 / sqrt(src.x * src.x + src.z * src.z);
+    double dx = src.x * invr;
+    double dz = src.z * invr;
+    double px = dx * 1024;
+    double pz = dz * 1024;
+    dx *= 16;
+    dz *= 16;
+
+    int i;
+    Pos c;
+    c.x = (int) floor(px) >> 4;
+    c.z = (int) floor(pz) >> 4;
+
+    if (isEndChunkEmpty(en, sn, seed, c.x, c.z))
+    {   // look forward for the first non-empty chunk
+        for (i = 0; i < 15; i++)
+        {
+            int qx = (int) floor(px += dx) >> 4;
+            int qz = (int) floor(pz += dz) >> 4;
+            if (qx == c.x && qz == c.z)
+                continue;
+            c.x = qx;
+            c.z = qz;
+            if (!isEndChunkEmpty(en, sn, seed, c.x, c.z))
+                break;
+        }
+    }
+    else
+    {   // look backward for the last non-empty chunk
+        for (i = 0; i < 15; i++)
+        {
+            int qx = (int) floor(px -= dx) >> 4;
+            int qz = (int) floor(pz -= dz) >> 4;
+            if (isEndChunkEmpty(en, sn, seed, qx, qz))
+                break;
+            c.x = qx;
+            c.z = qz;
+        }
+    }
+    if (dst)
+    {
+        dst->x = (int) floor(px);
+        dst->z = (int) floor(pz);
+    }
+    return c;
+}
+
+Pos getLinkedGatewayPos(const EndNoise *en, const SurfaceNoise *sn, uint64_t seed, Pos src)
+{
+    float y[33*33]; // buffer for [16][16] and [33][33]
+    int ymin = 0;
+    int i, j;
+
+    Pos dst;
+    Pos c = getLinkedGatewayChunk(en, sn, seed, src, &dst);
+
+    if (en->mc > MC_1_16)
+    {
+        // The original java implementation has a bug where the result
+        // variable for the in-chunk block search is assigned a reference
+        // to the mutable iterator, which ends up as the last iteration
+        // position and discards the found location.
+        dst.x = c.x * 16 + 15;
+        dst.z = c.z * 16 + 15;
+    }
+    else
+    {
+        mapEndSurfaceHeight(y, en, sn, c.x*16, c.z*16, 16, 16, 1, 30);
+        mapEndIslandHeight(y, en, seed, c.x*16, c.z*16, 16, 16, 1);
+
+        uint64_t d = 0;
+        for (j = 0; j < 16; j++)
+        {
+            for (i = 0; i < 16; i++)
+            {
+                int v = (int) y[j*16 + i];
+                if (v < 30) continue;
+                uint64_t dx = 16*c.x + i;
+                uint64_t dz = 16*c.z + j;
+                uint64_t dr = dx*dx + dz*dz + v*v;
+                if (dr > d)
+                {
+                    d = dr;
+                    dst.x = dx;
+                    dst.z = dz;
+                }
+            }
+        }
+        // use the previous result to retrieve the minimum y-level we know,
+        // we can skip generation of surfaces that are lower than this
+        for (i = 0; i < 16*16; i++)
+            if (y[i] > ymin)
+                ymin = (int) floor(y[i]);
+    }
+
+    Pos sp = { dst.x-16, dst.z-16 };
+    // checking end islands is much cheaper than surface height generation, so
+    // we can also skip surface generation lower than the highest island around
+    memset(y, 0, sizeof(float)*33*33);
+    mapEndIslandHeight(y, en, seed, sp.x, sp.z, 33, 33, 1);
+    for (i = 0; i < 33*33; i++)
+        if (y[i] > ymin)
+            ymin = (int) floor(y[i]);
+
+    mapEndSurfaceHeight(y, en, sn, sp.x, sp.z, 33, 33, 1, ymin);
+    mapEndIslandHeight(y, en, seed, sp.x, sp.z, 33, 33, 1);
+
+    float v = -1;
+    for (i = 0; i < 33; i++)
+    {
+        for (j = 0; j < 33; j++)
+        {
+            if (y[j*33 + i] <= v)
+                continue;
+            v = y[j*33 + i];
+            dst.x = sp.x + i;
+            dst.z = sp.z + j;
+        }
+    }
+
+    return dst;
+}
 
 
 //==============================================================================
@@ -4040,10 +4416,12 @@ int floodFillGen(struct locate_info_t *info, int i, int j, Pos *p)
         i = queue[qn].i;
         j = queue[qn].j;
         int k = j * info->r.sx + i;
+        int id = info->ids[k];
+        if (id == INT_MAX)
+            continue;
+        info->ids[k] = INT_MAX;
         int x = info->r.x + i;
         int z = info->r.z + j;
-        int id = info->ids[k];
-        info->ids[k] = INT_MAX;
         if (info->g->mc >= MC_1_18)
             id = getBiomeAt(info->g, info->r.scale, x, info->r.y, z);
         if (id == info->match)
@@ -5079,6 +5457,10 @@ static const int g_biome_para_range_20_diff[][13] = {
 {cherry_grove            , -4500, 2000,  IMIN,-1000,   300, IMAX, -7799,  500,  IMIN, IMAX,  2666, IMAX},
 };
 
+static const int g_biome_para_range_213_diff[][13] = {
+{pale_garden             , -1500, 2000,  3000, IMAX,   300, IMAX, -7799,  500,  IMIN, IMAX,  2666, IMAX},
+};
+
 
 /**
  * Gets the min/max parameter values within which a biome change can occur.
@@ -5117,6 +5499,15 @@ const int *getBiomeParaLimits(int mc, int id)
     if (mc <= MC_1_17)
         return NULL;
     int i, n;
+    if (mc > MC_1_21_2)
+    {
+        n = sizeof(g_biome_para_range_213_diff) / sizeof(g_biome_para_range_213_diff[0]);
+        for (i = 0; i < n; i++)
+        {
+            if (g_biome_para_range_213_diff[i][0] == id)
+                return &g_biome_para_range_213_diff[i][1];
+        }
+    }
     if (mc > MC_1_19)
     {
         n = sizeof(g_biome_para_range_20_diff) / sizeof(g_biome_para_range_20_diff[0]);

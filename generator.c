@@ -154,7 +154,7 @@ size_t getMinCacheSize(const Generator *g, int scale, int sx, int sy, int sz)
         const Layer *entry = getLayerForScale(g, scale);
         if (!entry) {
             printf("getMinCacheSize(): failed to determine scaled entry\n");
-            exit(1);
+            return 0;
         }
         size_t len2d = getMinLayerCacheSize(entry, sx, sz);
         len += len2d - sx*sz;
@@ -173,6 +173,8 @@ size_t getMinCacheSize(const Generator *g, int scale, int sx, int sy, int sz)
 int *allocCache(const Generator *g, Range r)
 {
     size_t len = getMinCacheSize(g, r.scale, r.sx, r.sy, r.sz);
+    if (len == 0)
+        return NULL;
     return (int*) calloc(len, sizeof(int));
 }
 
@@ -615,7 +617,7 @@ int mapApproxHeight(float *y, int *ids, const Generator *g, const SurfaceNoise *
     {
         if (g->mc <= MC_1_8)
             return 1;
-        return mapSurfaceHeightEnd(&g->en, sn, y, x, z, w, h, 4);
+        return mapEndSurfaceHeight(y, &g->en, sn, x, z, w, h, 4, 0);
     }
 
     if (g->mc >= MC_1_18)

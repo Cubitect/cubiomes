@@ -30,10 +30,12 @@ enum MCVersion
     MC_1_17_1, MC_1_17 = MC_1_17_1,
     MC_1_18_2, MC_1_18 = MC_1_18_2,
     MC_1_19_2,
-    MC_1_19,    // 1.19.3 - 1.19.4
-    MC_1_20,
-    MC_1_21,
-    MC_NEWEST = MC_1_21,
+    MC_1_19_4, MC_1_19 = MC_1_19_4,
+    MC_1_20_6, MC_1_20 = MC_1_20_6,
+    MC_1_21_2,
+    MC_1_21_3, // (Winter Drop version TBA)
+    MC_1_21 = MC_1_21_2,
+    MC_NEWEST = MC_1_21_3,
 };
 
 enum Dimension
@@ -168,8 +170,35 @@ enum BiomeID
     mangrove_swamp                  = 184,
     // 1.20
     cherry_grove                    = 185,
+    // 1.21.3
+    pale_garden                     = 186,
 };
 
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+//==============================================================================
+// BiomeID Helper Functions
+//==============================================================================
+
+int biomeExists(int mc, int id);
+int isOverworld(int mc, int id); // false for biomes that don't generate
+int getDimension(int id);
+int getMutated(int mc, int id);
+int getCategory(int mc, int id);
+int areSimilar(int mc, int id1, int id2);
+int isMesa(int id);
+int isShallowOcean(int id);
+int isDeepOcean(int id);
+int isOceanic(int id);
+int isSnowy(int id);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* BIOMES_H_ */
 

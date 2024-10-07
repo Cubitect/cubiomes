@@ -73,7 +73,9 @@ const char* mc2str(int mc)
     case MC_1_19_2: return "1.19.2"; break;
     case MC_1_19:   return "1.19"; break;
     case MC_1_20:   return "1.20"; break;
-    case MC_1_21:   return "1.21"; break;
+    case MC_1_21_2: return "1.21.2"; break;
+    case MC_1_21_3: return "1.21.3"; break;
+    //case MC_1_21:   return "1.21"; break;
     default:        return NULL;
     }
 }
@@ -81,29 +83,52 @@ const char* mc2str(int mc)
 int str2mc(const char *s)
 {
     if (!strcmp(s, "1.21"))     return MC_1_21;
+    if (!strcmp(s, "1.21.3"))   return MC_1_21_3;
+    if (!strcmp(s, "1.21.2"))   return MC_1_21_2;
     if (!strcmp(s, "1.20"))     return MC_1_20;
+    if (!strcmp(s, "1.20.6"))   return MC_1_20_6;
     if (!strcmp(s, "1.19"))     return MC_1_19;
+    if (!strcmp(s, "1.19.4"))   return MC_1_19_4;
     if (!strcmp(s, "1.19.2"))   return MC_1_19_2;
     if (!strcmp(s, "1.18"))     return MC_1_18;
+    if (!strcmp(s, "1.18.2"))   return MC_1_18_2;
     if (!strcmp(s, "1.17"))     return MC_1_17;
-    if (!strcmp(s, "1.16.1"))   return MC_1_16_1;
+    if (!strcmp(s, "1.17.1"))   return MC_1_17_1;
     if (!strcmp(s, "1.16"))     return MC_1_16;
+    if (!strcmp(s, "1.16.5"))   return MC_1_16_5;
+    if (!strcmp(s, "1.16.1"))   return MC_1_16_1;
     if (!strcmp(s, "1.15"))     return MC_1_15;
+    if (!strcmp(s, "1.15.2"))   return MC_1_15_2;
     if (!strcmp(s, "1.14"))     return MC_1_14;
+    if (!strcmp(s, "1.14.4"))   return MC_1_14_4;
     if (!strcmp(s, "1.13"))     return MC_1_13;
+    if (!strcmp(s, "1.13.2"))   return MC_1_13_2;
     if (!strcmp(s, "1.12"))     return MC_1_12;
+    if (!strcmp(s, "1.12.2"))   return MC_1_12_2;
     if (!strcmp(s, "1.11"))     return MC_1_11;
+    if (!strcmp(s, "1.11.2"))   return MC_1_11_2;
     if (!strcmp(s, "1.10"))     return MC_1_10;
+    if (!strcmp(s, "1.10.2"))   return MC_1_10_2;
     if (!strcmp(s, "1.9"))      return MC_1_9;
+    if (!strcmp(s, "1.9.4"))    return MC_1_9_4;
     if (!strcmp(s, "1.8"))      return MC_1_8;
+    if (!strcmp(s, "1.8.9"))    return MC_1_8_9;
     if (!strcmp(s, "1.7"))      return MC_1_7;
+    if (!strcmp(s, "1.7.10"))   return MC_1_7_10;
     if (!strcmp(s, "1.6"))      return MC_1_6;
+    if (!strcmp(s, "1.6.4"))    return MC_1_6_4;
     if (!strcmp(s, "1.5"))      return MC_1_5;
+    if (!strcmp(s, "1.5.2"))    return MC_1_5_2;
     if (!strcmp(s, "1.4"))      return MC_1_4;
+    if (!strcmp(s, "1.4.7"))    return MC_1_4_7;
     if (!strcmp(s, "1.3"))      return MC_1_3;
+    if (!strcmp(s, "1.3.2"))    return MC_1_3_2;
     if (!strcmp(s, "1.2"))      return MC_1_2;
+    if (!strcmp(s, "1.2.5"))    return MC_1_2_5;
     if (!strcmp(s, "1.1"))      return MC_1_1;
+    if (!strcmp(s, "1.1.0"))    return MC_1_1_0;
     if (!strcmp(s, "1.0"))      return MC_1_0;
+    if (!strcmp(s, "1.0.0"))    return MC_1_0_0;
     if (!strcmp(s, "Beta 1.8")) return MC_B1_8;
     if (!strcmp(s, "Beta 1.7")) return MC_B1_7;
     return -1;
@@ -242,6 +267,8 @@ const char *biome2str(int mc, int id)
     case mangrove_swamp: return "mangrove_swamp";
     // 1.20
     case cherry_grove: return "cherry_grove";
+    // 1.21.3 (Winter Drop)
+    case pale_garden: return "pale_garden";
     }
     return NULL;
 }
@@ -387,6 +414,7 @@ void initBiomeColors(unsigned char colors[256][3])
     setColor(colors, deep_dark,                        0x031f29); // -
     setColor(colors, mangrove_swamp,                   0x2ccc8e); // -
     setColor(colors, cherry_grove,                     0xff91c8); // -
+    setColor(colors, pale_garden,                      0x726c68); // -
 }
 
 void initBiomeTypeColors(unsigned char colors[256][3])

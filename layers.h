@@ -128,23 +128,6 @@ extern "C"
 #endif
 
 //==============================================================================
-// BiomeID Helpers
-//==============================================================================
-
-int biomeExists(int mc, int id);
-int isOverworld(int mc, int id);
-int getDimension(int id);
-int getMutated(int mc, int id);
-int getCategory(int mc, int id);
-int areSimilar(int mc, int id1, int id2);
-int isMesa(int id);
-int isShallowOcean(int id);
-int isDeepOcean(int id);
-int isOceanic(int id);
-int isSnowy(int id);
-int getBiomeDepthAndScale(int id, double *depth, double *scale, int *grass);
-
-//==============================================================================
 // Essentials
 //==============================================================================
 

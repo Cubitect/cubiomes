@@ -108,6 +108,11 @@ STRUCT(Piece)
     Piece *next;
 };
 
+STRUCT(EndIsland)
+{
+    int x, y, z;
+    int r;
+};
 
 enum
 {
@@ -257,6 +262,23 @@ int isSlimeChunk(uint64_t seed, int chunkX, int chunkZ)
     return nextInt(&rnd, 10) == 0;
 }
 
+/* Finds the position and size of the small end islands in a given chunk.
+ * Returns the number of end islands found.
+ */
+int getEndIslands(EndIsland islands[2], int mc, uint64_t seed, int chunkX, int chunkZ);
+
+/* Finds the small end islands in the given area and updates the existing
+ * height map, y, accordingly. Note that values in the y-map can only increase
+ * using this.
+ */
+int mapEndIslandHeight(float *y, const EndNoise *en, uint64_t seed,
+    int x, int z, int w, int h, int scale);
+
+/* Checks if the given chunk contains no blocks. This included a check for
+ * small end islands.
+ */
+int isEndChunkEmpty(const EndNoise *en, const SurfaceNoise *sn, uint64_t seed,
+    int chunkX, int chunkZ);
 
 //==============================================================================
 // Finding Strongholds and Spawn
@@ -447,10 +469,18 @@ enum
     PIECE_COUNT,
 };
 
-/* Find the inner ring positions where End Gateways generate upon defeating the
- * Dragon, as well as an estimate of where they link up to (WIP).
+/* Find the 20 fixed inner positions where End Gateways generate upon defeating
+ * the Dragon. The positions are written to 'src' in generation order.
  */
-void getFixedEndGateways(Pos pos[20][2], uint64_t seed);
+void getFixedEndGateways(int mc, uint64_t seed, Pos src[20]);
+
+/* Get the outer linked Gateway destination for an inner source Gateway.
+ * (mc > MC_1_12)
+ */
+Pos getLinkedGatewayChunk(const EndNoise *en, const SurfaceNoise *sn,
+    uint64_t seed, Pos src, Pos *dst);
+Pos getLinkedGatewayPos(const EndNoise *en, const SurfaceNoise *sn,
+    uint64_t seed, Pos src);
 
 
 /* Find the number of each type of house that generate in a village

@@ -175,6 +175,8 @@ extern BiomeTree g_btree[MC_NEWEST - MC_1_18 + 1];
 void initSurfaceNoise(SurfaceNoise *sn, int dim, uint64_t seed);
 void initSurfaceNoiseBeta(SurfaceNoiseBeta *snb, uint64_t seed);
 double sampleSurfaceNoise(const SurfaceNoise *sn, int x, int y, int z);
+double sampleSurfaceNoiseBetween(const SurfaceNoise *sn, int x, int y, int z,
+    double noiseMin, double noiseMax);
 
 
 //==============================================================================
@@ -222,9 +224,9 @@ int genNetherScaled(const NetherNoise *nn, int *out, Range r, int mc, uint64_t s
 void setEndSeed(EndNoise *en, int mc, uint64_t seed);
 int mapEndBiome(const EndNoise *en, int *out, int x, int z, int w, int h);
 int mapEnd(const EndNoise *en, int *out, int x, int z, int w, int h);
-int getSurfaceHeightEnd(int mc, uint64_t seed, int x, int z);
-int mapSurfaceHeightEnd(const EndNoise *en, const SurfaceNoise *sn, float *y,
-    int x, int z, int w, int h, int scale);
+int getEndSurfaceHeight(int mc, uint64_t seed, int x, int z);
+int mapEndSurfaceHeight(float *y, const EndNoise *en, const SurfaceNoise *sn,
+    int x, int z, int w, int h, int scale, int ymin);
 
 /**
  * The scaled End generation supports scales 1, 4, 16, and 64.
@@ -306,6 +308,8 @@ int genBiomeNoiseScaled(const BiomeNoise *bn, int *out, Range r, uint64_t sha);
 int genBiomeNoiseBetaScaled(const BiomeNoiseBeta *bnb, const SurfaceNoiseBeta *snb,
     int *out, Range r);
 
+
+int getBiomeDepthAndScale(int id, double *depth, double *scale, int *grass);
 
 // Gets the range in the parent/source layer which may be accessed by voronoi.
 Range getVoronoiSrcRange(Range r);

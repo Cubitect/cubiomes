@@ -133,6 +133,8 @@ uint32_t testAreas(int mc, int dim, int scale)
     Generator g;
     setupGenerator(&g, mc, 0);
 
+    SurfaceNoise sn;
+
     double t = -now();
     uint32_t hash = 0;
     uint64_t s;
@@ -149,6 +151,14 @@ uint32_t testAreas(int mc, int dim, int scale)
         Range r = {scale, x, z, w, h, y, 1};
         int *ids = allocCache(&g, r);
         genBiomes(&g, ids, r);
+
+        float *surf = malloc(4 * w * h);
+        initSurfaceNoise(&sn, dim, s);
+        mapApproxHeight(surf, 0, &g, &sn, x, z, w, h);
+        for (int i = 0; i < w*h; i++)
+            ids[i] = (int) surf[i];
+        free(surf);
+
         int i = 0;
         hash = 0;
         for (i = 0; i < w*h; i++)
@@ -322,7 +332,7 @@ void findBiomeParaBounds()
     }
 
     Generator g;
-    setupGenerator(&g, MC_1_20, 0);
+    setupGenerator(&g, MC_1_21_3, 0);
     int64_t s;
     int r = 1000;
     for (s = 0; s < 20000; s++)
@@ -337,14 +347,16 @@ void findBiomeParaBounds()
         getParaRange(&g.bn.climate[NP_EROSION],         &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
         getParaRange(&g.bn.climate[NP_CONTINENTALNESS], &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
         getParaRange(&g.bn.climate[NP_WEIRDNESS],       &tmin, &tmax, x-r, z-r, r, r, &g, _f2);
+        if (s % 1000 == 999)
+            printf(".\n");
     }
 
     for (i = 0; i < 256; i++)
     {
-        if (!isOverworld(MC_1_20, i))
+        if (!isOverworld(MC_1_21_3, i))
             continue;
 
-        printf("{%-24s", biome2str(MC_1_20, i));
+        printf("{%-24s", biome2str(MC_1_21_3, i));
         for (j = 0; j < 6; j++)
         {
             printf(", %6ld,%6ld", bbounds[i][j][0], bbounds[i][j][1]);
@@ -458,20 +470,70 @@ void findStructures(int structureType, int mc, int dim, uint64_t seed,
                 if (!isViableStructureTerrain(structureType, &g, pos.x, pos.z))
                     continue;
             }
-            printf("%d, %d\n", pos.x, pos.z);
+
+            int id = getBiomeAt(&g, 4, pos.x>>2, 320>>2, pos.z>>2);
+            StructureVariant sv;
+            getVariant(&sv, structureType, mc, seed, pos.x, pos.z, id);
+            int x = pos.x + sv.x;
+            int z = pos.z + sv.z;
+            printf("%d, %d : [%d %d %d] - [%d %d %d]\n", pos.x, pos.z,
+                x, sv.y, z, x+sv.sx, sv.y+sv.sy, z+sv.sz
+                );
         }
     }
 }
 
+int getStructureConfig_override(int stype, int mc, StructureConfig *sconf)
+{
+    return getStructureConfig(stype, mc, sconf);
+}
+
+
+
 int main()
 {
-    //testAreas(mc, 0, 1);
+    /*
+    int mc = MC_1_21;
+    uint64_t seed = 2;
+
+    double t0 = 0, t1 = 0;
+    t0 -= now();
+
+    EndNoise en;
+    setEndSeed(&en, mc, seed);
+
+    SurfaceNoise sn;
+    initSurfaceNoise(&sn, DIM_END, seed);
+
+    Pos src[20];
+    getFixedEndGateways(mc, seed, src);
+
+    t0 += now();
+    t1 -= now();
+
+    for (int i = 0; i < 20; i++)
+    {
+        Pos dst = getLinkedGatewayPos(&en, &sn, seed, src[i]);
+        printf("%d %d -> %d %d\n", src[i].x, src[i].z, dst.x, dst.z);
+    }
+    t1 += now();
+
+    printf("Time: %g -> %g sec\n", t0, t1);
+    */
+
+    //findStructures(Trial_Chambers, MC_1_21, 0, 1, 3056, 3440, 3056, 3440);
+
+    //endHeight(MC_1_21, 1, 80>>1, 1216>>1, 32, 32, 2);
+
+    //endHeight(MC_1_15, 1, 370704, 96, 32, 32, 1);
+
+    //testAreas(MC_1_21, 1, 1);
     //testAreas(mc, 0, 4);
     //testAreas(mc, 0, 16);
     //testAreas(mc, 0, 256);
     //testCanBiomesGenerate();
-    testGeneration();
-    //findBiomeParaBounds();
+    //testGeneration();
+    findBiomeParaBounds();
 
     return 0;
 }
