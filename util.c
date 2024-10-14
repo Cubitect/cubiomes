@@ -414,7 +414,7 @@ void initBiomeColors(unsigned char colors[256][3])
     setColor(colors, deep_dark,                        0x031f29); // -
     setColor(colors, mangrove_swamp,                   0x2ccc8e); // -
     setColor(colors, cherry_grove,                     0xff91c8); // -
-    setColor(colors, pale_garden,                      0x726c68); // -
+    setColor(colors, pale_garden,                      0x696d95); // -
 }
 
 void initBiomeTypeColors(unsigned char colors[256][3])
