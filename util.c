@@ -76,7 +76,7 @@ const char* mc2str(int mc)
     case MC_1_21_2: return "1.21.2"; break;
     case MC_1_21_3: return "1.21.3"; break;
     //case MC_1_21:   return "1.21"; break;
-    default:        return NULL;
+    default:        return "undefined";
     }
 }
 
@@ -131,7 +131,7 @@ int str2mc(const char *s)
     if (!strcmp(s, "1.0.0"))    return MC_1_0_0;
     if (!strcmp(s, "Beta 1.8")) return MC_B1_8;
     if (!strcmp(s, "Beta 1.7")) return MC_B1_7;
-    return -1;
+    return MC_UNDEF;
 }
 
 
