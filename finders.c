@@ -55,6 +55,12 @@ uint64_t getPopulationSeed(int mc, uint64_t ws, int x, int z)
     return (x * a + z * b) ^ ws;
 }
 
+int getStructureDimension(int id)
+{
+    if (id == Ruined_Portal_N || id == Fortress || id == Bastion) return DIM_NETHER;
+    if (id == End_City || id == End_Gateway || id == End_Island) return DIM_END;
+    return DIM_OVERWORLD;
+}
 
 int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
 {

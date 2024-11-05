@@ -151,6 +151,7 @@ STRUCT(BiomeFilter)
     uint64_t biomeToPick, biomeToPickM;
 };
 
+int getStructureDimension(int id);
 
 /***************************** Structure Positions *****************************
  *
