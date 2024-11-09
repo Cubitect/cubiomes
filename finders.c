@@ -12,7 +12,6 @@
 #define PI 3.14159265358979323846
 
 
-
 //==============================================================================
 // Finding Structure Positions
 //==============================================================================
@@ -78,33 +77,33 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
     s_village               = { 10387312, 34, 26, Village,          0,0},
     s_ocean_ruin            = { 14357621, 20, 12, Ocean_Ruin,       0,0},
     s_shipwreck             = {165745295, 24, 20, Shipwreck,        0,0},
-    s_monument              = { 10387313, 32, 27, Monument,         STRUCT_TRIANGULAR,0},
-    s_mansion               = { 10387319, 80, 60, Mansion,          STRUCT_TRIANGULAR,0},
+    s_monument              = { 10387313, 32, 27, Monument,         0,0},
+    s_mansion               = { 10387319, 80, 60, Mansion,          0,0},
     s_ruined_portal         = { 34222645, 40, 25, Ruined_Portal,    0,0},
-    s_ruined_portal_n       = { 34222645, 40, 25, Ruined_Portal,    STRUCT_NETHER,0},
-    s_ruined_portal_n_117   = { 34222645, 25, 15, Ruined_Portal_N,  STRUCT_NETHER,0},
+    s_ruined_portal_n       = { 34222645, 40, 25, Ruined_Portal,    DIM_NETHER,0},
+    s_ruined_portal_n_117   = { 34222645, 25, 15, Ruined_Portal_N,  DIM_NETHER,0},
     s_ancient_city          = { 20083232, 24, 16, Ancient_City,     0,0},
     s_trail_ruins           = { 83469867, 34, 26, Trail_Ruins,      0,0},
     s_trial_chambers        = { 94251327, 34, 22, Trial_Chambers,   0,0},
-    s_treasure              = { 10387320,  1,  1, Treasure,         STRUCT_CHUNK,0},
-    s_mineshaft             = {        0,  1,  1, Mineshaft,        STRUCT_CHUNK,0},
-    s_desert_well_115       = {    30010,  1,  1, Desert_Well,      STRUCT_CHUNK, 1.f/1000},
-    s_desert_well_117       = {    40013,  1,  1, Desert_Well,      STRUCT_CHUNK, 1.f/1000},
-    s_desert_well           = {    40002,  1,  1, Desert_Well,      STRUCT_CHUNK, 1.f/1000},
-    s_geode_117             = {    20000,  1,  1, Geode,            STRUCT_CHUNK, 1.f/24},
-    s_geode                 = {    20002,  1,  1, Geode,            STRUCT_CHUNK, 1.f/24},
+    s_treasure              = { 10387320,  1,  1, Treasure,         0,0},
+    s_mineshaft             = {        0,  1,  1, Mineshaft,        0,0},
+    s_desert_well_115       = {    30010,  1,  1, Desert_Well,      0, 1.f/1000},
+    s_desert_well_117       = {    40013,  1,  1, Desert_Well,      0, 1.f/1000},
+    s_desert_well           = {    40002,  1,  1, Desert_Well,      0, 1.f/1000},
+    s_geode_117             = {    20000,  1,  1, Geode,            0, 1.f/24},
+    s_geode                 = {    20002,  1,  1, Geode,            0, 1.f/24},
     // nether and end structures
-    s_fortress_115          = {        0, 16,  8, Fortress,         STRUCT_NETHER,0},
-    s_fortress              = { 30084232, 27, 23, Fortress,         STRUCT_NETHER,0},
-    s_bastion               = { 30084232, 27, 23, Bastion,          STRUCT_NETHER,0},
-    s_end_city              = { 10387313, 20,  9, End_City,         STRUCT_END|STRUCT_TRIANGULAR,0},
+    s_fortress_115          = {        0, 16,  8, Fortress,         DIM_NETHER,0},
+    s_fortress              = { 30084232, 27, 23, Fortress,         DIM_NETHER,0},
+    s_bastion               = { 30084232, 27, 23, Bastion,          DIM_NETHER,0},
+    s_end_city              = { 10387313, 20,  9, End_City,         DIM_END,0},
     // for the scattered return gateways
-    s_end_gateway_115       = {    30000,  1,  1, End_Gateway,      STRUCT_END|STRUCT_CHUNK, 700},
-    s_end_gateway_116       = {    40013,  1,  1, End_Gateway,      STRUCT_END|STRUCT_CHUNK, 700},
-    s_end_gateway_117       = {    40013,  1,  1, End_Gateway,      STRUCT_END|STRUCT_CHUNK, 1.f/700},
-    s_end_gateway           = {    40000,  1,  1, End_Gateway,      STRUCT_END|STRUCT_CHUNK, 1.f/700},
-    s_end_island_116        = {        0,  1,  1, End_Island,       STRUCT_END|STRUCT_CHUNK, 14},
-    s_end_island            = {        0,  1,  1, End_Island,       STRUCT_END|STRUCT_CHUNK, 1.f/14}
+    s_end_gateway_115       = {    30000,  1,  1, End_Gateway,      DIM_END, 700},
+    s_end_gateway_116       = {    40013,  1,  1, End_Gateway,      DIM_END, 700},
+    s_end_gateway_117       = {    40013,  1,  1, End_Gateway,      DIM_END, 1.f/700},
+    s_end_gateway           = {    40000,  1,  1, End_Gateway,      DIM_END, 1.f/700},
+    s_end_island_116        = {        0,  1,  1, End_Island,       DIM_END, 14},
+    s_end_island            = {        0,  1,  1, End_Island,       DIM_END, 1.f/14}
     ;
 
     switch (structureType)
@@ -193,7 +192,7 @@ int getStructureConfig(int structureType, int mc, StructureConfig *sconf)
         return mc >= MC_1_20;
     case Trial_Chambers:
         *sconf = s_trial_chambers;
-        return mc >= MC_1_21;
+        return mc >= MC_1_21_1;
     default:
         memset(sconf, 0, sizeof(StructureConfig));
         return 0;
@@ -938,7 +937,7 @@ int nextStronghold(StrongholdIter *sh, const Generator *g)
 
 
 static
-uint64_t getSpawnDist(const Generator *g, int x, int z)
+uint64_t calcFitness(const Generator *g, int x, int z)
 {
     int64_t np[6];
     uint32_t flags = SAMPLE_NO_DEPTH | SAMPLE_NO_BIOME;
@@ -964,7 +963,20 @@ uint64_t getSpawnDist(const Generator *g, int x, int z)
     b = -np[5] + (uint64_t)spawn_np[6][0];
     q = (int64_t)a > 0 ? a : (int64_t)b > 0 ? b : 0;
     ds2 = ds + q*q;
-    return ds1 <= ds2 ? ds1 : ds2;
+    ds = ds1 <= ds2 ? ds1 : ds2;
+    // apply dependence on distance from origin
+    a = (int64_t)x*x;
+    b = (int64_t)z*z;
+    if (g->mc < MC_1_21_2)
+    {
+        double s = (double)(a + b) / (2500 * 2500);
+        q = (uint64_t)(s*s * 1e8) + ds;
+    }
+    else
+    {
+        q = ds * (2048LL * 2048LL) + a + b;
+    }
+    return q;
 }
 
 static
@@ -978,11 +990,7 @@ void findFittest(const Generator *g, Pos *pos, uint64_t *fitness, double maxrad,
         {
             int x = p.x + (int)(sin(ang) * rad);
             int z = p.z + (int)(cos(ang) * rad);
-            // Calcuate portion of fitness dependent on distance from origin
-            double d = ((double)x*x + (double)z*z) / (2500*2500);
-            uint64_t fit = (uint64_t)(d*d * 1e8);
-            // Calculate portion of fitness dependent on climate values
-            fit += getSpawnDist(g, x, z);
+            uint64_t fit = calcFitness(g, x, z);
             // Then update pos and fitness if combined total is lower/better
             if (fit < *fitness)
             {
@@ -998,7 +1006,7 @@ static
 Pos findFittestPos(const Generator *g)
 {
     Pos spawn = {0, 0};
-    uint64_t fitness = getSpawnDist(g, 0, 0);
+    uint64_t fitness = calcFitness(g, 0, 0);
     findFittest(g, &spawn, &fitness, 2048.0, 512.0);
     findFittest(g, &spawn, &fitness, 512.0, 32.0);
     // center of chunk
@@ -2875,10 +2883,11 @@ void getFixedEndGateways(int mc, uint64_t seed, Pos src[20])
         19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
     };
 
+    int i;
     uint64_t rng = 0;
     setSeed(&rng, seed);
 
-    for (int i = 0; i < 20; i++)
+    for (i = 0; i < 20; i++)
     {
         uint8_t j = 19 - nextInt(&rng, 20-i);
         uint8_t tmp = order[i];
@@ -2886,7 +2895,7 @@ void getFixedEndGateways(int mc, uint64_t seed, Pos src[20])
         order[j] = tmp;
     }
 
-    for (int i = 0; i < 20; i++)
+    for (i = 0; i < 20; i++)
         src[i] = fixed[ order[i] ];
 }
 
@@ -5436,7 +5445,7 @@ static const int g_biome_para_range_18[][13] = {
 {jagged_peaks            ,  IMIN, 2000,  IMIN, IMAX, -1899, IMAX,  IMIN,-3750,  IMIN, IMAX, -9333,-4001},
 {frozen_peaks            ,  IMIN, 2000,  IMIN, IMAX, -1899, IMAX,  IMIN,-3750,  IMIN, IMAX,  4000, 9333},
 {stony_peaks             ,  2000, 5500,  IMIN, IMAX, -1899, IMAX,  IMIN,-3750,  IMIN, IMAX, -9333, 9333},
-};
+{-1,0,0,0,0,0,0,0,0,0,0,0,0}};
 
 static const int g_biome_para_range_19_diff[][13] = {
 {eroded_badlands         ,  5500, IMAX,  IMIN,-1000, -1899, IMAX,  IMIN,  500,  IMIN, IMAX,  -500, IMAX},
@@ -5445,7 +5454,7 @@ static const int g_biome_para_range_19_diff[][13] = {
 {jagged_peaks            ,  IMIN, 2000,  IMIN, IMAX, -1899, IMAX,  IMIN,-3750,  IMIN,10499, -9333,-4001},
 {deep_dark               ,  IMIN, IMAX,  IMIN, IMAX,  IMIN, IMAX,  IMIN, 1818, 10500, IMAX,  IMIN, IMAX},
 {mangrove_swamp          ,  2000, IMAX,  IMIN, IMAX, -1100, IMAX,  5500, IMAX,  IMIN, IMAX,  IMIN, IMAX},
-};
+{-1,0,0,0,0,0,0,0,0,0,0,0,0}};
 
 static const int g_biome_para_range_20_diff[][13] = {
 {swamp                   , -4500, 2000,  IMIN, IMAX, -1100, IMAX,  5500, IMAX,  IMIN, IMAX,  IMIN, IMAX},
@@ -5455,11 +5464,11 @@ static const int g_biome_para_range_20_diff[][13] = {
 {frozen_peaks            ,  IMIN, 2000,  IMIN, IMAX, -1899, IMAX,  IMIN,-3750,  IMIN,10500,  4000, 9333},
 {stony_peaks             ,  2000, 5500,  IMIN, IMAX, -1899, IMAX,  IMIN,-3750,  IMIN,10500, -9333, 9333},
 {cherry_grove            , -4500, 2000,  IMIN,-1000,   300, IMAX, -7799,  500,  IMIN, IMAX,  2666, IMAX},
-};
+{-1,0,0,0,0,0,0,0,0,0,0,0,0}};
 
-static const int g_biome_para_range_213_diff[][13] = {
+static const int g_biome_para_range_21wd_diff[][13] = {
 {pale_garden             , -1500, 2000,  3000, IMAX,   300, IMAX, -7799,  500,  IMIN, IMAX,  2666, IMAX},
-};
+{-1,0,0,0,0,0,0,0,0,0,0,0,0}};
 
 
 /**
@@ -5498,20 +5507,18 @@ const int *getBiomeParaLimits(int mc, int id)
 {
     if (mc <= MC_1_17)
         return NULL;
-    int i, n;
+    int i;
     if (mc > MC_1_21_2)
     {
-        n = sizeof(g_biome_para_range_213_diff) / sizeof(g_biome_para_range_213_diff[0]);
-        for (i = 0; i < n; i++)
+        for (i = 0; g_biome_para_range_21wd_diff[i][0] != -1; i++)
         {
-            if (g_biome_para_range_213_diff[i][0] == id)
-                return &g_biome_para_range_213_diff[i][1];
+            if (g_biome_para_range_21wd_diff[i][0] == id)
+                return &g_biome_para_range_21wd_diff[i][1];
         }
     }
     if (mc > MC_1_19)
     {
-        n = sizeof(g_biome_para_range_20_diff) / sizeof(g_biome_para_range_20_diff[0]);
-        for (i = 0; i < n; i++)
+        for (i = 0; g_biome_para_range_20_diff[i][0] != -1; i++)
         {
             if (g_biome_para_range_20_diff[i][0] == id)
                 return &g_biome_para_range_20_diff[i][1];
@@ -5519,15 +5526,13 @@ const int *getBiomeParaLimits(int mc, int id)
     }
     if (mc > MC_1_18)
     {
-        n = sizeof(g_biome_para_range_19_diff) / sizeof(g_biome_para_range_19_diff[0]);
-        for (i = 0; i < n; i++)
+        for (i = 0; g_biome_para_range_19_diff[i][0] != -1; i++)
         {
             if (g_biome_para_range_19_diff[i][0] == id)
                 return &g_biome_para_range_19_diff[i][1];
         }
     }
-    n = sizeof(g_biome_para_range_18) / sizeof(g_biome_para_range_18[0]);
-    for (i = 0; i < n; i++)
+    for (i = 0; g_biome_para_range_18[i][0] != -1; i++)
     {
         if (g_biome_para_range_18[i][0] == id)
             return &g_biome_para_range_18[i][1];

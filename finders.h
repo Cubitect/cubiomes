@@ -43,13 +43,6 @@ enum StructureType
 };
 
 
-enum
-{   // structure config property flags
-    STRUCT_TRIANGULAR   = 0x01, // structure uses a triangular distribution
-    STRUCT_CHUNK        = 0x02, // structure is checked for each chunk
-    STRUCT_NETHER       = 0x10, // nether structure
-    STRUCT_END          = 0x20, // end structure
-};
 // use getStructureConfig() for the version specific structure configuration
 STRUCT(StructureConfig)
 {
@@ -57,7 +50,7 @@ STRUCT(StructureConfig)
     int8_t  regionSize;
     int8_t  chunkRange;
     uint8_t structType;
-    uint8_t properties;
+    int8_t  dim;
     float   rarity;
 };
 

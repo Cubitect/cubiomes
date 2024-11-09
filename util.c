@@ -73,18 +73,19 @@ const char* mc2str(int mc)
     case MC_1_19_2: return "1.19.2"; break;
     case MC_1_19:   return "1.19"; break;
     case MC_1_20:   return "1.20"; break;
+    case MC_1_21_1: return "1.21.1"; break;
     case MC_1_21_2: return "1.21.2"; break;
-    case MC_1_21_3: return "1.21.3"; break;
-    //case MC_1_21:   return "1.21"; break;
-    default:        return NULL;
+    case MC_1_21_WD: return "1.21 WD"; break;
+    default:        return "?";
     }
 }
 
 int str2mc(const char *s)
 {
     if (!strcmp(s, "1.21"))     return MC_1_21;
-    if (!strcmp(s, "1.21.3"))   return MC_1_21_3;
+    if (!strcmp(s, "1.21 WD"))  return MC_1_21_WD;
     if (!strcmp(s, "1.21.2"))   return MC_1_21_2;
+    if (!strcmp(s, "1.21.1"))   return MC_1_21_1;
     if (!strcmp(s, "1.20"))     return MC_1_20;
     if (!strcmp(s, "1.20.6"))   return MC_1_20_6;
     if (!strcmp(s, "1.19"))     return MC_1_19;
@@ -131,7 +132,7 @@ int str2mc(const char *s)
     if (!strcmp(s, "1.0.0"))    return MC_1_0_0;
     if (!strcmp(s, "Beta 1.8")) return MC_B1_8;
     if (!strcmp(s, "Beta 1.7")) return MC_B1_7;
-    return -1;
+    return MC_UNDEF;
 }
 
 
@@ -267,7 +268,7 @@ const char *biome2str(int mc, int id)
     case mangrove_swamp: return "mangrove_swamp";
     // 1.20
     case cherry_grove: return "cherry_grove";
-    // 1.21.3 (Winter Drop)
+    // 1.21.4 (Winter Drop)
     case pale_garden: return "pale_garden";
     }
     return NULL;

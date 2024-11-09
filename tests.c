@@ -151,13 +151,14 @@ uint32_t testAreas(int mc, int dim, int scale)
         Range r = {scale, x, z, w, h, y, 1};
         int *ids = allocCache(&g, r);
         genBiomes(&g, ids, r);
-
+        /*
         float *surf = malloc(4 * w * h);
         initSurfaceNoise(&sn, dim, s);
         mapApproxHeight(surf, 0, &g, &sn, x, z, w, h);
         for (int i = 0; i < w*h; i++)
             ids[i] = (int) surf[i];
         free(surf);
+        */
 
         int i = 0;
         hash = 0;
@@ -332,7 +333,7 @@ void findBiomeParaBounds()
     }
 
     Generator g;
-    setupGenerator(&g, MC_1_21_3, 0);
+    setupGenerator(&g, MC_1_21, 0);
     int64_t s;
     int r = 1000;
     for (s = 0; s < 20000; s++)
@@ -353,10 +354,10 @@ void findBiomeParaBounds()
 
     for (i = 0; i < 256; i++)
     {
-        if (!isOverworld(MC_1_21_3, i))
+        if (!isOverworld(MC_1_21, i))
             continue;
 
-        printf("{%-24s", biome2str(MC_1_21_3, i));
+        printf("{%-24s", biome2str(MC_1_21, i));
         for (j = 0; j < 6; j++)
         {
             printf(", %6ld,%6ld", bbounds[i][j][0], bbounds[i][j][1]);
@@ -528,12 +529,12 @@ int main()
     //endHeight(MC_1_15, 1, 370704, 96, 32, 32, 1);
 
     //testAreas(MC_1_21, 1, 1);
-    //testAreas(mc, 0, 4);
+    //testAreas(MC_1_21, 0, 4);
     //testAreas(mc, 0, 16);
     //testAreas(mc, 0, 256);
     //testCanBiomesGenerate();
     //testGeneration();
-    findBiomeParaBounds();
+    //findBiomeParaBounds();
 
     return 0;
 }

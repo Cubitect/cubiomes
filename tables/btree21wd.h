@@ -1,10 +1,10 @@
 #include <inttypes.h>
 
-enum { btree213_order = 6 };
+enum { btree21wd_order = 6 };
 
-static const uint32_t btree213_steps[] = { 1555, 259, 43, 7, 1, 0 };
+static const uint32_t btree21wd_steps[] = { 1555, 259, 43, 7, 1, 0 };
 
-static const int32_t btree213_param[][2] =
+static const int32_t btree21wd_param[][2] =
 {
     {-12000,-10500},{-12000, -4550},{-12000, 10000},{-10500, -4550}, // 00-03
     {-10500, -1900},{-10500, 10000},{-10000, -9333},{-10000, -7799}, // 04-07
@@ -43,9 +43,9 @@ static const int32_t btree213_param[][2] =
     { 10000, 10000},{ 10000, 11000},{ 11000, 11000},
 };
 
-static const uint64_t btree213_nodes[] =
+static const uint64_t btree21wd_nodes[] =
 {
-    // Binary encoded biome parameter search tree for 1.21.3 (24w40a).
+    // Binary encoded biome parameter search tree for 1.21 Winter Drop (24w40a).
     //
     //   +-------------- If the top byte equals 0xFF, the node is a leaf and the
     //   |               second byte is the biome id, otherwise the two bytes

@@ -160,15 +160,6 @@ extern "C"
 #endif
 
 //==============================================================================
-// Globals
-//==============================================================================
-
-// The global biome tree definitions.
-// By default, these are defined in biometree.c and tables/btreeXX.h
-extern BiomeTree g_btree[MC_NEWEST - MC_1_18 + 1];
-
-
-//==============================================================================
 // Noise
 //==============================================================================
 
@@ -267,8 +258,8 @@ double approxSurfaceBeta(const BiomeNoiseBeta *bnb, const SurfaceNoiseBeta *snb,
 int getOldBetaBiome(float t, float h);
 
 /**
- * Uses the global biome tree definition (g_btree) to map a noise point
- * (i.e. climate) to the corresponding overworld biome.
+ * Uses the global biome tree definitions (see tables/btreeXX.h)
+ * to map a noise point (i.e. climate) to the corresponding overworld biome.
  */
 int climateToBiome(int mc, const uint64_t np[6], uint64_t *dat);
 

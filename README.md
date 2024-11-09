@@ -61,15 +61,15 @@ int main()
 You can compile this code either by directly adding a target to the makefile via
 ```
 $ cd cubiomes
-$ make libcubiomes
+$ make
 ```
 ...or you can compile and link to a cubiomes archive using either of the following commands.
 ```
 $ gcc find_biome_at.c libcubiomes.a -fwrapv -lm   # static
 $ gcc find_biome_at.c -L. -lcubiomes -fwrapv -lm  # dynamic
 ```
-Both commands assume that your source code is saved as `find_biome_at.c` in the cubiomes working directory. If your makefile is configured to use pthreads, you may also need to add the `-lpthread` option to the compiler.
-The option `-fwrapv` enforces two's complement for signed integer overflow, which this library relies on. It is not strictly necessary for this example as the library should already be compiled with this flag, but it is good practice to prevent undefined behaviour.
+Both commands assume that your source code is saved as `find_biome_at.c` in the cubiomes working directory. If your makefile is configured to use pthreads, you may also need to add the `-lpthread` option for the compiler.
+The option `-fwrapv` enforces two's complement for signed integer overflow, which is otherwise undefined behavior. It is not really necessary for this example, but it is a common pitfall when dealing with code that emulates the behavior of Java.
 Running the program should output:
 ```
 $ ./a.out
@@ -78,9 +78,9 @@ Seed 262 has a Mushroom Fields biome at block position (0, 0).
 
 ### Biome Generation in a Range
 
-We can also generate biomes for an area or volume using `genBiomes()`. This will utilize whatever optimizations are available for the generator and can be much faster than generating each position individually. (The layered generators for versions up to 1.17 will benefit significantly more from this than the noise-based ones.)
+We can also generate biomes for an area or volume using `genBiomes()`. This will utilize whatever optimizations are available for the generator, which can be much faster than generating each position individually. (The layered generators for versions up to 1.17 will benefit significantly more from this than the noise-based ones.)
 
-Before we can generate the biomes for an area or volume, we need to define the bounds with a `Range` structure and allocate the necessary buffer using `allocCache()`. The `Range` is described by a scale, position, and size, where each cell inside the `Range` represents the `scale` of many blocks in the horizontal axes. The vertical direction is treated separately and always follows the biome coordinate scaling of 1:4, except for when `scale == 1`, in which case the vertical scaling is also 1:1.
+Before we can generate the biomes for an area or volume, we need to define the bounds with a `Range` structure and allocate the necessary buffer using `allocCache()`. The `Range` is described by a scale, position, and size, where each cell inside the `Range` represents an amount of `scale` blocks in the horizontal axes. The vertical direction is treated separately and always follows the biome coordinate scaling of 1:4, except for when `scale == 1`, in which case the vertical scaling is also 1:1.
 
 The only supported values for `scale` are 1, 4, 16, 64, and (for the Overworld) 256. For versions up to 1.17, the scale is matched to an appropriate biome layer and will influence the biomes that can generate.
 

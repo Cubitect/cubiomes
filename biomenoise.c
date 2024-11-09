@@ -1,5 +1,11 @@
 #include "biomenoise.h"
 
+#include "tables/btree18.h"
+#include "tables/btree192.h"
+#include "tables/btree19.h"
+#include "tables/btree20.h"
+#include "tables/btree21wd.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -1359,9 +1365,7 @@ int getOldBetaBiome(float t, float h)
 }
 
 
-#if !DEBUG
-static inline ATTR(hot, pure, always_inline)
-#endif
+static
 uint64_t get_np_dist(const uint64_t np[6], const BiomeTree *bt, int idx)
 {
     uint64_t ds = 0, node = bt->nodes[idx];
@@ -1380,9 +1384,7 @@ uint64_t get_np_dist(const uint64_t np[6], const BiomeTree *bt, int idx)
     return ds;
 }
 
-#if !DEBUG
-static inline ATTR(hot, pure)
-#endif
+static
 int get_resulting_node(const uint64_t np[6], const BiomeTree *bt, int idx,
     int alt, uint64_t ds, int depth)
 {
@@ -1428,28 +1430,56 @@ int get_resulting_node(const uint64_t np[6], const BiomeTree *bt, int idx,
     return leaf;
 }
 
+ATTR(hot, flatten)
 int climateToBiome(int mc, const uint64_t np[6], uint64_t *dat)
 {
-    if (mc < MC_1_18 || mc > MC_NEWEST)
-        return -1;
-    
-    const BiomeTree *bt = &g_btree[mc - MC_1_18];
-    int alt = 0;
+    static const BiomeTree btree18 = {
+        btree18_steps, &btree18_param[0][0], btree18_nodes, btree18_order,
+        sizeof(btree18_nodes) / sizeof(uint64_t)
+    };
+    static const BiomeTree btree192 = {
+        btree192_steps, &btree192_param[0][0], btree192_nodes, btree192_order,
+        sizeof(btree192_nodes) / sizeof(uint64_t)
+    };
+    static const BiomeTree btree19 = {
+        btree19_steps, &btree19_param[0][0], btree19_nodes, btree19_order,
+        sizeof(btree19_nodes) / sizeof(uint64_t)
+    };
+    static const BiomeTree btree20 = {
+        btree20_steps, &btree20_param[0][0], btree20_nodes, btree20_order,
+        sizeof(btree20_nodes) / sizeof(uint64_t)
+    };
+    static const BiomeTree btree21wd = {
+        btree21wd_steps, &btree21wd_param[0][0], btree21wd_nodes, btree21wd_order,
+        sizeof(btree21wd_nodes) / sizeof(uint64_t)
+    };
+
+    const BiomeTree *bt;
     int idx;
-    uint64_t ds = -1;
+
+    if (mc >= MC_1_21_WD)
+        bt = &btree21wd;
+    else if (mc >= MC_1_20_6)
+        bt = &btree20;
+    else if (mc >= MC_1_19_4)
+        bt = &btree19;
+    else if (mc >= MC_1_19_2)
+        bt = &btree192;
+    else
+        bt = &btree18;
 
     if (dat)
     {
-        alt = (int) *dat;
-        ds = get_np_dist(np, bt, alt);
-    }
-
-    idx = get_resulting_node(np, bt, 0, alt, ds, 0);
-    if (dat)
-    {
+        int alt = (int) *dat;
+        uint64_t ds = get_np_dist(np, bt, alt);
+        idx = get_resulting_node(np, bt, 0, alt, ds, 0);
         *dat = (uint64_t) idx;
     }
-    
+    else
+    {
+        idx = get_resulting_node(np, bt, 0, 0, -1, 0);
+    }
+
     return (bt->nodes[idx] >> 48) & 0xFF;
 }
 
