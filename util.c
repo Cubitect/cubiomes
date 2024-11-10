@@ -74,7 +74,7 @@ const char* mc2str(int mc)
     case MC_1_19:   return "1.19"; break;
     case MC_1_20:   return "1.20"; break;
     case MC_1_21_1: return "1.21.1"; break;
-    case MC_1_21_2: return "1.21.2"; break;
+    case MC_1_21_3: return "1.21.3"; break;
     case MC_1_21_WD: return "1.21 WD"; break;
     default:        return "?";
     }
@@ -84,7 +84,8 @@ int str2mc(const char *s)
 {
     if (!strcmp(s, "1.21"))     return MC_1_21;
     if (!strcmp(s, "1.21 WD"))  return MC_1_21_WD;
-    if (!strcmp(s, "1.21.2"))   return MC_1_21_2;
+    if (!strcmp(s, "1.21.3"))   return MC_1_21_3;
+    if (!strcmp(s, "1.21.2"))   return MC_1_21_3; // backwards compatibility
     if (!strcmp(s, "1.21.1"))   return MC_1_21_1;
     if (!strcmp(s, "1.20"))     return MC_1_20;
     if (!strcmp(s, "1.20.6"))   return MC_1_20_6;

@@ -967,7 +967,7 @@ uint64_t calcFitness(const Generator *g, int x, int z)
     // apply dependence on distance from origin
     a = (int64_t)x*x;
     b = (int64_t)z*z;
-    if (g->mc < MC_1_21_2)
+    if (g->mc <= MC_1_21_1)
     {
         double s = (double)(a + b) / (2500 * 2500);
         q = (uint64_t)(s*s * 1e8) + ds;
@@ -5508,7 +5508,7 @@ const int *getBiomeParaLimits(int mc, int id)
     if (mc <= MC_1_17)
         return NULL;
     int i;
-    if (mc > MC_1_21_2)
+    if (mc > MC_1_21_3)
     {
         for (i = 0; g_biome_para_range_21wd_diff[i][0] != -1; i++)
         {
