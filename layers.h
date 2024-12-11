@@ -5,6 +5,9 @@
 #include "biomes.h"
 
 
+#ifdef LAYER_INIT_SHA
+    #undef LAYER_INIT_SHA
+#endif
 #define LAYER_INIT_SHA          (~0ULL)
 
 

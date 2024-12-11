@@ -403,6 +403,12 @@ static int getEndBiome(int hx, int hz, const uint16_t *hmap, int hw)
         uint32_t u;
 
         // force unroll for(i=0;i<25;i++) in a cross compatible way
+        #ifdef x5
+            #undef x5
+        #endif
+        #ifdef for25
+            #undef for25
+        #endif
         #define x5(i,x)    { x; i++; x; i++; x; i++; x; i++; x; i++; }
         #define for25(i,x) { i = 0; x5(i,x) x5(i,x) x5(i,x) x5(i,x) x5(i,x) }
         for25(i,
