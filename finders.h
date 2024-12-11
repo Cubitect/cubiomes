@@ -10,6 +10,9 @@ extern "C"
 {
 #endif
 
+#ifdef MASK48
+    #undef MASK48
+#endif
 #define MASK48 (((int64_t)1 << 48) - 1)
 
 enum StructureType

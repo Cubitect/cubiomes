@@ -1,12 +1,12 @@
 # cubiomes
 
-Cubiomes is a standalone library, written in C, that mimics the biome and feature generation of Minecraft Java Edition.
+Cubiomes is a standalone library, written in C, that mimics the biome and feature generation of Minecraft: Java Edition.
 It is intended as a powerful tool to devise very fast, custom seed-finding applications and large-scale map viewers with minimal memory usage.
 
 
 #### Cubiomes-Viewer
 
-If you want to get started without coding, there is now also a [graphical application](https://github.com/Cubitect/cubiomes-viewer) based on this library.
+If you want to get started without coding, there is also a [graphical application](https://github.com/Cubitect/cubiomes-viewer) based on this library.
 
 
 #### Audience
@@ -58,21 +58,23 @@ int main()
 }
 ```
 
-You can compile this code either by directly adding a target to the makefile via
+You can compile this code by creating an archive of the library (libcubiomes.a) using the provided makefile:
 ```
 $ cd cubiomes
-$ make
+$ make        # on Linux, or mingw32-make.exe if using MSYS2 on Windows
 ```
-...or you can compile and link to a cubiomes archive using either of the following commands.
+Then you can compile your program, while linking the archive, using either of the following commands.
 ```
-$ gcc find_biome_at.c libcubiomes.a -fwrapv -lm   # static
-$ gcc find_biome_at.c -L. -lcubiomes -fwrapv -lm  # dynamic
+$ gcc find_biome_at.c libcubiomes.a -fwrapv -lm   # static; or gcc.exe [...] on Windows
+$ gcc find_biome_at.c -L. -lcubiomes -fwrapv -lm  # dynamic; or gcc.exe [...] on Windows
 ```
-Both commands assume that your source code is saved as `find_biome_at.c` in the cubiomes working directory. If your makefile is configured to use pthreads, you may also need to add the `-lpthread` option for the compiler.
+Both commands assume that your source code is saved as `find_biome_at.c` in the Cubiomes working directory. If your makefile is configured to use pthreads, you may also need to add the `-lpthread` option for the compiler.
 The option `-fwrapv` enforces two's complement for signed integer overflow, which is otherwise undefined behavior. It is not really necessary for this example, but it is a common pitfall when dealing with code that emulates the behavior of Java.
-Running the program should output:
+If the archive fails to generate, or the compilation claims the library's functions are undefined or missing, run `make clean`/`mingw32-make.exe clean` to delete the failed archive, then retry the process.
+
+Running the final program should output:
 ```
-$ ./a.out
+$ ./a.out     # or ./a.exe on Windows
 Seed 262 has a Mushroom Fields biome at block position (0, 0).
 ```
 
@@ -264,7 +266,7 @@ int main()
 
 #### Strongholds and Spawn
 
-Strongholds, as well as the world spawn point, actually search until they find a suitable location, rather than checking a single spot like most other structures. This causes them to be particularly performance expensive to find. Furthermore, the positions of strongholds have to be generated in a certain order, which can be done in iteratively with `initFirstStronghold()` and `nextStronghold()`. For the world spawn, the generation starts with a search for a suitable biome near the origin and will continue until a grass or podzol block is found. There is no reliable way to check actual blocks, so the search relies on a statistic, matching grass presence to biomes. Alternatively, we can simply use `estimateSpawn()` and terminate the search after the first biome check under the assumption that grass is nearby.
+Strongholds, as well as worlds' spawnpoints, actually search until they find a suitable location, rather than checking a single spot like most other structures. This causes them to be particularly slow to find. Furthermore, the positions of strongholds have to be generated in a certain order, which can be done in iteratively with `initFirstStronghold()` and `nextStronghold()`. For the world spawn, the exact coordinate is found after a search for a grass or podzol block prior to 1.18, or for any topsolid nonwaterlogged block in 1.18+; this library cannot model individual blocks, so the search relies on heuristics such as biomes and climate-dependent world heights. Alternatively, we can simply use `estimateSpawn()` and terminate the search after the first biome/climate check under the assumption that grass/a topsolid nonwaterlogged block is nearby.
 
 
 ```C

@@ -9,6 +9,9 @@
 #include <math.h>
 
 
+#ifdef PI
+    #undef PI
+#endif
 #define PI 3.14159265358979323846
 
 
@@ -901,9 +904,9 @@ int nextStronghold(StrongholdIter *sh, const Generator *g)
     {
         return 0;
     }
-    // staircase is located at (4, 4) in chunk
-    sh->pos.x = (sh->pos.x & ~15) + 4;
-    sh->pos.z = (sh->pos.z & ~15) + 4;
+    // staircase is located at corner of chunk
+    sh->pos.x = (sh->pos.x & ~15);
+    sh->pos.z = (sh->pos.z & ~15);
 
     sh->ringidx++;
     sh->angle += 2 * PI / sh->ringmax;
@@ -1009,9 +1012,9 @@ Pos findFittestPos(const Generator *g)
     uint64_t fitness = calcFitness(g, 0, 0);
     findFittest(g, &spawn, &fitness, 2048.0, 512.0);
     findFittest(g, &spawn, &fitness, 512.0, 32.0);
-    // center of chunk
-    spawn.x = (spawn.x & ~15) + 8;
-    spawn.z = (spawn.z & ~15) + 8;
+    // corner of chunk
+    spawn.x = (spawn.x & ~15);
+    spawn.z = (spawn.z & ~15);
     return spawn;
 }
 
@@ -1045,7 +1048,7 @@ Pos estimateSpawn(const Generator *g, uint64_t *rng)
         setSeed(&s, g->seed);
         spawn = locateBiome(g, 0, 63, 0, 256, spawn_biomes, 0, &s, &found);
         if (!found)
-            spawn.x = spawn.z = 8;
+            spawn.x = spawn.z = 8*(g->mc >= MC_1_9);
         if (rng)
             *rng = s;
     }
@@ -5391,6 +5394,12 @@ L_end:
     return err;
 }
 
+#ifdef IMIN
+    #undef IMIN
+#endif
+#ifdef IMAX
+    #undef IMAX
+#endif
 #define IMIN INT_MIN
 #define IMAX INT_MAX
 static const int g_biome_para_range_18[][13] = {

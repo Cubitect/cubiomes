@@ -1,6 +1,9 @@
 #ifndef RNG_H_
 #define RNG_H_
 
+#ifdef __STDC_FORMAT_MACROS
+    #undef __STDC_FORMAT_MACROS
+#endif
 #define __STDC_FORMAT_MACROS 1
 
 #include <stdlib.h>
@@ -24,8 +27,32 @@ typedef float       f32;
 typedef double      f64;
 
 
+#ifdef STRUCT
+    #undef STRUCT
+#endif
 #define STRUCT(S) typedef struct S S; struct S
 
+#ifdef IABS
+    #undef IABS
+#endif
+#ifdef PREFETCH
+    #undef PREFETCH
+#endif
+#ifdef likely
+    #undef likely
+#endif
+#ifdef unlikely
+    #undef unlikely
+#endif
+#ifdef ATTR
+    #undef ATTR
+#endif
+#ifdef BSWAP32
+    #undef BSWAP32
+#endif
+#ifdef UNREACHABLE
+    #undef UNREACHABLE
+#endif
 #if __GNUC__
 
 #define IABS(X)                 __builtin_abs(X)
@@ -134,6 +161,9 @@ static inline double nextDouble(uint64_t *seed)
  * This is a macro and not an inline function, as many compilers can make use
  * of the additional optimisation passes for the surrounding code.
  */
+#ifdef JAVA_NEXT_INT24
+    #undef JAVA_NEXT_INT24
+#endif
 #define JAVA_NEXT_INT24(S,X)                \
     do {                                    \
         uint64_t a = (1ULL << 48) - 1;      \
