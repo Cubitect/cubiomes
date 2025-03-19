@@ -39,6 +39,9 @@ set_property(TARGET objects PROPERTY POSITION_INDEPENDENT_CODE 1)
 add_library(cubiomes SHARED $<TARGET_OBJECTS:objects>)
 add_library(cubiomes_static STATIC $<TARGET_OBJECTS:objects>)
 
+add_executable(export_markers_dynmap_to_csv export_markers_dynmap_to_csv.cpp)
+target_link_libraries(export_markers_dynmap_to_csv cubiomes_static)
+
 install(TARGETS cubiomes cubiomes_static DESTINATION lib)
 install(FILES ${HEADERS} DESTINATION include)
 
