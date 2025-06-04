@@ -2221,7 +2221,7 @@ int getVariant(StructureVariant *r, int structType, int mc, uint64_t seed,
             r->start = 1 + nextInt(&rng, 10);
         }
         r->rotation = nextInt(&rng, 4);
-        r->mirror = nextFloat(&rng) < 0.5f;
+        r->mirror = nextFloat(&rng) >= 0.5f;
         return 1;
 
     case Monument:
