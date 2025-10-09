@@ -1195,7 +1195,8 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
 
     case Igloo:
         if (mc <= MC_1_8) return 0;
-        return biomeID == snowy_tundra || biomeID == snowy_taiga || biomeID == snowy_slopes;
+        return (biomeID == snowy_tundra || biomeID == snowy_taiga
+             || biomeID == snowy_plains || biomeID == snowy_slopes);
 
     case Ocean_Ruin:
         if (mc <= MC_1_12) return 0;
@@ -1282,7 +1283,7 @@ int isViableFeatureBiome(int mc, int structureType, int biomeID)
 
     case Mansion:
         if (mc <= MC_1_10) return 0;
-        return biomeID == dark_forest || biomeID == dark_forest_hills;
+        return biomeID == dark_forest || biomeID == dark_forest_hills || (mc >= MC_1_21_5 && biomeID == pale_garden);
 
     case Fortress:
         return (biomeID == nether_wastes || biomeID == soul_sand_valley ||

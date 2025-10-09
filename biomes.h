@@ -35,7 +35,8 @@ enum MCVersion
     MC_1_21_1,
     MC_1_21_3,
     MC_1_21_WD, // Winter Drop, version TBA
-    MC_1_21 = MC_1_21_WD,
+    MC_1_21_5,
+    MC_1_21 = MC_1_21_5,
     MC_NEWEST = MC_1_21,
 };
 
