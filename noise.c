@@ -107,7 +107,7 @@ void xPerlinInit(PerlinNoise *noise, Xoroshiro *xr)
 }
 
 double samplePerlin(const PerlinNoise *noise, double d1, double d2, double d3,
-        double yamp, double ymin)
+        double yamp, double ymax)
 {
     uint8_t h1, h2, h3;
     double t1, t2, t3;
@@ -143,7 +143,7 @@ double samplePerlin(const PerlinNoise *noise, double d1, double d2, double d3,
 
     if (yamp)
     {
-        double yclamp = ymin < d2 ? ymin : d2;
+        double yclamp = ymax >= 0.0 && ymax < d2 ? ymax : d2;
         d2 -= floor(yclamp / yamp) * yamp;
     }
 
