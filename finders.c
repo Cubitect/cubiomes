@@ -5470,6 +5470,9 @@ static const int g_biome_para_range_21wd_diff[][13] = {
 {pale_garden             , -1500, 2000,  3000, IMAX,   300, IMAX, -7799,  500,  IMIN, IMAX,  2666, IMAX},
 {-1,0,0,0,0,0,0,0,0,0,0,0,0}};
 
+static const int g_biome_para_range_215_diff[][13] = {
+{pale_garden             , -1500, 2000,  3000, IMAX,   300, IMAX, -7799,  500,  IMIN, IMAX,  IMIN, IMAX},
+{-1,0,0,0,0,0,0,0,0,0,0,0,0}};
 
 /**
  * Gets the min/max parameter values within which a biome change can occur.
@@ -5508,6 +5511,14 @@ const int *getBiomeParaLimits(int mc, int id)
     if (mc <= MC_1_17)
         return NULL;
     int i;
+    if (mc > MC_1_21_WD)
+    {
+        for (i = 0; g_biome_para_range_215_diff[i][0] != -1; i++)
+        {
+            if (g_biome_para_range_215_diff[i][0] == id)
+                return &g_biome_para_range_215_diff[i][1];
+        }
+    }
     if (mc > MC_1_21_3)
     {
         for (i = 0; g_biome_para_range_21wd_diff[i][0] != -1; i++)

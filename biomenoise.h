@@ -22,7 +22,7 @@ STRUCT(Range)
     //
     // Volumes generated with a range are generally indexed as:
     //  out [ i_y*sx*sz + i_z*sx + i_x ]
-    // where i_x, i_y, i_z are indecies in their respective directions.
+    // where i_x, i_y, i_z are indices in their respective directions.
     //
     // EXAMPLES
     // Area at normal biome scale (1:4):
