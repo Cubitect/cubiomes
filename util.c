@@ -306,6 +306,59 @@ const char* struct2str(int stype)
     return NULL;
 }
 
+const char* ore2str(int otype)
+{
+    switch (otype)
+    {
+    case AndesiteOre:        return "ore_andesite";
+    case BlackstoneOre:      return "ore_blackstone";
+    case BuriedDiamondOre:   return "ore_diamond_buried";
+    case BuriedLapisOre:     return "ore_lapis_buried";
+    case ClayOre:            return "ore_clay";
+    case CoalOre:            return "ore_coal";
+    case CopperOre:          return "ore_copper";
+    case DeepslateOre:       return "ore_deepslate";
+    case DeltasGoldOre:      return "ore_gold_deltas";
+    case DeltasQuartzOre:    return "ore_quartz_deltas";
+    case DiamondOre:         return "ore_diamond";
+    case DioriteOre:         return "ore_diorite";
+    case DirtOre:            return "ore_dirt";
+    case EmeraldOre:         return "ore_emerald";
+    case ExtraGoldOre:       return "ore_gold_extra";
+    case GoldOre:            return "ore_gold";
+    case GraniteOre:         return "ore_granite";
+    case GravelOre:          return "ore_gravel";
+    case IronOre:            return "ore_iron";
+    case LapisOre:           return "ore_lapis";
+    case LargeCopperOre:     return "ore_copper_large";
+    case LargeDebrisOre:     return "ore_debris_large";
+    case LargeDiamondOre:    return "ore_diamond_large";
+    case LowerAndesiteOre:   return "ore_andesite_lower";
+    case LowerCoalOre:       return "ore_coal_lower";
+    case LowerDioriteOre:    return "ore_diorite_lower";
+    case LowerGoldOre:       return "ore_gold_lower";
+    case LowerGraniteOre:    return "ore_granite_lower";
+    case LowerRedstoneOre:   return "ore_redstone_lower";
+    case MagmaOre:           return "ore_magma";
+    case MediumDiamondOre:   return "ore_diamond_medium";
+    case MiddleIronOre:      return "ore_iron_middle";
+    case NetherGoldOre:      return "ore_gold_nether";
+    case NetherGravelOre:    return "ore_gravel_nether";
+    case NetherQuartzOre:    return "ore_quartz_nether";
+    case RedstoneOre:        return "ore_redstone";
+    case SmallDebrisOre:     return "ore_debris_small";
+    case SmallIronOre:       return "ore_iron_small";
+    case SoulSandOre:        return "ore_soul_sand";
+    case TuffOre:            return "ore_tuff";
+    case UpperAndesiteOre:   return "ore_andesite_upper";
+    case UpperCoalOre:       return "ore_coal_upper";
+    case UpperDioriteOre:    return "ore_diorite_upper";
+    case UpperGraniteOre:    return "ore_granite_upper";
+    case UpperIronOre:       return "ore_iron_upper";
+    }
+    return NULL;
+}
+
 static void setColor(unsigned char colors[256][3], int id, uint32_t hex)
 {
     colors[id][0] = (hex >> 16) & 0xff;

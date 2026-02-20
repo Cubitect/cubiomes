@@ -30,6 +30,9 @@ const char *biome2str(int mc, int id);
 /// get the resource id name for a structure
 const char *struct2str(int stype);
 
+/// get the resource id name for an ore
+const char* ore2str(int otype);
+
 /// initialize a biome colormap with some defaults
 void initBiomeColors(unsigned char biomeColors[256][3]);
 void initBiomeTypeColors(unsigned char biomeColors[256][3]);

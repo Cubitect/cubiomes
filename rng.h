@@ -172,6 +172,11 @@ static inline void skipNextN(uint64_t *seed, uint64_t n)
     *seed &= 0xffffffffffffULL;
 }
 
+static inline int nextIntBetween(uint64_t *seed, const int min, const int max)
+{
+    return nextInt(seed, max - min + 1) + min;
+}
+
 
 ///=============================================================================
 ///                               Xoroshiro 128
@@ -265,6 +270,52 @@ static inline int xNextIntJ(Xoroshiro *xr, uint32_t n)
     return val;
 }
 
+static inline double xNextDoubleJ(Xoroshiro *xr)
+{
+    uint64_t a = xNextLong(xr);
+    uint64_t b = xNextLong(xr);
+    return ((a >> (64-26) << 27) + (b >> (64-27))) * 1.1102230246251565E-16;
+}
+
+static inline int xNextIntJBetween(Xoroshiro *xr, const int min, const int max)
+{
+    return xNextIntJ(xr, max - min + 1) + min;
+}
+
+// expand as necessary
+STRUCT(RandomSource)
+{
+    void *state;
+    void (*setSeed)(void *state, uint64_t seed);
+    int (*nextInt)(void *state, int n);
+    float (*nextFloat)(void *state);
+    double (*nextDouble)(void *state);
+    int (*nextIntBetween)(void *state, int min, int max);
+};
+
+static inline RandomSource createJavaRandom(uint64_t *seed)
+{
+    return (RandomSource) {
+        .state = seed,
+        .setSeed = (void (*)(void *, uint64_t)) setSeed,
+        .nextInt = (int (*)(void *, int)) nextInt,
+        .nextFloat = (float (*)(void *)) nextFloat,
+        .nextDouble = (double (*)(void *)) nextDouble,
+        .nextIntBetween = (int (*)(void *, int, int)) nextIntBetween,
+    };
+}
+
+static inline RandomSource createXoroshiro(Xoroshiro *xr)
+{
+    return (RandomSource) {
+        .state = xr,
+        .setSeed = (void (*)(void *, uint64_t)) xSetSeed,
+        .nextInt = (int (*)(void *, int)) xNextIntJ,
+        .nextFloat = (float (*)(void *)) xNextFloat,
+        .nextDouble = (double (*)(void *)) xNextDoubleJ,
+        .nextIntBetween = (int (*)(void *, int, int)) xNextIntJBetween,
+    };
+}
 
 //==============================================================================
 //                              MC Seed Helpers
