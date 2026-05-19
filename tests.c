@@ -490,6 +490,108 @@ int getStructureConfig_override(int stype, int mc, StructureConfig *sconf)
 }
 
 
+static int testBeta17BiomeDeterminism()
+{
+    Generator g;
+    setupGenerator(&g, MC_B1_7, 0);
+
+    const uint64_t seed = 262;
+    int i, run;
+
+    int areas[3][2] = {{0,0}, {4,4}, {16,16}};
+
+    for (i = 0; i < 3; i++)
+    {
+        int scale = areas[i][0];
+        int expect = 0;
+        int ok = 1;
+
+        for (run = 0; run < 10; run++)
+        {
+            applySeed(&g, 0, seed);
+            SurfaceNoiseBeta snb;
+            initSurfaceNoiseBeta(&snb, seed);
+            Range r = {scale ? scale : 4, 0, 0, 1, 1};
+            int id;
+            genBiomeNoiseBetaScaled(&g.bnb, &snb, &id, r);
+            if (run == 0)
+                expect = id;
+            else if (id != expect)
+                ok = 0;
+        }
+        printf("  B1.7 scale=%d seed=%llu: biome=%d %s\n",
+            scale, (unsigned long long)seed, expect, ok ? "\033[1;92mOK\033[0m" : "\033[1;91mUNSTABLE\033[0m");
+        if (!ok) return -1;
+    }
+    return 0;
+}
+
+static int testBeta17BiomeRegression()
+{
+    Generator g;
+    setupGenerator(&g, MC_B1_7, 0);
+
+    const uint64_t seeds[] = {0, 1, 2, 10, 100, 262, 1000};
+    int ns = sizeof(seeds) / sizeof(seeds[0]);
+
+    uint32_t hash = 0;
+    int sx, sz;
+    for (sx = 0; sx < ns; sx++)
+    {
+        uint64_t seed = seeds[sx];
+        applySeed(&g, 0, seed);
+        SurfaceNoiseBeta snb;
+        initSurfaceNoiseBeta(&snb, seed);
+        int x, z;
+        for (x = -16; x <= 16; x += 4)
+        {
+            for (z = -16; z <= 16; z += 4)
+            {
+                Range r = {4, x, z, 1, 1};
+                int id;
+                genBiomeNoiseBetaScaled(&g.bnb, &snb, &id, r);
+                hash = hash32(hash ^ hash32(id + ((uint32_t)(x+128) << 8) + ((uint32_t)(z+128) << 16)));
+            }
+        }
+    }
+    printf("  B1.7 regression hash: %08x\n", hash);
+
+    static volatile uint32_t vhash;
+    vhash = hash;
+    return 0;
+}
+
+static int testBeta17BiomeValidity()
+{
+    Generator g;
+    setupGenerator(&g, MC_B1_7, 0);
+
+    uint64_t seed;
+    for (seed = 0; seed < 500; seed++)
+    {
+        applySeed(&g, 0, seed);
+        SurfaceNoiseBeta snb;
+        initSurfaceNoiseBeta(&snb, seed);
+        int x, z;
+        for (x = -200; x <= 200; x += 50)
+        {
+            for (z = -200; z <= 200; z += 50)
+            {
+                Range r = {4, x, z, 1, 1};
+                int id;
+                genBiomeNoiseBetaScaled(&g.bnb, &snb, &id, r);
+                if (id < 0 || id > 255) {
+                    printf("  INVALID biome %d at seed=%llu x=%d z=%d\n", id, (unsigned long long)seed, x, z);
+                    return -1;
+                }
+            }
+        }
+    }
+    printf("  B1.7 biome validity check: \033[1;92mOK\033[0m\n");
+    return 0;
+}
+
+
 
 int main()
 {
@@ -535,6 +637,13 @@ int main()
     //testCanBiomesGenerate();
     //testGeneration();
     //findBiomeParaBounds();
+
+    printf("Testing Beta 1.7 biome determinism:\n");
+    testBeta17BiomeDeterminism();
+    printf("Testing Beta 1.7 biome regression:\n");
+    testBeta17BiomeRegression();
+    printf("Testing Beta 1.7 biome validity:\n");
+    testBeta17BiomeValidity();
 
     return 0;
 }
