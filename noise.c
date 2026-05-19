@@ -258,13 +258,13 @@ void samplePerlinBeta17Terrain(const PerlinNoise *noise, double *v,
         if (yi == 0 || i2 != genFlag)
         {
             genFlag = i2;
-            int a1 = idx[i1]   + i2;
-            int b1 = idx[i1+1] + i2;
+            int a1 = (idx[i1]   + i2) & 0xff;
+            int b1 = (idx[i1+1] + i2) & 0xff;
 
-            int a2 = idx[a1]   + i3;
-            int a3 = idx[a1+1] + i3;
-            int b2 = idx[b1]   + i3;
-            int b3 = idx[b1+1] + i3;
+            int a2 = (idx[a1]   + i3) & 0xff;
+            int a3 = (idx[a1+1] + i3) & 0xff;
+            int b2 = (idx[b1]   + i3) & 0xff;
+            int b3 = (idx[b1+1] + i3) & 0xff;
 
             double m1 = indexedLerp(idx[a2],   d1,   d2,   d3);
             double l2 = indexedLerp(idx[b2],   d1-1, d2,   d3);
