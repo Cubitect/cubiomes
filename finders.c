@@ -1030,6 +1030,9 @@ Pos estimateSpawn(const Generator *g, uint64_t *rng)
 {
     Pos spawn = {0, 0};
 
+    if (rng)
+        *rng = 0;
+
     if (g->mc <= MC_B1_7)
     {
         // finds a random sandblock (location is not fixed)
@@ -1061,6 +1064,11 @@ Pos getSpawn(const Generator *g)
 {
     uint64_t rng;
     Pos spawn = estimateSpawn(g, &rng);
+    return getSpawnEstimated(g, spawn, rng);
+}
+
+Pos getSpawnEstimated(const Generator *g, Pos spawn, uint64_t rng)
+{
     int i, j, k, u, v, cx0, cz0;
     uint32_t ii, jj;
 
