@@ -316,6 +316,20 @@ Pos estimateSpawn(const Generator *g, uint64_t *rng);
 Pos getSpawn(const Generator *g);
 
 
+/* Finds the spawn point in the world, starting from an estimate previously
+ * obtained from estimateSpawn() for the same generator. This allows reusing
+ * the estimate, e.g. to cache or inspect it, before running the search for a
+ * grass block. getSpawn() is equivalent to calling estimateSpawn() followed
+ * by this function.
+ *
+ * @spawn   : estimated spawn position, as returned by estimateSpawn()
+ * @rng     : random state, as output by estimateSpawn(). Must not be omitted
+ *            (i.e. estimateSpawn() called with NULL) for versions up to 1.12,
+ *            where it continues the random walk.
+ */
+Pos getSpawnEstimated(const Generator *g, Pos spawn, uint64_t rng);
+
+
 /* Finds a suitable pseudo-random location in the specified area.
  * This function is used to determine the positions of spawn and strongholds.
  * Warning: accurate, but slow!
